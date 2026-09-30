@@ -1,0 +1,50 @@
+{
+  "robot": {
+    "file": "robot.png",
+    "prompt": "Create a premium mascot concept illustration for KineVault, an exercise creation studio, and KineVault Track, its nutrition and workout companion. ONE character, full body, centered, generous breathing room, square composition. Clean charming contemporary character design for adults, soft matte 3D clay render with a restrained sculptural finish, simple memorable silhouette, modest expressive black eyes, approachable gentle smile, subtle natural lighting. Shared visual system: slate blue #314e65 accent, ivory #e9edf1, muted neutral natural colors, no neon, no saturated gradients, no text, no letters, no logos, no scene, no border. Stand upright in a welcoming three-quarter pose, one hand lifted in a small greeting. Transparent background, a clean isolated character. A concept mascot, not an anatomical exercise model. A small friendly JOINTED ROBOT. Rounded ivory torso and limbs, clearly visible slate-blue ball joints at shoulders/elbows/knees, small rounded rectangular head with two dark eyes in a soft blue face screen. Humanlike articulated proportions, short sturdy legs, curious tilt to its head. No antenna, no helmet, no bodybuilder muscles.",
+    "generator": "image_gen",
+    "purpose": "Exploratory mascot concept, not final artwork"
+  },
+  "otter": {
+    "file": "otter.png",
+    "prompt": "Create a premium mascot concept illustration for KineVault, an exercise creation studio, and KineVault Track, its nutrition and workout companion. ONE character, full body, centered, generous breathing room, square composition. Clean charming contemporary character design for adults, soft matte 3D clay render with a restrained sculptural finish, simple memorable silhouette, modest expressive black eyes, approachable gentle smile, subtle natural lighting. Shared visual system: slate blue #314e65 accent, ivory #e9edf1, muted neutral natural colors, no neon, no saturated gradients, no text, no letters, no logos, no scene, no border. Stand upright in a welcoming three-quarter pose, one hand lifted in a small greeting. Transparent background, a clean isolated character. A concept mascot, not an anatomical exercise model. A small friendly OTTER. Warm muted brown fur, ivory muzzle and belly, small rounded ears, little whiskers, paddle-shaped tail visible at the side, rounded paws, upright compact body. Curious and slightly mischievous. A small understated slate-blue neck scarf.",
+    "generator": "image_gen",
+    "purpose": "Exploratory mascot concept, not final artwork"
+  },
+  "gecko": {
+    "file": "gecko.png",
+    "prompt": "Create a premium mascot concept illustration for KineVault, an exercise creation studio, and KineVault Track, its nutrition and workout companion. ONE character, full body, centered, generous breathing room, square composition. Clean charming contemporary character design for adults, soft matte 3D clay render with a restrained sculptural finish, simple memorable silhouette, modest expressive black eyes, approachable gentle smile, subtle natural lighting. Shared visual system: slate blue #314e65 accent, ivory #e9edf1, muted neutral natural colors, no neon, no saturated gradients, no text, no letters, no logos, no scene, no border. Stand upright in a welcoming three-quarter pose, one hand lifted in a small greeting. Transparent background, a clean isolated character. A concept mascot, not an anatomical exercise model. A small friendly GECKO. Muted gray-sage skin, ivory belly, a long gently curled tail visible at the side, expressive rounded eyes, distinctive rounded toe pads, compact upright body, lively relaxed pose. Tiny slate-blue wristband. Must be identifiable as a gecko, no horns or fins.",
+    "generator": "image_gen",
+    "purpose": "Exploratory mascot concept, not final artwork"
+  },
+  "bear": {
+    "file": "bear.png",
+    "prompt": "Create a premium mascot concept illustration for KineVault, an exercise creation studio, and KineVault Track, its nutrition and workout companion. ONE character, full body, centered, generous breathing room, square composition. Clean charming contemporary character design for adults, soft matte 3D clay render with a restrained sculptural finish, simple memorable silhouette, modest expressive black eyes, approachable gentle smile, subtle natural lighting. Shared visual system: slate blue #314e65 accent, ivory #e9edf1, muted neutral natural colors, no neon, no saturated gradients, no text, no letters, no logos, no scene, no border. Stand upright in a welcoming three-quarter pose, one hand lifted in a small greeting. Transparent background, a clean isolated character. A concept mascot, not an anatomical exercise model. A small friendly BEAR. Warm gray-brown coat, cream muzzle, two small rounded ears, compact softly rounded body, sturdy paws, calm dependable expression. A simple slate-blue crewneck exercise top, no lettering. Friendly strong companion, no exaggerated muscles.",
+    "generator": "image_gen",
+    "purpose": "Exploratory mascot concept, not final artwork"
+  },
+  "fox": {
+    "file": "fox-v2.png",
+    "prompt": "Create a premium mascot concept illustration for KineVault, an exercise creation studio, and KineVault Track, its nutrition and workout companion. ONE character, full body, centered, generous breathing room, SQUARE composition. Clean charming contemporary character design for adults, soft matte 3D clay render with a restrained sculptural finish, simple memorable silhouette, modest expressive black eyes, approachable gentle smile, subtle natural lighting. NOT photorealistic, NO realistic fur or feathers. Shared visual system: slate blue #314e65 accent, ivory #e9edf1, muted neutral natural colors, no neon, no saturated gradients, NO text, NO letters, NO logos, NO scenery, NO landscape, NO background, NO border. Stand upright in a welcoming three-quarter pose, one hand lifted in a small greeting. Transparent background, a clean isolated character with full figure and all limbs visible. A concept mascot, not an anatomical exercise model. A small friendly FOX. Muted rust-orange clay coat, ivory cheeks and chest, two pointed ears with dark tips, large distinctive fluffy-shaped tail curling beside the body with an ivory tip. Focused clever expression, compact upright proportions. A small slate-blue neck scarf.",
+    "generator": "image_gen",
+    "purpose": "Exploratory mascot concept, not final artwork"
+  },
+  "bird": {
+    "file": "bird-v2.png",
+    "prompt": "Create a premium mascot concept illustration for KineVault, an exercise creation studio, and KineVault Track, its nutrition and workout companion. ONE character, full body, centered, generous breathing room, SQUARE composition. Clean charming contemporary character design for adults, soft matte 3D clay render with a restrained sculptural finish, simple memorable silhouette, modest expressive black eyes, approachable gentle smile, subtle natural lighting. NOT photorealistic, NO realistic fur or feathers. Shared visual system: slate blue #314e65 accent, ivory #e9edf1, muted neutral natural colors, no neon, no saturated gradients, NO text, NO letters, NO logos, NO scenery, NO landscape, NO background, NO border. Stand upright in a welcoming three-quarter pose, one hand lifted in a small greeting. Transparent background, a clean isolated character with full figure and all limbs visible. A concept mascot, not an anatomical exercise model. A small friendly BIRD. Compact rounded sculptural songbird-like body, muted slate-blue plumage in simple smooth clay shapes, ivory belly, short dark beak, small wings (one lifted in greeting), short sturdy warm neutral legs, small tail feathers. Curious attentive expression, no clothing. Entire bird visible with feet.",
+    "generator": "image_gen",
+    "purpose": "Exploratory mascot concept, not final artwork"
+  },
+  "original": {
+    "file": "original-v2.png",
+    "prompt": "Create a premium mascot concept illustration for KineVault, an exercise creation studio, and KineVault Track, its nutrition and workout companion. ONE character, full body, centered, generous breathing room, SQUARE composition. Clean charming contemporary character design for adults, soft matte 3D clay render with a restrained sculptural finish, simple memorable silhouette, modest expressive black eyes, approachable gentle smile, subtle natural lighting. NOT photorealistic, NO realistic fur or feathers. Shared visual system: slate blue #314e65 accent, ivory #e9edf1, muted neutral natural colors, no neon, no saturated gradients, NO text, NO letters, NO logos, NO scenery, NO landscape, NO background, NO border. Stand upright in a welcoming three-quarter pose, one hand lifted in a small greeting. Transparent background, a clean isolated character with full figure and all limbs visible. A concept mascot, not an anatomical exercise model. An ORIGINAL FLEXIBLE LITTLE CREATURE, neither an animal nor a robot. Soft sculptural slate-blue body, rounded pill-shaped torso, four flexible ivory-tipped limbs, small round dark eyes and a tiny smiling mouth directly on torso, no neck, two small asymmetrical rounded nubs on its head that give a memorable silhouette. Standing with both feet and one arm raised. Invented warm companion, not a liquid blob or generic jellybean, no clothes, no existing IP.",
+    "generator": "image_gen",
+    "purpose": "Exploratory mascot concept, not final artwork"
+  },
+  "rabbit": {
+    "file": "rabbit-v2.png",
+    "prompt": "A friendly rabbit mascot for a fitness and nutrition app. Full-body stylized 3D clay character on a transparent background, upright relaxed pose, one paw raised to wave. White and ivory rabbit, long expressive ears, small black eyes, gentle smile, simple slate-blue sports shirt. Rounded toy-like proportions, soft matte surfaces, simple shapes, no realistic fur. Centered square composition with space around the whole character. No text, logos, scenery, or other objects.",
+    "generator": "image_gen",
+    "purpose": "Exploratory mascot concept, not final artwork"
+  }
+}

@@ -59,6 +59,10 @@ upstream updates rather than `npm audit fix --force`.
 
 ## Structure
 
+The standalone [mascot comparison](design/mascots.html) shows eight illustrated
+directions for both products. Open it directly in a browser to compare and
+shortlist concepts. It runs independently of the Expo app.
+
 - `src/app/`: routes and navigation layouts.
 - `src/components/ui.tsx`: shared text, panel, screen, destination, and empty state.
 - `src/theme/`: palette, geometry, typography, and appearance persistence.
