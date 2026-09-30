@@ -50,7 +50,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
       })
       .catch(() => {
         if (active)
-          setError("Your saved appearance could not be loaded. Try again.");
+          setError("Couldn't load your appearance setting. Try again.");
       })
       .finally(() => {
         if (active) setReady(true);
@@ -70,9 +70,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
       await AsyncStorage.setItem(storageKey, next);
       updatePreference(next);
     } catch {
-      setError(
-        "Appearance could not be saved. Please try your selection again.",
-      );
+      setError("Couldn't save your appearance. Try selecting it again.");
     } finally {
       setSaving(false);
     }

@@ -27,6 +27,8 @@ outside this first delivery. API and shared-login requirements remain undecided.
 
 Follow the supplied DESIGN.md. Preserve its Geist typography, Lucide icons,
 semantic palette, flat panels, mobile spacing, and accessible touch targets.
+Use the app name alone in the top bar. No app icon has been chosen yet.
+Keep interface copy short and conversational; omit repeated introductions.
 
 ## Evidence on hand
 

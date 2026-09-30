@@ -54,7 +54,7 @@ export function Screen({
   title,
   description,
   children,
-}: PropsWithChildren<{ title: string; description: string }>) {
+}: PropsWithChildren<{ title: string; description?: string }>) {
   const { colors } = useTheme();
   return (
     <SafeAreaView
@@ -69,9 +69,11 @@ export function Screen({
           <AppText variant="title" accessibilityRole="header">
             {title}
           </AppText>
-          <AppText muted style={{ maxWidth: 600 }}>
-            {description}
-          </AppText>
+          {description && (
+            <AppText muted style={{ maxWidth: 600 }}>
+              {description}
+            </AppText>
+          )}
         </View>
         {children}
       </ScrollView>
@@ -87,7 +89,7 @@ export function Destination({
 }: {
   href: Href;
   title: string;
-  description: string;
+  description?: string;
   icon: LucideIcon;
 }) {
   const { colors } = useTheme();
@@ -113,7 +115,7 @@ export function Destination({
         <Icon size={22} color={colors.primary} aria-hidden={true} />
         <View style={{ flex: 1, gap: spacing.xs }}>
           <AppText variant="heading">{title}</AppText>
-          <AppText muted>{description}</AppText>
+          {description && <AppText muted>{description}</AppText>}
         </View>
         <ArrowRight size={18} color={colors.primary} aria-hidden={true} />
       </Pressable>

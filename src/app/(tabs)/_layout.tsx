@@ -4,12 +4,10 @@ import {
   Utensils,
   Dumbbell,
   Settings,
-  Orbit,
 } from "lucide-react-native";
-import { View } from "react-native";
 import { AppText } from "../../components/ui";
 import { useTheme } from "../../theme/provider";
-import { fonts, radius } from "../../theme/tokens";
+import { fonts } from "../../theme/tokens";
 
 export default function TabLayout() {
   const { colors } = useTheme();
@@ -21,34 +19,15 @@ export default function TabLayout() {
         headerShadowVisible: false,
         headerTitleAlign: "left",
         headerTitle: () => (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: radius.control,
-                backgroundColor: colors.primary,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Orbit
-                size={23}
-                strokeWidth={1.7}
-                color={colors.primaryForeground}
-                aria-hidden={true}
-              />
-            </View>
-            <AppText
-              style={{
-                fontFamily: fonts.bold,
-                fontSize: 20,
-                letterSpacing: -1,
-              }}
-            >
-              KineVault Track
-            </AppText>
-          </View>
+          <AppText
+            style={{
+              fontFamily: fonts.bold,
+              fontSize: 20,
+              letterSpacing: -1,
+            }}
+          >
+            KineVault Track
+          </AppText>
         ),
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,

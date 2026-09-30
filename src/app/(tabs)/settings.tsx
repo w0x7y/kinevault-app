@@ -21,17 +21,12 @@ export default function SettingsScreen() {
     useTheme();
   const [focused, setFocused] = useState<AppearancePreference | null>(null);
   return (
-    <Screen
-      title="Settings"
-      description="Make KineVault Track feel at home on your device."
-    >
+    <Screen title="Settings">
       <Panel>
         <AppText variant="heading" accessibilityRole="header">
           Appearance
         </AppText>
-        <AppText muted>
-          Choose a theme, or follow your device with System.
-        </AppText>
+        <AppText muted>System follows your device's theme.</AppText>
         <View
           accessibilityRole="radiogroup"
           accessibilityLabel="Appearance"
@@ -86,9 +81,7 @@ export default function SettingsScreen() {
           })}
         </View>
         <AppText variant="caption" muted accessibilityLiveRegion="polite">
-          {saving
-            ? "Saving appearance…"
-            : "Appearance preferences stay on this device."}
+          {saving ? "Saving…" : "Applies to this device."}
         </AppText>
         {error && (
           <View style={{ gap: 8 }}>
@@ -101,7 +94,7 @@ export default function SettingsScreen() {
               style={{ minHeight: 48, justifyContent: "center" }}
             >
               <AppText variant="label" style={{ color: colors.primary }}>
-                Retry loading preference
+                Try again
               </AppText>
             </Pressable>
           </View>
@@ -117,15 +110,13 @@ export default function SettingsScreen() {
             <AppText muted>English</AppText>
           </View>
           <View style={{ gap: 4 }}>
-            <AppText variant="label">Measurement units</AppText>
-            <AppText muted>
-              Metric · kilograms, centimetres, and kilometres
-            </AppText>
+            <AppText variant="label">Units</AppText>
+            <AppText muted>Metric · kg, cm, km</AppText>
           </View>
         </View>
       </Panel>
       <AppText variant="caption" muted>
-        KineVault Track · Version 1.0.0
+        Version 1.0.0
       </AppText>
     </Screen>
   );
