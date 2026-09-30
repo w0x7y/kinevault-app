@@ -69,6 +69,8 @@ export function Button({
 export function Field({
   label,
   error,
+  inputMode,
+  onChangeText,
   ...props
 }: TextInputProps & { label: string; error?: string }) {
   const { colors } = useTheme();
@@ -78,6 +80,14 @@ export function Field({
       <AppText variant="label">{label}</AppText>
       <TextInput
         {...props}
+        inputMode={inputMode}
+        onChangeText={(text) => {
+          // Keyboard hints do not restrict hardware typing or pasted text.
+          if (inputMode === "numeric" && !/^\d*$/.test(text)) return;
+          if (inputMode === "decimal" && !/^\d*(?:[.,]\d*)?$/.test(text))
+            return;
+          onChangeText?.(text);
+        }}
         accessibilityLabel={label}
         aria-invalid={Boolean(error)}
         placeholderTextColor={colors.mutedForeground}

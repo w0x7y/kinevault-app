@@ -59,6 +59,52 @@ async function failNextSave(page) {
   }, key);
 }
 
+test("number fields reject letters and invalid pasted values while allowing decimal edits", async (t) => {
+  const page = await open(t, {
+    version: 1,
+    kind: "draft",
+    step: "body",
+    answers: adult,
+  });
+  await heading(page, "A little about you");
+  const age = page.getByRole("textbox", { name: "Age (years)", exact: true });
+  await age.press("End");
+  await age.press("a");
+  assert.equal(await age.inputValue(), "30");
+  await age.fill("abc");
+  assert.equal(await age.inputValue(), "30");
+  await age.fill("");
+  await age.fill("25");
+  assert.equal(await age.inputValue(), "25");
+  for (const [label, original, decimal] of [
+    ["Height (cm)", "180", "175.5"],
+    ["Weight (kg)", "80", "70,5"],
+  ]) {
+    const field = page.getByRole("textbox", { name: label, exact: true });
+    for (const invalid of ["abc", "1e3", "-20", "70kg", "70..5", "70,.5"]) {
+      await field.fill(invalid);
+      assert.equal(await field.inputValue(), original);
+    }
+    await field.fill("");
+    await field.fill(decimal.slice(0, -1));
+    assert.equal(await field.inputValue(), decimal.slice(0, -1));
+    await field.fill(decimal);
+    assert.equal(await field.inputValue(), decimal);
+  }
+  await continueTo(page, "How active are you?");
+  await continueTo(page, "Your daily starting point");
+  const calories = page.getByRole("textbox", {
+    name: "Adjust target (optional, kcal)", exact: true,
+  });
+  await calories.fill("2400");
+  for (const invalid of ["abc", "1e3", "-2000", "240.5"]) {
+    await calories.fill(invalid);
+    assert.equal(await calories.inputValue(), "2400");
+  }
+  await calories.fill("");
+  assert.equal(await calories.inputValue(), "");
+});
+
 test("switching to a manual target keeps age visible and enforces 16+", async (t) => {
   const page = await open(t, {
     version: 1,

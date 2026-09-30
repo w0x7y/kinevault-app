@@ -82,6 +82,24 @@ Ctrl+C stops both processes. The address is temporary and changes on each launch
 The QR is also saved at `.expo/connection-qr.svg`. You can pass another port with
 `npm run start:cloudflare -- 8083` or set `CLOUDFLARED_BIN` to a custom binary path.
 
+### Android emulator keyboard
+
+If tapping a field shows no keyboard, boot the emulator and run:
+
+```sh
+npm run android:keyboard
+```
+
+This enables the on-screen keyboard alongside computer keyboard input and turns
+off stylus handwriting on Android 14+ emulators. A virtual stylus can put Gboard
+in handwriting mode and hide the keypad. Tap the field again after running the
+command. These settings persist on the emulator; physical phones are untouched.
+The command uses `adb` from your Android SDK or PATH.
+
+Age and calorie fields accept whole numbers. Height and weight allow a decimal
+point or comma. Invalid typed or pasted edits are rejected, and you can still
+clear a field or leave a decimal separator while typing.
+
 ## Verify
 
 ```sh
