@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "KineVault Track",
+    "slug": "kinevault-track",
+    "version": "1.0.0",
+    "scheme": "kinevaulttrack",
+    "userInterfaceStyle": "automatic",
+    "ios": { "supportsTablet": true },
+    "android": { "predictiveBackGestureEnabled": true },
+    "web": { "output": "static" },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#f6f7f9",
+          "dark": { "backgroundColor": "#12171d" }
+        }
+      ]
+    ],
+    "experiments": { "typedRoutes": true }
+  }
+}
