@@ -1,3 +1,4 @@
+import { waitForExpoConnection } from "./expo-connection.ts";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { toQR } from "toqr";
@@ -15,10 +16,12 @@ if (spawnSync(binary, ["--version"], { stdio: "ignore" }).status !== 0) {
 }
 
 const children = [];
+const shutdown = new AbortController();
 let closing = false;
 function stop(code) {
   if (closing) return;
   closing = true;
+  shutdown.abort(new Error("Expo preview stopped."));
   process.exitCode = code;
   for (const child of children) child.kill("SIGTERM");
   setTimeout(() => {
@@ -105,35 +108,11 @@ try {
   });
   expo.once("exit", (code) => stop(code ?? 1));
 
-  let ready = false;
-  let lastError = "Server is starting.";
-  const deadline = Date.now() + 90000;
-  while (Date.now() < deadline && !closing) {
-    try {
-      const response = await fetch(`${origin}/`, {
-        headers: { Accept: "application/expo+json", "Expo-Platform": "ios" },
-        signal: AbortSignal.timeout(10000),
-      });
-      const manifest = await response.json();
-      if (response.ok && new URL(manifest.launchAsset.url).origin === origin) {
-        ready = true;
-        break;
-      }
-      lastError = `HTTP ${response.status}: unexpected manifest or bundle host.`;
-    } catch (error) {
-      lastError =
-        error instanceof Error
-          ? `${error.message}${error.cause?.code ? ` (${error.cause.code})` : ""}`
-          : String(error);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  }
-  if (!ready)
-    throw new Error(
-      `The public iOS manifest is not ready: ${lastError}. Check the Expo output above.`,
-    );
-  // HTTPS requires exps://. Expo CLI's proxy QR uses exp://:443 instead.
-  const link = origin.replace("https://", "exps://");
+  const connection = await waitForExpoConnection({
+    origin,
+    signal: shutdown.signal,
+  });
+  const link = connection.expoGoUrl;
   const qr = toQR(link);
   const size = Math.sqrt(qr.length);
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="420" height="420" viewBox="0 0 ${size + 8} ${size + 8}"><rect width="100%" height="100%" fill="white"/>`;

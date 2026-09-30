@@ -1,6 +1,6 @@
 import { View } from "react-native";
 import { AppText } from "../components/ui";
-import { ageUpdate, isTeen } from "../profile/model";
+import { calorieState } from "../profile/calories";
 import { Choice, ErrorText, Field } from "./controls";
 import type { QuestionProps } from "./types";
 
@@ -10,14 +10,15 @@ export function BodyQuestion({
   errors,
   disabled,
 }: QuestionProps) {
-  const teen = isTeen(answers);
-  const estimate = answers.estimateEnabled && !teen;
+  const mode = calorieState(answers);
+  const teen = mode.kind === "teen";
+  const estimate = mode.kind === "estimate";
   return (
     <View style={{ gap: 24 }}>
       <Field
         label="Age (years)"
         value={answers.age}
-        onChangeText={(age) => update(ageUpdate(answers, age))}
+        onChangeText={(age) => update({ kind: "fields", patch: { age } })}
         placeholder="16 or older"
         keyboardType="number-pad"
         inputMode="numeric"
@@ -40,21 +41,15 @@ export function BodyQuestion({
           <Choice
             label="Use the standard estimate"
             description="I'm 18+, not pregnant or breastfeeding, and not following a prescribed nutrition plan."
-            selected={answers.estimateEnabled && answers.eligible}
-            onPress={() => update({ estimateEnabled: true, eligible: true })}
+            selected={mode.kind === "estimate" && answers.eligible}
+            onPress={() => update({ kind: "estimate", enabled: true })}
             disabled={disabled}
           />
           <Choice
             label="Skip the estimate"
             description="I'll enter a target myself, or leave it for later."
-            selected={!answers.estimateEnabled}
-            onPress={() =>
-              update({
-                estimateEnabled: false,
-                eligible: false,
-                sex: null,
-              })
-            }
+            selected={mode.kind === "manual"}
+            onPress={() => update({ kind: "estimate", enabled: false })}
             disabled={disabled}
           />
           {errors.eligible && <ErrorText message={errors.eligible} />}
@@ -77,7 +72,9 @@ export function BodyQuestion({
                 <Choice
                   label="Female"
                   selected={answers.sex === "female"}
-                  onPress={() => update({ sex: "female" })}
+                  onPress={() =>
+                    update({ kind: "fields", patch: { sex: "female" } })
+                  }
                   disabled={disabled}
                 />
               </View>
@@ -85,7 +82,9 @@ export function BodyQuestion({
                 <Choice
                   label="Male"
                   selected={answers.sex === "male"}
-                  onPress={() => update({ sex: "male" })}
+                  onPress={() =>
+                    update({ kind: "fields", patch: { sex: "male" } })
+                  }
                   disabled={disabled}
                 />
               </View>
@@ -99,7 +98,9 @@ export function BodyQuestion({
           <Field
             label={`Height (cm)${estimate ? "" : " · optional"}`}
             value={answers.height}
-            onChangeText={(height) => update({ height })}
+            onChangeText={(height) =>
+              update({ kind: "fields", patch: { height } })
+            }
             placeholder="e.g. 175"
             keyboardType="decimal-pad"
             inputMode="decimal"
@@ -112,7 +113,9 @@ export function BodyQuestion({
           <Field
             label={`Weight (kg)${estimate ? "" : " · optional"}`}
             value={answers.weight}
-            onChangeText={(weight) => update({ weight })}
+            onChangeText={(weight) =>
+              update({ kind: "fields", patch: { weight } })
+            }
             placeholder="e.g. 70"
             keyboardType="decimal-pad"
             inputMode="decimal"

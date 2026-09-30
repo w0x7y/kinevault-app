@@ -2,7 +2,7 @@ import { Link } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 import { AppText } from "../components/ui";
-import { calorieTarget, estimateCalories, isTeen } from "../profile/model";
+import { calorieState } from "../profile/calories";
 import { useTheme } from "../theme/provider";
 import { Button, ErrorText, Field } from "./controls";
 import type { QuestionProps } from "./types";
@@ -15,9 +15,9 @@ export function CaloriesQuestion({
 }: QuestionProps) {
   const { colors } = useTheme();
   const [showMath, setShowMath] = useState(false);
-  const estimate = estimateCalories(answers);
-  const target = calorieTarget(answers);
-  const teen = isTeen(answers);
+  const mode = calorieState(answers);
+  const { estimate, target, source } = mode;
+  const teen = mode.kind === "teen";
   return (
     <View style={{ gap: 24 }}>
       <View style={{ gap: 4 }}>
@@ -40,9 +40,7 @@ export function CaloriesQuestion({
         </AppText>
         {target !== null && (
           <AppText variant="caption" muted>
-            {answers.customCalories.trim()
-              ? "Your custom target"
-              : "Estimated target"}
+            {source === "custom" ? "Your custom target" : "Estimated target"}
           </AppText>
         )}
       </View>
@@ -53,7 +51,9 @@ export function CaloriesQuestion({
             : "Daily target (optional, kcal)"
         }
         value={answers.customCalories}
-        onChangeText={(customCalories) => update({ customCalories })}
+        onChangeText={(customCalories) =>
+          update({ kind: "fields", patch: { customCalories } })
+        }
         placeholder={estimate ? String(estimate.target) : "Enter your target"}
         keyboardType="number-pad"
         inputMode="numeric"
@@ -61,11 +61,11 @@ export function CaloriesQuestion({
         editable={!disabled}
         error={errors.customCalories}
       />
-      {estimate && answers.customCalories.trim() !== "" && (
+      {estimate && source === "custom" && (
         <Button
           label="Use the estimate"
           secondary
-          onPress={() => update({ customCalories: "" })}
+          onPress={() => update({ kind: "use-estimate" })}
           disabled={disabled}
         />
       )}
@@ -111,7 +111,7 @@ export function CaloriesQuestion({
           </AppText>
         </View>
       )}
-      {!estimate && answers.estimateEnabled && !teen && (
+      {!estimate && mode.kind === "estimate" && (
         <ErrorText message="An estimate needs your goal, body details, and activity. Go back to add them, or skip the estimate." />
       )}
     </View>

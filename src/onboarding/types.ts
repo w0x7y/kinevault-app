@@ -1,9 +1,10 @@
-import type { Answers, FieldErrors, Step } from "../profile/model";
+import type { AnswerChange } from "../profile/calories";
+import type { Answers, FieldErrors, EditableStep } from "../profile/answers";
 
 export type QuestionProps = {
   answers: Answers;
-  update: (patch: Partial<Answers>) => void;
+  update: (change: AnswerChange) => void;
   errors: FieldErrors;
-  edit: (step: Step) => void;
+  edit: (step: EditableStep) => void;
   disabled: boolean;
 };

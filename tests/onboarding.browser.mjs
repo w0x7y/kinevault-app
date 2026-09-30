@@ -431,3 +431,17 @@ test("reduced motion keeps Kine still, including when the preference changes", a
   });
   assert.ok(await box.isVisible());
 });
+
+test("a malformed saved custom target can return to the estimate", async (t) => {
+  const page = await open(t, {
+    version: 1,
+    kind: "draft",
+    step: "calories",
+    answers: { ...adult, customCalories: "2 400" },
+  });
+  await heading(page, "Your daily starting point");
+  await button(page, "Use the estimate").click();
+  assert.equal(await page.getByRole("textbox", { name: "Adjust target (optional, kcal)", exact: true }).inputValue(), "");
+  await page.getByText("Estimated target", { exact: true }).waitFor();
+  assert.ok((await page.locator("body").innerText()).includes("2,760"));
+});

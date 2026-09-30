@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { emptyAnswers, type Answers } from "../src/profile/answers.ts";
 import {
-  emptyAnswers,
   estimateCalories,
-  parseProfile,
   validateAnswers,
-  ageUpdate,
-  type Answers,
-} from "../src/profile/model.ts";
+  changeAnswers,
+  calorieState,
+} from "../src/profile/calories.ts";
+import { parseProfile } from "../src/profile/model.ts";
 
 const adult = {
   ...emptyAnswers,
@@ -121,7 +121,10 @@ test("16 and 17 year olds can join without an adult calorie estimate", () => {
     );
   assert.notEqual(estimateCalories({ ...adult, age: "18" }), null);
   assert.equal(
-    ageUpdate({ ...adult, customCalories: "2000" }, "16").customCalories,
+    changeAnswers(
+      { ...adult, customCalories: "2000" },
+      { kind: "fields", patch: { age: "16" } },
+    ).customCalories,
     "",
   );
 });
@@ -147,17 +150,16 @@ test("typing a new teen age preserves a manual target through incomplete input",
     customCalories: "2300",
   };
   for (const age of ["", "1", "17"])
-    teen = { ...teen, ...ageUpdate(teen, age) };
+    teen = changeAnswers(teen, { kind: "fields", patch: { age } });
   assert.equal(teen.customCalories, "2300");
   let estimated: Answers = { ...adult, customCalories: "2000" };
   for (const age of ["", "1", "16"])
-    estimated = { ...estimated, ...ageUpdate(estimated, age) };
+    estimated = changeAnswers(estimated, { kind: "fields", patch: { age } });
   assert.equal(estimated.customCalories, "");
   assert.equal(estimated.estimateEnabled, false);
 });
 
 test("completed custom targets survive other profile changes", async () => {
-  const { calorieTarget } = await import("../src/profile/model.ts");
   const complete = parseProfile(
     JSON.stringify({
       version: 1,
@@ -165,13 +167,13 @@ test("completed custom targets survive other profile changes", async () => {
       answers: { ...adult, customCalories: "2400" },
     }),
   );
-  assert.equal(calorieTarget(complete.answers), 2400);
+  assert.equal(calorieState(complete.answers).target, 2400);
   assert.equal(
-    calorieTarget({ ...complete.answers, goal: "gain", weight: "90" }),
+    calorieState({ ...complete.answers, goal: "gain", weight: "90" }).target,
     2400,
   );
   assert.equal(
-    calorieTarget({ ...complete.answers, customCalories: "" }),
+    calorieState({ ...complete.answers, customCalories: "" }).target,
     2760,
   );
 });

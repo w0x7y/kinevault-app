@@ -1,12 +1,12 @@
+import { calorieState } from "../profile/calories";
 import { View } from "react-native";
 import { AppText } from "../components/ui";
 import {
   activities,
-  calorieTarget,
   goals,
   type Answers,
-  type Step,
-} from "../profile/model";
+  type EditableStep,
+} from "../profile/answers";
 import { useTheme } from "../theme/provider";
 import { Button } from "./controls";
 
@@ -16,11 +16,12 @@ export function ProfileReview({
   disabled = false,
 }: {
   answers: Answers;
-  edit?: (step: Step) => void;
+  edit?: (step: EditableStep) => void;
   disabled?: boolean;
 }) {
-  const target = calorieTarget(answers);
-  const rows: { label: string; value: string; step: Step }[] = [
+  const mode = calorieState(answers);
+  const { target, source } = mode;
+  const rows: { label: string; value: string; step: EditableStep }[] = [
     { label: "Name", value: answers.name.trim() || "Not added", step: "name" },
     {
       label: "Goal",
@@ -35,7 +36,7 @@ export function ProfileReview({
           answers.age && `${answers.age} years`,
           answers.height && `${answers.height} cm`,
           answers.weight && `${answers.weight} kg`,
-          answers.sex && answers.estimateEnabled && `${answers.sex} formula`,
+          answers.sex && mode.kind === "estimate" && `${answers.sex} formula`,
         ]
           .filter(Boolean)
           .join(" · ") || "Not added",
@@ -53,7 +54,7 @@ export function ProfileReview({
       value:
         target === null
           ? "Not set"
-          : `${target.toLocaleString("en-US")} kcal · ${answers.customCalories.trim() ? "custom" : "estimated"}`,
+          : `${target.toLocaleString("en-US")} kcal · ${source === "custom" ? "custom" : "estimated"}`,
       step: "calories",
     },
   ];

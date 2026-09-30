@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import Head from "expo-router/head";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   AccessibilityInfo,
   BackHandler,
@@ -19,40 +19,13 @@ import { Kine } from "../onboarding/kine";
 import { SetupTopBar } from "../onboarding/top-bar";
 import { PageTransition } from "../components/motion";
 import { Question, stepCopy } from "../onboarding/steps";
-import {
-  emptyAnswers,
-  ageUpdate,
-  isTeen,
-  steps,
-  validateAnswers,
-  type Answers,
-  type FieldErrors,
-  type ProfileDocument,
-  type Step,
-} from "../profile/model";
+import { steps } from "../profile/answers";
+import type { ProfileDocument } from "../profile/model";
+import { calorieState } from "../profile/calories";
+import { createOnboardingFlow } from "../onboarding/flow";
 import { useProfile } from "../profile/provider";
 import { useTheme } from "../theme/provider";
 import { radius } from "../theme/tokens";
-
-const fieldsByStep: Record<Step, (keyof Answers)[]> = {
-  welcome: ["age"],
-  name: ["name"],
-  goal: ["goal"],
-  body: ["age", "height", "weight", "sex", "eligible"],
-  activity: ["activity"],
-  calories: ["customCalories"],
-  review: [
-    "name",
-    "goal",
-    "age",
-    "height",
-    "weight",
-    "sex",
-    "eligible",
-    "activity",
-    "customCalories",
-  ],
-};
 
 export default function OnboardingScreen() {
   const { state } = useProfile();
@@ -63,18 +36,37 @@ export default function OnboardingScreen() {
 function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
-  const { save, saving, error } = useProfile();
-  const [editing] = useState(initial.kind === "complete");
-  const [answers, setAnswers] = useState(initial.answers);
-  const [step, setStep] = useState<Step>(
-    initial.kind === "draft" ? initial.step : "name",
+  const { save } = useProfile();
+  const [flow] = useState(() =>
+    createOnboardingFlow(initial, {
+      save,
+      exit: (destination) =>
+        router.replace(
+          destination === "settings" ? "/(tabs)/settings" : "/(tabs)",
+        ),
+    }),
   );
-  const [errors, setErrors] = useState<FieldErrors>({});
-  const [returnToReview, setReturnToReview] = useState(false);
+  const {
+    answers,
+    step,
+    editing,
+    errors,
+    direction,
+    saving,
+    error,
+    primaryLabel,
+    showBack,
+    showSkip,
+  } = useSyncExternalStore(flow.subscribe, flow.getSnapshot, flow.getSnapshot);
+  const update = flow.update;
+  const mode = calorieState(answers);
   const scroll = useRef<ScrollView>(null);
-  const [direction, setDirection] = useState(1);
   const stepIndex = steps.indexOf(step);
   const { title, message } = stepCopy[step];
+  const act: typeof flow.act = (action) => {
+    Keyboard.dismiss();
+    return flow.act(action);
+  };
 
   useEffect(() => {
     scroll.current?.scrollTo({ y: 0, animated: false });
@@ -88,91 +80,27 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
     } else AccessibilityInfo.announceForAccessibility(title);
   }, [step, title, editing]);
 
-  async function goTo(next: Step) {
-    if (saving) return false;
-    Keyboard.dismiss();
-    if (
-      !editing &&
-      !(await save({ version: 1, kind: "draft", step: next, answers }))
-    )
-      return false;
-    setErrors({});
-    setDirection(steps.indexOf(next) >= stepIndex ? 1 : -1);
-    setStep(next);
-    return true;
-  }
-  async function back() {
-    if (saving) return;
-    if (returnToReview) {
-      if (await goTo("review")) setReturnToReview(false);
-    } else if (stepIndex > (editing ? 1 : 0)) {
-      const previous = steps[stepIndex - 1];
-      if (previous) void goTo(previous);
-    } else if (editing) router.replace("/(tabs)/settings");
-  }
+  useEffect(() => {
+    if (Object.keys(errors).length)
+      AccessibilityInfo.announceForAccessibility(
+        "Please check the highlighted answers.",
+      );
+  }, [errors]);
+
   useEffect(() => {
     if (Platform.OS !== "android") return;
     const subscription = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
         if (step === "welcome") return false;
-        void back();
+        Keyboard.dismiss();
+        void flow.act({ kind: "back" });
         return true;
       },
     );
     return () => subscription.remove();
-  });
+  }, [flow, step]);
 
-  async function next() {
-    const allErrors = validateAnswers(answers);
-    const relevant: FieldErrors = {};
-    for (const field of fieldsByStep[step])
-      if (allErrors[field]) relevant[field] = allErrors[field];
-    setErrors(relevant);
-    if (Object.keys(relevant).length) {
-      AccessibilityInfo.announceForAccessibility(
-        "Please check the highlighted answers.",
-      );
-      return;
-    }
-    if (step === "review") {
-      if (
-        await save({
-          version: 1,
-          kind: "complete",
-          answers: { ...answers, name: answers.name.trim() },
-        })
-      )
-        router.replace(editing ? "/(tabs)/settings" : "/(tabs)");
-    } else if (returnToReview) {
-      if (await goTo("review")) setReturnToReview(false);
-    } else {
-      const following = steps[stepIndex + 1];
-      if (following) await goTo(following);
-    }
-  }
-  async function skip() {
-    const ageError = validateAnswers(answers).age;
-    if (ageError) {
-      setErrors({ age: ageError });
-      return;
-    }
-    if (
-      await save({
-        version: 1,
-        kind: "complete",
-        answers: { ...emptyAnswers, age: answers.age, estimateEnabled: false },
-      })
-    )
-      router.replace("/(tabs)");
-  }
-  function update(patch: Partial<Answers>) {
-    setAnswers((current) => ({ ...current, ...patch }));
-    setErrors({});
-  }
-  async function edit(target: Step) {
-    if (await goTo(target)) setReturnToReview(true);
-  }
   const welcome = step === "welcome";
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -189,7 +117,7 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
           stepIndex={stepIndex}
           editing={editing}
           saving={saving}
-          cancel={() => router.replace("/(tabs)/settings")}
+          cancel={() => void act({ kind: "cancel" })}
         />
         <ScrollView
           ref={scroll}
@@ -221,11 +149,9 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
                   muted
                   style={width < 380 ? { textAlign: "center" } : { flex: 1 }}
                 >
-                  {(isTeen(answers) || !answers.estimateEnabled) &&
-                  step === "body"
+                  {mode.kind !== "estimate" && step === "body"
                     ? "A few details for your profile. Age is required; height and weight are optional."
-                    : (isTeen(answers) || !answers.estimateEnabled) &&
-                        step === "calories"
+                    : mode.kind !== "estimate" && step === "calories"
                       ? "You can leave this blank or add your own target."
                       : message}
                 </AppText>
@@ -255,7 +181,9 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
               <Field
                 label="Age (years)"
                 value={answers.age}
-                onChangeText={(age) => update(ageUpdate(answers, age))}
+                onChangeText={(age) =>
+                  update({ kind: "fields", patch: { age } })
+                }
                 placeholder="16 or older"
                 keyboardType="number-pad"
                 inputMode="numeric"
@@ -269,7 +197,7 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
               answers={answers}
               update={update}
               errors={errors}
-              edit={(target) => void edit(target)}
+              edit={(target) => void act({ kind: "edit", step: target })}
               disabled={saving}
             />
             {step === "review" && Object.keys(errors).length > 0 && (
@@ -290,35 +218,23 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
             )}
             <View style={{ marginTop: "auto", gap: 12, paddingTop: 12 }}>
               <Button
-                label={
-                  saving
-                    ? "Saving…"
-                    : welcome
-                      ? "Let's go"
-                      : step === "review"
-                        ? editing
-                          ? "Save changes"
-                          : "Finish setup"
-                        : returnToReview
-                          ? "Back to review"
-                          : "Continue"
-                }
-                onPress={() => void next()}
+                label={primaryLabel}
+                onPress={() => void act({ kind: "next" })}
                 disabled={saving}
               />
-              {!welcome && !(editing && step === "name") && (
+              {showBack && (
                 <Button
                   label="Back"
                   secondary
-                  onPress={() => void back()}
+                  onPress={() => void act({ kind: "back" })}
                   disabled={saving}
                 />
               )}
-              {!editing && welcome && (
+              {showSkip && (
                 <Button
                   label="Set up later"
                   secondary
-                  onPress={() => void skip()}
+                  onPress={() => void act({ kind: "skip" })}
                   disabled={saving}
                 />
               )}

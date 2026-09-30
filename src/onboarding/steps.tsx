@@ -1,6 +1,7 @@
+import { calorieState } from "../profile/calories";
 import { View } from "react-native";
 import { AppText } from "../components/ui";
-import { activities, goals, isTeen, type Step } from "../profile/model";
+import { activities, goals, type Step } from "../profile/answers";
 import { Choice, ErrorText, Field } from "./controls";
 import { BodyQuestion } from "./body-question";
 import { CaloriesQuestion } from "./calories-question";
@@ -47,7 +48,7 @@ export function Question({ step, ...props }: QuestionProps & { step: Step }) {
         <Field
           label="Your name (optional)"
           value={answers.name}
-          onChangeText={(name) => update({ name })}
+          onChangeText={(name) => update({ kind: "fields", patch: { name } })}
           placeholder="Name or nickname"
           autoComplete="given-name"
           textContentType="givenName"
@@ -68,9 +69,11 @@ export function Question({ step, ...props }: QuestionProps & { step: Step }) {
             <Choice
               key={value}
               label={label}
-              description={isTeen(answers) ? undefined : description}
+              description={
+                calorieState(answers).kind === "teen" ? undefined : description
+              }
               selected={answers.goal === value}
-              onPress={() => update({ goal: value })}
+              onPress={() => update({ kind: "fields", patch: { goal: value } })}
               disabled={disabled}
             />
           ))}
@@ -92,12 +95,14 @@ export function Question({ step, ...props }: QuestionProps & { step: Step }) {
               label={label}
               description={description}
               selected={answers.activity === value}
-              onPress={() => update({ activity: value })}
+              onPress={() =>
+                update({ kind: "fields", patch: { activity: value } })
+              }
               disabled={disabled}
             />
           ))}
           {errors.activity && <ErrorText message={errors.activity} />}
-          {!answers.estimateEnabled && (
+          {calorieState(answers).kind !== "estimate" && (
             <AppText variant="caption" muted>
               Optional when you're setting your own target.
             </AppText>

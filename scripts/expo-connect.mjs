@@ -1,3 +1,4 @@
+import { checkExpoConnection } from "./expo-connection.ts";
 import { networkInterfaces } from "node:os";
 import { spawnSync } from "node:child_process";
 
@@ -17,19 +18,12 @@ try {
   // LAN manifests derive bundle URLs from the request host. Probe a device
   // address so a healthy LAN server is not mistaken for a localhost-only one.
   const serverHost = deviceAddresses[0] || "localhost";
-  const response = await fetch(`http://${serverHost}:${port}/`, {
-    headers: { Accept: "application/expo+json", "Expo-Platform": "ios" },
-    signal: AbortSignal.timeout(10000),
+  const connection = await checkExpoConnection({
+    origin: `http://${serverHost}:${port}`,
   });
-  if (!response.ok) throw new Error(`Server returned HTTP ${response.status}.`);
-  const manifest = await response.json();
-  const bundle = manifest.launchAsset?.url;
-  if (typeof bundle !== "string")
-    throw new Error("Server did not return an Expo Go manifest.");
-  console.log(`iOS runtime: ${manifest.runtimeVersion}`);
-  const scheme = new URL(bundle).protocol === "https:" ? "exps" : "exp";
-  console.log(`Expo Go address: ${scheme}://${new URL(bundle).host}`);
-  if (["localhost", "127.0.0.1", "::1"].includes(new URL(bundle).hostname)) {
+  console.log(`iOS runtime: ${connection.runtimeVersion}`);
+  console.log(`Expo Go address: ${connection.expoGoUrl}`);
+  if (!connection.deviceReachable) {
     console.log(
       "Phone cannot use localhost. Restart with npm run start:lan or npm run start:tunnel.",
     );

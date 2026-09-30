@@ -111,9 +111,10 @@ npm run export:web
 npx expo export --platform ios --platform android --output-dir dist-native
 ```
 
-Tests cover appearance, profile record validation, draft resume, metric input,
-mascot transparency/resolution/size budgets,
-and calorie calculations. Formula assumptions and supported ranges are recorded
+Tests cover appearance, profile record validation, draft resume, staged profile
+edits, save/retry ordering, metric input, mascot transparency/resolution/size
+budgets, and calorie-mode changes. Connection checks use local HTTP fixtures for
+manifest errors, bundle host rules, HTTPS links, startup retries, and shutdown. Formula assumptions and supported ranges are recorded
 in [the onboarding design](docs/superpowers/specs/2026-09-30-kine-onboarding-design.md). The web export produces static routes in `dist/`.
 GitHub Actions runs these checks and the browser regressions on pushes and pull requests.
 
@@ -140,12 +141,18 @@ shortlist concepts. It runs independently of the Expo app.
 - `src/app/`: routes and navigation layouts.
 - `src/components/ui.tsx`: shared text, panel, screen, destination, and empty state.
 - `src/theme/`: palette, geometry, typography, and appearance persistence.
-- `src/profile/`: validated answers, calorie estimation, storage, and recovery.
+- `src/profile/answers.ts`: profile vocabulary and editable numeric strings.
+- `src/profile/calories.ts`: estimate/manual/teen policy, answer changes, and target source.
+- `src/profile/model.ts`: stored document parsing and legacy age recovery.
+- `src/profile/`: local persistence and explicit recovery.
+- `src/onboarding/flow.ts`: setup transitions, validation, staged edits, and save ordering.
 - `src/onboarding/`: Kine artwork, form controls, and question content.
 - `assets/mascot/2d/`: optimized page poses, source artwork, and exact generation prompts.
 - `scripts/optimize-mascot.mjs`: reproducible mascot compression; see the [artwork notes](assets/mascot/README.md).
 - `src/components/motion.tsx`: reduced-motion preferences and setup transitions.
+- `scripts/expo-connection.ts`: shared manifest checks and cancelable readiness; Node 24+ runs it directly.
 - `scripts/expo-connect.mjs`: Expo Go connection diagnostics.
+- `CONTEXT.md`: profile and onboarding domain vocabulary.
 - `DESIGN.md`: supplied KineVault design reference, preserved as shared authority.
 - `PRODUCT.md`: confirmed product scope.
 

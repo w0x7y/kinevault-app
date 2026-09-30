@@ -1,6 +1,6 @@
 import { Asset } from "expo-asset";
 import { Image } from "expo-image";
-import type { Step } from "../profile/model";
+import type { Step } from "../profile/answers";
 
 export type KinePose = Step | "today" | "food" | "exercise" | "settings";
 
