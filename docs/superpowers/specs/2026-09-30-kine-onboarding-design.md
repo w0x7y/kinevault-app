@@ -8,7 +8,8 @@ Keep Geist, semantic themes, metric units, and the wordmark-only header.
 
 Meet Kine, preferred name, weight goal, body details, usual activity, editable
 calorie target, and review. A step count and back button make progress clear.
-Name is optional. Set up later enters the app without a profile or target.
+Name is optional. Age is required and must be at least 16. Set up later enters
+the app with the verified age, leaving the other profile details and target unset.
 Users can skip estimation, enter a target manually, or leave it unset.
 Review provides edit links. Settings shows the profile and reopens editing.
 
@@ -16,6 +17,9 @@ Goals are lose, maintain, or gain weight. Automatic estimates require age,
 height, weight, a female or male formula coefficient, activity, and confirmation
 that the standard adult estimate applies. Pregnancy, breastfeeding, and a
 prescribed nutrition plan use the manual path. No accounts or permissions.
+Users aged 16–17 also use the manual/unset target path. Changing from adult
+estimation to age 16–17 clears its previous target. Manual targets remain editable
+and survive changes to other profile details, including age.
 
 ## Calculation
 
@@ -47,13 +51,23 @@ No network service is introduced; the external formula link opens on demand.
 Names are trimmed and limited to 40 characters. Metric inputs accept decimal
 commas or points. Estimated age is an integer 18–100; height 100–250 cm; weight
 30–350 kg. These are supported input bounds, not health recommendations.
-Manual metrics can remain empty. Calories are integer 1,200–10,000 kcal.
+Age is an integer 16–100 on every path; other manual metrics can remain empty.
+Older completed profiles without a supported age keep their answers and return
+to the body question for age verification. Calories are integer 1,200–10,000 kcal.
 Unsupported estimates return no result. These bounds do not establish whether
 a target is appropriate for an individual.
 
 Explicit labels, radio semantics, field errors, visible focus, step announcements,
 safe areas, keyboard avoidance, scalable text, and scrolling support native and
 web use. Kine is decorative on question screens. Keep copy short and humane.
+
+Each of the seven setup steps and four tabs has its own Kine pose. Question
+poses are 152 points (previously 80); the welcome pose is 280 points. Kine greets
+on arrival with a short lift and sway, then stays still while users read and type.
+Setup questions move 16 points in the navigation direction over 220 ms;
+the progress bar animates over 260 ms and the count fades. Tabs fade over 160 ms.
+System reduced motion disables spatial movement and tab transitions; changing
+the preference while the app is open stops Kine's greeting.
 
 ## Verification
 
@@ -78,8 +92,8 @@ approximate product choices and are exposed to users as such.
 
 ## Delivery evidence
 
-- TypeScript checks and nine unit tests pass.
-- Three checked-in Chromium tests pass with `npm run test:browser`.
+- TypeScript checks and twelve unit tests cover adult calculations and 16+ boundaries.
+- Six checked-in Chromium tests cover the flow, age gate, poses, and reduced motion.
 - Additional browser smoke verified skip/manual setup, edits, themes, failed
   writes, failed initial reads, corrupt-record recovery, and 320/390/1280 px layouts.
 - The finish review scored both discovered navigation/validation fixes resolved.

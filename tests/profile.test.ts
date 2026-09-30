@@ -5,6 +5,8 @@ import {
   estimateCalories,
   parseProfile,
   validateAnswers,
+  ageUpdate,
+  type Answers,
 } from "../src/profile/model.ts";
 
 const adult = {
@@ -47,12 +49,12 @@ test("estimates require complete eligible adult inputs", () => {
   ]) {
     assert.equal(estimateCalories({ ...adult, ...patch }), null);
   }
-  assert.notDeepEqual(validateAnswers({ ...adult, age: "17" }), {});
+  assert.ok(validateAnswers({ ...adult, age: "15" }).age);
 });
 
 test("optional manual profile accepts missing metrics and decimal commas", () => {
   assert.deepEqual(
-    validateAnswers({ ...emptyAnswers, estimateEnabled: false }),
+    validateAnswers({ ...emptyAnswers, age: "30", estimateEnabled: false }),
     {},
   );
   assert.deepEqual(
@@ -91,11 +93,6 @@ test("malformed and incompatible records cannot count as completed setup", () =>
     JSON.stringify({ version: 2, kind: "complete", answers: adult }),
     JSON.stringify({
       version: 1,
-      kind: "complete",
-      answers: { ...adult, age: "17" },
-    }),
-    JSON.stringify({
-      version: 1,
       kind: "draft",
       step: "unknown",
       answers: adult,
@@ -103,6 +100,60 @@ test("malformed and incompatible records cannot count as completed setup", () =>
   ]) {
     assert.throws(() => parseProfile(record));
   }
+});
+
+test("16 and 17 year olds can join without an adult calorie estimate", () => {
+  for (const age of ["16", "17"]) {
+    const teen = { ...emptyAnswers, age };
+    assert.deepEqual(validateAnswers(teen), {});
+    assert.equal(estimateCalories({ ...adult, age }), null);
+    assert.deepEqual(validateAnswers({ ...teen, customCalories: "2300" }), {});
+    assert.equal(
+      parseProfile(
+        JSON.stringify({ version: 1, kind: "complete", answers: teen }),
+      ).kind,
+      "complete",
+    );
+  }
+  for (const age of ["", "15", "16.5", "101"])
+    assert.ok(
+      validateAnswers({ ...emptyAnswers, age, estimateEnabled: false }).age,
+    );
+  assert.notEqual(estimateCalories({ ...adult, age: "18" }), null);
+  assert.equal(
+    ageUpdate({ ...adult, customCalories: "2000" }, "16").customCalories,
+    "",
+  );
+});
+
+test("older profiles without a supported age keep their answers for re-checking", () => {
+  const answers = { ...adult, age: "" };
+  assert.deepEqual(
+    parseProfile(JSON.stringify({ version: 1, kind: "complete", answers })),
+    {
+      version: 1,
+      kind: "draft",
+      step: "body",
+      answers,
+    },
+  );
+});
+
+test("typing a new teen age preserves a manual target through incomplete input", () => {
+  let teen: Answers = {
+    ...adult,
+    age: "16",
+    estimateEnabled: false,
+    customCalories: "2300",
+  };
+  for (const age of ["", "1", "17"])
+    teen = { ...teen, ...ageUpdate(teen, age) };
+  assert.equal(teen.customCalories, "2300");
+  let estimated: Answers = { ...adult, customCalories: "2000" };
+  for (const age of ["", "1", "16"])
+    estimated = { ...estimated, ...ageUpdate(estimated, age) };
+  assert.equal(estimated.customCalories, "");
+  assert.equal(estimated.estimateEnabled, false);
 });
 
 test("completed custom targets survive other profile changes", async () => {

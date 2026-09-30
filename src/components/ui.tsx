@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, type PropsWithChildren } from "react";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
+import { Kine, type KinePose } from "../onboarding/kine";
 
 type TextVariant = "body" | "title" | "heading" | "label" | "caption";
 
@@ -54,7 +55,12 @@ export function Screen({
   title,
   description,
   children,
-}: PropsWithChildren<{ title: string; description?: string }>) {
+  pose,
+}: PropsWithChildren<{
+  title: string;
+  description?: string;
+  pose?: KinePose;
+}>) {
   const { colors } = useTheme();
   return (
     <SafeAreaView
@@ -66,9 +72,23 @@ export function Screen({
       </Head>
       <ScrollView contentContainerStyle={styles.screen}>
         <View style={styles.intro}>
-          <AppText variant="title" accessibilityRole="header">
-            {title}
-          </AppText>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 16,
+            }}
+          >
+            <AppText
+              variant="title"
+              accessibilityRole="header"
+              style={{ flexShrink: 1 }}
+            >
+              {title}
+            </AppText>
+            {pose && <Kine pose={pose} size={144} />}
+          </View>
           {description && (
             <AppText muted style={{ maxWidth: 600 }}>
               {description}

@@ -9,8 +9,10 @@ import { AppText } from "../../components/ui";
 import { useTheme } from "../../theme/provider";
 import { fonts } from "../../theme/tokens";
 import { useProfile } from "../../profile/provider";
+import { PageTransition, useReducedMotion } from "../../components/motion";
 
 export default function TabLayout() {
+  const reduced = useReducedMotion();
   const { colors } = useTheme();
   const { state } = useProfile();
   if (state.kind !== "ready") return null;
@@ -18,20 +20,24 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
+        animation: reduced ? "none" : "fade",
+        transitionSpec: { animation: "timing", config: { duration: 160 } },
         headerStyle: { backgroundColor: colors.card },
         headerTintColor: colors.foreground,
         headerShadowVisible: false,
         headerTitleAlign: "left",
-        headerTitle: () => (
-          <AppText
-            style={{
-              fontFamily: fonts.bold,
-              fontSize: 20,
-              letterSpacing: -1,
-            }}
-          >
-            KineVault Track
-          </AppText>
+        headerTitle: ({ children }) => (
+          <PageTransition key={children} direction={0}>
+            <AppText
+              style={{
+                fontFamily: fonts.bold,
+                fontSize: 20,
+                letterSpacing: -1,
+              }}
+            >
+              KineVault Track
+            </AppText>
+          </PageTransition>
         ),
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,

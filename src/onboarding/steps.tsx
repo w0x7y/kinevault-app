@@ -1,6 +1,6 @@
 import { View } from "react-native";
 import { AppText } from "../components/ui";
-import { activities, goals, type Step } from "../profile/model";
+import { activities, goals, isTeen, type Step } from "../profile/model";
 import { Choice, ErrorText, Field } from "./controls";
 import { BodyQuestion } from "./body-question";
 import { CaloriesQuestion } from "./calories-question";
@@ -10,7 +10,7 @@ import type { QuestionProps } from "./types";
 export const stepCopy: Record<Step, { title: string; message: string }> = {
   welcome: {
     title: "Hi, I'm Kine.",
-    message: "A few quick questions, then a daily target that fits you.",
+    message: "Let's get your profile ready.",
   },
   name: {
     title: "What should I call you?",
@@ -68,7 +68,7 @@ export function Question({ step, ...props }: QuestionProps & { step: Step }) {
             <Choice
               key={value}
               label={label}
-              description={description}
+              description={isTeen(answers) ? undefined : description}
               selected={answers.goal === value}
               onPress={() => update({ goal: value })}
               disabled={disabled}

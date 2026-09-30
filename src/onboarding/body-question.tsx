@@ -1,5 +1,6 @@
 import { View } from "react-native";
 import { AppText } from "../components/ui";
+import { ageUpdate, isTeen } from "../profile/model";
 import { Choice, ErrorText, Field } from "./controls";
 import type { QuestionProps } from "./types";
 
@@ -9,49 +10,58 @@ export function BodyQuestion({
   errors,
   disabled,
 }: QuestionProps) {
+  const teen = isTeen(answers);
+  const estimate = answers.estimateEnabled && !teen;
   return (
     <View style={{ gap: 24 }}>
-      <View
-        accessibilityRole="radiogroup"
-        accessibilityLabel="Calorie estimate"
-        style={{ gap: 8 }}
-      >
-        <Choice
-          label="Use the standard estimate"
-          description="I'm 18+, not pregnant or breastfeeding, and not following a prescribed nutrition plan."
-          selected={answers.estimateEnabled && answers.eligible}
-          onPress={() => update({ estimateEnabled: true, eligible: true })}
-          disabled={disabled}
-        />
-        <Choice
-          label="Skip the estimate"
-          description="I'll enter a target myself, or leave it for later."
-          selected={!answers.estimateEnabled}
-          onPress={() =>
-            update({
-              estimateEnabled: false,
-              eligible: false,
-              age: "",
-              sex: null,
-            })
-          }
-          disabled={disabled}
-        />
-        {errors.eligible && <ErrorText message={errors.eligible} />}
-      </View>
-      {answers.estimateEnabled && (
-        <>
-          <Field
-            label="Age (years)"
-            value={answers.age}
-            onChangeText={(age) => update({ age })}
-            placeholder="e.g. 30"
-            keyboardType="number-pad"
-            inputMode="numeric"
-            maxLength={3}
-            editable={!disabled}
-            error={errors.age}
+      <Field
+        label="Age (years)"
+        value={answers.age}
+        onChangeText={(age) => update(ageUpdate(answers, age))}
+        placeholder="16 or older"
+        keyboardType="number-pad"
+        inputMode="numeric"
+        maxLength={3}
+        editable={!disabled}
+        error={errors.age}
+      />
+      {teen ? (
+        <AppText muted>
+          You're still growing. We don't estimate calorie targets for under-18s.
+          You can add a target agreed with a qualified health professional, or
+          leave it blank.
+        </AppText>
+      ) : (
+        <View
+          accessibilityRole="radiogroup"
+          accessibilityLabel="Calorie estimate"
+          style={{ gap: 8 }}
+        >
+          <Choice
+            label="Use the standard estimate"
+            description="I'm 18+, not pregnant or breastfeeding, and not following a prescribed nutrition plan."
+            selected={answers.estimateEnabled && answers.eligible}
+            onPress={() => update({ estimateEnabled: true, eligible: true })}
+            disabled={disabled}
           />
+          <Choice
+            label="Skip the estimate"
+            description="I'll enter a target myself, or leave it for later."
+            selected={!answers.estimateEnabled}
+            onPress={() =>
+              update({
+                estimateEnabled: false,
+                eligible: false,
+                sex: null,
+              })
+            }
+            disabled={disabled}
+          />
+          {errors.eligible && <ErrorText message={errors.eligible} />}
+        </View>
+      )}
+      {estimate && (
+        <>
           <View style={{ gap: 8 }}>
             <AppText variant="label">Sex used by the formula</AppText>
             <AppText variant="caption" muted>
@@ -87,7 +97,7 @@ export function BodyQuestion({
       <View style={{ flexDirection: "row", gap: 16 }}>
         <View style={{ flex: 1 }}>
           <Field
-            label={`Height (cm)${answers.estimateEnabled ? "" : " · optional"}`}
+            label={`Height (cm)${estimate ? "" : " · optional"}`}
             value={answers.height}
             onChangeText={(height) => update({ height })}
             placeholder="e.g. 175"
@@ -100,7 +110,7 @@ export function BodyQuestion({
         </View>
         <View style={{ flex: 1 }}>
           <Field
-            label={`Weight (kg)${answers.estimateEnabled ? "" : " · optional"}`}
+            label={`Weight (kg)${estimate ? "" : " · optional"}`}
             value={answers.weight}
             onChangeText={(weight) => update({ weight })}
             placeholder="e.g. 70"

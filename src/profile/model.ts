@@ -87,6 +87,23 @@ export function numericValue(value: string): number | null {
   return Number.isFinite(number) ? number : null;
 }
 
+export function isTeen(answers: Pick<Answers, "age">): boolean {
+  const age = numericValue(answers.age);
+  return age !== null && age >= 16 && age < 18 && Number.isInteger(age);
+}
+
+export function ageUpdate(answers: Answers, age: string): Partial<Answers> {
+  if (isTeen({ age }) && answers.estimateEnabled)
+    return {
+      age,
+      estimateEnabled: false,
+      eligible: false,
+      sex: null,
+      customCalories: "",
+    };
+  return { age };
+}
+
 export function estimateCalories(answers: Answers) {
   const age = numericValue(answers.age);
   const height = numericValue(answers.height);
@@ -123,12 +140,13 @@ export function estimateCalories(answers: Answers) {
 
 export function validateAnswers(answers: Answers): FieldErrors {
   const errors: FieldErrors = {};
+  const needsEstimate = answers.estimateEnabled && !isTeen(answers);
   if (answers.name.trim().length > 40)
     errors.name = "Use 40 characters or fewer.";
   const metrics = [
     {
       key: "age",
-      min: answers.estimateEnabled ? 18 : 1,
+      min: 16,
       max: 100,
       label: "age",
       unit: "years",
@@ -137,7 +155,7 @@ export function validateAnswers(answers: Answers): FieldErrors {
     { key: "weight", min: 30, max: 350, label: "weight", unit: "kg" },
   ] as const;
   for (const { key, min, max, label, unit } of metrics) {
-    if (!answers[key].trim() && !answers.estimateEnabled) continue;
+    if (key !== "age" && !answers[key].trim() && !needsEstimate) continue;
     const value = numericValue(answers[key]);
     if (
       value === null ||
@@ -149,7 +167,7 @@ export function validateAnswers(answers: Answers): FieldErrors {
         `Enter ${label} between ${min} and ${max} ${unit}${key === "age" ? " in whole years" : ""}.`;
     }
   }
-  if (answers.estimateEnabled) {
+  if (needsEstimate) {
     if (!answers.goal) errors.goal = "Choose a goal for your estimate.";
     if (!answers.activity)
       errors.activity = "Choose your usual activity level.";
@@ -169,7 +187,7 @@ export function validateAnswers(answers: Answers): FieldErrors {
         "Enter a whole number between 1,200 and 10,000 kcal.";
   }
   if (
-    answers.estimateEnabled &&
+    needsEstimate &&
     Object.keys(errors).length === 0 &&
     !estimateCalories(answers)
   )
@@ -252,11 +270,13 @@ export function parseProfile(raw: string | null): ProfileDocument {
     goal: data.goal,
     activity: data.activity,
   };
-  if (
-    value.kind === "complete" &&
-    Object.keys(validateAnswers(answers)).length === 0
-  )
-    return { version: 1, kind: "complete", answers };
+  if (value.kind === "complete") {
+    const errors = validateAnswers(answers);
+    if (Object.keys(errors).length === 0)
+      return { version: 1, kind: "complete", answers };
+    // Older versions allowed setup without age. Keep the profile and ask again.
+    if (errors.age) return { version: 1, kind: "draft", step: "body", answers };
+  }
   if (value.kind === "draft" && "step" in value) {
     const step = steps.find((step) => step === value.step);
     if (step) return { version: 1, kind: "draft", step, answers };

@@ -2,7 +2,7 @@ import { Link } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 import { AppText } from "../components/ui";
-import { calorieTarget, estimateCalories } from "../profile/model";
+import { calorieTarget, estimateCalories, isTeen } from "../profile/model";
 import { useTheme } from "../theme/provider";
 import { Button, ErrorText, Field } from "./controls";
 import type { QuestionProps } from "./types";
@@ -17,6 +17,7 @@ export function CaloriesQuestion({
   const [showMath, setShowMath] = useState(false);
   const estimate = estimateCalories(answers);
   const target = calorieTarget(answers);
+  const teen = isTeen(answers);
   return (
     <View style={{ gap: 24 }}>
       <View style={{ gap: 4 }}>
@@ -32,7 +33,9 @@ export function CaloriesQuestion({
         </AppText>
         <AppText muted>
           {target === null
-            ? "Add a target below, or leave it for later."
+            ? teen
+              ? "Leave this blank, or use a target agreed with a health professional."
+              : "Add a target below, or leave it for later."
             : "kcal per day"}
         </AppText>
         {target !== null && (
@@ -108,7 +111,7 @@ export function CaloriesQuestion({
           </AppText>
         </View>
       )}
-      {!estimate && answers.estimateEnabled && (
+      {!estimate && answers.estimateEnabled && !teen && (
         <ErrorText message="An estimate needs your goal, body details, and activity. Go back to add them, or skip the estimate." />
       )}
     </View>

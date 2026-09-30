@@ -3,7 +3,7 @@ import { EmptyState, Screen } from "../../components/ui";
 
 export default function FoodScreen() {
   return (
-    <Screen title="Food">
+    <Screen title="Food" pose="food">
       <EmptyState
         icon={Utensils}
         title="Food logging isn't ready yet"

@@ -10,14 +10,19 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppText } from "../components/ui";
-import { Button } from "../onboarding/controls";
+import { Button, Field } from "../onboarding/controls";
 import { Kine } from "../onboarding/kine";
+import { SetupTopBar } from "../onboarding/top-bar";
+import { PageTransition } from "../components/motion";
 import { Question, stepCopy } from "../onboarding/steps";
 import {
   emptyAnswers,
+  ageUpdate,
+  isTeen,
   steps,
   validateAnswers,
   type Answers,
@@ -30,7 +35,7 @@ import { useTheme } from "../theme/provider";
 import { radius } from "../theme/tokens";
 
 const fieldsByStep: Record<Step, (keyof Answers)[]> = {
-  welcome: [],
+  welcome: ["age"],
   name: ["name"],
   goal: ["goal"],
   body: ["age", "height", "weight", "sex", "eligible"],
@@ -57,6 +62,7 @@ export default function OnboardingScreen() {
 
 function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
   const { save, saving, error } = useProfile();
   const [editing] = useState(initial.kind === "complete");
   const [answers, setAnswers] = useState(initial.answers);
@@ -66,6 +72,7 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [returnToReview, setReturnToReview] = useState(false);
   const scroll = useRef<ScrollView>(null);
+  const [direction, setDirection] = useState(1);
   const stepIndex = steps.indexOf(step);
   const { title, message } = stepCopy[step];
 
@@ -73,7 +80,11 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
     scroll.current?.scrollTo({ y: 0, animated: false });
     if (Platform.OS === "web") {
       document.title = `${editing ? "Edit profile" : "Meet Kine"} · KineVault Track`;
-      document.getElementById("onboarding-title")?.focus();
+      const heading = document.getElementById("onboarding-title");
+      if (heading) {
+        heading.tabIndex = -1;
+        heading.focus();
+      }
     } else AccessibilityInfo.announceForAccessibility(title);
   }, [step, title, editing]);
 
@@ -86,6 +97,7 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
     )
       return false;
     setErrors({});
+    setDirection(steps.indexOf(next) >= stepIndex ? 1 : -1);
     setStep(next);
     return true;
   }
@@ -140,11 +152,16 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
     }
   }
   async function skip() {
+    const ageError = validateAnswers(answers).age;
+    if (ageError) {
+      setErrors({ age: ageError });
+      return;
+    }
     if (
       await save({
         version: 1,
         kind: "complete",
-        answers: { ...emptyAnswers, estimateEnabled: false },
+        answers: { ...emptyAnswers, age: answers.age, estimateEnabled: false },
       })
     )
       router.replace("/(tabs)");
@@ -168,154 +185,156 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
-        <View style={styles.topBar}>
-          <AppText variant="label">KineVault Track</AppText>
-          {editing && (
-            <Button
-              label="Cancel"
-              secondary
-              disabled={saving}
-              onPress={() => router.replace("/(tabs)/settings")}
-            />
-          )}
-          {!editing && !welcome && (
-            <AppText
-              variant="caption"
-              muted
-              accessibilityLabel={`Step ${stepIndex} of 6`}
-            >
-              {stepIndex} of 6
-            </AppText>
-          )}
-        </View>
-        {!welcome && (
-          <View
-            accessibilityRole="progressbar"
-            accessibilityValue={{ min: 0, max: 6, now: stepIndex }}
-            accessibilityLabel="Setup progress"
-            style={{ height: 3, backgroundColor: colors.muted }}
-          >
-            <View
-              style={{
-                height: 3,
-                width: `${(stepIndex / 6) * 100}%`,
-                backgroundColor: colors.primary,
-              }}
-            />
-          </View>
-        )}
+        <SetupTopBar
+          stepIndex={stepIndex}
+          editing={editing}
+          saving={saving}
+          cancel={() => router.replace("/(tabs)/settings")}
+        />
         <ScrollView
           ref={scroll}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={[styles.content, welcome && styles.welcome]}
         >
-          {welcome ? (
-            <View style={{ alignItems: "center" }}>
-              <Kine size={240} />
-            </View>
-          ) : (
-            <View style={styles.guide}>
-              <Kine size={80} />
-              <AppText muted style={{ flex: 1 }}>
-                {message}
-              </AppText>
-            </View>
-          )}
-          <View style={{ gap: 12, alignItems: welcome ? "center" : "stretch" }}>
-            <AppText
-              nativeID="onboarding-title"
-              tabIndex={-1}
-              variant="title"
-              accessibilityRole="header"
-              style={[
-                { outlineWidth: 0, outlineStyle: "solid" },
-                welcome ? { textAlign: "center" } : undefined,
-              ]}
-            >
-              {title}
-            </AppText>
-            {welcome && (
-              <AppText muted style={{ textAlign: "center" }}>
-                {message}
-              </AppText>
+          <PageTransition
+            key={step}
+            direction={direction}
+            style={{ gap: 24, flexGrow: 1 }}
+          >
+            {welcome ? (
+              <View style={{ alignItems: "center" }}>
+                <Kine size={280} pose="welcome" />
+              </View>
+            ) : (
+              <View
+                style={[
+                  styles.guide,
+                  width < 380 && {
+                    flexDirection: "column",
+                    gap: 8,
+                    padding: 0,
+                  },
+                ]}
+              >
+                <Kine pose={step} />
+                <AppText
+                  muted
+                  style={width < 380 ? { textAlign: "center" } : { flex: 1 }}
+                >
+                  {(isTeen(answers) || !answers.estimateEnabled) &&
+                  step === "body"
+                    ? "A few details for your profile. Age is required; height and weight are optional."
+                    : (isTeen(answers) || !answers.estimateEnabled) &&
+                        step === "calories"
+                      ? "You can leave this blank or add your own target."
+                      : message}
+                </AppText>
+              </View>
             )}
-          </View>
-          <Question
-            step={step}
-            answers={answers}
-            update={update}
-            errors={errors}
-            edit={(target) => void edit(target)}
-            disabled={saving}
-          />
-          {step === "review" && Object.keys(errors).length > 0 && (
-            <AppText accessibilityRole="alert" style={{ color: colors.error }}>
-              Some answers need another look. Use Edit above to check them.
-            </AppText>
-          )}
-          {error && (
-            <AppText accessibilityRole="alert" style={{ color: colors.error }}>
-              {error}
-            </AppText>
-          )}
-          <View style={{ marginTop: "auto", gap: 12, paddingTop: 12 }}>
-            <Button
-              label={
-                saving
-                  ? "Saving…"
-                  : welcome
-                    ? "Let's go"
-                    : step === "review"
-                      ? editing
-                        ? "Save changes"
-                        : "Finish setup"
-                      : returnToReview
-                        ? "Back to review"
-                        : "Continue"
-              }
-              onPress={() => void next()}
+            <View
+              style={{ gap: 12, alignItems: welcome ? "center" : "stretch" }}
+            >
+              <AppText
+                nativeID="onboarding-title"
+                variant="title"
+                accessibilityRole="header"
+                style={[
+                  { outlineWidth: 0, outlineStyle: "solid" },
+                  welcome ? { textAlign: "center" } : undefined,
+                ]}
+              >
+                {title}
+              </AppText>
+              {welcome && (
+                <AppText muted style={{ textAlign: "center" }}>
+                  {message}
+                </AppText>
+              )}
+            </View>
+            {welcome && (
+              <Field
+                label="Age (years)"
+                value={answers.age}
+                onChangeText={(age) => update(ageUpdate(answers, age))}
+                placeholder="16 or older"
+                keyboardType="number-pad"
+                inputMode="numeric"
+                maxLength={3}
+                editable={!saving}
+                error={errors.age}
+              />
+            )}
+            <Question
+              step={step}
+              answers={answers}
+              update={update}
+              errors={errors}
+              edit={(target) => void edit(target)}
               disabled={saving}
             />
-            {!welcome && !(editing && step === "name") && (
+            {step === "review" && Object.keys(errors).length > 0 && (
+              <AppText
+                accessibilityRole="alert"
+                style={{ color: colors.error }}
+              >
+                Some answers need another look. Use Edit above to check them.
+              </AppText>
+            )}
+            {error && (
+              <AppText
+                accessibilityRole="alert"
+                style={{ color: colors.error }}
+              >
+                {error}
+              </AppText>
+            )}
+            <View style={{ marginTop: "auto", gap: 12, paddingTop: 12 }}>
               <Button
-                label="Back"
-                secondary
-                onPress={() => void back()}
+                label={
+                  saving
+                    ? "Saving…"
+                    : welcome
+                      ? "Let's go"
+                      : step === "review"
+                        ? editing
+                          ? "Save changes"
+                          : "Finish setup"
+                        : returnToReview
+                          ? "Back to review"
+                          : "Continue"
+                }
+                onPress={() => void next()}
                 disabled={saving}
               />
+              {!welcome && !(editing && step === "name") && (
+                <Button
+                  label="Back"
+                  secondary
+                  onPress={() => void back()}
+                  disabled={saving}
+                />
+              )}
+              {!editing && welcome && (
+                <Button
+                  label="Set up later"
+                  secondary
+                  onPress={() => void skip()}
+                  disabled={saving}
+                />
+              )}
+            </View>
+            {welcome && (
+              <AppText variant="caption" muted style={{ textAlign: "center" }}>
+                For ages 16+. Your answers stay on this device.
+              </AppText>
             )}
-            {!editing && welcome && (
-              <Button
-                label="Set up later"
-                secondary
-                onPress={() => void skip()}
-                disabled={saving}
-              />
-            )}
-          </View>
-          {welcome && (
-            <AppText variant="caption" muted style={{ textAlign: "center" }}>
-              Your answers stay on this device.
-            </AppText>
-          )}
+          </PageTransition>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 const styles = StyleSheet.create({
-  topBar: {
-    minHeight: 72,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 16,
-    width: "100%",
-    maxWidth: 640,
-    alignSelf: "center",
-  },
   content: {
     width: "100%",
     maxWidth: 560,

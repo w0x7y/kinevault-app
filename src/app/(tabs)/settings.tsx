@@ -24,7 +24,7 @@ export default function SettingsScreen() {
   const [focused, setFocused] = useState<AppearancePreference | null>(null);
   const { state } = useProfile();
   return (
-    <Screen title="Settings">
+    <Screen title="Settings" pose="settings">
       {state.kind === "ready" && state.document.kind === "complete" && (
         <>
           <Panel>

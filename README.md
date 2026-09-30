@@ -14,6 +14,10 @@ studio is maintained separately.
 - First-run onboarding with Kine, resumable local answers, and profile editing.
 - Editable calorie estimates for losing, maintaining, or gaining weight.
   Users can skip estimation or set a target manually.
+- Ages 16+. Automatic calorie estimates are for adults; ages 16–17 use a
+  custom target agreed with a health professional, or leave it unset.
+- Eleven distinct Kine poses, quick page transitions, and an animated setup
+  progress bar. System reduced-motion preferences are respected.
 
 Food and exercise logging, accounts, macro targets, database search, video playback,
 and KineVault integration are not implemented in this phase.
@@ -26,8 +30,9 @@ Use Node.js 24 LTS and npm. Install the locked dependencies with `npm ci`.
 npm start
 ```
 
-Open the QR code with an SDK 57-compatible Expo Go client on your phone.
-The phone and development machine must be on the same network. If the installed
+Scan the QR code with the iPhone Camera or Expo Go on Android, using an SDK
+57-compatible client. For LAN mode, phone and computer must share a network.
+If the installed
 Expo Go version does not support SDK 57, use a compatible client or development
 build. No backend credentials are needed for this foundation.
 
@@ -40,6 +45,34 @@ npm run ios       # iOS simulator, requires macOS and Xcode
 The web preview uses the same screens and components; it does not replace testing
 on native devices. No app-store build, application identifier, or EAS project is
 configured yet.
+
+### iPhone connection
+
+For a timeout such as “This is taking much longer than it should”:
+
+```sh
+npx expo login
+npm run start:tunnel
+```
+
+Sign into the same Expo account in Expo Go on the iPhone. Physical iOS devices
+check the developer account ([Expo CLI authentication](https://docs.expo.dev/more/expo-cli/#authentication)).
+Update Expo Go from the App Store if necessary; this app uses SDK 57.
+Scan the new terminal QR with the Camera; pasting `exp://` into a browser search
+does not open the app. The tunnel bypasses local Wi-Fi routing and firewall
+restrictions. The tunnel address changes between sessions.
+
+For local Wi-Fi, use `npm run start:lan` and allow Expo Go's Local Network access
+in iOS Settings. Check whether the server is reachable by opening its printed
+`http://<computer-IP>:8081/status` address in Safari. A response of
+`packager-status:running` confirms connectivity from the phone.
+
+Run `npm run doctor:connection` to inspect the advertised iOS bundle address,
+runtime, available network addresses, and Expo sign-in status. Pass a different
+port if necessary: `npm run doctor:connection -- 8082`.
+
+The checked-in tunnel dependency makes the command usable after `npm ci`.
+Internet access is needed for tunnel mode; app profile data still stays local.
 
 ## Verify
 
@@ -59,9 +92,10 @@ For browser checks, install Chromium once with `npx playwright install chromium`
 Start the preview with `npm run web -- --port 8081`, then run `npm run test:browser`
 in another terminal. Set `KINE_PREVIEW_URL` if the preview uses a different address.
 These tests cover draft resume, calorie overrides, canceled edits, switching to
-manual targets, and retrying a failed save while editing the review screen.
+manual targets, age gating, teen setup, all eleven poses, responsive widths,
+reduced motion, and retrying a failed save while editing the review screen.
 
-The initial dependency audit reports 14 moderate advisories in the Expo
+The dependency audit reports 15 moderate advisories in the Expo and tunnel
 dependency tree, including URI decoding and Xcode build-tool dependencies.
 There are no high or critical advisories in that audit. The proposed automatic
 fixes downgrade Expo or Router to incompatible versions, so these require
@@ -78,7 +112,9 @@ shortlist concepts. It runs independently of the Expo app.
 - `src/theme/`: palette, geometry, typography, and appearance persistence.
 - `src/profile/`: validated answers, calorie estimation, storage, and recovery.
 - `src/onboarding/`: Kine artwork, form controls, and question content.
-- `assets/mascot/`: the selected Kine illustration and its provenance.
+- `assets/mascot/`: Kine's original illustration, page poses, and exact generation prompts.
+- `src/components/motion.tsx`: reduced-motion preferences and setup transitions.
+- `scripts/expo-connect.mjs`: Expo Go connection diagnostics.
 - `DESIGN.md`: supplied KineVault design reference, preserved as shared authority.
 - `PRODUCT.md`: confirmed product scope.
 

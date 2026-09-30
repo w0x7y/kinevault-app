@@ -3,7 +3,7 @@ import { EmptyState, Screen } from "../../components/ui";
 
 export default function ExerciseScreen() {
   return (
-    <Screen title="Exercise">
+    <Screen title="Exercise" pose="exercise">
       <EmptyState
         icon={Dumbbell}
         title="Workout logging isn't ready yet"

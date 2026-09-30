@@ -12,10 +12,12 @@ import { Platform } from "react-native";
 import { ThemeProvider, useTheme } from "../theme/provider";
 import { ProfileProvider, useProfile } from "../profile/provider";
 import { ProfileRecovery } from "../profile/recovery";
+import { MotionProvider, useReducedMotion } from "../components/motion";
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootNavigator() {
+  const reduced = useReducedMotion();
   const { colors, appearance, ready } = useTheme();
   const { state } = useProfile();
   const [fontsLoaded, fontError] = useFonts({
@@ -47,6 +49,7 @@ function RootNavigator() {
         <Stack
           screenOptions={{
             headerShown: false,
+            animation: reduced ? "fade" : "default",
             contentStyle: { backgroundColor: colors.background },
           }}
         />
@@ -58,9 +61,11 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <ProfileProvider>
-        <RootNavigator />
-      </ProfileProvider>
+      <MotionProvider>
+        <ProfileProvider>
+          <RootNavigator />
+        </ProfileProvider>
+      </MotionProvider>
     </ThemeProvider>
   );
 }

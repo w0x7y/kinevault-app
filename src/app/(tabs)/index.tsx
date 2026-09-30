@@ -4,7 +4,7 @@ import { AppText, Destination, Screen } from "../../components/ui";
 
 export default function TodayScreen() {
   return (
-    <Screen title="Today">
+    <Screen title="Today" pose="today">
       <View style={{ gap: 16 }}>
         <Destination
           href="/food"
