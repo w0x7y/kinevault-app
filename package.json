@@ -52,6 +52,14 @@
     "check": "npm run typecheck && npm test",
     "export:web": "expo export --platform web"
   },
+  "overrides": {
+    "@expo/ngrok": {
+      "uuid": "11.1.1"
+    },
+    "xcode": {
+      "uuid": "11.1.1"
+    }
+  },
   "private": true,
   "type": "module"
 }

@@ -113,7 +113,8 @@ npx expo export --platform ios --platform android --output-dir dist-native
 
 Tests cover appearance, profile record validation, draft resume, staged profile
 edits, save/retry ordering, metric input, mascot transparency/resolution/size
-budgets, and calorie-mode changes. Connection checks use local HTTP fixtures for
+budgets, calorie-mode changes, and build-tool UUID buffer bounds and compatibility.
+Connection checks use local HTTP fixtures for
 manifest errors, bundle host rules, HTTPS links, startup retries, and shutdown. Formula assumptions and supported ranges are recorded
 in [the onboarding design](docs/superpowers/specs/2026-09-30-kine-onboarding-design.md). The web export produces static routes in `dist/`.
 GitHub Actions runs these checks and the browser regressions on pushes and pull requests.
@@ -126,11 +127,21 @@ manual targets, age gating, teen setup, all eleven poses, responsive widths,
 reduced motion, mascot prefetching, and retrying a failed save while editing the
 review screen.
 
-The dependency audit reports 15 moderate advisories in the Expo and tunnel
-dependency tree, including URI decoding and Xcode build-tool dependencies.
-There are no high or critical advisories in that audit. The proposed automatic
-fixes downgrade Expo or Router to incompatible versions, so these require
-upstream updates rather than `npm audit fix --force`.
+The dependency audit reports three moderate findings in the Router chain:
+`expo-router` → `query-string` → `decode-uri-component`. The decoder has a
+[malformed-input denial-of-service advisory](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr).
+Its fixed version, 0.5.0, is ESM; the installed `query-string` 7 calls it through
+CommonJS as a function. A decoder-only override would break URL parsing, and
+newer `query-string` versions also change the export interface used by Router.
+This needs a compatible Router update or a tested migration. Do not use
+`npm audit fix --force`, which proposes an incompatible Router downgrade.
+There are no high or critical findings in this audit.
+
+Scoped overrides give the Xcode and Expo tunnel tools `uuid` 11.1.1, fixing
+[UUID output-buffer validation](https://github.com/advisories/GHSA-w5hq-g745-h8pq)
+while retaining their CommonJS `v4()` calls. Tests check both consumers and Xcode
+project identifier generation. Keep the overrides until upstream dependencies
+include the fix.
 
 ## Structure
 
