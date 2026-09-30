@@ -301,6 +301,8 @@ test("each page has a distinct loaded Kine pose and fits phone and desktop width
       );
     }, pose);
     const source = await kine.locator("img").getAttribute("src");
+    assert.match(source, /\.webp(?:\?|$)/, `${pose} should load the optimized 2D asset`);
+    assert.equal(await kine.locator("img").getAttribute("loading"), "eager");
     sources.add(source);
     assert.equal(
       await page.evaluate(
@@ -359,6 +361,24 @@ test("each page has a distinct loaded Kine pose and fits phone and desktop width
   }
   assert.equal(sources.size, 11);
   assert.deepEqual(failures, []);
+});
+
+test("Kine loads the visible pose first and warms the next pose without fetching the full collection", async (t) => {
+  const page = await open(t, undefined, { reducedMotion: "reduce" });
+  await heading(page, "Hi, I'm Kine.");
+  const image = page.getByTestId("kine-welcome").locator("img");
+  await image.evaluate((img) => img.decode());
+  await page.waitForFunction(() =>
+    performance.getEntriesByType("resource").some(({ name }) => /kine-name[^/]*\.webp/.test(name)),
+  );
+  const assets = await page.evaluate(() =>
+    performance.getEntriesByType("resource")
+      .filter(({ name }) => /kine-[^/]+\.webp/.test(name))
+      .map(({ name, encodedBodySize }) => ({ name, encodedBodySize })),
+  );
+  assert.equal(assets.length, 2, "Only the visible and upcoming poses should be requested");
+  assert.ok(assets.every(({ encodedBodySize }) => encodedBodySize > 0 && encodedBodySize <= 50000));
+  assert.equal(await image.getAttribute("fetchpriority"), "high");
 });
 
 test("reduced motion keeps Kine still, including when the preference changes", async (t) => {

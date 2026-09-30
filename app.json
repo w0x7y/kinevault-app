@@ -16,7 +16,9 @@
           "backgroundColor": "#f6f7f9",
           "dark": { "backgroundColor": "#12171d" }
         }
-      ]
+      ],
+      "expo-image",
+      "expo-asset"
     ],
     "experiments": { "typedRoutes": true }
   }

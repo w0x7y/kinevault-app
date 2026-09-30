@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Image } from "react-native";
+import { memo, useEffect } from "react";
+import { Image } from "expo-image";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -11,24 +11,10 @@ import Animated, {
 } from "react-native-reanimated";
 import { useIsFocused } from "expo-router";
 import { useReducedMotion } from "../components/motion";
-import type { Step } from "../profile/model";
+import { kineAssets, warmUpcomingKine, type KinePose } from "./kine-assets";
+export type { KinePose } from "./kine-assets";
 
-const poses = {
-  welcome: require("../../assets/mascot/kine.png"),
-  name: require("../../assets/mascot/kine-name.png"),
-  goal: require("../../assets/mascot/kine-goal.png"),
-  body: require("../../assets/mascot/kine-body.png"),
-  activity: require("../../assets/mascot/kine-activity.png"),
-  calories: require("../../assets/mascot/kine-calories.png"),
-  review: require("../../assets/mascot/kine-review.png"),
-  today: require("../../assets/mascot/kine-today.png"),
-  food: require("../../assets/mascot/kine-food.png"),
-  exercise: require("../../assets/mascot/kine-exercise.png"),
-  settings: require("../../assets/mascot/kine-settings.png"),
-};
-export type KinePose = Step | "today" | "food" | "exercise" | "settings";
-
-export function Kine({
+export const Kine = memo(function Kine({
   size = 152,
   pose = "welcome",
 }: {
@@ -78,8 +64,14 @@ export function Kine({
       style={[{ width: size, height: size, flexShrink: 0 }, livelyStyle]}
     >
       <Image
-        source={poses[pose]}
-        resizeMode="contain"
+        source={kineAssets[pose]}
+        contentFit="contain"
+        cachePolicy="memory-disk"
+        priority="high"
+        loading="eager"
+        transition={0}
+        recyclingKey={pose}
+        onLoad={() => warmUpcomingKine(pose)}
         accessibilityLabel="Kine, your friendly blue companion"
         accessible={false}
         aria-hidden={true}
@@ -87,4 +79,4 @@ export function Kine({
       />
     </Animated.View>
   );
-}
+});

@@ -16,8 +16,10 @@ studio is maintained separately.
   Users can skip estimation or set a target manually.
 - Ages 16+. Automatic calorie estimates are for adults; ages 16–17 use a
   custom target agreed with a health professional, or leave it unset.
-- Eleven distinct Kine poses, quick page transitions, and an animated setup
+- Eleven distinct flat 2D Kine poses, quick page transitions, and an animated setup
   progress bar. System reduced-motion preferences are respected.
+- Small transparent WebP mascot assets, native memory/disk caching, and
+  background prefetching of upcoming poses.
 
 Food and exercise logging, accounts, macro targets, database search, video playback,
 and KineVault integration are not implemented in this phase.
@@ -110,6 +112,7 @@ npx expo export --platform ios --platform android --output-dir dist-native
 ```
 
 Tests cover appearance, profile record validation, draft resume, metric input,
+mascot transparency/resolution/size budgets,
 and calorie calculations. Formula assumptions and supported ranges are recorded
 in [the onboarding design](docs/superpowers/specs/2026-09-30-kine-onboarding-design.md). The web export produces static routes in `dist/`.
 GitHub Actions runs these checks and the browser regressions on pushes and pull requests.
@@ -119,7 +122,8 @@ Start the preview with `npm run web -- --port 8081`, then run `npm run test:brow
 in another terminal. Set `KINE_PREVIEW_URL` if the preview uses a different address.
 These tests cover draft resume, calorie overrides, canceled edits, switching to
 manual targets, age gating, teen setup, all eleven poses, responsive widths,
-reduced motion, and retrying a failed save while editing the review screen.
+reduced motion, mascot prefetching, and retrying a failed save while editing the
+review screen.
 
 The dependency audit reports 15 moderate advisories in the Expo and tunnel
 dependency tree, including URI decoding and Xcode build-tool dependencies.
@@ -138,7 +142,8 @@ shortlist concepts. It runs independently of the Expo app.
 - `src/theme/`: palette, geometry, typography, and appearance persistence.
 - `src/profile/`: validated answers, calorie estimation, storage, and recovery.
 - `src/onboarding/`: Kine artwork, form controls, and question content.
-- `assets/mascot/`: Kine's original illustration, page poses, and exact generation prompts.
+- `assets/mascot/2d/`: optimized page poses, source artwork, and exact generation prompts.
+- `scripts/optimize-mascot.mjs`: reproducible mascot compression; see the [artwork notes](assets/mascot/README.md).
 - `src/components/motion.tsx`: reduced-motion preferences and setup transitions.
 - `scripts/expo-connect.mjs`: Expo Go connection diagnostics.
 - `DESIGN.md`: supplied KineVault design reference, preserved as shared authority.

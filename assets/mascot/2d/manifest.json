@@ -1,0 +1,66 @@
+{
+  "generator": "Built-in image_gen",
+  "format": "Transparent WebP",
+  "quality": 80,
+  "alphaQuality": 100,
+  "previous3dBytes": 10017730,
+  "totalBytes": 199756,
+  "reductionPercent": 98.01,
+  "assets": [
+    {
+      "file": "kine-activity.webp",
+      "pixels": 456,
+      "bytes": 16640
+    },
+    {
+      "file": "kine-body.webp",
+      "pixels": 456,
+      "bytes": 17556
+    },
+    {
+      "file": "kine-calories.webp",
+      "pixels": 456,
+      "bytes": 14240
+    },
+    {
+      "file": "kine-exercise.webp",
+      "pixels": 456,
+      "bytes": 15084
+    },
+    {
+      "file": "kine-food.webp",
+      "pixels": 456,
+      "bytes": 18430
+    },
+    {
+      "file": "kine-goal.webp",
+      "pixels": 456,
+      "bytes": 17872
+    },
+    {
+      "file": "kine-name.webp",
+      "pixels": 456,
+      "bytes": 14720
+    },
+    {
+      "file": "kine-review.webp",
+      "pixels": 456,
+      "bytes": 18404
+    },
+    {
+      "file": "kine-settings.webp",
+      "pixels": 456,
+      "bytes": 15112
+    },
+    {
+      "file": "kine-today.webp",
+      "pixels": 456,
+      "bytes": 15638
+    },
+    {
+      "file": "kine-welcome.webp",
+      "pixels": 840,
+      "bytes": 36060
+    }
+  ]
+}
