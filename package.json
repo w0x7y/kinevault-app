@@ -30,12 +30,14 @@
     "@types/node": "^26.6.3",
     "@types/react": "~19.2.2",
     "playwright": "1.63.0",
+    "toqr": "^0.1.1",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
     "start:lan": "expo start --go --lan",
     "start:tunnel": "expo start --go --tunnel",
+    "start:cloudflare": "node scripts/expo-cloudflare.mjs",
     "doctor:connection": "node scripts/expo-connect.mjs",
     "android": "expo start --android",
     "ios": "expo start --ios",

@@ -27,7 +27,8 @@ try {
   if (typeof bundle !== "string")
     throw new Error("Server did not return an Expo Go manifest.");
   console.log(`iOS runtime: ${manifest.runtimeVersion}`);
-  console.log(`Expo Go address: exp://${new URL(bundle).host}`);
+  const scheme = new URL(bundle).protocol === "https:" ? "exps" : "exp";
+  console.log(`Expo Go address: ${scheme}://${new URL(bundle).host}`);
   if (["localhost", "127.0.0.1", "::1"].includes(new URL(bundle).hostname)) {
     console.log(
       "Phone cannot use localhost. Restart with npm run start:lan or npm run start:tunnel.",

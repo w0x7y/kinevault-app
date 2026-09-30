@@ -74,6 +74,14 @@ port if necessary: `npm run doctor:connection -- 8082`.
 The checked-in tunnel dependency makes the command usable after `npm ci`.
 Internet access is needed for tunnel mode; app profile data still stays local.
 
+If ngrok fails with `remote gone away` or `session closed`, use the Cloudflare
+fallback. Install [cloudflared](https://developers.cloudflare.com/tunnel/downloads/),
+then run `npm run start:cloudflare`. The launcher starts both servers, verifies the
+public iOS manifest, and prints a secure `exps://` QR code. Keep the terminal open;
+Ctrl+C stops both processes. The address is temporary and changes on each launch.
+The QR is also saved at `.expo/connection-qr.svg`. You can pass another port with
+`npm run start:cloudflare -- 8083` or set `CLOUDFLARED_BIN` to a custom binary path.
+
 ## Verify
 
 ```sh
