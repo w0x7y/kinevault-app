@@ -1,4 +1,4 @@
-name: Check foundation
+name: Check app
 
 on:
   push:
@@ -20,3 +20,17 @@ jobs:
       - run: npm run check
       - run: npx expo-doctor
       - run: npm run export:web
+      - run: npx expo export --platform ios --platform android --output-dir dist-native
+      - run: npx playwright install --with-deps chromium
+      - name: Verify onboarding in the browser
+        run: |
+          npm run web -- --port 8081 > /tmp/kinevault-expo.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:8081 > /dev/null; then
+              npm run test:browser
+              exit $?
+            fi
+            sleep 1
+          done
+          cat /tmp/kinevault-expo.log
+          exit 1

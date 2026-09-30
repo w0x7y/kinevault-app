@@ -11,8 +11,11 @@ studio is maintained separately.
 - System, Light, and Dark appearance, saved locally on the device.
 - English copy, metric units, safe-area layout, and scalable text.
 - Empty states and a missing-route recovery screen.
+- First-run onboarding with Kine, resumable local answers, and profile editing.
+- Editable calorie estimates for losing, maintaining, or gaining weight.
+  Users can skip estimation or set a target manually.
 
-Food and exercise logging, accounts, goals, database search, video playback,
+Food and exercise logging, accounts, macro targets, database search, video playback,
 and KineVault integration are not implemented in this phase.
 
 ## Run locally
@@ -47,9 +50,16 @@ npm run export:web
 npx expo export --platform ios --platform android --output-dir dist-native
 ```
 
-Preference tests cover explicit themes, OS-following behavior, and unsupported
-stored values. The web export produces static routes in `dist/`.
-GitHub Actions runs these checks on pushes and pull requests.
+Tests cover appearance, profile record validation, draft resume, metric input,
+and calorie calculations. Formula assumptions and supported ranges are recorded
+in [the onboarding design](docs/superpowers/specs/2026-09-30-kine-onboarding-design.md). The web export produces static routes in `dist/`.
+GitHub Actions runs these checks and the browser regressions on pushes and pull requests.
+
+For browser checks, install Chromium once with `npx playwright install chromium`.
+Start the preview with `npm run web -- --port 8081`, then run `npm run test:browser`
+in another terminal. Set `KINE_PREVIEW_URL` if the preview uses a different address.
+These tests cover draft resume, calorie overrides, canceled edits, switching to
+manual targets, and retrying a failed save while editing the review screen.
 
 The initial dependency audit reports 14 moderate advisories in the Expo
 dependency tree, including URI decoding and Xcode build-tool dependencies.
@@ -66,6 +76,9 @@ shortlist concepts. It runs independently of the Expo app.
 - `src/app/`: routes and navigation layouts.
 - `src/components/ui.tsx`: shared text, panel, screen, destination, and empty state.
 - `src/theme/`: palette, geometry, typography, and appearance persistence.
+- `src/profile/`: validated answers, calorie estimation, storage, and recovery.
+- `src/onboarding/`: Kine artwork, form controls, and question content.
+- `assets/mascot/`: the selected Kine illustration and its provenance.
 - `DESIGN.md`: supplied KineVault design reference, preserved as shared authority.
 - `PRODUCT.md`: confirmed product scope.
 

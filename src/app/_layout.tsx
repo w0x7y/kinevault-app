@@ -10,18 +10,22 @@ import * as SystemUI from "expo-system-ui";
 import { useEffect } from "react";
 import { Platform } from "react-native";
 import { ThemeProvider, useTheme } from "../theme/provider";
+import { ProfileProvider, useProfile } from "../profile/provider";
+import { ProfileRecovery } from "../profile/recovery";
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootNavigator() {
   const { colors, appearance, ready } = useTheme();
+  const { state } = useProfile();
   const [fontsLoaded, fontError] = useFonts({
     Geist_400Regular,
     Geist_500Medium,
     Geist_600SemiBold,
     Geist_700Bold,
   });
-  const loaded = ready && (fontsLoaded || Boolean(fontError));
+  const loaded =
+    ready && (fontsLoaded || Boolean(fontError)) && state.kind !== "loading";
 
   useEffect(() => {
     if (loaded) void SplashScreen.hideAsync();
@@ -37,12 +41,16 @@ function RootNavigator() {
   return (
     <>
       <StatusBar style={appearance === "dark" ? "light" : "dark"} />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
-        }}
-      />
+      {state.kind === "error" ? (
+        <ProfileRecovery />
+      ) : (
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.background },
+          }}
+        />
+      )}
     </>
   );
 }
@@ -50,7 +58,9 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <RootNavigator />
+      <ProfileProvider>
+        <RootNavigator />
+      </ProfileProvider>
     </ThemeProvider>
   );
 }

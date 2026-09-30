@@ -19,3 +19,6 @@ Then open `http://localhost:8090/mascots.html`.
 Illustrations are generated concept art. They are not an approved mascot, logo,
 or production app asset. Generation prompts are recorded in
 `mascot-assets/prompts.json`; Geist's font license is included alongside the fonts.
+
+The selected direction is **Original creature**, now named **Kine**. The Expo
+onboarding uses the same illustration from `assets/mascot/kine.png`.

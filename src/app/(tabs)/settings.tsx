@@ -1,7 +1,9 @@
-import { Check, Monitor, Moon, Sun } from "lucide-react-native";
+import { Check, Monitor, Moon, Sun, UserRound } from "lucide-react-native";
 import { Pressable, View } from "react-native";
 import { useState } from "react";
-import { AppText, Panel, Screen } from "../../components/ui";
+import { AppText, Destination, Panel, Screen } from "../../components/ui";
+import { ProfileReview } from "../../onboarding/profile-review";
+import { useProfile } from "../../profile/provider";
 import { useTheme } from "../../theme/provider";
 import type { AppearancePreference } from "../../theme/preferences";
 import { radius } from "../../theme/tokens";
@@ -20,8 +22,24 @@ export default function SettingsScreen() {
   const { colors, preference, setPreference, saving, error, retryLoad } =
     useTheme();
   const [focused, setFocused] = useState<AppearancePreference | null>(null);
+  const { state } = useProfile();
   return (
     <Screen title="Settings">
+      {state.kind === "ready" && state.document.kind === "complete" && (
+        <>
+          <Panel>
+            <AppText variant="heading" accessibilityRole="header">
+              Your profile
+            </AppText>
+            <ProfileReview answers={state.document.answers} />
+          </Panel>
+          <Destination
+            href="/onboarding"
+            title="Edit profile"
+            icon={UserRound}
+          />
+        </>
+      )}
       <Panel>
         <AppText variant="heading" accessibilityRole="header">
           Appearance

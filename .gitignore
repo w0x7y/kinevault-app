@@ -46,3 +46,6 @@ dist-native/
 .env
 .env.*
 !.env.example
+
+# Local visual verification artifacts
+.impeccable/review/

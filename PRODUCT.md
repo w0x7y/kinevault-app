@@ -17,17 +17,18 @@ exercise creation studio remains a separate project in the sibling directory.
 
 ## Current scope
 
-Foundation and navigation only. Today, Food, Exercise, and Settings are the
-top-level destinations. English copy and metric measurement units.
+Foundation, navigation, and Kine-guided onboarding. Today, Food, Exercise, and
+Settings are the top-level destinations. English copy and metric measurement units.
 Appearance supports System, Light, and Dark, with a saved preference.
-Tracking, calorie goals, accounts, food search, and KineVault integration are
-outside this first delivery. API and shared-login requirements remain undecided.
+A local profile and editable, goal-adjusted calorie estimates are included.
+Tracking, accounts, food search, and KineVault integration remain outside scope. API and shared-login requirements remain undecided.
 
 ## Brand commitments
 
 Follow the supplied DESIGN.md. Preserve its Geist typography, Lucide icons,
 semantic palette, flat panels, mobile spacing, and accessible touch targets.
-Use the app name alone in the top bar. No app icon has been chosen yet.
+Use the app name alone in the top bar. Kine, the selected original creature,
+guides onboarding. His illustration is not an app icon.
 Keep interface copy short and conversational; omit repeated introductions.
 
 ## Evidence on hand

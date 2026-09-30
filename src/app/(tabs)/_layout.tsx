@@ -1,4 +1,4 @@
-import { Tabs } from "expo-router";
+import { Redirect, Tabs } from "expo-router";
 import {
   CalendarDays,
   Utensils,
@@ -8,9 +8,13 @@ import {
 import { AppText } from "../../components/ui";
 import { useTheme } from "../../theme/provider";
 import { fonts } from "../../theme/tokens";
+import { useProfile } from "../../profile/provider";
 
 export default function TabLayout() {
   const { colors } = useTheme();
+  const { state } = useProfile();
+  if (state.kind !== "ready") return null;
+  if (state.document.kind === "draft") return <Redirect href="/onboarding" />;
   return (
     <Tabs
       screenOptions={{

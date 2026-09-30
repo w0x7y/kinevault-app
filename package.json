@@ -28,6 +28,7 @@
   "devDependencies": {
     "@types/node": "^26.6.3",
     "@types/react": "~19.2.2",
+    "playwright": "1.63.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -37,6 +38,7 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:browser": "node --test tests/onboarding.browser.mjs",
     "check": "npm run typecheck && npm test",
     "export:web": "expo export --platform web"
   },
