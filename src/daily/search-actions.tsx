@@ -5,20 +5,26 @@ import { Icon, type IconName } from "../components/icon";
 import { KineSplitRow } from "../components/kine-split-row";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
+import { FoodButton } from "../food/food-button";
+import type { CatalogKind } from "../food/meal-model.ts";
 
 type SearchActionsProps = {
   query: string;
   onQueryChange: (query: string) => void;
-} & ({ kind: "food"; onViewMacros: () => void; macrosDisabled: boolean } | { kind: "exercise" });
+} & ({ kind: "food"; onViewMacros: () => void; macrosDisabled: boolean;
+  onCreateItem: () => void; createDisabled: boolean; searchDisabled: boolean;
+  catalogKind: CatalogKind; onCatalogKindChange: (kind: CatalogKind) => void } | { kind: "exercise" });
 
 export function SearchActions(props: SearchActionsProps) {
   const { kind, query, onQueryChange } = props;
   const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
-  const label = kind === "food" ? "Search foods" : "Search exercises";
-  const actions: { label: string; icon: IconName; onPress?: () => void; disabled?: boolean }[] = props.kind === "food" ? [
-    { label: "Create Foods", icon: "circle-plus" },
-    { label: "View macros for the day", icon: "chart-pie", onPress: props.onViewMacros, disabled: props.macrosDisabled },
+  const label = props.kind === "food" ? props.catalogKind === "meal" ? "Search meals" : "Search foods" : "Search exercises";
+  const actions: { label: string; icon: IconName; hint?: string; onPress?: () => void; disabled?: boolean }[] = props.kind === "food" ? [
+    { label: "Create food/meal", icon: "circle-plus", onPress: props.onCreateItem, disabled: props.createDisabled,
+      hint: "Create a reusable food or a meal made from foods" },
+    { label: "View macros for the day", icon: "chart-pie", onPress: props.onViewMacros, disabled: props.macrosDisabled,
+      hint: "Shows nutrition totals for the selected day" },
   ] : [
     { label: "Create Exercise", icon: "circle-plus" },
     { label: "Create Workouts", icon: "clipboard-list" },
@@ -33,7 +39,7 @@ export function SearchActions(props: SearchActionsProps) {
               accessibilityRole="button"
               accessibilityLabel={action.label}
               accessibilityState={{ disabled: !action.onPress || action.disabled }}
-              accessibilityHint={action.onPress ? "Shows nutrition totals for the selected day" : "Coming soon"}
+              accessibilityHint={action.hint ?? "Coming soon"}
               disabled={!action.onPress || action.disabled}
               onPress={action.onPress}
               style={({ pressed }) => ({
@@ -68,11 +74,12 @@ export function SearchActions(props: SearchActionsProps) {
         <Icon name="magnifying-glass" size={18} color={colors.mutedForeground} />
         <TextInput
           accessibilityLabel={label}
-          accessibilityHint={kind === "food" ? "Searches the offline food database" : "Filters entries logged for the selected day"}
+          accessibilityHint={props.kind === "food" ? props.catalogKind === "meal" ? "Searches your saved meals" : "Searches the offline food database" : "Filters entries logged for the selected day"}
           placeholder={label}
           placeholderTextColor={colors.mutedForeground}
           selectionColor={colors.ring}
           value={query}
+          editable={props.kind !== "food" || !props.searchDisabled}
           onChangeText={onQueryChange}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
@@ -84,6 +91,7 @@ export function SearchActions(props: SearchActionsProps) {
         />
         {query.length > 0 && (
           <Pressable accessibilityRole="button" accessibilityLabel="Clear search"
+            disabled={props.kind === "food" && props.searchDisabled}
             onPress={() => onQueryChange("")}
             style={({ pressed }) => ({ width: 44, minHeight: 44, alignItems: "center", justifyContent: "center",
               backgroundColor: pressed ? colors.accent : "transparent", borderRadius: 8 })}>
@@ -91,6 +99,12 @@ export function SearchActions(props: SearchActionsProps) {
           </Pressable>
         )}
       </View>
+      {props.kind === "food" && <View testID="food-catalog-switch" style={{ flexDirection: "row", gap: spacing.layout }}>
+        <View style={{ flex: 1 }}><FoodButton label="Food" selected={props.catalogKind === "food"}
+          disabled={props.searchDisabled} onPress={() => props.onCatalogKindChange("food")} /></View>
+        <View style={{ flex: 1 }}><FoodButton label="Meal" selected={props.catalogKind === "meal"}
+          disabled={props.searchDisabled} onPress={() => props.onCatalogKindChange("meal")} /></View>
+      </View>}
     </View>
   );
 }

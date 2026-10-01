@@ -20,7 +20,7 @@ studio is maintained separately.
   Food and Exercise place their search fields below their action/Kine rows.
   Workout details list completed exercises with sets, reps, and actual weight ranges.
   Food records can be logged to a meal on the selected day. Workouts, steps,
-  and water remain empty; create/view buttons are disabled placeholders.
+  and water remain empty; exercise creation buttons are disabled placeholders.
 - Shared 12px screen margins, panel padding, and gaps across tabs and onboarding.
 - Comfortaa typography, Font Awesome 6 icons, and shared themed components.
 - System, Light, and Dark appearance, saved locally on the device.
@@ -31,6 +31,10 @@ studio is maintained separately.
 - Local food logging to Breakfast, Lunch, Dinner, or Snacks / Drinks, with
   saved gram amounts, editing, removal, and shared daily calorie/macro totals.
   Empty meals say “No food has been logged yet”.
+- Create reusable custom foods with a name, serving weight, calories, and macros.
+  Foods persist on the device and appear alongside USDA foods in search.
+- Create reusable meals from foods and gram amounts, with calculated calories
+  and macros that can be overridden. Food/Meal buttons switch the search catalog.
 - View macros for the day shows calories first, then an ordered nutrient list
   for the selected date with gram, milligram, and microgram units.
 - First-run onboarding with Kine, resumable local answers, and profile editing.
@@ -52,6 +56,46 @@ Exercise logging, accounts, video playback,
 and KineVault integration are not implemented in this phase.
 
 ## Food database
+
+Use the Food and Meal buttons below search to choose a catalog. Tap Create
+food/meal to open the matching form. In Food mode, enter a name, serving weight in grams, and
+calories, carbs, protein, and fat for that serving. All nutrition values are
+required; zero and decimal amounts are accepted. Save food stores it locally,
+then opens its serving screen with a confirmation popup explaining that the food
+is available in search. Dismiss the popup with OK. Custom search results show a
+small person-and-pen icon beside the name and announce their custom origin to
+screen readers. Choose a meal and tap Log food to add it to the
+selected day. Cancel discards the unsaved form. Failed saves keep the form for retry.
+Changing the selected calendar day preserves an open creation draft. Food names
+can be searched in non-English scripts as well as English.
+
+Custom foods are normalized to per-100g nutrition for search and have a separate
+identity from USDA records. Their entered serving remains selectable. They use
+their own versioned storage key, `kinevault-track.custom-foods.v1`, and persist
+across restarts. A corrupt or unreadable custom catalog offers Retry custom foods
+and blocks creation, while USDA search and existing logged entries remain usable.
+Detailed nutrients for custom foods are unknown and display Not available in
+daily totals. Creating foods does not change the daily log until Log food is used.
+Open a custom item from search to use Edit food/meal or Delete food/meal.
+Editing opens a prefilled form, saves under the same identity, and updates future
+logging and search. Cancel discards changes. Deletion requires confirmation and
+removes the item from the catalog. Failed edits and deletes keep the saved item
+and offer retry. Calendar changes preserve open catalog-edit drafts. Existing daily log entries and ingredient snapshots in saved
+meals keep their names and nutrition when source items are edited or deleted.
+
+In Meal mode, add foods from ingredient search and set each amount in grams.
+Calories, carbs, protein, and fat are calculated for the whole collection.
+Editing a nutrition value overrides only that value; other values continue to
+follow ingredient amounts. Use calculated nutrition clears all overrides.
+Save meal stores the ingredients and nutrition locally, opens the serving screen,
+and confirms that it is available in meal search. Meal mode lists saved meals
+even with an empty query; Food mode searches USDA and custom foods. Both creation
+drafts survive switching between Food and Meal or changing the selected day.
+One complete meal is its combined ingredient weight, up to 10,000 g. Log meal
+can record any gram amount as a single entry in Breakfast, Lunch, Dinner, or
+Snacks / Drinks. Its nutrition and ingredient amounts scale with the logged
+portion. Detailed nutrients follow the ingredients, preserving unknown values.
+Meals share the custom-food storage document; existing saved foods remain readable.
 
 The Food tab searches a bundled copy of USDA FoodData Central's
 [FNDDS 2021-2023](https://fdc.nal.usda.gov/download-datasets/) dietary database,
@@ -96,7 +140,7 @@ Its category shares use 4 kcal/g for carbs and protein and 9 kcal/g for fat,
 normalized to the consumed portion of the bar. Food-source calories may differ
 from that estimate. Calories without recorded macros use a neutral fill.
 
-This is a fixed catalog of foods and prepared dishes, not a live branded-product
+The USDA catalog is a fixed set of foods and prepared dishes, not a live branded-product
 or barcode service. USDA food descriptions are in English and retain source
 abbreviations such as NFS, meaning not further specified. The
 [USDA data license](https://fdc.nal.usda.gov/api-guide/#licensing) is CC0 1.0.

@@ -58,6 +58,15 @@ changes the existing entry when saved; cancel preserves it.
 
 **Meal**: Breakfast, Lunch, Dinner, or Snacks / Drinks within a day's food log.
 
+**Custom food**: A reusable food with a name, serving weight, calories, and
+macros entered by the user.
+
+**Custom meal**: A reusable collection of foods and their amounts. Its calories
+and macros begin as ingredient totals and can be overridden for the whole meal.
+
+**Meal nutrition override**: A calorie or macro value entered for a Custom meal.
+It stays fixed when ingredient amounts change until calculated nutrition is restored.
+
 **Detailed nutrient total**: The selected day's intake of a fat subtype, fiber,
 sugars, mineral, vitamin D, caffeine, or alcohol. A missing food-source value
 makes that nutrient's daily total unavailable; a reported zero is known intake.

@@ -39,11 +39,28 @@ reference patterns, not implemented companion features.
   their amber, blue, and purple theme tokens in labels, icons, progress fills,
   and the calorie bar's stacked segments. The unconsumed track stays neutral.
 - Food and Exercise begin with two centered-label action buttons to Kine's left,
-  followed by a full-width search field. Create Foods, Create Exercise, and
-  Create Workouts are disabled placeholders without visible “Coming soon”
-  captions. View macros for the day opens calories and progress above the
-  selected date's ordered nutrient list. Food searches the offline USDA catalog; Exercise
+  followed by a full-width search field. Food places Food and Meal buttons below
+  search to switch catalogs and creation forms. Create food/meal opens an inline panel for
+  a food name, serving weight, and calories/macros per serving. Nutrition inputs
+  form a wrapping two-column grid with the existing macro colors; Save food and
+  Cancel are full-width controls. Validation and failed saves appear inline and
+  preserve the draft. Saving opens the serving screen and a centered confirmation
+  popup directing users to food search, with an OK action. Custom foods join
+  search results with a Custom food category and a small person-and-pen icon
+  beside the name. Create Exercise and Create Workouts
+  remain disabled placeholders without visible “Coming soon” captions.
+  View macros for the day opens calories and progress above the
+  selected date's ordered nutrient list. The meal form adds foods through ingredient
+  search, shows editable gram amounts and removal controls, and calculates whole-meal
+  nutrition in the same input grid. Edited nutrition stays overridden until Use
+  calculated nutrition is chosen. Saved meals have their own search catalog and
+  confirmation popup, with the same custom-item icon. Food searches the offline USDA and custom catalog; Exercise
   search filters the selected day's existing exercise rows.
+- Custom food and meal details place Edit and Delete controls below the name and
+  category. Edit opens the matching prefilled form with Save food/meal changes
+  and Cancel. Delete opens a themed confirmation popup naming the item and
+  explaining that existing log entries and saved ingredients are kept. Failed
+  writes show inline retry errors. USDA foods have no catalog edit/delete controls.
 - Food retains Breakfast, Lunch, Dinner, and Snacks / Drinks sections with calories.
   Empty meals say “No food has been logged yet”. Search results show grams,
   nutrition, meal choices with announced selection, and a primary Log food action for the selected

@@ -44,7 +44,26 @@ fat, its saturated/trans subtypes, fiber, total sugars, sodium, cholesterol,
 potassium, calcium, iron, vitamin D, caffeine, and alcohol in their metric units.
 Missing source values show Not available. New entries retain detailed nutrient
 snapshots; older entries can resolve them using the same bundled USDA food and grams.
-Creation buttons remain disabled.
+Create food/meal saves reusable custom foods with a name, serving weight, calories,
+carbs, protein, and fat. Nutrition is entered per serving and normalized for
+search alongside USDA foods. Saving opens the serving screen without adding a
+meal entry; Log food records it on the selected day. Custom foods persist locally
+with separate IDs and storage, and unknown detailed nutrients remain unavailable.
+Failed saves retain the form for retry; unreadable custom storage blocks creation
+until a successful retry. Exercise creation buttons remain disabled.
+Food and Meal buttons below search choose the catalog and creation form. A custom
+meal contains foods and gram amounts, with calories and macros calculated from
+the ingredients. Users can override any value or restore calculated nutrition.
+Meals persist locally, appear in meal search with a custom-item icon, and can be
+logged as one entry for a complete meal or a gram portion. Saving confirms where
+to find the item in search. Switching Food/Meal or calendar dates preserves open
+creation drafts.
+Custom item details offer Edit food/meal and Delete food/meal. Edits reuse the
+prefilled creation form; saved meals retain their ingredient amounts and explicit
+nutrition overrides. Saves replace the catalog item under the same identity.
+Deletion requires confirmation. Failed writes preserve saved records and retain
+the edit or delete view for retry. Existing log entries and ingredients in saved
+meals retain their snapshots when a catalog item changes or is deleted.
 Custom macro grams are independent of the calorie target. Zero is a valid
 override; clearing a field returns that macro to its calculated target.
 The app is for ages 16 and up. Automatic estimates are adult-only; users aged

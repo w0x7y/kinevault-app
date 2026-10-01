@@ -6,7 +6,7 @@ export function sumDetailedNutrients(foods: readonly FoodEntry[], findFood: (id:
   const totals = { ...unknownNutrients };
   for (const { key } of detailedNutrients) totals[key] = 0;
   for (const food of foods) {
-    const source = food.details ? undefined : findFood(food.fdcId)?.details;
+    const source = food.details || food.fdcId === undefined ? undefined : findFood(food.fdcId)?.details;
     const values = food.details ?? (source ? scaleNutrients(source, food.grams / 100) : unknownNutrients);
     for (const { key } of detailedNutrients) {
       const current = totals[key];

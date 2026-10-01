@@ -59,12 +59,14 @@ export function Screen({
   pose,
   showTitle = true,
   scrollRef,
+  adjustKeyboardInsets = false,
 }: PropsWithChildren<{
   title: string;
   description?: string;
   pose?: KinePose;
   showTitle?: boolean;
   scrollRef?: Ref<ScrollView>;
+  adjustKeyboardInsets?: boolean;
 }>) {
   const { colors } = useTheme();
   return (
@@ -78,6 +80,7 @@ export function Screen({
       <ScrollView
         ref={scrollRef}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={adjustKeyboardInsets}
         contentContainerStyle={styles.screen}
       >
         {showTitle && (

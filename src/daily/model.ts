@@ -1,5 +1,6 @@
 import { interpretWorkout } from "./workout.ts";
 import type { DetailedNutrients } from "../food/nutrients.ts";
+import type { FoodIdentity } from "../food/catalog.ts";
 
 export const meals = [
   { key: "breakfast", label: "Breakfast", icon: "mug-hot" },
@@ -8,11 +9,10 @@ export const meals = [
   { key: "snacks", label: "Snacks / Drinks", icon: "apple-whole" },
 ] as const;
 export type Meal = (typeof meals)[number]["key"];
-export type FoodEntry = {
+export type FoodEntry = FoodIdentity & {
   id: string;
   name: string;
   meal: Meal;
-  fdcId: number;
   grams: number;
   calories: number;
   carbs: number;

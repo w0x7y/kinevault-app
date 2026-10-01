@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { createFoodCatalog, type CatalogFood } from "../src/food/catalog.ts";
 import { detailedNutrients } from "../src/food/nutrients.ts";
 
-const data: { source: { recordCount: number }; foods: CatalogFood[] } = JSON.parse(
+const data: { source: { recordCount: number }; foods: (CatalogFood & { fdcId: number })[] } = JSON.parse(
   await readFile(new URL("../assets/food/usda-fndds.json", import.meta.url), "utf8"),
 );
 

@@ -18,6 +18,452 @@ const adult = {
   eligible: true,
   customCalories: "",
 };
+
+test("custom food and meal edits and deletes persist, retry safely and preserve logged nutrition", async (t) => {
+  const page = await open(t, { version: 1, kind: "complete", answers: adult }, { viewport: { width: 320, height: 844 } });
+  await page.evaluate(() => {
+    const food = { customId: "editable-oats", name: "Saved oats", category: "Custom food", per100g: { calories: 400, carbs: 60, protein: 20, fat: 8 }, portions: [{ label: "1 serving", grams: 100 }] };
+    const meal = { customId: "editable-bowl", name: "Saved bowl", category: "Custom meal", per100g: { calories: 400, carbs: 60, protein: 60, fat: 8 }, portions: [{ label: "1 meal", grams: 50 }], ingredients: [{ id: "ingredient-1", food, grams: 50 }], overrides: { protein: 30 } };
+    const today = new Date();
+    const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    localStorage.setItem("kinevault-track.custom-foods.v1", JSON.stringify({ version: 1, foods: [food], meals: [meal] }));
+    localStorage.setItem("kinevault-track.food-log.v1", JSON.stringify({ version: 1, days: { [date]: [
+      { id: "logged-food", customId: food.customId, name: food.name, grams: 50, meal: "breakfast", calories: 200, carbs: 30, protein: 10, fat: 4 },
+      { id: "logged-meal", customId: meal.customId, name: meal.name, grams: 50, meal: "lunch", calories: 200, carbs: 30, protein: 30, fat: 4 },
+    ] } }));
+  });
+  await page.reload();
+  await page.getByRole("tab", { name: "Food" }).click();
+  const readCatalog = () => page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.custom-foods.v1")));
+  const readLog = () => page.evaluate(() => localStorage.getItem("kinevault-track.food-log.v1"));
+  const originalLog = await readLog();
+  const failCatalogWrite = () => page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "kinevault-track.custom-foods.v1") {
+        Storage.prototype.setItem = original;
+        throw new Error("Simulated catalog change failure");
+      }
+      return original.call(this, key, value);
+    };
+  });
+  const search = page.getByRole("textbox", { name: "Search foods", exact: true });
+  await search.fill("Saved oats");
+  await button(page, "View nutrition for Saved oats, custom food").click();
+  await button(page, "Edit food").click({ timeout: 3000 });
+  await heading(page, "Edit custom food");
+  assert.equal(await page.getByRole("textbox", { name: "Calories (kcal)", exact: true }).inputValue(), "400");
+  await page.getByRole("textbox", { name: "Food name", exact: true }).fill("Discarded name");
+  await button(page, "Cancel").click();
+  assert.equal((await readCatalog()).foods[0].name, "Saved oats");
+  await button(page, "Edit food").click();
+  for (const [label, value] of [["Food name", "Revised oats"], ["Serving weight (g)", "200"], ["Calories (kcal)", "500"]])
+    await page.getByRole("textbox", { name: label, exact: true }).fill(value);
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  }
+  await page.setViewportSize({ width: 320, height: 844 });
+  await failCatalogWrite();
+  await button(page, "Save food changes").click();
+  await page.getByRole("alert").filter({ hasText: "Couldn't update your food" }).waitFor();
+  assert.equal((await readCatalog()).foods[0].name, "Saved oats");
+  assert.equal(await page.getByRole("textbox", { name: "Food name", exact: true }).inputValue(), "Revised oats");
+  await button(page, "Expand calendar").click();
+  await button(page, "Select previous day").click();
+  await button(page, "Collapse calendar").click();
+  await heading(page, "Edit custom food");
+  assert.equal(await page.getByRole("textbox", { name: "Food name", exact: true }).inputValue(), "Revised oats");
+  assert.ok(await page.getByRole("alert").filter({ hasText: "Couldn't update your food" }).isVisible());
+  await button(page, "Expand calendar").click();
+  await button(page, "Select today").click();
+  await button(page, "Collapse calendar").click();
+  await button(page, "Save food changes").click();
+  await heading(page, "Revised oats");
+  await page.getByTestId("food-nutrition-detail").getByText("500 kcal", { exact: true }).waitFor();
+  assert.equal((await readCatalog()).foods.length, 1);
+  assert.equal((await readCatalog()).foods[0].customId, "editable-oats");
+  assert.equal(await page.getByRole("dialog", { name: "Food created" }).count(), 0);
+  await button(page, "Back to food results").click();
+  await search.fill("Revised oats");
+  await button(page, "View nutrition for Revised oats, custom food").click();
+  await button(page, "Delete food").click();
+  const foodDelete = page.getByRole("dialog", { name: "Delete custom food?" });
+  await foodDelete.waitFor();
+  await foodDelete.getByRole("button", { name: "Cancel", exact: true }).click();
+  assert.equal((await readCatalog()).foods.length, 1);
+  await button(page, "Delete food").click();
+  await failCatalogWrite();
+  await foodDelete.getByRole("button", { name: "Delete food", exact: true }).click();
+  await foodDelete.getByRole("alert").waitFor();
+  assert.equal((await readCatalog()).foods.length, 1);
+  await foodDelete.getByRole("button", { name: "Delete food", exact: true }).click();
+  await foodDelete.waitFor({ state: "hidden" });
+  assert.equal((await readCatalog()).foods.length, 0);
+  assert.equal(await button(page, "View nutrition for Revised oats, custom food").count(), 0);
+  assert.equal((await readCatalog()).meals[0].ingredients[0].food.name, "Saved oats");
+  assert.equal(await readLog(), originalLog);
+  await page.evaluate(() => localStorage.setItem("kinevault-track.appearance", "dark"));
+  await page.reload();
+  await button(page, "Meal").click();
+  await button(page, "View nutrition for Saved bowl, custom meal").click();
+  await button(page, "Edit meal").click();
+  await heading(page, "Edit custom meal");
+  assert.equal(await page.getByRole("textbox", { name: "Protein (g)", exact: true }).inputValue(), "30");
+  await page.getByRole("textbox", { name: "Amount for Saved oats (g)", exact: true }).fill("100");
+  assert.equal(await page.getByRole("textbox", { name: "Calories (kcal)", exact: true }).inputValue(), "400");
+  assert.equal(await page.getByRole("textbox", { name: "Protein (g)", exact: true }).inputValue(), "30");
+  await button(page, "Use calculated nutrition").click();
+  assert.equal(await page.getByRole("textbox", { name: "Protein (g)", exact: true }).inputValue(), "20");
+  await page.getByRole("textbox", { name: "Search ingredients", exact: true }).fill("banana raw");
+  await button(page, "Add Banana, raw to meal").click();
+  await page.getByRole("textbox", { name: "Meal name", exact: true }).fill("Revised bowl");
+  await page.getByRole("textbox", { name: "Protein (g)", exact: true }).fill("40");
+  await page.getByRole("textbox", { name: "Fat (g)", exact: true }).fill("0");
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  }
+  await page.setViewportSize({ width: 320, height: 844 });
+  const screenshotDir = process.env.KINE_SCREENSHOT_DIR;
+  if (screenshotDir) await page.getByTestId("create-meal-form").screenshot({ path: join(screenshotDir, "edit-meal-dark.png") });
+  await failCatalogWrite();
+  await button(page, "Save meal changes").click();
+  await page.getByRole("alert").filter({ hasText: "Couldn't update your meal" }).waitFor();
+  assert.equal((await readCatalog()).meals[0].ingredients.length, 1);
+  await button(page, "Save meal changes").click();
+  await heading(page, "Revised bowl");
+  const updatedMeal = (await readCatalog()).meals[0];
+  assert.equal(updatedMeal.customId, "editable-bowl");
+  assert.equal(updatedMeal.ingredients.length, 2);
+  assert.equal(new Set(updatedMeal.ingredients.map(ingredient => ingredient.id)).size, 2);
+  assert.equal(updatedMeal.overrides.protein, 40);
+  assert.equal(updatedMeal.overrides.fat, 0);
+  assert.equal(await readLog(), originalLog);
+  await page.reload();
+  await button(page, "Meal").click();
+  await button(page, "View nutrition for Revised bowl, custom meal").click();
+  await button(page, "Delete meal").click();
+  const mealDelete = page.getByRole("dialog", { name: "Delete custom meal?" });
+  await mealDelete.waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  if (screenshotDir) await page.screenshot({ path: join(screenshotDir, "delete-meal-dark.png") });
+  await page.keyboard.press("Escape");
+  assert.equal((await readCatalog()).meals.length, 1);
+  await button(page, "Delete meal").click();
+  await mealDelete.getByRole("button", { name: "Delete meal", exact: true }).click();
+  await mealDelete.waitFor({ state: "hidden" });
+  assert.equal((await readCatalog()).meals.length, 0);
+  assert.equal(await readLog(), originalLog);
+  await page.reload();
+  await search.fill("banana raw");
+  await button(page, "View nutrition for Banana, raw").click();
+  assert.equal(await button(page, "Edit food").count(), 0);
+  assert.equal(await button(page, "Delete food").count(), 0);
+  await button(page, "Back to food results").click();
+  await button(page, "Clear search").click();
+  await button(page, "Edit Saved bowl in Lunch").click();
+  await page.getByRole("textbox", { name: "Amount (g)", exact: true }).fill("25");
+  await button(page, "Save changes").click();
+  const log = JSON.parse(await readLog());
+  const entries = Object.values(log.days).flat();
+  assert.equal(entries.find(entry => entry.id === "logged-food").calories, 200);
+  assert.equal(entries.find(entry => entry.id === "logged-meal").calories, 100);
+  assert.equal(entries.find(entry => entry.id === "logged-meal").protein, 15);
+});
+
+test("deleting the last item on a saved meal results page returns to the remaining items", async (t) => {
+  const page = await open(t, { version: 1, kind: "complete", answers: adult });
+  await page.evaluate(() => {
+    const food = { fdcId: 1, name: "Oats", category: "Grains", per100g: { calories: 100, carbs: 10, protein: 5, fat: 2 }, portions: [] };
+    const meals = Array.from({ length: 21 }, (_, index) => ({ customId: `meal-${index + 1}`, name: `Saved meal ${index + 1}`, category: "Custom meal", per100g: food.per100g, portions: [{ label: "1 meal", grams: 100 }], ingredients: [{ id: "oats", food, grams: 100 }], overrides: {} }));
+    localStorage.setItem("kinevault-track.custom-foods.v1", JSON.stringify({ version: 1, foods: [], meals }));
+  });
+  await page.reload();
+  await page.getByRole("tab", { name: "Food" }).click();
+  await button(page, "Meal").click();
+  await button(page, "Next meal results").click();
+  await button(page, "View nutrition for Saved meal 21, custom meal").click();
+  await button(page, "Delete meal").click();
+  await page.getByRole("dialog", { name: "Delete custom meal?" }).getByRole("button", { name: "Delete meal", exact: true }).click();
+  await button(page, "View nutrition for Saved meal 1, custom meal").waitFor();
+  assert.equal(await page.getByTestId("food-result").count(), 20);
+  assert.equal(await button(page, "Next meal results").count(), 0);
+  await page.reload();
+  await button(page, "Meal").click();
+  assert.equal(await button(page, "View nutrition for Saved meal 21, custom meal").count(), 0);
+  await button(page, "View nutrition for Saved meal 1, custom meal").waitFor();
+});
+
+test("meal creation calculates ingredients, preserves drafts across food/meal switches, retries and logs overridden macros", async (t) => {
+  const page = await open(t, { version: 1, kind: "complete", answers: adult }, { viewport: { width: 320, height: 844 } });
+  await page.evaluate(() => localStorage.setItem("kinevault-track.custom-foods.v1", JSON.stringify({ version: 1, foods: [
+    { customId: "test-oats", name: "Test oats", category: "Custom food", per100g: { calories: 400, carbs: 60, protein: 20, fat: 8 }, portions: [{ label: "1 serving", grams: 100 }] },
+    { customId: "test-yogurt", name: "Test yogurt", category: "Custom food", per100g: { calories: 100, carbs: 5, protein: 10, fat: 4 }, portions: [{ label: "1 serving", grams: 100 }] },
+  ] })));
+  await page.reload();
+  await page.getByRole("tab", { name: "Food" }).click();
+  await button(page, "Meal").click({ timeout: 3000 });
+  assert.equal(await button(page, "Meal").getAttribute("aria-pressed"), "true");
+  await heading(page, "Saved meals");
+  await button(page, "Create food/meal").click();
+  await heading(page, "Create meal");
+  await button(page, "Save meal").click();
+  await page.getByRole("alert").filter({ hasText: "Add at least one food" }).waitFor();
+  await page.getByRole("textbox", { name: "Meal name", exact: true }).fill("Breakfast bowl");
+  await button(page, "Food").click();
+  await heading(page, "Create food");
+  await page.getByRole("textbox", { name: "Food name", exact: true }).fill("Unfinished food");
+  await button(page, "Meal").click();
+  assert.equal(await page.getByRole("textbox", { name: "Meal name", exact: true }).inputValue(), "Breakfast bowl");
+  for (const name of ["Test oats", "Test yogurt"]) {
+    await page.getByRole("textbox", { name: "Search ingredients", exact: true }).fill(name);
+    await button(page, `Add ${name} to meal, custom food`).click();
+  }
+  await page.getByRole("textbox", { name: "Amount for Test oats (g)", exact: true }).fill("50");
+  await page.getByRole("textbox", { name: "Amount for Test yogurt (g)", exact: true }).fill("200");
+  for (const [label, value] of [["Calories (kcal)", "400"], ["Carbs (g)", "40"], ["Protein (g)", "30"], ["Fat (g)", "12"]])
+    assert.equal(await page.getByRole("textbox", { name: label, exact: true }).inputValue(), value);
+  await page.getByRole("textbox", { name: "Protein (g)", exact: true }).fill("35");
+  await page.getByRole("textbox", { name: "Amount for Test oats (g)", exact: true }).fill("75");
+  assert.equal(await page.getByRole("textbox", { name: "Protein (g)", exact: true }).inputValue(), "35");
+  assert.equal(await page.getByRole("textbox", { name: "Carbs (g)", exact: true }).inputValue(), "55");
+  await button(page, "Use calculated nutrition").click();
+  assert.equal(await page.getByRole("textbox", { name: "Fat (g)", exact: true }).inputValue(), "14");
+  await page.getByRole("textbox", { name: "Amount for Test oats (g)", exact: true }).fill("50");
+  await page.getByRole("textbox", { name: "Protein (g)", exact: true }).fill("35");
+  await page.getByRole("textbox", { name: "Fat (g)", exact: true }).fill("0");
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "kinevault-track.custom-foods.v1") {
+        Storage.prototype.setItem = original;
+        throw new Error("Simulated meal save failure");
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await button(page, "Save meal").click();
+  await page.getByRole("alert").filter({ hasText: "Couldn't save your meal" }).waitFor();
+  assert.equal(await page.getByRole("textbox", { name: "Protein (g)", exact: true }).inputValue(), "35");
+  assert.equal(await page.getByRole("textbox", { name: "Amount for Test yogurt (g)", exact: true }).inputValue(), "200");
+  await button(page, "Save meal").click();
+  await page.getByRole("dialog", { name: "Meal created" }).waitFor();
+  await button(page, "OK").click();
+  await heading(page, "Breakfast bowl");
+  assert.equal(await page.getByRole("textbox", { name: "Amount (g)", exact: true }).inputValue(), "250");
+  await page.getByRole("textbox", { name: "Amount (g)", exact: true }).fill("125");
+  await button(page, "Log to Dinner").click();
+  await button(page, "Log meal").click();
+  await page.getByTestId("food-nutrition-detail").waitFor({ state: "hidden" });
+  const document = await page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.food-log.v1")));
+  const entries = Object.values(document.days).flat();
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].calories, 200);
+  assert.equal(entries[0].protein, 17.5);
+  assert.equal(entries[0].fat, 0);
+  assert.equal(entries[0].meal, "dinner");
+  await page.reload();
+  await button(page, "Meal").click();
+  await page.getByRole("textbox", { name: "Search meals", exact: true }).fill("Breakfast bowl");
+  const mealResult = button(page, "View nutrition for Breakfast bowl, custom meal");
+  await mealResult.waitFor();
+  assert.equal(await mealResult.getByTestId("custom-food-icon").count(), 1);
+  await mealResult.click();
+  await heading(page, "Ingredients");
+  await button(page, "Food").click();
+  await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("Breakfast bowl");
+  assert.equal(await button(page, "View nutrition for Breakfast bowl, custom meal").count(), 0);
+  await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("Test oats");
+  await button(page, "View nutrition for Test oats, custom food").waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+});
+
+test("meal ingredient validation, removal, calendar changes and logged edits work in both themes", async (t) => {
+  const page = await open(t, { version: 1, kind: "complete", answers: adult });
+  await page.getByRole("tab", { name: "Food" }).click();
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(theme => localStorage.setItem("kinevault-track.appearance", theme), theme);
+    await page.reload();
+    await button(page, "Meal").click();
+    await button(page, "Create food/meal").click();
+    await page.getByRole("textbox", { name: "Meal name", exact: true }).fill("Portable snack");
+    const addBanana = async () => {
+      await page.getByRole("textbox", { name: "Search ingredients", exact: true }).fill("banana raw");
+      await button(page, "Add Banana, raw to meal").click();
+    };
+    await addBanana();
+    const ingredient = page.getByRole("textbox", { name: "Amount for Banana, raw (g)", exact: true });
+    await ingredient.fill("0");
+    await button(page, "Save meal").click();
+    await page.getByRole("alert").filter({ hasText: "Enter a weight greater than 0" }).waitFor();
+    assert.equal(await page.evaluate(() => localStorage.getItem("kinevault-track.custom-foods.v1")), null);
+    await ingredient.fill("150");
+    assert.equal(await page.getByRole("textbox", { name: "Calories (kcal)", exact: true }).inputValue(), "145.5");
+    await button(page, "Remove Banana, raw from meal").click();
+    await page.getByText("No foods added yet. Search below to add your first ingredient.", { exact: true }).waitFor();
+    await addBanana();
+    await ingredient.fill("150");
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    }
+    const screenshotDir = process.env.KINE_SCREENSHOT_DIR;
+    if (screenshotDir) {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.getByTestId("create-meal-form").screenshot({ path: join(screenshotDir, `meal-builder-${theme}.png`) });
+    }
+  }
+  await button(page, "Expand calendar").click();
+  await page.locator('button[aria-pressed]').filter({ hasText: /^\d/ }).first().click();
+  await button(page, "Collapse calendar").click();
+  assert.equal(await page.getByRole("textbox", { name: "Meal name", exact: true }).inputValue(), "Portable snack");
+  assert.equal(await page.getByRole("textbox", { name: "Amount for Banana, raw (g)", exact: true }).inputValue(), "150");
+  await button(page, "Save meal").click();
+  await page.getByRole("dialog", { name: "Meal created" }).waitFor();
+  await button(page, "OK").click();
+  await button(page, "Log meal").click();
+  await button(page, "Food").click();
+  await button(page, "Edit Portable snack in Breakfast").click();
+  await heading(page, "Edit logged meal");
+  await page.getByRole("textbox", { name: "Amount (g)", exact: true }).fill("75");
+  await button(page, "Log to Lunch").click();
+  await button(page, "Save changes").click();
+  await heading(page, "Daily food log");
+  const document = await page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.food-log.v1")));
+  const entries = Object.values(document.days).flat();
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].grams, 75);
+  assert.equal(entries[0].calories, 72.75);
+  assert.equal(entries[0].meal, "lunch");
+});
+
+test("custom food creation validates, retries a failed save, logs and remains searchable after reload", async (t) => {
+  const page = await open(t, { version: 1, kind: "complete", answers: adult });
+  await page.getByRole("tab", { name: "Food" }).click();
+  await button(page, "Create food/meal").click({ timeout: 3000 });
+  await heading(page, "Create food");
+  await button(page, "Save food").click();
+  assert.ok(await page.getByRole("alert").count() >= 5);
+  assert.equal(await page.getByRole("dialog", { name: "Food created" }).count(), 0);
+  for (const [label, value] of [["Food name", "My oat bowl"], ["Serving weight (g)", "250"],
+    ["Calories (kcal)", "300"], ["Carbs (g)", "40"], ["Protein (g)", "12,5"], ["Fat (g)", "10"]]) {
+    await page.getByRole("textbox", { name: label, exact: true }).fill(value);
+  }
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "kinevault-track.custom-foods.v1") {
+        Storage.prototype.setItem = original;
+        throw new Error("Simulated failure");
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await button(page, "Save food").click();
+  await page.getByRole("alert").filter({ hasText: "Couldn't save your custom food" }).waitFor();
+  assert.equal(await page.getByRole("dialog", { name: "Food created" }).count(), 0);
+  assert.equal(await page.getByRole("textbox", { name: "Food name", exact: true }).inputValue(), "My oat bowl");
+  await button(page, "Save food").click();
+  const confirmation = page.getByRole("dialog", { name: "Food created" });
+  await confirmation.waitFor({ timeout: 3000 });
+  assert.ok(await confirmation.getByText("You can find it anytime in food search.", { exact: true }).isVisible());
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.custom-foods.v1")).foods.length), 1);
+  await confirmation.getByRole("button", { name: "OK", exact: true }).click();
+  await confirmation.waitFor({ state: "hidden" });
+  await heading(page, "My oat bowl");
+  assert.equal(await page.getByRole("textbox", { name: "Amount (g)", exact: true }).inputValue(), "250");
+  await page.getByRole("textbox", { name: "Amount (g)", exact: true }).fill("125");
+  await button(page, "Log to Lunch").click();
+  await button(page, "Log food").click();
+  await page.getByTestId("food-nutrition-detail").waitFor({ state: "hidden" });
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.food-log.v1")));
+  const entry = Object.values(stored.days).flat().find(food => food.name === "My oat bowl");
+  assert.equal(entry.calories, 150);
+  assert.equal(entry.protein, 6.25);
+  assert.equal(entry.meal, "lunch");
+  assert.equal(entry.fdcId, undefined);
+  assert.ok(entry.customId);
+  await page.reload();
+  await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("oat bowl");
+  await button(page, "View nutrition for My oat bowl, custom food").waitFor();
+  const customResult = button(page, "View nutrition for My oat bowl, custom food");
+  assert.equal(await customResult.getByTestId("custom-food-icon").count(), 1);
+  assert.equal(await customResult.getByTestId("custom-food-icon").getAttribute("aria-hidden"), "true");
+  await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("banana");
+  await page.getByTestId("food-result").first().waitFor();
+  assert.equal(await page.getByTestId("custom-food-icon").count(), 0);
+  await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("oat bowl");
+  await button(page, "View nutrition for My oat bowl, custom food").click();
+  await heading(page, "My oat bowl");
+  assert.equal(await page.getByRole("textbox", { name: "Amount (g)", exact: true }).inputValue(), "250");
+});
+
+test("canceling custom food preserves the catalog and corrupt storage recovers through retry", async (t) => {
+  const page = await open(t, { version: 1, kind: "complete", answers: adult }, { viewport: { width: 320, height: 844 } });
+  await page.getByRole("tab", { name: "Food" }).click();
+  await button(page, "Create food/meal").click({ timeout: 3000 });
+  await page.getByRole("textbox", { name: "Food name", exact: true }).fill("Canceled bowl");
+  await button(page, "Cancel").click();
+  assert.equal(await page.evaluate(() => localStorage.getItem("kinevault-track.custom-foods.v1")), null);
+  await page.evaluate(() => localStorage.setItem("kinevault-track.custom-foods.v1", "corrupt"));
+  await page.reload();
+  await heading(page, "Couldn't load your custom foods");
+  assert.equal(await button(page, "Create food/meal").isDisabled(), true);
+  await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("banana");
+  await page.getByTestId("food-result").first().waitFor();
+  assert.equal(await page.evaluate(() => localStorage.getItem("kinevault-track.custom-foods.v1")), "corrupt");
+  await page.evaluate(() => localStorage.removeItem("kinevault-track.custom-foods.v1"));
+  await button(page, "Retry custom foods").click();
+  await button(page, "Create food/meal").click();
+  await heading(page, "Create food");
+  assert.equal(await page.getByRole("textbox", { name: "Food name", exact: true }).inputValue(), "");
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false);
+});
+
+test("changing calendar day preserves a custom food draft and logs it to the new day", async (t) => {
+  const page = await open(t, { version: 1, kind: "complete", answers: adult });
+  await page.getByRole("tab", { name: "Food" }).click();
+  await button(page, "Create food/meal").click();
+  for (const [label, value] of [["Food name", "שיבולת שועל"], ["Serving weight (g)", "250"],
+    ["Calories (kcal)", "300"], ["Carbs (g)", "40"], ["Protein (g)", "12.5"], ["Fat (g)", "10"]]) {
+    await page.getByRole("textbox", { name: label, exact: true }).fill(value);
+  }
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "kinevault-track.custom-foods.v1") {
+        Storage.prototype.setItem = original;
+        throw new Error("Simulated failure before changing the day");
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await button(page, "Save food").click();
+  await page.getByRole("alert").filter({hasText: "Couldn't save your custom food"}).waitFor();
+  await button(page, "Expand calendar").click();
+  const date = page.locator('button[aria-pressed]').filter({hasText: /^\d+$/}).first();
+  const dateName = await date.getAttribute("aria-label");
+  await date.click();
+  await button(page, "Collapse calendar").click();
+  await heading(page, "Create food");
+  assert.equal(await page.getByRole("textbox", { name: "Food name", exact: true }).inputValue(), "שיבולת שועל");
+  assert.equal(await page.getByRole("textbox", { name: "Calories (kcal)", exact: true }).inputValue(), "300");
+  assert.ok(await page.getByRole("alert").filter({hasText: "Couldn't save your custom food"}).isVisible());
+  await button(page, "Save food").click();
+  await page.getByRole("dialog", { name: "Food created" }).waitFor({ timeout: 3000 });
+  await page.keyboard.press("Escape");
+  await page.getByRole("dialog", { name: "Food created" }).waitFor({ state: "hidden" });
+  await heading(page, "שיבולת שועל");
+  await button(page, "Log food").click();
+  await page.getByTestId("food-nutrition-detail").waitFor({ state: "hidden" });
+  const document = await page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.food-log.v1")));
+  const [[savedDate, entries]] = Object.entries(document.days);
+  assert.ok(dateName.startsWith(new Date(`${savedDate}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })));
+  assert.equal(entries[0].name, "שיבולת שועל");
+  await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("שיבולת שועל");
+  await button(page, "View nutrition for שיבולת שועל, custom food").waitFor();
+});
 async function open(t, seed, options = {}) {
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());
@@ -491,10 +937,10 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
           const searchBox = await page.getByTestId(`${pose}-search-box`).boundingBox();
           assert.ok(Math.abs(searchBox.y - splitBox.y - splitBox.height - 12) <= 1, `${tab} actions-to-search gap is 12px`);
           assert.ok(Math.abs(logBox.y - searchActionsBox.y - searchActionsBox.height - 12) <= 1, `${tab} actions-to-log gap is 12px`);
-          const actions = tab === "Food" ? ["Create Foods", "View macros for the day"] : ["Create Exercise", "Create Workouts"];
+          const actions = tab === "Food" ? ["Create food/meal", "View macros for the day"] : ["Create Exercise", "Create Workouts"];
           for (const label of actions) {
             const action = button(page, label);
-            assert.equal(await action.isDisabled(), label !== "View macros for the day");
+            assert.equal(await action.isDisabled(), tab === "Exercise");
             const box = await action.boundingBox();
             const text = await action.getByText(label, { exact: true }).boundingBox();
             assert.ok(Math.abs(text.x + text.width / 2 - box.x - box.width / 2) <= 1, `${label} centers horizontally`);
@@ -840,7 +1286,7 @@ test("35 calendar dates center today and share selection across daily tabs exclu
   const page = await open(t, { version: 1, kind: "complete", answers: adult }, { viewport: { width: 320, height: 844 }, locale: "en-US", timezoneId: "Asia/Jerusalem", reducedMotion: "reduce" });
   await heading(page, "Calories");
   await button(page, "Expand calendar").click();
-  const dateButtons = page.locator('button[aria-pressed]');
+  const dateButtons = page.locator('button[aria-pressed]').filter({ hasText: /^\d/ });
   assert.equal(await dateButtons.count(), 35);
   const todayIndex = await dateButtons.evaluateAll((buttons) => buttons.findIndex((button) => button.getAttribute("aria-label").endsWith(", today")));
   assert.ok(todayIndex >= 14 && todayIndex < 21, "today must be in the middle week");

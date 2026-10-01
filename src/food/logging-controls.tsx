@@ -8,14 +8,19 @@ import { spacing } from "../theme/tokens";
 import type { FoodSaveTarget } from "./log-model.ts";
 import { FoodButton } from "./food-button";
 import { useFoodLog } from "./log-provider";
+import { useCustomFoods } from "./custom-provider";
+import type { CatalogKind } from "./meal-model.ts";
 
-export function FoodLoggingControls({ target, grams, date, onSaved }: {
+export function FoodLoggingControls({ target, grams, date, onSaved, itemKind = "food" }: {
+  itemKind?: CatalogKind;
   target: FoodSaveTarget;
   grams: number | null;
   date: string;
   onSaved: () => void;
 }) {
   const log = useFoodLog();
+  const custom = useCustomFoods();
+  const busy = log.saving || custom.saving;
   const { colors } = useTheme();
   const [meal, setMeal] = useState<Meal>(target.kind === "edit" ? target.entry.meal : "breakfast");
   const [failed, setFailed] = useState(false);
@@ -23,7 +28,7 @@ export function FoodLoggingControls({ target, grams, date, onSaved }: {
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   async function save() {
-    if (pending.current || grams === null || log.saving || log.state.kind !== "ready") return;
+    if (pending.current || grams === null || busy || log.state.kind !== "ready") return;
     pending.current = true;
     setFailed(false);
     try {
@@ -44,15 +49,15 @@ export function FoodLoggingControls({ target, grams, date, onSaved }: {
         {meals.map(option => (
           <View key={option.key} style={{ flexGrow: 1, flexBasis: "45%" }}>
             <FoodButton label={option.label} accessibilityLabel={`Log to ${option.label}`} selected={meal === option.key}
-              disabled={log.saving} onPress={() => setMeal(option.key)} />
+              disabled={busy} onPress={() => setMeal(option.key)} />
           </View>
         ))}
       </View>
       {failed && <AppText variant="caption" accessibilityRole="alert" style={{ color: colors.error }}>
-        {target.kind === "edit" ? "Couldn't save your changes." : "Couldn't log this food."} Your amount and meal are kept. Try again.
+        {target.kind === "edit" ? "Couldn't save your changes." : `Couldn't log this ${itemKind}.`} Your amount and meal are kept. Try again.
       </AppText>}
-      <FoodButton primary label={log.saving ? "Saving food..." : target.kind === "edit" ? "Save changes" : "Log food"}
-        disabled={grams === null || log.saving || log.state.kind !== "ready"} onPress={() => { void save(); }} />
+      <FoodButton primary label={log.saving ? `Saving ${itemKind}...` : target.kind === "edit" ? "Save changes" : `Log ${itemKind}`}
+        disabled={grams === null || busy || log.state.kind !== "ready"} onPress={() => { void save(); }} />
     </View>
   );
 }
