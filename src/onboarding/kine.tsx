@@ -1,4 +1,5 @@
 import { memo, useEffect } from "react";
+import { View } from "react-native";
 import { Image } from "expo-image";
 import Animated, {
   cancelAnimation,
@@ -58,11 +59,29 @@ export const Kine = memo(function Kine({
       { scale: 1 + (reduced ? 0 : 0.025 * greeting.get()) },
     ],
   }));
+  const shadowWidth = size * 0.56;
+  const shadowHeight = size * 0.065;
   return (
     <Animated.View
       testID={`kine-${pose}`}
       style={[{ width: size, height: size, flexShrink: 0 }, livelyStyle]}
     >
+      <View
+        accessible={false}
+        aria-hidden={true}
+        style={{
+          position: "absolute",
+          pointerEvents: "none",
+          left: size * 0.245,
+          bottom: size * 0.015 - (shadowWidth - shadowHeight) / 2,
+          width: shadowWidth,
+          height: shadowWidth,
+          borderRadius: size,
+          backgroundColor: "#27323d",
+          // Flatten a circle into an ellipse on both native and web.
+          transform: [{ scaleY: shadowHeight / shadowWidth }],
+        }}
+      />
       <Image
         source={kineAssets[pose]}
         contentFit="contain"
