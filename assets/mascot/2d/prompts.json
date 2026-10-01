@@ -8,7 +8,7 @@
       "pose": "welcome",
       "file": "source/kine-welcome.png",
       "prompt": "Use case: style-transfer. Asset type: transparent mascot illustration for the KineVault Track React Native app. Edit target: the attached existing Kine mascot. Convert Kine from a 3D clay render to a polished genuinely FLAT 2D cartoon/vector-style illustration. Keep the recognizable identity: rounded slightly tapered slate-blue pill torso, no neck, two asymmetrical rounded head nubs with cream tips, two flexible arms with cream mitten hands, two legs with cream feet, face directly on upper torso with small dark oval eyes and a tiny kind curved smile. Keep the welcoming pose with one hand raised in a wave, full body, all limbs visible. Clean organic silhouette, lively and warm, adult-friendly, crisp smooth charcoal-blue outlines of consistent moderate thickness, solid flat color fills, slate blue body around #58758a, warm cream #f3edda tips, charcoal-blue eyes/lines #253747. No gradients, shading, highlights, texture, lighting, volume, cast shadows or 3D effects. No costume or extra objects. Center the one character in a square canvas with enough padding around the entire silhouette. Truly transparent background, no checkerboard pixels, no white backdrop, no text, logos or watermark. This must look like a hand-designed flat 2D app mascot, not a 3D rendering.",
-      "reference": "Historical assets/mascot/kine.png, now retained in design/mascot-assets/original-v2.png"
+      "reference": "Original 3D Kine illustration, removed after the flat 2D assets were adopted"
     },
     {
       "pose": "name",

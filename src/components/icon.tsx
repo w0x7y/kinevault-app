@@ -4,7 +4,7 @@ import type { TextProps } from "react-native";
 
 export type IconName = keyof typeof glyphMap;
 
-export type IconProps = Omit<TextProps, "children"> & {
+type IconProps = Omit<TextProps, "children"> & {
   name: IconName;
   size?: number;
   color?: string;

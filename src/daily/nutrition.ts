@@ -6,8 +6,8 @@ export const macroCategories = [
   { key: "protein", label: "Protein", icon: "egg", kcalPerGram: 4 },
   { key: "fat", label: "Fat", icon: "seedling", kcalPerGram: 9 },
 ] as const;
-export type MacroKey = (typeof macroCategories)[number]["key"];
-export type CalorieSegment = { key: MacroKey | "other"; fraction: number };
+type MacroKey = (typeof macroCategories)[number]["key"];
+type CalorieSegment = { key: MacroKey | "other"; fraction: number };
 
 export function calorieSegments(nutrition: Nutrition, goal: number | null): CalorieSegment[] {
   const fill = progressFraction(nutrition.calories, goal);

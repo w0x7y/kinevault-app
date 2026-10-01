@@ -1,7 +1,7 @@
 import { parseProfile, type ProfileDocument } from "./model.ts";
 
 export const profileStorageKey = "kinevault-track.profile.v1";
-export type ProfileState =
+type ProfileState =
   | { kind: "loading" }
   | { kind: "error" }
   | { kind: "ready"; document: ProfileDocument };

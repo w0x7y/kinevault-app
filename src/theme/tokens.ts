@@ -12,12 +12,10 @@ export const lightColors = {
   muted: "#e9edf1",
   mutedForeground: "#52606d",
   accent: "#e3ebf1",
-  accentForeground: "#243f55",
   border: "#ced6de",
   input: "#ced6de",
   ring: "#638ba6",
   error: "#991b1b",
-  errorBackground: "#fef2f2",
 };
 
 export type ThemeColors = { [Key in keyof typeof lightColors]: string };
@@ -36,36 +34,24 @@ export const darkColors: ThemeColors = {
   muted: "#25313d",
   mutedForeground: "#b0bdca",
   accent: "#253747",
-  accentForeground: "#d7e6f2",
   border: "#3b4a59",
   input: "#3b4a59",
   ring: "#94bdd7",
   error: "#fca5a5",
-  errorBackground: "#3b1c23",
 };
 
 export const radius = {
-  sm: 6,
-  md: 8,
-  lg: 10,
   control: 14,
   panel: 18,
-  largePanel: 22,
 };
 export const spacing = {
   layout: 12,
   xs: 4,
   sm: 8,
   md: 12,
-  lg: 16,
-  xl: 20,
-  panel: 24,
-  section: 32,
-  large: 40,
 };
 export const fonts = {
   regular: "Comfortaa_400Regular",
   medium: "Comfortaa_500Medium",
   semibold: "Comfortaa_600SemiBold",
-  bold: "Comfortaa_700Bold",
 };

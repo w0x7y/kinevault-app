@@ -109,7 +109,7 @@ export function validateAnswers(answers: Answers): FieldErrors {
 }
 
 type Estimate = NonNullable<ReturnType<typeof estimateCalories>>;
-export type CalorieState =
+type CalorieState =
   | {
       kind: "teen" | "manual";
       estimate: null;

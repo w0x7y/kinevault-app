@@ -1,11 +1,11 @@
 import type { Workout } from "./model.ts";
 
-export type CompletedLoad =
+type CompletedLoad =
   | { readonly kind: "bodyweight" }
   | { readonly kind: "weight"; readonly weightKg: number }
   | { readonly kind: "range"; readonly minKg: number; readonly maxKg: number };
 
-export type CompletedExercise = {
+type CompletedExercise = {
   readonly id: string;
   readonly name: string;
   readonly volume: number;

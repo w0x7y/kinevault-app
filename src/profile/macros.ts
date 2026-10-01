@@ -1,7 +1,7 @@
 import { macroInputs, macroInputValue, type Answers } from "./answers.ts";
 import { calorieState } from "./calories.ts";
 
-export type MacroTargets = { carbs: number | null; protein: number | null; fat: number | null };
+type MacroTargets = { carbs: number | null; protein: number | null; fat: number | null };
 
 export function macroTargets(answers: Answers): MacroTargets {
   const target = calorieState(answers).target;

@@ -20,8 +20,8 @@ export type FoodEntry = {
   fat: number;
   details?: DetailedNutrients;
 };
-export type WorkoutSet = { weightKg: number; reps: number; completed: boolean };
-export type WorkoutExercise = { id: string; name: string; sets: WorkoutSet[] };
+type WorkoutSet = { weightKg: number; reps: number; completed: boolean };
+type WorkoutExercise = { id: string; name: string; sets: WorkoutSet[] };
 export type Workout = {
   name: string;
   durationSeconds: number;

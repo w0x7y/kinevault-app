@@ -31,15 +31,12 @@ for (const file of sources) {
   console.log(`${output}: ${pixels}px, ${bytes.toLocaleString("en-US")} bytes`);
 }
 const totalBytes = assets.reduce((total, asset) => total + asset.bytes, 0);
-const previousBytes = 10017730;
 await writeFile(join(directory, "manifest.json"), JSON.stringify({
   generator: "Built-in image_gen",
   format: "Transparent WebP",
   quality: 80,
   alphaQuality: 100,
-  previous3dBytes: previousBytes,
   totalBytes,
-  reductionPercent: Number(((1 - totalBytes / previousBytes) * 100).toFixed(2)),
   assets,
 }, null, 2) + "\n");
-console.log(`Total: ${totalBytes.toLocaleString("en-US")} bytes, ${(100 * (1 - totalBytes / previousBytes)).toFixed(1)}% smaller than the 3D set.`);
+console.log(`Total: ${totalBytes.toLocaleString("en-US")} bytes.`);

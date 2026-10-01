@@ -5,7 +5,7 @@ export type SelectedDaySnapshot = Readonly<{
   selectedDay: string;
 }>;
 
-export type SelectedDayClock = {
+type SelectedDayClock = {
   now: () => Date;
   schedule: (callback: () => void, delay: number) => () => void;
 };

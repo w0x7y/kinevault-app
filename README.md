@@ -291,9 +291,8 @@ include the fix.
 
 ## Structure
 
-The standalone [mascot comparison](design/mascots.html) shows eight illustrated
-directions for both products. Open it directly in a browser to compare and
-shortlist concepts. It runs independently of the Expo app.
+The standalone [branding preview](design/branding.html) shows the exported
+launcher icons and splash screens. It runs independently of the Expo app.
 
 - `src/app/`: routes and navigation layouts.
 - `src/components/ui.tsx`: shared text, panel, screen, and destination link.

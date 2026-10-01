@@ -3,7 +3,7 @@
 The launcher icon uses a large close-up of the blue Kine mascot, with its cream
 antenna tips, navy eyes, and smile. The supplied Duolingo icon guided the face
 framing. The iOS splash reuses the exact supplied waving mascot, with a wordmark
-set in the app's Comfortaa font. The app loads Comfortaa at 400/500/600/700
+set in Comfortaa 700. The app loads Comfortaa at 400/500/600
 and uses Font Awesome 6 for UI icons. Launcher/splash branding is separate from
 the nameless compact in-app top bar, whose right profile-picture slot is a
 placeholder. The eleven in-app WebP poses stay in `../mascot/2d/`; their mappings

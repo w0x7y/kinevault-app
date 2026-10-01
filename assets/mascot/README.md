@@ -1,7 +1,7 @@
 # Kine
 
 Kine is a flat 2D blue creature with cream mitten hands, feet, and asymmetrical
-head tips. The eleven page poses keep the approved Original creature's identity
+head tips. The eleven page poses keep Kine's identity
 and greeting motion. These full-body page poses are separate from the
 purpose-built Kine launcher icon and splash assets in `../branding/`.
 
@@ -38,8 +38,7 @@ screen container. The existing 456px artwork is not 3× resolution at that
 largest size; review larger tablet/high-density displays before increasing the
 asset budget or claiming full-size 3× sharpness.
 WebP compression uses quality 80, full-quality alpha, and stripped metadata.
-Actual sizes and the comparison with the previous 10,017,730-byte 3D collection
-are recorded in `2d/manifest.json`.
+Actual sizes are recorded in `2d/manifest.json`.
 
 `expo-image` loads the visible pose eagerly with high priority and keeps it in
 memory and disk caches on native. After the current pose loads, the app warms the
@@ -56,6 +55,3 @@ npm run assets:mascot
 The asset regression checks transparency, the 840px/456px dimensions, a 50 KB
 limit per pose, and a 200 KB limit for the full collection. Browser tests verify the loaded poses,
 eager loading, and prefetching only the next pose on a cold welcome screen.
-
-The historical 3D illustration remains in `../../design/mascot-assets/original-v2.png`
-for the standalone concept comparison. It is not imported by the app.

@@ -17,7 +17,7 @@ reference patterns, not implemented companion features.
 ## Current Application implementation
 
 - Use the shared light/dark palette and radii from
-  [theme tokens](src/theme/tokens.ts). Comfortaa 400/500/600/700 covers text,
+  [theme tokens](src/theme/tokens.ts). Comfortaa 400/500/600 covers text,
   inputs, and navigation. The shared [Icon](src/components/icon.tsx) uses
   Font Awesome 6; decorative icons are hidden and icon-only controls are named.
 - Screen margins, panel padding, and gaps between cards or form groups are 12px.
@@ -189,8 +189,9 @@ Current studio font: **Geist**, loaded through `next/font/google`, Latin subset.
 Headings and body share the same sans-serif family. There is no separate display font.
 
 **Companion app:** as of 1 October 2026, use bundled Comfortaa at weights
-400, 500, 600, and 700 for all text, inputs, and navigation. The studio reference
-above retains Geist. Native platform fonts are a fallback only if loading fails.
+400, 500, and 600 for text, inputs, and navigation. Launcher and splash branding
+uses Comfortaa 700. The studio reference above retains Geist. Native platform
+fonts are a fallback only if loading fails.
 The companion uses Font Awesome 6 through its shared Icon component.
 Decorative icons stay hidden from assistive technology; icon-only controls need labels.
 

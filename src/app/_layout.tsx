@@ -1,7 +1,6 @@
 import { Comfortaa_400Regular } from "@expo-google-fonts/comfortaa/400Regular";
 import { Comfortaa_500Medium } from "@expo-google-fonts/comfortaa/500Medium";
 import { Comfortaa_600SemiBold } from "@expo-google-fonts/comfortaa/600SemiBold";
-import { Comfortaa_700Bold } from "@expo-google-fonts/comfortaa/700Bold";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -25,7 +24,6 @@ function RootNavigator() {
     Comfortaa_400Regular,
     Comfortaa_500Medium,
     Comfortaa_600SemiBold,
-    Comfortaa_700Bold,
     ...FontAwesome6.font,
   });
   const loaded =

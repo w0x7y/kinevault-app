@@ -13,7 +13,6 @@ import {
 } from "./persistence";
 import type { ProfileDocument } from "./model";
 
-export { profileStorageKey } from "./persistence";
 type ProfileContextValue = ProfileSnapshot & {
   retryLoad: () => void;
   save: (document: ProfileDocument) => Promise<boolean>;

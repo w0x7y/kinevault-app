@@ -12,7 +12,7 @@ export const detailedNutrients = [
   { key: "caffeine", label: "Caffeine", unit: "mg", indented: false },
   { key: "alcohol", label: "Alcohol", unit: "g", indented: false },
 ] as const;
-export type DetailedNutrientKey = (typeof detailedNutrients)[number]["key"];
+type DetailedNutrientKey = (typeof detailedNutrients)[number]["key"];
 export type DetailedNutrients = Record<DetailedNutrientKey, number | null>;
 export const unknownNutrients: DetailedNutrients = {
   saturatedFat: null, transFat: null, fiber: null, totalSugars: null,
