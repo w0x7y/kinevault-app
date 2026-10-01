@@ -68,7 +68,7 @@ export async function waitForExpoConnection({
   retryMs = 1000,
 }: ConnectionOptions & { retryMs?: number }) {
   const deadline = Date.now() + timeoutMs;
-  let lastError = "Server is starting.";
+  let lastError: string | undefined;
   while (Date.now() < deadline) {
     signal?.throwIfAborted();
     try {
@@ -80,13 +80,18 @@ export async function waitForExpoConnection({
       });
     } catch (error) {
       signal?.throwIfAborted();
-      lastError = error instanceof Error ? error.message : String(error);
+      const timedOut =
+        error instanceof Error &&
+        (error.name === "TimeoutError" || error.name === "AbortError");
+      // A retry hitting its deadline must not erase a useful server error.
+      if (!timedOut || !lastError)
+        lastError = error instanceof Error ? error.message : String(error);
     }
     const remaining = deadline - Date.now();
     if (remaining > 0)
       await delay(Math.min(retryMs, remaining), undefined, { signal });
   }
   throw new Error(
-    `The iOS manifest is not ready: ${lastError}. Check the Expo output above.`,
+    `The iOS manifest is not ready: ${lastError ?? "Server is starting."}. Check the Expo output above.`,
   );
 }

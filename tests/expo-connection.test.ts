@@ -126,6 +126,19 @@ test("readiness timeout includes the last connection problem", async (t) => {
   );
 });
 
+test("readiness timeout preserves the HTTP error when a later retry stalls", async (t) => {
+  let attempts = 0;
+  const origin = await fixture(t, (response) => {
+    attempts++;
+    if (attempts === 1) response.writeHead(503).end();
+  });
+  await assert.rejects(
+    waitForExpoConnection({ origin, timeoutMs: 1000, retryMs: 10 }),
+    /not ready.*503/,
+  );
+  assert.ok(attempts >= 2);
+});
+
 test("shutdown cancels an in-flight readiness request", async (t) => {
   const controller = new AbortController();
   const origin = await fixture(t, () =>
