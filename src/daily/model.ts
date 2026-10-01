@@ -1,4 +1,5 @@
 import { interpretWorkout } from "./workout.ts";
+import type { DetailedNutrients } from "../food/nutrients.ts";
 
 export const meals = [
   { key: "breakfast", label: "Breakfast", icon: "mug-hot" },
@@ -11,10 +12,13 @@ export type FoodEntry = {
   id: string;
   name: string;
   meal: Meal;
+  fdcId: number;
+  grams: number;
   calories: number;
   carbs: number;
   protein: number;
   fat: number;
+  details?: DetailedNutrients;
 };
 export type WorkoutSet = { weightKg: number; reps: number; completed: boolean };
 export type WorkoutExercise = { id: string; name: string; sets: WorkoutSet[] };
@@ -31,7 +35,7 @@ export type DailyActivity = {
   waterMl: number;
 };
 
-// These screens have no logging source yet. Each selected date starts empty.
+// Workouts, steps, and water have no logging source yet.
 export function emptyDay(date: string): DailyActivity {
   return { date, foods: [], workout: null, steps: 0, waterMl: 0 };
 }

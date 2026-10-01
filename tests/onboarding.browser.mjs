@@ -429,7 +429,7 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
           assert.ok(Math.abs(mascotBox.width - kineColumnBox.width) <= 1, `${tab} Kine fills its half`);
           assert.ok(contentBox.x + contentBox.width <= kineColumnBox.x, `${tab} content sits to Kine's left`);
         }
-        const firstBlock = page.getByTestId(tab === "Home" ? "home-calories" : `${pose}-${tab === "Settings" ? "kine-row" : "search-box"}`);
+        const firstBlock = page.getByTestId(tab === "Home" ? "home-nutrition-row" : `${pose}-kine-row`);
         const firstBox = await firstBlock.boundingBox();
         const screenWidth = Math.min(width, 768);
         assert.ok(Math.abs(firstBox.x - ((width - screenWidth) / 2 + 12)) <= 1, `${tab} uses 12px screen margins`);
@@ -453,7 +453,7 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
           const rowBox = await page.getByTestId("home-nutrition-row").boundingBox();
           const macrosBox = await page.getByTestId("home-macros").boundingBox();
           const kineColumnBox = await page.getByTestId("home-kine-column").boundingBox();
-          assert.ok(calorieBox.y + calorieBox.height <= rowBox.y, "calorie bar sits above macros and Kine");
+          assert.ok(rowBox.y + rowBox.height <= calorieBox.y, "calorie bar sits below macros and Kine");
           const caloriePanelBox = await page.getByTestId("home-calories").boundingBox();
           assert.ok(Math.abs(caloriePanelBox.width - rowBox.width) <= 1, "calorie widget spans both columns");
           assert.ok(Math.abs(macrosBox.width - kineColumnBox.width) <= 1, "macros and Kine split the row evenly");
@@ -463,10 +463,12 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
           const activityBox = await page.getByTestId("home-activity-row").boundingBox();
           const stepsBox = await page.getByTestId("home-steps").boundingBox();
           const waterBox = await page.getByTestId("home-water").boundingBox();
-          for (const [before, after, name] of [[caloriePanelBox, rowBox, "calories to macros"], [rowBox, workoutBox, "macros to workout"], [workoutBox, activityBox, "workout to activity"]]) {
+          for (const [before, after, name] of [[rowBox, caloriePanelBox, "macros to calories"], [caloriePanelBox, workoutBox, "calories to workout"], [workoutBox, activityBox, "workout to activity"]]) {
             assert.ok(Math.abs(after.y - before.y - before.height - 12) <= 1, `${name} has a 12px gap`);
           }
           assert.ok(Math.abs(macrosBox.y - rowBox.y) <= 1 && Math.abs(macrosBox.height - rowBox.height) <= 1, "macro panel fills the row without extra outer space");
+          const macroRowsBox = await page.getByTestId("home-macro-rows").boundingBox();
+          assert.ok(Math.abs(macroRowsBox.y + macroRowsBox.height / 2 - macrosBox.y - macrosBox.height / 2) <= 1, "macro rows center vertically in their panel");
           assert.ok(Math.abs(kineColumnBox.x - macrosBox.x - macrosBox.width - 12) <= 1, "macro/Kine gap is 12px");
           assert.ok(Math.abs(waterBox.x - stepsBox.x - stepsBox.width - 12) <= 1, "step/water gap is 12px");
           assert.equal(await page.locator("svg circle").count(), 0, "the calorie ring is removed");
@@ -486,12 +488,13 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
           const splitBox = await page.getByTestId(`${pose}-kine-row`).boundingBox();
           const searchActionsBox = await page.getByTestId(`${pose}-search-actions`).boundingBox();
           const logBox = await page.getByTestId(tab === "Food" ? "daily-food-log" : "exercise-workout").boundingBox();
-          assert.ok(Math.abs(splitBox.y - firstBox.y - firstBox.height - 12) <= 1, `${tab} search-to-actions gap is 12px`);
+          const searchBox = await page.getByTestId(`${pose}-search-box`).boundingBox();
+          assert.ok(Math.abs(searchBox.y - splitBox.y - splitBox.height - 12) <= 1, `${tab} actions-to-search gap is 12px`);
           assert.ok(Math.abs(logBox.y - searchActionsBox.y - searchActionsBox.height - 12) <= 1, `${tab} actions-to-log gap is 12px`);
           const actions = tab === "Food" ? ["Create Foods", "View macros for the day"] : ["Create Exercise", "Create Workouts"];
           for (const label of actions) {
             const action = button(page, label);
-            assert.ok(await action.isDisabled());
+            assert.equal(await action.isDisabled(), label !== "View macros for the day");
             const box = await action.boundingBox();
             const text = await action.getByText(label, { exact: true }).boundingBox();
             assert.ok(Math.abs(text.x + text.width / 2 - box.x - box.width / 2) <= 1, `${label} centers horizontally`);
@@ -501,7 +504,7 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
           if (tab === "Exercise") {
             await heading(page, "Completed exercises");
             for (const label of ["Sets", "Reps", "Weight"]) assert.ok(await page.getByText(label, { exact: true }).count() >= 1);
-          }
+          } else assert.equal(await page.getByTestId("daily-food-log").getByText("No food has been logged yet", { exact: true }).count(), 4);
           const search = page.getByRole("textbox", { name: tab === "Food" ? "Search foods" : "Search exercises", exact: true });
           await search.fill("test");
           await button(page, "Clear search").click();
@@ -516,6 +519,321 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
     await page.getByRole("tab", { name: /Home/ }).click();
   }
   assert.deepEqual(errors, []);
+});
+
+test("food catalog searches offline, scales portions, pages results, and recovers from empty searches", async (t) => {
+  const page = await open(t, { version: 1, kind: "complete", answers: adult }, { viewport: { width: 320, height: 844 } });
+  await heading(page, "Calories");
+  await page.getByRole("tab", { name: /Food/ }).click();
+  await heading(page, "Daily food log");
+  const search = page.getByRole("textbox", { name: "Search foods", exact: true });
+  await page.context().setOffline(true);
+  await search.fill("bananas");
+  const results = page.getByTestId("food-catalog-results");
+  await results.getByText("Banana, raw", { exact: true }).waitFor();
+  await button(page, "View nutrition for Banana, raw").click();
+  const detail = page.getByTestId("food-nutrition-detail");
+  await detail.getByText("97 kcal", { exact: true }).waitFor();
+  await button(page, "1 banana, 126 g").click();
+  await detail.getByText("122 kcal", { exact: true }).waitFor();
+  const grams = page.getByRole("textbox", { name: "Amount (g)", exact: true });
+  assert.equal(await grams.inputValue(), "126");
+  await grams.fill("50");
+  await detail.getByText("49 kcal", { exact: true }).waitFor();
+  await detail.getByText("11.4 g", { exact: true }).waitFor();
+  await grams.fill("");
+  await detail.getByRole("alert").waitFor();
+  assert.equal(await detail.getByText("49 kcal", { exact: true }).count(), 0);
+  await grams.fill("12,5");
+  await detail.getByText("12 kcal", { exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  await button(page, "Back to food results").click();
+  await results.getByText("Banana, raw", { exact: true }).waitFor();
+  await search.fill("zzzzunmatchedfood");
+  await page.getByText("No foods found. Try a simpler name or a different preparation.", { exact: true }).waitFor();
+  await search.fill("chicken");
+  await button(page, "Next food results").waitFor();
+  const firstPage = await page.getByTestId("food-result").allTextContents();
+  assert.equal(firstPage.length, 20);
+  await button(page, "Next food results").click();
+  assert.ok(await page.getByTestId("food-result").first().evaluate(el => {
+    const box = el.getBoundingClientRect();
+    return box.top >= 0 && box.bottom <= innerHeight;
+  }), "the next page starts with its first food visible");
+  const secondPage = await page.getByTestId("food-result").allTextContents();
+  assert.equal(secondPage.length, 20);
+  assert.ok(secondPage.every(text => !firstPage.includes(text)));
+  await button(page, "Previous food results").click();
+  assert.deepEqual(await page.getByTestId("food-result").allTextContents(), firstPage);
+  await search.fill("banana raw");
+  assert.equal(await button(page, "Next food results").count(), 0);
+  await results.getByText("Banana, raw", { exact: true }).waitFor();
+  await button(page, "Clear search").click();
+  await heading(page, "Daily food log");
+  await page.context().setOffline(false);
+  await page.getByRole("tab", { name: /Home/ }).click();
+  assert.equal(await page.getByRole("progressbar", { name: /^0 kilocalories consumed/ }).count(), 1);
+});
+
+test("food logging saves to the selected date and meal, retries failures, updates Home, and survives reload", async (t) => {
+  const page = await open(t, { version: 1, kind: "complete", answers: adult }, { viewport: { width: 320, height: 844 } });
+  const foodKey = "kinevault-track.food-log.v1";
+  const savedFoods = () => page.evaluate(key => JSON.parse(localStorage.getItem(key)), foodKey);
+  const failFoodWrite = () => page.evaluate(key => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (nextKey, value) {
+      if (nextKey === key) {
+        Storage.prototype.setItem = original;
+        throw new Error("Simulated food save failure");
+      }
+      return original.call(this, nextKey, value);
+    };
+  }, foodKey);
+  await heading(page, "Calories");
+  await page.getByRole("tab", { name: /Food/ }).click();
+  await heading(page, "Daily food log");
+  await button(page, "Expand calendar").click();
+  const pastDay = page.locator('button[aria-pressed]').nth(3);
+  const pastLabel = await pastDay.getAttribute("aria-label");
+  await pastDay.click();
+  await button(page, "Collapse calendar").click();
+  const search = page.getByRole("textbox", { name: "Search foods", exact: true });
+  await search.fill("banana raw");
+  await button(page, "View nutrition for Banana, raw").click();
+  await button(page, "1 banana, 126 g").click();
+  const lunchChoice = button(page, "Log to Lunch");
+  assert.equal(await lunchChoice.count(), 1);
+  await lunchChoice.focus();
+  await lunchChoice.press("Space");
+  assert.equal(await lunchChoice.getAttribute("aria-pressed"), "true");
+  assert.equal(await button(page, "Log to Breakfast").getAttribute("aria-pressed"), "false");
+  const amount = page.getByRole("textbox", { name: "Amount (g)", exact: true });
+  await amount.fill("");
+  assert.ok(await button(page, "Log food").isDisabled());
+  await amount.fill("126");
+  await failFoodWrite();
+  await button(page, "Log food").click();
+  await page.getByRole("alert").filter({ hasText: "Couldn't log this food" }).waitFor();
+  assert.equal(await amount.inputValue(), "126");
+  assert.equal(await savedFoods(), null);
+  await button(page, "Log food").click();
+  await heading(page, "Daily food log");
+  const lunch = page.getByTestId("meal-lunch");
+  await lunch.getByText("Banana, raw", { exact: true }).waitFor();
+  await lunch.getByText("126 g · 122 kcal", { exact: true }).waitFor();
+  assert.equal(await page.getByTestId("daily-food-log").getByText("No food has been logged yet", { exact: true }).count(), 3);
+  assert.equal(await search.inputValue(), "");
+  const saved = await savedFoods();
+  const [date] = Object.keys(saved.days);
+  assert.equal(saved.days[date].length, 1);
+  assert.equal(saved.days[date][0].meal, "lunch");
+  assert.equal(saved.days[date][0].calories, 122.22);
+  await page.getByRole("tab", { name: /Home/ }).click();
+  await page.getByText("122 / 2,760 kcal", { exact: true }).waitFor();
+  await page.getByText("28.6 / 345 g", { exact: true }).waitFor();
+  await page.reload();
+  await heading(page, "Calories");
+  await page.getByText("0 / 2,760 kcal", { exact: true }).waitFor();
+  await button(page, "Expand calendar").click();
+  await button(page, pastLabel).click();
+  await button(page, "Collapse calendar").click();
+  await page.getByText("122 / 2,760 kcal", { exact: true }).waitFor();
+  await page.getByRole("tab", { name: /Food/ }).click();
+  await heading(page, "Daily food log");
+  await failFoodWrite();
+  await button(page, "Remove Banana, raw from Lunch").click();
+  await page.getByRole("alert").filter({ hasText: "Couldn't save your food log" }).waitFor();
+  assert.equal((await savedFoods()).days[date].length, 1);
+  await button(page, "Remove Banana, raw from Lunch").click();
+  await page.getByTestId("meal-lunch").getByText("No food has been logged yet", { exact: true }).waitFor();
+  await page.getByRole("tab", { name: /Home/ }).click();
+  await page.getByText("0 / 2,760 kcal", { exact: true }).waitFor();
+  assert.equal((await savedFoods()).days[date]?.length ?? 0, 0);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+});
+
+test("a corrupt food log offers recovery without showing an invented empty day", async (t) => {
+  const page = await open(t, { version: 1, kind: "complete", answers: adult });
+  await heading(page, "Calories");
+  await page.evaluate(() => localStorage.setItem("kinevault-track.food-log.v1", "corrupt"));
+  await page.reload();
+  await heading(page, "Couldn't load your food log");
+  assert.equal(await page.getByRole("progressbar").count(), 0);
+  await page.evaluate(() => localStorage.setItem("kinevault-track.food-log.v1", JSON.stringify({ version: 1, days: {} })));
+  await button(page, "Retry food log").click();
+  await heading(page, "Calories");
+  await page.getByText("0 / 2,760 kcal", { exact: true }).waitFor();
+});
+
+test("logged food edits retain the draft on failure, move meals, update totals, and survive reload", async (t) => {
+  const page = await open(t, { version: 1, kind: "complete", answers: adult }, { viewport: { width: 320, height: 844 } });
+  await heading(page, "Calories");
+  await page.getByRole("tab", { name: /Food/ }).click();
+  await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("banana raw");
+  await button(page, "View nutrition for Banana, raw").click();
+  await button(page, "Log food").click();
+  await heading(page, "Daily food log");
+  const snapshot = () => page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.food-log.v1")));
+  const before = await snapshot();
+  const [date] = Object.keys(before.days);
+  assert.equal(await button(page, "Edit Banana, raw in Breakfast").count(), 1);
+  await button(page, "Edit Banana, raw in Breakfast").click();
+  await heading(page, "Edit logged food");
+  const amount = page.getByRole("textbox", { name: "Amount (g)", exact: true });
+  assert.equal(await amount.inputValue(), "100");
+  assert.equal(await button(page, "Log to Breakfast").getAttribute("aria-pressed"), "true");
+  await amount.fill("200");
+  await button(page, "Cancel edit").click();
+  assert.deepEqual(await snapshot(), before);
+  await button(page, "Edit Banana, raw in Breakfast").click();
+  await amount.fill("");
+  assert.ok(await button(page, "Save changes").isDisabled());
+  await amount.fill("200");
+  await button(page, "Log to Dinner").click();
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "kinevault-track.food-log.v1") {
+        Storage.prototype.setItem = original;
+        throw new Error("Simulated food edit failure");
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await button(page, "Save changes").click();
+  await page.getByRole("alert").filter({ hasText: "Couldn't save your changes" }).waitFor();
+  assert.equal(await amount.inputValue(), "200");
+  assert.equal(await button(page, "Log to Dinner").getAttribute("aria-pressed"), "true");
+  assert.deepEqual(await snapshot(), before);
+  await button(page, "Save changes").click();
+  await heading(page, "Daily food log");
+  await page.getByTestId("meal-dinner").getByText("200 g · 194 kcal", { exact: true }).waitFor();
+  const after = await snapshot();
+  assert.equal(after.days[date].length, 1);
+  assert.equal(after.days[date][0].id, before.days[date][0].id);
+  assert.equal(after.days[date][0].meal, "dinner");
+  assert.equal(after.days[date][0].calories, 194);
+  assert.equal(after.days[date][0].details.potassium, 652);
+  await button(page, "View macros for the day").click();
+  await page.getByTestId("daily-macro-view").getByText("194 / 2,760 kcal", { exact: true }).waitFor();
+  await page.getByTestId("daily-nutrient-protein").getByText("1.48", { exact: true }).waitFor();
+  await page.getByTestId("daily-nutrient-potassium").getByText("652", { exact: true }).waitFor();
+  await page.getByRole("tab", { name: /Home/ }).click();
+  await page.getByTestId("home-calories").getByText("194 / 2,760 kcal", { exact: true }).waitFor();
+  await page.reload();
+  await heading(page, "Calories");
+  await page.getByTestId("home-calories").getByText("194 / 2,760 kcal", { exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+});
+
+test("daily macro view uses consistent category colors, reflects edits, and follows the selected day", async (t) => {
+  const page = await open(t, { version: 1, kind: "complete", answers: adult }, { viewport: { width: 390, height: 844 } });
+  await heading(page, "Calories");
+  await page.getByRole("tab", { name: /Food/ }).click();
+  assert.equal(await button(page, "View macros for the day").isDisabled(), false);
+  await button(page, "View macros for the day").click();
+  await heading(page, "Daily macros");
+  await page.getByTestId("daily-macro-view").getByText("No food has been logged yet", { exact: true }).waitFor();
+  await button(page, "Back to food log").click();
+  await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("banana raw");
+  await button(page, "View nutrition for Banana, raw").click();
+  await button(page, "Log food").click();
+  await heading(page, "Daily food log");
+  await button(page, "View macros for the day").click();
+  const view = page.getByTestId("daily-macro-view");
+  await view.getByText("97 / 2,760 kcal", { exact: true }).waitFor();
+  await view.getByTestId("daily-nutrient-protein").getByText("0.74", { exact: true }).waitFor();
+  const color = locator => locator.evaluate(el => getComputedStyle(el).backgroundColor);
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(theme => localStorage.setItem("kinevault-track.appearance", theme), theme);
+    await page.reload();
+    await page.getByRole("tab", { name: /Home/ }).click();
+    await heading(page, "Calories");
+    const colors = [];
+    let filledWidth = 0;
+    for (const category of ["carbs", "protein", "fat"]) {
+      const segment = page.getByTestId(`home-calorie-${category}`);
+      const categoryColor = await color(segment);
+      colors.push(categoryColor);
+      assert.equal(await color(page.getByTestId(`home-macro-${category}-fill`)), categoryColor);
+      assert.equal(await page.getByTestId("home-macros").getByTestId(`macro-${category}-label`).evaluate(el => getComputedStyle(el).color), categoryColor);
+      const box = await segment.boundingBox();
+      assert.ok(box.width > 0, `${category} contributes to the calorie bar`);
+      filledWidth += box.width;
+    }
+    assert.equal(new Set(colors).size, 3);
+    const totalWidth = (await page.getByTestId("home-calorie-track").boundingBox()).width;
+    assert.ok(Math.abs(filledWidth / totalWidth - 97 / 2760) < 0.001);
+    await page.getByRole("tab", { name: /Food/ }).click();
+    await button(page, "View macros for the day").click();
+    await heading(page, "Daily macros");
+    for (const [index, category] of ["carbs", "protein", "fat"].entries())
+      assert.equal(await color(page.getByTestId(`day-calorie-${category}`)), colors[index]);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  }
+  await button(page, "Expand calendar").click();
+  await page.locator('button[aria-pressed]').filter({ hasText: /^\d+$/ }).nth(3).click();
+  await button(page, "Collapse calendar").click();
+  await heading(page, "Daily food log");
+  await button(page, "View macros for the day").click();
+  await page.getByTestId("daily-macro-view").getByText("0 / 2,760 kcal", { exact: true }).waitFor();
+});
+
+test("daily nutrition lists the requested units in order and supports old entries without inventing missing values", async (t) => {
+  const page = await open(t, { version: 1, kind: "complete", answers: adult }, { viewport: { width: 320, height: 844 } });
+  await heading(page, "Calories");
+  await page.getByRole("tab", { name: /Food/ }).click();
+  await button(page, "View macros for the day").click();
+  const view = page.getByTestId("daily-macro-view");
+  assert.equal(await view.getByText("Calories (kcal)", { exact: true }).count(), 1);
+  const labels = view.getByTestId("nutrient-label");
+  const expectedLabels = ["Calories (kcal)", "Protein (g)", "Fat (g)", "Saturated fat (g)", "Trans fat (g)",
+    "Fiber (g)", "Total sugars (g)", "Sodium (mg)", "Cholesterol (mg)", "Potassium (mg)",
+    "Calcium (mg)", "Iron (mg)", "Vitamins D (mcg)", "Caffeine (mg)", "Alcohol (g)"];
+  assert.deepEqual(await labels.allTextContents(), expectedLabels);
+  assert.ok((await view.getByTestId("nutrient-value").allTextContents()).every(value => value === "0"));
+  const calorieCard = await view.getByTestId("day-calories").boundingBox();
+  const details = await view.getByTestId("daily-nutrient-details").boundingBox();
+  assert.ok(calorieCard.y + calorieCard.height <= details.y);
+  const labelX = key => view.getByTestId(`daily-nutrient-${key}`).getByTestId("nutrient-label").evaluate(el => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return range.getBoundingClientRect().x;
+  });
+  assert.ok(await labelX("saturatedFat") > await labelX("fat"));
+  assert.ok(await labelX("transFat") > await labelX("fat"));
+  await button(page, "Back to food log").click();
+  await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("banana raw");
+  await button(page, "View nutrition for Banana, raw").click();
+  await page.getByRole("textbox", { name: "Amount (g)", exact: true }).fill("200");
+  await button(page, "Log food").click();
+  await button(page, "View macros for the day").click();
+  for (const [key, value] of [["calories", "194"], ["protein", "1.48"], ["fat", "0.56"],
+    ["saturatedFat", "0.22"], ["transFat", "Not available"], ["fiber", "3.4"], ["totalSugars", "31.6"],
+    ["sodium", "0"], ["cholesterol", "0"], ["potassium", "652"], ["calcium", "10"],
+    ["iron", "0"], ["vitaminD", "0"], ["caffeine", "0"], ["alcohol", "0"]])
+    await view.getByTestId(`daily-nutrient-${key}`).getByText(value, { exact: true }).waitFor();
+  const foodKey = "kinevault-track.food-log.v1";
+  await page.evaluate(key => {
+    const record = JSON.parse(localStorage.getItem(key));
+    for (const entries of Object.values(record.days)) for (const entry of entries) delete entry.details;
+    localStorage.setItem(key, JSON.stringify(record));
+  }, foodKey);
+  await page.reload();
+  await heading(page, "Daily food log");
+  await button(page, "View macros for the day").click();
+  await view.getByTestId("daily-nutrient-potassium").getByText("652", { exact: true }).waitFor();
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(theme => localStorage.setItem("kinevault-track.appearance", theme), theme);
+    await page.reload();
+    await heading(page, "Daily food log");
+    await button(page, "View macros for the day").click();
+    for (const width of [320, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      assert.equal(await labels.count(), 15);
+    }
+  }
 });
 
 test("35 calendar dates center today and share selection across daily tabs excluding Settings", async (t) => {
@@ -584,7 +902,7 @@ test("editable macro grams persist and update the home targets", async (t) => {
   assert.equal(saved.answers.customCalories, "2400");
 });
 
-test("unset and maximum calorie goals keep a readable bar above macros and Kine", async (t) => {
+test("unset and maximum calorie goals keep a readable bar below macros and Kine", async (t) => {
   for (const customCalories of ["", "10000"]) {
     const answers = { ...adult, estimateEnabled: false, eligible: false, sex: null, customCalories };
     const page = await open(t, { version: 1, kind: "complete", answers }, { reducedMotion: "reduce", viewport: { width: 320, height: 844 } });
@@ -596,7 +914,7 @@ test("unset and maximum calorie goals keep a readable bar above macros and Kine"
     assert.ok(countBox.x >= 0 && countBox.x + countBox.width <= 320);
     assert.ok(await count.evaluate((el) => el.scrollWidth <= el.clientWidth), "calorie count stays readable");
     const rowBox = await page.getByTestId("home-nutrition-row").boundingBox();
-    assert.ok(calorieBox.y + calorieBox.height <= rowBox.y);
+    assert.ok(rowBox.y + rowBox.height <= calorieBox.y);
     const macrosBox = await page.getByTestId("home-macros").boundingBox();
     const mascotBox = await page.getByTestId("kine-today").boundingBox();
     assert.ok(Math.abs(macrosBox.width - mascotBox.width) <= 1, "Kine uses half the row");

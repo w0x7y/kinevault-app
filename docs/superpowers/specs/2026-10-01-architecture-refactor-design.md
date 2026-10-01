@@ -3,12 +3,13 @@
 Updated October 1, 2026 after both accepted architecture reviews and the final
 check. This contract covers the implemented onboarding, calorie policy, Expo
 connection checks, Selected day lifecycle, completed-workout interpretation,
-and Profile persistence.
+Profile persistence, and local food logging.
 
 English, metric units, local profile version 1, minimum age 16, and the current
 [product scope](../../../PRODUCT.md) remain the product contract. The app has
-no logging service, accounts, backend, or sync. The selected day's activity is
-empty in production; nonempty workout data exists only in test fixtures.
+no hosted logging service, accounts, backend, or sync. Food can be logged locally
+to a meal on the Selected day. Workouts, steps, and water remain empty in
+production; nonempty workout data exists only in test fixtures.
 
 ## Onboarding and targets
 
@@ -56,8 +57,9 @@ selection; Settings omits the picker.
 
 ## Daily activity and completed workouts
 
-`src/daily/use-day.ts` maps the Selected day to an empty activity record and its
-summary. It intentionally has no persistence or logging adapter.
+`src/daily/use-day.ts` combines the Selected day's saved food with empty workout,
+step, and water records, then derives its summary. Home and Food withhold food
+totals and meal records until storage is ready; failed loads show recovery.
 
 `src/daily/workout.ts` interprets completed sets once. `interpretWorkout`
 returns one `CompletedWorkout` containing total weight × repetitions, duration,
@@ -72,6 +74,63 @@ Home and Exercise pass the coherent workout value to `WorkoutWidget`; callers
 cannot supply separate raw-session and summary values. Exercise search filters
 only rendered exercise rows, leaving session totals unchanged. No duplicate
 completion filter or obsolete flat workout-summary API remains.
+
+## Food catalog and local logging
+
+`src/food/catalog.ts` owns offline search, ranking, paging, gram validation, and
+nutrition scaling. The bundled USDA FNDDS catalog retains per-100g values and
+source serving weights. Its pinned, validated importer and provenance are
+documented in [README.md](../../../README.md).
+
+`src/food/log-model.ts` validates version-1 food logs at the storage boundary.
+Each date holds entries with a unique ID, source food ID, description, meal,
+grams, and scaled nutrition snapshot. Dates, meals, IDs, amounts, and finite
+nonnegative nutrients are checked. Display rounding does not change stored totals.
+
+`src/food/log-persistence.ts` owns loading, retry, add, remove, and lifecycle
+cancellation behind an injected storage adapter. Construction is inert;
+snapshots and subscriptions are stable. Only one write runs at a time. Changes
+publish after durable success; failures preserve saved entries and allow retry.
+Older reads cannot overwrite newer loads. Restart waits for any uncancelable
+write before reloading its durable result.
+
+`src/food/log-provider.tsx` supplies React subscriptions and AsyncStorage within
+the shared tab layout. Its storage key is independent of Profile reset.
+Logging captures the selected date, food, amount, and meal before saving.
+Changing dates or unmounting cannot navigate a newer screen after an old save.
+Failed saves preserve the form draft; invalid amounts cannot be submitted.
+Removal is scoped to an entry on its date. Successful changes update both meal
+rows and Home nutrition through the shared food-log subscription.
+
+Editing is also scoped to an entry ID and date. It rescales that entry's saved
+nutrition snapshot to the new gram amount and replaces its meal without changing
+identity or consulting a newer catalog release. Missing targets never create an
+entry. Edits share write exclusion, validation, durable publication, and failure
+recovery with add/remove. The common nutrition form uses an add/edit discriminant
+and keeps unsaved amount and meal choices separate from the persisted entry.
+
+`src/daily/nutrition.ts` defines macro categories and calorie-bar shares.
+Progress length follows source calories and the calorie goal, clamped to the
+track. Colored shares use normalized 4/4/9 kcal-per-gram estimates, with a neutral
+fallback for calories without macros. Theme tokens supply category colors in
+both appearances. The Home macro panel centers its rows vertically.
+`src/food/daily-macros.tsx` uses the shared daily summary and target policy for
+calorie totals, progress, and the ordered detailed-nutrient list. It reads the same Selected day and saved
+entries as Home and the meal log.
+
+`src/food/nutrients.ts` defines detailed nutrient keys and display units. The
+importer keeps source values separately from the required calories/macros;
+missing or invalid details are null. Microgram aliases normalize to mcg, while
+Vitamin D in IU is not silently accepted. `nutritionForGrams` copies scaled
+details into new entries; `nutritionForEntry` rescales them during edits.
+The version-1 food-log parser accepts older entries without details, validates
+new numeric/null fields, and copies them canonically before durable writes.
+
+`src/daily/detailed-nutrition.ts` sums saved detail snapshots. Older entries can
+resolve per-100g details through catalog lookup by USDA ID and scale by saved
+grams; existing snapshots remain authoritative. A missing value in any entry
+makes the corresponding day's total unavailable. Empty days have zero intake.
+The pinned FNDDS release does not provide trans fat.
 
 ## Profile persistence and recovery
 
@@ -115,6 +174,31 @@ The final check passed 84 unit tests, 15 browser tests, TypeScript with unused
 checks, Expo Doctor 21/21, the 11-route static web export, and iOS/Android exports.
 Every changed subsystem and final cleanup received independent review. Native
 device behavior remains outside bundle-export verification.
+
+The later food-logging and layout increment passed 108 unit tests, 18 browser
+tests, TypeScript with unused-code checks, and web/iOS/Android exports. Controlled
+storage covers date/meal separation, scaled nutrition, validation, write failure,
+removal, retry, and restart ordering. Browser tests cover past-day logging and
+reload, shared Home totals, failed save/removal recovery, corrupt loads, empty
+meal labels, Kine-first layout, and accessible meal selection. Independent
+review found a missing web selection state. Meal buttons now expose their
+pressed state, with a browser regression covering Space-key selection and the
+chosen meal.
+
+The macro-view and food-editing increment passed 114 unit tests, 20 browser tests,
+TypeScript with unused-code checks, and web/iOS/Android exports. Tests cover
+identity/date preservation, amount scaling, meal moves, failed and pending edits,
+invalid targets, calorie share math, category colors, vertical centering, cancel,
+retry, reload, and selected-day macro totals. Native editing and keyboard behavior
+remain outside bundle-export verification.
+
+The detailed-nutrition increment passed 120 unit tests, 21 browser tests,
+TypeScript with unused-code checks, and web/iOS/Android exports. Unit tests
+cover source units, unknown versus zero, saved/scaled detail snapshots, old-entry
+lookup, and incomplete daily totals. Browser tests cover all requested labels
+and units in order, calories above the list, indented fat subtypes, real serving
+totals, edited snapshots, old entries, empty days, and phone/desktop layouts in
+both themes. Reimporting the pinned archive reproduced the expanded catalog.
 
 The dependency audit reports three moderate package entries for one existing
 Router decoder advisory. No reachable use of that decoder was confirmed in the

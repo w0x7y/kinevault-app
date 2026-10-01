@@ -47,6 +47,19 @@ retrying the saved data or confirming a fresh start.
 weight multiplied by repetitions for each set.
 
 **Daily activity**: Food, workout, step, and water records for the Selected day.
-The current app provides empty records for every date until logging exists.
+Saved food contributes to that day's calorie and macro totals.
+
+**Food catalog**: Foods and prepared dishes with calories, macros, and known
+serving weights, available to search when choosing what to log.
+
+**Logged food**: A chosen food and gram amount recorded in a meal on a specific
+day, with the calories and macros for that amount. Editing its amount or meal
+changes the existing entry when saved; cancel preserves it.
+
+**Meal**: Breakfast, Lunch, Dinner, or Snacks / Drinks within a day's food log.
+
+**Detailed nutrient total**: The selected day's intake of a fat subtype, fiber,
+sugars, mineral, vitamin D, caffeine, or alcohol. A missing food-source value
+makes that nutrient's daily total unavailable; a reported zero is known intake.
 
 **Kine**: The app's blue original creature, who guides setup and appears on each app tab.

@@ -31,18 +31,31 @@ reference patterns, not implemented companion features.
   equal columns separated by 12px, content left and Kine right. Kine has the same
   responsive size for a given content width. Home uses the internal `today` pose;
   Food, Exercise, and Settings use their matching poses.
-- Home starts with a full-width calorie count and horizontal progress bar.
-  Below it, carbs, protein, and fat progress sit to Kine's left; each macro count
+- Home starts with carbs, protein, and fat progress to Kine's left, followed by
+  a full-width calorie count and horizontal progress bar. Each macro count
   shares its label's line above the bar. Workout volume, duration, sets, and reps
   follow, then steps and water side by side. Widget header icons sit on the right.
-- Food and Exercise begin with a full-width search field, then two centered-label
-  action buttons to Kine's left. Create Foods / View macros for the day and
-  Create Exercise / Create Workouts are disabled placeholders without visible
-  “Coming soon” captions. Search filters the selected day's existing entries.
+  Macro rows center vertically within their panel. Carbs, protein, and fat use
+  their amber, blue, and purple theme tokens in labels, icons, progress fills,
+  and the calorie bar's stacked segments. The unconsumed track stays neutral.
+- Food and Exercise begin with two centered-label action buttons to Kine's left,
+  followed by a full-width search field. Create Foods, Create Exercise, and
+  Create Workouts are disabled placeholders without visible “Coming soon”
+  captions. View macros for the day opens calories and progress above the
+  selected date's ordered nutrient list. Food searches the offline USDA catalog; Exercise
+  search filters the selected day's existing exercise rows.
 - Food retains Breakfast, Lunch, Dinner, and Snacks / Drinks sections with calories.
+  Empty meals say “No food has been logged yet”. Search results show grams,
+  nutrition, meal choices with announced selection, and a primary Log food action for the selected
+  day. Saved entries show amounts, Edit, and a named removal control.
+  Edit reuses the amount, nutrition preview, and meal controls with Save changes
+  and Cancel edit actions. Failed saves retain the draft.
+  The daily nutrient list has aligned label/value columns with units in labels;
+  saturated fat and trans fat are indented under Fat. Missing values say
+  Not available. Both themes preserve protein and fat category colors.
   Exercise adds completed exercises with sets, reps, and actual load ranges;
-  planned sets do not count as completed activity. Days remain empty until logging
-  exists; omit repeated empty-meal captions and fabricated statistics.
+  planned sets do not count as completed activity. Only saved food contributes
+  to nutrition totals; other activity remains empty until its logging exists.
 - Settings places its title to Kine's left and keeps profile and appearance controls.
   Onboarding begins with welcome and goals before age confirmation, then profile
   questions and editable calorie/macro targets. Automatic macros use 50% carbs,

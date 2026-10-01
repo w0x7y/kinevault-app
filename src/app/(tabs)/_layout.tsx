@@ -9,6 +9,7 @@ import { useTheme } from "../../theme/provider";
 import { fonts } from "../../theme/tokens";
 import { useProfile } from "../../profile/provider";
 import { useReducedMotion } from "../../components/motion";
+import { FoodLogProvider } from "../../food/log-provider";
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
@@ -19,7 +20,7 @@ export default function TabLayout() {
   if (state.kind !== "ready") return null;
   if (state.document.kind === "draft") return <Redirect href="/onboarding" />;
   return (
-    <DayProvider>
+    <FoodLogProvider><DayProvider>
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <View style={{ flex: 1, paddingTop: headerHeight }}>
           <Tabs
@@ -79,6 +80,6 @@ export default function TabLayout() {
         </View>
         <AppHeader onHeightChange={setHeaderHeight} />
       </View>
-    </DayProvider>
+    </DayProvider></FoodLogProvider>
   );
 }

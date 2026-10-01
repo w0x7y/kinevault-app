@@ -44,6 +44,7 @@
     "android": "expo start --android",
     "android:keyboard": "node scripts/android-keyboard.mjs",
     "assets:mascot": "node scripts/optimize-mascot.mjs",
+    "foods:import": "python3 scripts/import-food-catalog.py",
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",

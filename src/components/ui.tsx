@@ -10,7 +10,7 @@ import {
   type ViewProps,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useState, type PropsWithChildren } from "react";
+import { useState, type PropsWithChildren, type Ref } from "react";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import type { KinePose } from "../onboarding/kine";
@@ -58,11 +58,13 @@ export function Screen({
   children,
   pose,
   showTitle = true,
+  scrollRef,
 }: PropsWithChildren<{
   title: string;
   description?: string;
   pose?: KinePose;
   showTitle?: boolean;
+  scrollRef?: Ref<ScrollView>;
 }>) {
   const { colors } = useTheme();
   return (
@@ -74,6 +76,7 @@ export function Screen({
         <title>{title} · KineVault Track</title>
       </Head>
       <ScrollView
+        ref={scrollRef}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.screen}
       >

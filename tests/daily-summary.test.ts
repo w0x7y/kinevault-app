@@ -20,9 +20,9 @@ test("empty selected days have no invented activity", () => {
 
 test("food totals include all meals and retain macro grams", () => {
   const day: DailyActivity = { ...emptyDay("2026-10-01"), foods: [
-    { id: "1", name: "Oats", meal: "breakfast", calories: 150, carbs: 27, protein: 5, fat: 3 },
-    { id: "2", name: "Soup", meal: "lunch", calories: 240, carbs: 32, protein: 12, fat: 7 },
-    { id: "3", name: "Milk", meal: "snacks", calories: 110, carbs: 12, protein: 8, fat: 4 },
+    { id: "1", name: "Oats", meal: "breakfast", fdcId: 1, grams: 100, calories: 150, carbs: 27, protein: 5, fat: 3 },
+    { id: "2", name: "Soup", meal: "lunch", fdcId: 2, grams: 100, calories: 240, carbs: 32, protein: 12, fat: 7 },
+    { id: "3", name: "Milk", meal: "snacks", fdcId: 3, grams: 100, calories: 110, carbs: 12, protein: 8, fat: 4 },
   ] };
   const summary = summarizeDay(day);
   assert.equal(summary.calories, 500);

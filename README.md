@@ -14,15 +14,25 @@ studio is maintained separately.
 - Daily layouts for nutrition, workouts, steps, water, and four meal sections.
   Kine uses the same even split and size beside Home macros, Food/Exercise
   action buttons, and the Settings title. Macro counts sit beside their labels.
-  A full-width calorie count and progress bar sit above Home’s macro row.
+  A full-width calorie count and progress bar sit below Home’s macro/Kine row.
+  Carbs use amber, protein blue, and fat purple in the macro breakdown and
+  stacked calorie bar. The macro rows center vertically beside Kine.
+  Food and Exercise place their search fields below their action/Kine rows.
   Workout details list completed exercises with sets, reps, and actual weight ranges.
-  Records remain empty until logging is implemented; create/view buttons are
-  disabled placeholders.
+  Food records can be logged to a meal on the selected day. Workouts, steps,
+  and water remain empty; create/view buttons are disabled placeholders.
 - Shared 12px screen margins, panel padding, and gaps across tabs and onboarding.
 - Comfortaa typography, Font Awesome 6 icons, and shared themed components.
 - System, Light, and Dark appearance, saved locally on the device.
 - English copy, metric units, safe-area layout, and scalable text.
 - Empty states and a missing-route recovery screen.
+- Offline food database search with 5,431 USDA foods, calories and macros per
+  100 g, serving weights, and nutrition previews for a custom gram amount.
+- Local food logging to Breakfast, Lunch, Dinner, or Snacks / Drinks, with
+  saved gram amounts, editing, removal, and shared daily calorie/macro totals.
+  Empty meals say “No food has been logged yet”.
+- View macros for the day shows calories first, then an ordered nutrient list
+  for the selected date with gram, milligram, and microgram units.
 - First-run onboarding with Kine, resumable local answers, and profile editing.
   Welcome and goals precede the age confirmation.
 - Editable calorie estimates for losing, maintaining, or gaining weight.
@@ -38,8 +48,74 @@ studio is maintained separately.
 - Small transparent WebP mascot assets, native memory/disk caching, and
   background prefetching of upcoming poses.
 
-Food and exercise logging, accounts, database search, video playback,
+Exercise logging, accounts, video playback,
 and KineVault integration are not implemented in this phase.
+
+## Food database
+
+The Food tab searches a bundled copy of USDA FoodData Central's
+[FNDDS 2021-2023](https://fdc.nal.usda.gov/download-datasets/) dietary database,
+released October 31, 2024. The 2.70 MB catalog includes 5,431 foods with complete
+calorie, carbohydrate, protein, and fat values. One source record, human milk,
+has no nutrients and is excluded. Search runs on-device without an API key,
+network connection, or hosted backend. Results are paged in groups of 20.
+
+Search accepts partial words and common plurals, and matches words in any
+order. Open a result to choose a listed serving weight or enter grams. Values
+come from USDA's per-100g data and scale to that weight. Calories round to whole
+kcal and macros to one decimal for display; calculations retain source precision.
+Choose a meal and tap Log food to save the amount to the calendar's selected
+day. The meal list and Home totals update after saving succeeds. Removing an
+entry updates the same totals. Tap Edit beside a logged food to change its
+gram amount or meal. Cancel preserves the saved entry; Save changes replaces
+that entry after durable success. Entries persist locally across app restarts;
+there is no account or cross-device sync.
+
+Failed saves and edits retain the amount and meal for retry, and failed removals retain
+the entry. A failed or corrupt load shows recovery instead of invented empty
+totals. Food records use their own versioned storage key, separate from the
+profile and appearance preferences. Resetting the profile leaves food records
+intact.
+
+View macros for the day uses the calendar's selected date, including past days.
+Calories and progress appear first, followed by calories, protein, fat,
+saturated fat, trans fat, fiber, total sugars, sodium, cholesterol, potassium,
+calcium, iron, vitamin D, caffeine, and alcohol. Fat subtypes are indented.
+The importer retains the source's per-100g nutrient units; Vitamin D's micrograms
+are labeled mcg. The pinned FNDDS release omits trans fat, so that value is
+unavailable for logged foods. Other absent or invalid source values remain
+unknown rather than becoming zero. A daily total is unavailable if any of that
+day's entries lacks the value. Empty days display zero intake.
+
+New entries store scaled nutrient snapshots, and editing their amount scales
+those values. Older entries without detailed snapshots resolve them from the
+bundled food's USDA ID and saved grams. Existing saved snapshots take precedence.
+
+The colored calorie bar retains logged calories for progress toward the goal.
+Its category shares use 4 kcal/g for carbs and protein and 9 kcal/g for fat,
+normalized to the consumed portion of the bar. Food-source calories may differ
+from that estimate. Calories without recorded macros use a neutral fill.
+
+This is a fixed catalog of foods and prepared dishes, not a live branded-product
+or barcode service. USDA food descriptions are in English and retain source
+abbreviations such as NFS, meaning not further specified. The
+[USDA data license](https://fdc.nal.usda.gov/api-guide/#licensing) is CC0 1.0.
+Source attribution, release, download URL, archive SHA-256, and record counts
+are stored alongside the foods in `assets/food/usda-fndds.json`.
+
+To rebuild the catalog, use Python 3 and download the pinned official release:
+
+```sh
+curl --fail --location --output /tmp/usda-fndds.zip \
+  https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_json_2024-10-31.zip
+npm run foods:import -- /tmp/usda-fndds.zip
+```
+
+The importer also accepts the extracted USDA JSON file. It validates nutrient
+units, excludes missing or invalid macros without inventing zero values,
+rejects other releases and duplicate USDA identifiers, and keeps distinct named
+portions with positive gram weights. Builds use the committed catalog and need no download.
+Python 3 is needed for importer tests; it is available on the Ubuntu CI runner.
 
 ## Run locally
 
@@ -131,6 +207,21 @@ npx expo export --platform ios --platform android --output-dir dist-native
 Tests cover appearance, profile record validation, draft resume, staged profile
 edits, save/retry ordering, metric input, mascot transparency/resolution/size
 budgets, calorie-mode changes, and build-tool UUID buffer bounds and compatibility.
+Food tests cover import units and provenance, incomplete records, unique source
+IDs, the shipped dataset, ranked search, common plurals, pagination, and serving
+calculations. Food-log tests cover date/meal separation, scaled nutrient snapshots,
+document validation, save-before-publish, write failure/retry, editing, removal, and stale
+reads or writes across restarts. Browser regressions verify search with networking
+disabled, gram edits, invalid-amount recovery, visible results after page navigation,
+accessible meal selection, past-day logging, reload, Home totals, save/removal
+failure recovery, and corrupt-storage recovery.
+Macro tests check energy shares, source-calorie progress, exceeded goals, empty
+days, and neutral fill. Browser checks verify matching category colors in both
+themes, vertical centering, edit cancellation/retry/reload, updated daily macro
+totals, and selected-day isolation.
+Detailed-nutrition checks cover source-unit validation, missing versus zero
+values, serving scaling, persisted snapshots, old-entry lookup, ordered rows,
+fat subtype indentation, and both theme layouts.
 Controlled clock and wake fixtures verify Selected day rollover, deliberate date
 selection, and lifecycle cancellation. Controlled storage verifies Profile recovery,
 failed writes, reset ordering, and stale reads across restarts. Completed workout
@@ -157,6 +248,25 @@ widths in both themes. Native keyboard, gestures, safe areas, text scaling, and
 screen-reader behavior still need testing on a native device or simulator.
 See [the architecture contract](docs/superpowers/specs/2026-10-01-architecture-refactor-design.md)
 for module ownership and lifecycle rules.
+
+The food database increment passed 98 unit tests, all 16 browser tests,
+TypeScript with unused-code checks, and web, iOS, and Android bundle exports.
+Reimporting the pinned USDA archive reproduced the committed catalog byte for
+byte. Native serving controls and keyboard interaction still need device testing.
+
+The food-logging and layout increment passed 108 unit tests, all 18 browser tests,
+TypeScript with unused-code checks, and web, iOS, and Android bundle exports.
+Browser checks verify empty-meal labels, the Kine-first layout, meal selection,
+durable past-day logging, shared totals, removal, and failure recovery.
+Native logging controls and screen-reader behavior still need device testing.
+
+The macro-view and food-editing increment passed 114 unit tests, all 20 browser
+tests, TypeScript with unused-code checks, and web, iOS, and Android bundle exports.
+Native editing and keyboard behavior still need device testing.
+
+The detailed-nutrition increment passed 120 unit tests, all 21 browser tests,
+TypeScript with unused-code checks, and web/iOS/Android bundle exports. Reimporting
+the pinned archive reproduced the expanded catalog byte for byte.
 
 The dependency audit reports three moderate package entries for one advisory
 in the Router chain:
@@ -195,6 +305,11 @@ shortlist concepts. It runs independently of the Expo app.
 - `src/calendar/`: local date arithmetic, centered week grid, and React/platform wiring.
 - `src/daily/workout.ts`: one interpretation of completed sets for totals and exercise rows.
 - `src/daily/`: daily record types, nutrition summaries, and dashboard widgets.
+- `src/food/`: offline catalog search, USDA data adapter, result pages, nutrition
+  previews, and local food-log validation, persistence, and React wiring.
+  Food search does not filter the daily log.
+- `scripts/import-food-catalog.py`: reproducible import of USDA FNDDS nutrition
+  and serving weights. Source data and provenance live in `assets/food/`.
 - `src/profile/model.ts`: stored document parsing and legacy age recovery.
 - `src/profile/persistence.ts`: storage lifecycle, durable saves, reset, and recovery.
 - `src/profile/provider.tsx`: React subscription and AsyncStorage adapter.
@@ -205,7 +320,7 @@ shortlist concepts. It runs independently of the Expo app.
 - `src/components/motion.tsx`: reduced-motion preferences and setup transitions.
 - `scripts/expo-connection.ts`: shared manifest checks and cancelable readiness; Node 24+ runs it directly.
 - `scripts/expo-connect.mjs`: Expo Go connection diagnostics.
-- `CONTEXT.md`: profile and onboarding domain vocabulary.
+- `CONTEXT.md`: profile, daily activity, and onboarding domain vocabulary.
 - `DESIGN.md`: supplied KineVault design reference, preserved as shared authority.
 - `PRODUCT.md`: confirmed product scope.
 
