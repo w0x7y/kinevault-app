@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppText } from "../components/ui";
-import { Button, Field } from "../onboarding/controls";
+import { Button } from "../onboarding/controls";
 import { Kine } from "../onboarding/kine";
 import { SetupTopBar } from "../onboarding/top-bar";
 import { PageTransition } from "../components/motion";
@@ -25,7 +25,7 @@ import { calorieState } from "../profile/calories";
 import { createOnboardingFlow } from "../onboarding/flow";
 import { useProfile } from "../profile/provider";
 import { useTheme } from "../theme/provider";
-import { radius } from "../theme/tokens";
+import { radius, spacing } from "../theme/tokens";
 
 export default function OnboardingScreen() {
   const { state } = useProfile();
@@ -126,8 +126,9 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
         >
           <PageTransition
             key={step}
+            testID="onboarding-content"
             direction={direction}
-            style={{ gap: 24, flexGrow: 1 }}
+            style={{ gap: spacing.layout, flexGrow: 1 }}
           >
             {welcome ? (
               <View style={{ alignItems: "center" }}>
@@ -139,7 +140,7 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
                   styles.guide,
                   width < 380 && {
                     flexDirection: "column",
-                    gap: 8,
+                    gap: spacing.layout,
                     padding: 0,
                   },
                 ]}
@@ -150,7 +151,7 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
                   style={width < 380 ? { textAlign: "center" } : { flex: 1 }}
                 >
                   {mode.kind !== "estimate" && step === "body"
-                    ? "A few details for your profile. Age is required; height and weight are optional."
+                    ? "A few details for your profile. Height and weight are optional."
                     : mode.kind !== "estimate" && step === "calories"
                       ? "You can leave this blank or add your own target."
                       : message}
@@ -158,7 +159,7 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
               </View>
             )}
             <View
-              style={{ gap: 12, alignItems: welcome ? "center" : "stretch" }}
+              style={{ gap: spacing.layout, alignItems: welcome ? "center" : "stretch" }}
             >
               <AppText
                 nativeID="onboarding-title"
@@ -177,21 +178,6 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
                 </AppText>
               )}
             </View>
-            {welcome && (
-              <Field
-                label="Age (years)"
-                value={answers.age}
-                onChangeText={(age) =>
-                  update({ kind: "fields", patch: { age } })
-                }
-                placeholder="16 or older"
-                keyboardType="number-pad"
-                inputMode="numeric"
-                maxLength={3}
-                editable={!saving}
-                error={errors.age}
-              />
-            )}
             <Question
               step={step}
               answers={answers}
@@ -216,15 +202,17 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
                 {error}
               </AppText>
             )}
-            <View style={{ marginTop: "auto", gap: 12, paddingTop: 12 }}>
+            <View style={{ marginTop: "auto", gap: spacing.layout }}>
               <Button
                 label={primaryLabel}
+                icon={step === "review" ? "check" : "arrow-right"}
                 onPress={() => void act({ kind: "next" })}
                 disabled={saving}
               />
               {showBack && (
                 <Button
                   label="Back"
+                  icon="arrow-left"
                   secondary
                   onPress={() => void act({ kind: "back" })}
                   disabled={saving}
@@ -233,6 +221,7 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
               {showSkip && (
                 <Button
                   label="Set up later"
+                  icon="clock"
                   secondary
                   onPress={() => void act({ kind: "skip" })}
                   disabled={saving}
@@ -241,7 +230,7 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
             </View>
             {welcome && (
               <AppText variant="caption" muted style={{ textAlign: "center" }}>
-                For ages 16+. Your answers stay on this device.
+                Your answers stay on this device. You can edit them anytime.
               </AppText>
             )}
           </PageTransition>
@@ -255,17 +244,16 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 560,
     alignSelf: "center",
-    padding: 24,
-    paddingBottom: 32,
-    gap: 24,
+    padding: spacing.layout,
+    gap: spacing.layout,
     flexGrow: 1,
   },
   welcome: { maxWidth: 480, justifyContent: "center" },
   guide: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
-    padding: 12,
+    gap: spacing.layout,
+    padding: spacing.layout,
     borderRadius: radius.panel,
   },
 });

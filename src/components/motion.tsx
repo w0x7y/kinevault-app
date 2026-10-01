@@ -60,7 +60,8 @@ export function PageTransition({
   children,
   direction = 1,
   style,
-}: PropsWithChildren<{ direction?: number; style?: ViewStyle }>) {
+  testID,
+}: PropsWithChildren<{ direction?: number; style?: ViewStyle; testID?: string }>) {
   const reduced = useReducedMotion();
   const progress = useSharedValue(1);
   useEffect(() => {
@@ -82,6 +83,6 @@ export function PageTransition({
     ],
   }));
   return (
-    <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>
+    <Animated.View testID={testID} style={[style, animatedStyle]}>{children}</Animated.View>
   );
 }

@@ -8,6 +8,7 @@ export const kineAssets: Record<KinePose, number> = {
   welcome: require("../../assets/mascot/2d/kine-welcome.webp"),
   name: require("../../assets/mascot/2d/kine-name.webp"),
   goal: require("../../assets/mascot/2d/kine-goal.webp"),
+  age: require("../../assets/mascot/2d/kine-body.webp"),
   body: require("../../assets/mascot/2d/kine-body.webp"),
   activity: require("../../assets/mascot/2d/kine-activity.webp"),
   calories: require("../../assets/mascot/2d/kine-calories.webp"),
@@ -19,9 +20,10 @@ export const kineAssets: Record<KinePose, number> = {
 };
 
 const upcoming: Record<KinePose, KinePose[]> = {
-  welcome: ["name"],
-  name: ["goal"],
-  goal: ["body"],
+  welcome: ["goal"],
+  goal: ["age"],
+  age: ["name"],
+  name: ["body"],
   body: ["activity"],
   activity: ["calories"],
   calories: ["review"],
@@ -29,7 +31,7 @@ const upcoming: Record<KinePose, KinePose[]> = {
   today: ["food", "exercise", "settings"],
   food: ["today", "exercise", "settings"],
   exercise: ["today", "food", "settings"],
-  settings: ["today", "name"],
+  settings: ["today", "goal"],
 };
 const warming = new Set<KinePose>();
 

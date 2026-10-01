@@ -1,4 +1,4 @@
-import { Check, Monitor, Moon, Sun, UserRound } from "lucide-react-native";
+import { Icon, type IconName } from "../../components/icon";
 import { Pressable, View } from "react-native";
 import { useState } from "react";
 import { AppText, Destination, Panel, Screen } from "../../components/ui";
@@ -6,16 +6,16 @@ import { ProfileReview } from "../../onboarding/profile-review";
 import { useProfile } from "../../profile/provider";
 import { useTheme } from "../../theme/provider";
 import type { AppearancePreference } from "../../theme/preferences";
-import { radius } from "../../theme/tokens";
+import { radius, spacing } from "../../theme/tokens";
 
 const choices: {
   value: AppearancePreference;
   label: string;
-  icon: typeof Sun;
+  icon: IconName;
 }[] = [
-  { value: "system", label: "System", icon: Monitor },
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
+  { value: "system", label: "System", icon: "desktop" },
+  { value: "light", label: "Light", icon: "sun" },
+  { value: "dark", label: "Dark", icon: "moon" },
 ];
 
 export default function SettingsScreen() {
@@ -36,7 +36,7 @@ export default function SettingsScreen() {
           <Destination
             href="/onboarding"
             title="Edit profile"
-            icon={UserRound}
+            icon="user-pen"
           />
         </>
       )}
@@ -48,9 +48,9 @@ export default function SettingsScreen() {
         <View
           accessibilityRole="radiogroup"
           accessibilityLabel="Appearance"
-          style={{ gap: 8 }}
+          style={{ gap: spacing.layout }}
         >
-          {choices.map(({ value, label, icon: Icon }) => {
+          {choices.map(({ value, label, icon }) => {
             const selected = value === preference;
             return (
               <Pressable
@@ -66,10 +66,10 @@ export default function SettingsScreen() {
                 onBlur={() => setFocused(null)}
                 style={({ pressed }) => ({
                   minHeight: 52,
-                  padding: 12,
+                  padding: spacing.layout,
                   flexDirection: "row",
                   alignItems: "center",
-                  gap: 12,
+                  gap: spacing.layout,
                   borderRadius: radius.control,
                   borderWidth: focused === value ? 2 : 1,
                   borderColor:
@@ -84,15 +84,15 @@ export default function SettingsScreen() {
                 })}
               >
                 <Icon
+                  name={icon}
                   size={20}
                   color={selected ? colors.primary : colors.mutedForeground}
-                  aria-hidden={true}
                 />
                 <AppText variant="label" style={{ flex: 1 }}>
                   {label}
                 </AppText>
                 {selected && (
-                  <Check size={18} color={colors.primary} aria-hidden={true} />
+                  <Icon name="check" size={18} color={colors.primary} />
                 )}
               </Pressable>
             );
@@ -102,7 +102,7 @@ export default function SettingsScreen() {
           {saving ? "Saving…" : "Applies to this device."}
         </AppText>
         {error && (
-          <View style={{ gap: 8 }}>
+          <View style={{ gap: spacing.layout }}>
             <AppText accessibilityRole="alert" style={{ color: colors.error }}>
               {error}
             </AppText>
@@ -122,7 +122,7 @@ export default function SettingsScreen() {
         <AppText variant="heading" accessibilityRole="header">
           Preferences
         </AppText>
-        <View style={{ gap: 16 }}>
+        <View style={{ gap: spacing.layout }}>
           <View style={{ gap: 4 }}>
             <AppText variant="label">Language</AppText>
             <AppText muted>English</AppText>

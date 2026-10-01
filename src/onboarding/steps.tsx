@@ -2,6 +2,7 @@ import { calorieState } from "../profile/calories";
 import { View } from "react-native";
 import { AppText } from "../components/ui";
 import { activities, goals, type Step } from "../profile/answers";
+import { spacing } from "../theme/tokens";
 import { Choice, ErrorText, Field } from "./controls";
 import { BodyQuestion } from "./body-question";
 import { CaloriesQuestion } from "./calories-question";
@@ -11,7 +12,7 @@ import type { QuestionProps } from "./types";
 export const stepCopy: Record<Step, { title: string; message: string }> = {
   welcome: {
     title: "Hi, I'm Kine.",
-    message: "Let's get your profile ready.",
+    message: "A place for your meals, movement, and everyday progress. Let's start with what matters to you.",
   },
   name: {
     title: "What should I call you?",
@@ -20,6 +21,10 @@ export const stepCopy: Record<Step, { title: string; message: string }> = {
   goal: {
     title: "What's your goal?",
     message: "You can change direction whenever you need.",
+  },
+  age: {
+    title: "Let's check your age",
+    message: "KineVault is for ages 16 and up. This helps us set up the right options for you.",
   },
   body: {
     title: "A little about you",
@@ -31,7 +36,7 @@ export const stepCopy: Record<Step, { title: string; message: string }> = {
   },
   calories: {
     title: "Your daily starting point",
-    message: "An estimate to start from. You can adjust it.",
+    message: "Set your calorie and macro targets. You can adjust them anytime.",
   },
   review: {
     title: "Ready when you are.",
@@ -43,6 +48,20 @@ export function Question({ step, ...props }: QuestionProps & { step: Step }) {
   switch (step) {
     case "welcome":
       return null;
+    case "age":
+      return (
+        <Field
+          label="Age (years)"
+          value={answers.age}
+          onChangeText={(age) => update({ kind: "fields", patch: { age } })}
+          placeholder="16 or older"
+          keyboardType="number-pad"
+          inputMode="numeric"
+          maxLength={3}
+          editable={!disabled}
+          error={errors.age}
+        />
+      );
     case "name":
       return (
         <Field
@@ -63,7 +82,7 @@ export function Question({ step, ...props }: QuestionProps & { step: Step }) {
         <View
           accessibilityRole="radiogroup"
           accessibilityLabel="Weight goal"
-          style={{ gap: 12 }}
+          style={{ gap: spacing.layout }}
         >
           {goals.map(({ value, label, description }) => (
             <Choice
@@ -87,7 +106,7 @@ export function Question({ step, ...props }: QuestionProps & { step: Step }) {
         <View
           accessibilityRole="radiogroup"
           accessibilityLabel="Activity level"
-          style={{ gap: 12 }}
+          style={{ gap: spacing.layout }}
         >
           {activities.map(({ value, label, description }) => (
             <Choice

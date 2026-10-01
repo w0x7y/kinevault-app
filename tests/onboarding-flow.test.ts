@@ -94,7 +94,7 @@ test("pending saves reject repeated navigation and answer edits", async () => {
   resolveSave(true);
   await pending;
   assert.equal(saved.length, 1);
-  assert.equal(flow.getSnapshot().step, "goal");
+  assert.equal(flow.getSnapshot().step, "body");
   assert.equal(flow.getSnapshot().answers.name, " Alex ");
 });
 
@@ -127,7 +127,7 @@ test("finish failure keeps review and retry trims the name before exiting", asyn
       return !fail;
     },
   );
-  for (let step = 0; step < 5; step++) await flow.act({ kind: "next" });
+  for (let step = 0; step < 6; step++) await flow.act({ kind: "next" });
   assert.equal(flow.getSnapshot().step, "review");
   await flow.act({ kind: "next" });
   assert.deepEqual(destinations, []);
@@ -145,7 +145,7 @@ test("skip requires age 16 and completes with other answers unset", async () => 
     {
       version: 1,
       kind: "draft",
-      step: "welcome",
+      step: "age",
       answers: { ...adult, age: "15" },
     },
     async (document) => {
@@ -218,5 +218,45 @@ test("save completion publishes an idle destination rather than an idle previous
   });
   await flow.act({ kind: "next" });
   unsubscribe();
-  assert.deepEqual(idleSteps, ["goal"]);
+  assert.deepEqual(idleSteps, ["body"]);
+});
+
+test("introduction and goals precede the age gate, while skip stays age-gated", async () => {
+  const { flow, destinations } = setup({
+    version: 1,
+    kind: "draft",
+    step: "welcome",
+    answers: { ...emptyAnswers },
+  });
+  assert.equal(flow.getSnapshot().showSkip, false);
+  await flow.act({ kind: "skip" });
+  assert.deepEqual(destinations, []);
+  await flow.act({ kind: "next" });
+  assert.equal(flow.getSnapshot().step, "goal");
+  flow.update({ kind: "fields", patch: { goal: "maintain" } });
+  await flow.act({ kind: "next" });
+  assert.equal(flow.getSnapshot().step, "age");
+  assert.equal(flow.getSnapshot().showSkip, true);
+  await flow.act({ kind: "next" });
+  assert.ok(flow.getSnapshot().errors.age);
+  flow.update({ kind: "fields", patch: { age: "30" } });
+  await flow.act({ kind: "next" });
+  assert.equal(flow.getSnapshot().step, "name");
+});
+
+test("invalid macro inputs block the calorie step and persist after correction", async () => {
+  const saved: ProfileDocument[] = [];
+  const { flow } = setup(
+    { version: 1, kind: "draft", step: "calories", answers: adult },
+    async (document) => { saved.push(document); return true; },
+  );
+  flow.update({ kind: "fields", patch: { customCarbs: "-5" } });
+  await flow.act({ kind: "next" });
+  assert.equal(flow.getSnapshot().step, "calories");
+  assert.ok(flow.getSnapshot().errors.customCarbs);
+  flow.update({ kind: "fields", patch: { customCarbs: "0", customProtein: "180" } });
+  await flow.act({ kind: "next" });
+  assert.equal(flow.getSnapshot().step, "review");
+  assert.equal(saved.at(-1)?.answers.customCarbs, "0");
+  assert.equal(saved.at(-1)?.answers.customProtein, "180");
 });

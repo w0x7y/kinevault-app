@@ -13,7 +13,11 @@ import {
   useReducedMotion,
 } from "../components/motion";
 import { useTheme } from "../theme/provider";
+import { spacing } from "../theme/tokens";
+import { steps } from "../profile/answers";
 import { Button } from "./controls";
+
+const totalSteps = steps.length - 1;
 
 export function SetupTopBar({
   stepIndex,
@@ -28,10 +32,10 @@ export function SetupTopBar({
 }) {
   const { colors } = useTheme();
   const reduced = useReducedMotion();
-  const progress = useSharedValue(stepIndex / 6);
+  const progress = useSharedValue(stepIndex / totalSteps);
   useEffect(() => {
     progress.set(
-      withTiming(stepIndex / 6, {
+      withTiming(stepIndex / totalSteps, {
         duration: reduced ? 0 : 260,
         easing: motionEase,
         reduceMotion: reduced ? ReduceMotion.Always : ReduceMotion.Never,
@@ -44,18 +48,18 @@ export function SetupTopBar({
   return (
     <>
       <PageTransition direction={0} style={styles.bar}>
-        <AppText variant="label">KineVault Track</AppText>
+        <AppText variant="label">{editing ? "Edit profile" : "Setup"}</AppText>
         {editing ? (
-          <Button label="Cancel" secondary disabled={saving} onPress={cancel} />
+          <Button label="Cancel" icon="xmark" secondary disabled={saving} onPress={cancel} />
         ) : (
           stepIndex > 0 && (
             <PageTransition key={stepIndex} direction={0}>
               <AppText
                 variant="caption"
                 muted
-                accessibilityLabel={`Step ${stepIndex} of 6`}
+                accessibilityLabel={`Step ${stepIndex} of ${totalSteps}`}
               >
-                {stepIndex} of 6
+                {stepIndex} of {totalSteps}
               </AppText>
             </PageTransition>
           )
@@ -63,7 +67,10 @@ export function SetupTopBar({
       </PageTransition>
       <View
         accessibilityRole="progressbar"
-        accessibilityValue={{ min: 0, max: 6, now: stepIndex }}
+        accessibilityValue={{ min: 0, max: totalSteps, now: stepIndex }}
+        aria-valuemin={0}
+        aria-valuemax={totalSteps}
+        aria-valuenow={stepIndex}
         accessibilityLabel="Setup progress"
         style={{
           height: 3,
@@ -90,12 +97,11 @@ export function SetupTopBar({
 const styles = StyleSheet.create({
   bar: {
     minHeight: 72,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    padding: spacing.layout,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: 16,
+    gap: spacing.layout,
     width: "100%",
     maxWidth: 640,
     alignSelf: "center",

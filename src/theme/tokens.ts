@@ -47,6 +47,7 @@ export const radius = {
   largePanel: 22,
 };
 export const spacing = {
+  layout: 12,
   xs: 4,
   sm: 8,
   md: 12,
@@ -57,8 +58,8 @@ export const spacing = {
   large: 40,
 };
 export const fonts = {
-  regular: "Geist_400Regular",
-  medium: "Geist_500Medium",
-  semibold: "Geist_600SemiBold",
-  bold: "Geist_700Bold",
+  regular: "Comfortaa_400Regular",
+  medium: "Comfortaa_500Medium",
+  semibold: "Comfortaa_600SemiBold",
+  bold: "Comfortaa_700Bold",
 };

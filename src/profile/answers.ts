@@ -1,7 +1,8 @@
 export const steps = [
   "welcome",
-  "name",
   "goal",
+  "age",
+  "name",
   "body",
   "activity",
   "calories",
@@ -62,6 +63,9 @@ export type Answers = {
   estimateEnabled: boolean;
   eligible: boolean;
   customCalories: string;
+  customCarbs: string;
+  customProtein: string;
+  customFat: string;
 };
 export const emptyAnswers: Answers = {
   name: "",
@@ -74,7 +78,23 @@ export const emptyAnswers: Answers = {
   estimateEnabled: true,
   eligible: false,
   customCalories: "",
+  customCarbs: "",
+  customProtein: "",
+  customFat: "",
 };
+
+export const macroInputs = [
+  { field: "customCarbs", macro: "carbs", label: "Carbs", max: 2500 },
+  { field: "customProtein", macro: "protein", label: "Protein", max: 2500 },
+  { field: "customFat", macro: "fat", label: "Fat", max: 1111 },
+] as const;
+
+export function macroInputValue(value: string, max: number): number | null {
+  const grams = numericValue(value);
+  return grams !== null && Number.isInteger(grams) && grams >= 0 && grams <= max
+    ? grams
+    : null;
+}
 export type FieldErrors = Partial<Record<keyof Answers, string>>;
 
 export function numericValue(value: string): number | null {

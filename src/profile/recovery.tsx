@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AppText } from "../components/ui";
 import { Button } from "../onboarding/controls";
 import { useTheme } from "../theme/provider";
+import { spacing } from "../theme/tokens";
 import { useProfile } from "./provider";
 
 export function ProfileRecovery() {
@@ -19,8 +20,8 @@ export function ProfileRecovery() {
           alignSelf: "center",
           width: "100%",
           maxWidth: 480,
-          padding: 24,
-          gap: 24,
+          padding: spacing.layout,
+          gap: spacing.layout,
         }}
       >
         <AppText variant="title" accessibilityRole="header">
@@ -29,20 +30,27 @@ export function ProfileRecovery() {
         <AppText muted>
           Your saved answers haven't been changed. Try loading them again.
         </AppText>
-        <Button label="Try again" onPress={retryLoad} disabled={saving} />
+        <Button
+          label="Try again"
+          icon="rotate-right"
+          onPress={retryLoad}
+          disabled={saving}
+        />
         {confirmReset ? (
-          <View style={{ gap: 12 }}>
+          <View style={{ gap: spacing.layout }}>
             <AppText accessibilityRole="alert">
               Starting fresh removes this device's saved profile and opens setup
               again.
             </AppText>
             <Button
               label={saving ? "Resetting…" : "Reset saved profile"}
+              icon="trash-can"
               onPress={() => void reset()}
               disabled={saving}
             />
             <Button
               label="Keep my profile"
+              icon="user-shield"
               secondary
               onPress={() => setConfirmReset(false)}
               disabled={saving}
@@ -51,6 +59,7 @@ export function ProfileRecovery() {
         ) : (
           <Button
             label="Start fresh"
+            icon="rotate-left"
             secondary
             onPress={() => setConfirmReset(true)}
           />

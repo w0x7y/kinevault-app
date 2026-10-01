@@ -1,14 +1,20 @@
-import { Dumbbell } from "lucide-react-native";
-import { EmptyState, Screen } from "../../components/ui";
+import { useState } from "react";
+import { Screen } from "../../components/ui";
+import { useDayActivity } from "../../daily/use-day";
+import { SearchActions } from "../../daily/search-actions";
+import { WorkoutWidget } from "../../daily/workout-widget";
 
 export default function ExerciseScreen() {
+  const activity = useDayActivity();
+  return <ExerciseDay key={activity.day.date} activity={activity} />;
+}
+
+function ExerciseDay({ activity }: { activity: ReturnType<typeof useDayActivity> }) {
+  const [query, setQuery] = useState("");
   return (
-    <Screen title="Exercise" pose="exercise">
-      <EmptyState
-        icon={Dumbbell}
-        title="Workout logging isn't ready yet"
-        description="You'll be able to track your workouts here."
-      />
+    <Screen title="Exercise" showTitle={false}>
+      <SearchActions kind="exercise" query={query} onQueryChange={setQuery} />
+      <WorkoutWidget workout={activity.summary.workout} detailed query={query} />
     </Screen>
   );
 }

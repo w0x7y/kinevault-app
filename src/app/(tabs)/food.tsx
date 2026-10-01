@@ -1,14 +1,20 @@
-import { Utensils } from "lucide-react-native";
-import { EmptyState, Screen } from "../../components/ui";
+import { useState } from "react";
+import { Screen } from "../../components/ui";
+import { useDayActivity } from "../../daily/use-day";
+import { SearchActions } from "../../daily/search-actions";
+import { MealsWidget } from "../../daily/meals-widget";
 
 export default function FoodScreen() {
+  const { day } = useDayActivity();
+  return <FoodDay key={day.date} day={day} />;
+}
+
+function FoodDay({ day }: { day: ReturnType<typeof useDayActivity>["day"] }) {
+  const [query, setQuery] = useState("");
   return (
-    <Screen title="Food" pose="food">
-      <EmptyState
-        icon={Utensils}
-        title="Food logging isn't ready yet"
-        description="You'll be able to track meals and calories here."
-      />
+    <Screen title="Food" showTitle={false}>
+      <SearchActions kind="food" query={query} onQueryChange={setQuery} />
+      <MealsWidget day={day} query={query} />
     </Screen>
   );
 }

@@ -5,6 +5,14 @@ export type ProfileDocument =
   | { version: 1; kind: "draft"; step: Step; answers: Answers }
   | { version: 1; kind: "complete"; answers: Answers };
 
+function readMacroInput(data: object, field: string): string {
+  if (!(field in data)) return "";
+  const value: unknown = Reflect.get(data, field);
+  if (typeof value !== "string" || value.length > 16)
+    throw new Error("Invalid profile macro answers");
+  return value;
+}
+
 export function parseProfile(raw: string | null): ProfileDocument {
   if (raw === null)
     return {
@@ -67,6 +75,9 @@ export function parseProfile(raw: string | null): ProfileDocument {
     height: data.height,
     weight: data.weight,
     customCalories: data.customCalories,
+    customCarbs: readMacroInput(data, "customCarbs"),
+    customProtein: readMacroInput(data, "customProtein"),
+    customFat: readMacroInput(data, "customFat"),
     estimateEnabled: data.estimateEnabled,
     eligible: data.eligible,
     sex: data.sex,
@@ -78,7 +89,7 @@ export function parseProfile(raw: string | null): ProfileDocument {
     if (Object.keys(errors).length === 0)
       return { version: 1, kind: "complete", answers };
     // Older versions allowed setup without age. Keep the profile and ask again.
-    if (errors.age) return { version: 1, kind: "draft", step: "body", answers };
+    if (errors.age) return { version: 1, kind: "draft", step: "age", answers };
   }
   if (value.kind === "draft" && "step" in value) {
     const step = steps.find((step) => step === value.step);

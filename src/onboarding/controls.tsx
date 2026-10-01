@@ -1,4 +1,4 @@
-import { Check } from "lucide-react-native";
+import { Icon, type IconName } from "../components/icon";
 import { useState } from "react";
 import {
   Pressable,
@@ -9,24 +9,27 @@ import {
 } from "react-native";
 import { AppText } from "../components/ui";
 import { useTheme } from "../theme/provider";
-import { fonts, radius } from "../theme/tokens";
+import { fonts, radius, spacing } from "../theme/tokens";
 
 export function Button({
   label,
   onPress,
   secondary = false,
   disabled = false,
+  icon,
 }: {
   label: string;
   onPress: () => void;
   secondary?: boolean;
   disabled?: boolean;
+  icon?: IconName;
 }) {
   const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ disabled }}
       aria-disabled={disabled}
       disabled={disabled}
@@ -35,10 +38,11 @@ export function Button({
       onBlur={() => setFocused(false)}
       style={({ pressed }) => ({
         minHeight: 52,
-        paddingHorizontal: 20,
-        paddingVertical: 14,
+        padding: spacing.layout,
         justifyContent: "center",
         alignItems: "center",
+        flexDirection: "row",
+        gap: 8,
         borderRadius: radius.control,
         borderWidth: 2,
         borderColor: focused
@@ -54,10 +58,18 @@ export function Button({
         opacity: disabled ? 0.55 : pressed ? 0.8 : 1,
       })}
     >
+      {icon && (
+        <Icon
+          name={icon}
+          size={16}
+          color={secondary ? colors.foreground : colors.primaryForeground}
+        />
+      )}
       <AppText
         variant="label"
         style={{
           color: secondary ? colors.foreground : colors.primaryForeground,
+          flexShrink: 1,
         }}
       >
         {label}
@@ -149,11 +161,11 @@ export function Choice({
       onBlur={() => setFocused(false)}
       style={({ pressed }) => ({
         minHeight: 58,
-        padding: 16,
+        padding: spacing.layout,
         borderRadius: radius.control,
         flexDirection: "row",
         alignItems: "center",
-        gap: 16,
+        gap: spacing.layout,
         borderWidth: focused ? 2 : 1,
         borderColor: focused
           ? colors.ring
@@ -184,10 +196,10 @@ export function Choice({
         }}
       >
         {selected && (
-          <Check
+          <Icon
+            name="check"
             size={14}
             color={colors.primaryForeground}
-            aria-hidden={true}
           />
         )}
       </View>
@@ -202,8 +214,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     minHeight: 56,
     borderRadius: radius.control,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    padding: spacing.layout,
   },
 });
 

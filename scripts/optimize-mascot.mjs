@@ -12,7 +12,7 @@ if (sources.length !== 11)
 
 const assets = [];
 for (const file of sources) {
-  // 3× the largest displayed size: 280pt welcome, 152pt other poses.
+  // 3× onboarding sizes: 280pt welcome, 152pt questions. Tab poses scale wider.
   const pixels = file === "kine-welcome.png" ? 840 : 456;
   const output = file.replace(/\.png$/, ".webp");
   const result = spawnSync("magick", [

@@ -1,6 +1,7 @@
 import { View } from "react-native";
 import { AppText } from "../components/ui";
 import { calorieState } from "../profile/calories";
+import { spacing } from "../theme/tokens";
 import { Choice, ErrorText, Field } from "./controls";
 import type { QuestionProps } from "./types";
 
@@ -14,18 +15,7 @@ export function BodyQuestion({
   const teen = mode.kind === "teen";
   const estimate = mode.kind === "estimate";
   return (
-    <View style={{ gap: 24 }}>
-      <Field
-        label="Age (years)"
-        value={answers.age}
-        onChangeText={(age) => update({ kind: "fields", patch: { age } })}
-        placeholder="16 or older"
-        keyboardType="number-pad"
-        inputMode="numeric"
-        maxLength={3}
-        editable={!disabled}
-        error={errors.age}
-      />
+    <View style={{ gap: spacing.layout }}>
       {teen ? (
         <AppText muted>
           You're still growing. We don't estimate calorie targets for under-18s.
@@ -36,7 +26,7 @@ export function BodyQuestion({
         <View
           accessibilityRole="radiogroup"
           accessibilityLabel="Calorie estimate"
-          style={{ gap: 8 }}
+          style={{ gap: spacing.layout }}
         >
           <Choice
             label="Use the standard estimate"
@@ -66,7 +56,7 @@ export function BodyQuestion({
             <View
               accessibilityRole="radiogroup"
               accessibilityLabel="Sex used by the formula"
-              style={{ flexDirection: "row", gap: 12 }}
+              style={{ flexDirection: "row", gap: spacing.layout }}
             >
               <View style={{ flex: 1 }}>
                 <Choice
@@ -93,7 +83,7 @@ export function BodyQuestion({
           </View>
         </>
       )}
-      <View style={{ flexDirection: "row", gap: 16 }}>
+      <View style={{ flexDirection: "row", gap: spacing.layout }}>
         <View style={{ flex: 1 }}>
           <Field
             label={`Height (cm)${estimate ? "" : " · optional"}`}

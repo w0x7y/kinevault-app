@@ -6,14 +6,31 @@ studio is maintained separately.
 
 ## Current foundation
 
-- Today, Food, Exercise, and Settings tabs through Expo Router.
-- Geist typography, Lucide icons, and shared themed components from DESIGN.md.
+- Home, Food, Exercise, and Settings tabs through Expo Router.
+- Compact header with profile placeholder and shared five-week day picker.
+  The current week stays centered; Settings has no calendar.
+  Dates use the device's local time zone. Selecting Today follows local day
+  changes; a deliberately chosen other date stays selected until changed again.
+- Daily layouts for nutrition, workouts, steps, water, and four meal sections.
+  Kine uses the same even split and size beside Home macros, Food/Exercise
+  action buttons, and the Settings title. Macro counts sit beside their labels.
+  A full-width calorie count and progress bar sit above Home’s macro row.
+  Workout details list completed exercises with sets, reps, and actual weight ranges.
+  Records remain empty until logging is implemented; create/view buttons are
+  disabled placeholders.
+- Shared 12px screen margins, panel padding, and gaps across tabs and onboarding.
+- Comfortaa typography, Font Awesome 6 icons, and shared themed components.
 - System, Light, and Dark appearance, saved locally on the device.
 - English copy, metric units, safe-area layout, and scalable text.
 - Empty states and a missing-route recovery screen.
 - First-run onboarding with Kine, resumable local answers, and profile editing.
+  Welcome and goals precede the age confirmation.
 - Editable calorie estimates for losing, maintaining, or gaining weight.
   Users can skip estimation or set a target manually.
+- Editable carb, protein, and fat targets in grams. Automatic targets use
+  50%/25%/25% of calories with 4/4/9 kcal per gram. Clear an override to follow
+  the calorie target again; zero is an explicit override. Custom grams do not
+  change the calorie target.
 - Ages 16+. Automatic calorie estimates are for adults; ages 16–17 use a
   custom target agreed with a health professional, or leave it unset.
 - Eleven distinct flat 2D Kine poses, quick page transitions, and an animated setup
@@ -21,7 +38,7 @@ studio is maintained separately.
 - Small transparent WebP mascot assets, native memory/disk caching, and
   background prefetching of upcoming poses.
 
-Food and exercise logging, accounts, macro targets, database search, video playback,
+Food and exercise logging, accounts, database search, video playback,
 and KineVault integration are not implemented in this phase.
 
 ## Run locally
@@ -98,7 +115,7 @@ in handwriting mode and hide the keypad. Tap the field again after running the
 command. These settings persist on the emulator; physical phones are untouched.
 The command uses `adb` from your Android SDK or PATH.
 
-Age and calorie fields accept whole numbers. Height and weight allow a decimal
+Age, calorie, and macro fields accept whole numbers. Height and weight allow a decimal
 point or comma. Invalid typed or pasted edits are rejected, and you can still
 clear a field or leave a decimal separator while typing.
 
@@ -114,6 +131,10 @@ npx expo export --platform ios --platform android --output-dir dist-native
 Tests cover appearance, profile record validation, draft resume, staged profile
 edits, save/retry ordering, metric input, mascot transparency/resolution/size
 budgets, calorie-mode changes, and build-tool UUID buffer bounds and compatibility.
+Controlled clock and wake fixtures verify Selected day rollover, deliberate date
+selection, and lifecycle cancellation. Controlled storage verifies Profile recovery,
+failed writes, reset ordering, and stale reads across restarts. Completed workout
+tests keep totals, exercise rows, and load ranges consistent.
 Connection checks use local HTTP fixtures for
 manifest errors, bundle host rules, HTTPS links, startup retries, and shutdown. Formula assumptions and supported ranges are recorded
 in [the onboarding design](docs/superpowers/specs/2026-09-30-kine-onboarding-design.md). The web export produces static routes in `dist/`.
@@ -122,18 +143,33 @@ GitHub Actions runs these checks and the browser regressions on pushes and pull 
 For browser checks, install Chromium once with `npx playwright install chromium`.
 Start the preview with `npm run web -- --port 8081`, then run `npm run test:browser`
 in another terminal. Set `KINE_PREVIEW_URL` if the preview uses a different address.
-These tests cover draft resume, calorie overrides, canceled edits, switching to
-manual targets, age gating, teen setup, all eleven poses, responsive widths,
+These tests cover draft resume, calorie and macro overrides, canceled edits, switching to
+manual targets, age gating, teen setup, onboarding poses, daily tab layouts,
+shared calendar selection, responsive widths, Profile recovery and failed resets,
+nonempty workout rendering and exercise filtering,
 reduced motion, mascot prefetching, and retrying a failed save while editing the
 review screen.
 
-The dependency audit reports three moderate findings in the Router chain:
+The October 1, 2026 final check passed TypeScript, including unused-code checks,
+84 unit tests, 15 browser tests, Expo Doctor's 21 checks, the 11-route static web
+export, and iOS/Android bundle exports. Browser checks cover 320, 390, and 1280px
+widths in both themes. Native keyboard, gestures, safe areas, text scaling, and
+screen-reader behavior still need testing on a native device or simulator.
+See [the architecture contract](docs/superpowers/specs/2026-10-01-architecture-refactor-design.md)
+for module ownership and lifecycle rules.
+
+The dependency audit reports three moderate package entries for one advisory
+in the Router chain:
 `expo-router` → `query-string` → `decode-uri-component`. The decoder has a
 [malformed-input denial-of-service advisory](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr).
 Its fixed version, 0.5.0, is ESM; the installed `query-string` 7 calls it through
 CommonJS as a function. A decoder-only override would break URL parsing, and
 newer `query-string` versions also change the export interface used by Router.
-This needs a compatible Router update or a tested migration. Do not use
+The current Expo linking parser uses `URL.searchParams`; no reachable use of the
+vulnerable decoder was confirmed in this app. The dependency advisory remains
+open. An isolated compatibility check of the fixed decoder under query-string 7
+failed with `decodeComponent is not a function`.
+This needs a compatible Router update or a separately validated dependency patch. Do not use
 `npm audit fix --force`, which proposes an incompatible Router downgrade.
 There are no high or critical findings in this audit.
 
@@ -150,12 +186,18 @@ directions for both products. Open it directly in a browser to compare and
 shortlist concepts. It runs independently of the Expo app.
 
 - `src/app/`: routes and navigation layouts.
-- `src/components/ui.tsx`: shared text, panel, screen, destination, and empty state.
+- `src/components/ui.tsx`: shared text, panel, screen, and destination link.
 - `src/theme/`: palette, geometry, typography, and appearance persistence.
 - `src/profile/answers.ts`: profile vocabulary and editable numeric strings.
 - `src/profile/calories.ts`: estimate/manual/teen policy, answer changes, and target source.
+- `src/profile/macros.ts`: calculated gram targets and custom overrides.
+- `src/calendar/selection.ts`: shared Selected day lifecycle with clock and wake adapters.
+- `src/calendar/`: local date arithmetic, centered week grid, and React/platform wiring.
+- `src/daily/workout.ts`: one interpretation of completed sets for totals and exercise rows.
+- `src/daily/`: daily record types, nutrition summaries, and dashboard widgets.
 - `src/profile/model.ts`: stored document parsing and legacy age recovery.
-- `src/profile/`: local persistence and explicit recovery.
+- `src/profile/persistence.ts`: storage lifecycle, durable saves, reset, and recovery.
+- `src/profile/provider.tsx`: React subscription and AsyncStorage adapter.
 - `src/onboarding/flow.ts`: setup transitions, validation, staged edits, and save ordering.
 - `src/onboarding/`: Kine artwork, form controls, and question content.
 - `assets/mascot/2d/`: optimized page poses, source artwork, and exact generation prompts.

@@ -136,7 +136,7 @@ test("older profiles without a supported age keep their answers for re-checking"
     {
       version: 1,
       kind: "draft",
-      step: "body",
+      step: "age",
       answers,
     },
   );

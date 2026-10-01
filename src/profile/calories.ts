@@ -1,5 +1,7 @@
 import {
   activities,
+  macroInputs,
+  macroInputValue,
   numericValue,
   type Answers,
   type FieldErrors,
@@ -91,6 +93,10 @@ export function validateAnswers(answers: Answers): FieldErrors {
     )
       errors.customCalories =
         "Enter a whole number between 1,200 and 10,000 kcal.";
+  }
+  for (const { field, label, max } of macroInputs) {
+    if (answers[field].trim() && macroInputValue(answers[field], max) === null)
+      errors[field] = `Enter ${label.toLowerCase()} as whole grams between 0 and ${max.toLocaleString("en-US")}.`;
   }
   if (
     needsEstimate &&

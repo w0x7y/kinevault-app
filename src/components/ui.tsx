@@ -1,4 +1,3 @@
-import { ArrowRight, type LucideIcon } from "lucide-react-native";
 import { Link, type Href } from "expo-router";
 import Head from "expo-router/head";
 import {
@@ -14,7 +13,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, type PropsWithChildren } from "react";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
-import { Kine, type KinePose } from "../onboarding/kine";
+import type { KinePose } from "../onboarding/kine";
+import { KineSplitRow } from "./kine-split-row";
+import { Icon, type IconName } from "./icon";
 
 type TextVariant = "body" | "title" | "heading" | "label" | "caption";
 
@@ -56,10 +57,12 @@ export function Screen({
   description,
   children,
   pose,
+  showTitle = true,
 }: PropsWithChildren<{
   title: string;
   description?: string;
   pose?: KinePose;
+  showTitle?: boolean;
 }>) {
   const { colors } = useTheme();
   return (
@@ -70,31 +73,36 @@ export function Screen({
       <Head>
         <title>{title} · KineVault Track</title>
       </Head>
-      <ScrollView contentContainerStyle={styles.screen}>
-        <View style={styles.intro}>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 16,
-            }}
-          >
-            <AppText
-              variant="title"
-              accessibilityRole="header"
-              style={{ flexShrink: 1 }}
-            >
-              {title}
-            </AppText>
-            {pose && <Kine pose={pose} size={144} />}
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.screen}
+      >
+        {showTitle && (
+          <View style={styles.intro}>
+            {pose ? (
+              <KineSplitRow pose={pose} testIDPrefix={pose}>
+                {(columnWidth) => (
+                  <AppText variant="title" accessibilityRole="header" style={columnWidth < 180 ? { fontSize: 24, lineHeight: 32 } : undefined}>
+                    {title}
+                  </AppText>
+                )}
+              </KineSplitRow>
+            ) : (
+              <AppText
+                variant="title"
+                accessibilityRole="header"
+                style={{ flexShrink: 1 }}
+              >
+                {title}
+              </AppText>
+            )}
+            {description && (
+              <AppText muted style={{ maxWidth: 600 }}>
+                {description}
+              </AppText>
+            )}
           </View>
-          {description && (
-            <AppText muted style={{ maxWidth: 600 }}>
-              {description}
-            </AppText>
-          )}
-        </View>
+        )}
         {children}
       </ScrollView>
     </SafeAreaView>
@@ -105,12 +113,12 @@ export function Destination({
   href,
   title,
   description,
-  icon: Icon,
+  icon,
 }: {
   href: Href;
   title: string;
   description?: string;
-  icon: LucideIcon;
+  icon: IconName;
 }) {
   const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
@@ -132,48 +140,14 @@ export function Destination({
           },
         ])}
       >
-        <Icon size={22} color={colors.primary} aria-hidden={true} />
+        <Icon name={icon} size={22} color={colors.primary} />
         <View style={{ flex: 1, gap: spacing.xs }}>
           <AppText variant="heading">{title}</AppText>
           {description && <AppText muted>{description}</AppText>}
         </View>
-        <ArrowRight size={18} color={colors.primary} aria-hidden={true} />
+        <Icon name="arrow-right" size={18} color={colors.primary} />
       </Pressable>
     </Link>
-  );
-}
-
-export function EmptyState({
-  icon: Icon,
-  title,
-  description,
-  children,
-}: PropsWithChildren<{
-  icon: LucideIcon;
-  title: string;
-  description: string;
-}>) {
-  const { colors } = useTheme();
-  return (
-    <Panel style={styles.empty}>
-      <Icon
-        size={36}
-        strokeWidth={1.4}
-        color={colors.mutedForeground}
-        aria-hidden={true}
-      />
-      <AppText
-        variant="heading"
-        accessibilityRole="header"
-        style={{ textAlign: "center" }}
-      >
-        {title}
-      </AppText>
-      <AppText muted style={{ textAlign: "center", maxWidth: 400 }}>
-        {description}
-      </AppText>
-      {children}
-    </Panel>
   );
 }
 
@@ -195,31 +169,23 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 768,
     alignSelf: "center",
-    padding: spacing.panel,
-    paddingBottom: 64,
-    gap: spacing.panel,
+    padding: spacing.layout,
+    paddingBottom: spacing.layout,
+    gap: spacing.layout,
   },
-  intro: { gap: spacing.md, marginBottom: spacing.sm },
+  intro: { gap: spacing.layout },
   panel: {
-    padding: spacing.panel,
+    padding: spacing.layout,
     borderWidth: 1,
     borderRadius: radius.panel,
     gap: spacing.md,
   },
   destination: {
     borderRadius: radius.panel,
-    padding: spacing.xl,
+    padding: spacing.layout,
     minHeight: 96,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.lg,
-  },
-  empty: {
-    minHeight: 280,
-    borderStyle: "dashed",
-    borderRadius: radius.largePanel,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: spacing.lg,
+    gap: spacing.layout,
   },
 });

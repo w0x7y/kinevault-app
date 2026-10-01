@@ -1,12 +1,59 @@
 # KineVault design guide
 
-Design reference for a companion app that should feel like part of KineVault.
-Based on the working source on **30 September 2026**. Measurements assume a
-16px root font size; preserve scalable text in implementation.
+Design reference for KineVault Track, the Expo app in `Application/`, and its
+separate [KineVault studio](https://github.com/arielhagay10-ui/KineVault).
+The supplied studio reference below describes its working source on
+**30 September 2026**; its measurements assume a 16px root font size.
+The Application summary records the implementation on **1 October 2026**.
+Preserve scalable text in both products.
 
-**Current** means implemented in this repository. **Companion guidance** means
-a rule for extending the design where the website has no established pattern.
-This guide describes the current working tree, including local changes.
+Outside the Application summary and explicitly labeled companion notes,
+**Current** means the studio reference, not this Expo app. **Companion guidance**
+means a proposed extension where the studio has no established pattern.
+Studio source links point to its GitHub repository; Application links point to
+local files. Studio browsing, authentication, and editing recipes describe
+reference patterns, not implemented companion features.
+
+## Current Application implementation
+
+- Use the shared light/dark palette and radii from
+  [theme tokens](src/theme/tokens.ts). Comfortaa 400/500/600/700 covers text,
+  inputs, and navigation. The shared [Icon](src/components/icon.tsx) uses
+  Font Awesome 6; decorative icons are hidden and icon-only controls are named.
+- Screen margins, panel padding, and gaps between cards or form groups are 12px.
+  Local label/caption gaps remain 4–8px. Content is centered at a maximum 768px,
+  including screen padding; touch targets remain at least 44px.
+- The compact top bar omits the app name. Its left chevron expands an inline
+  seven-column, five-row calendar with the current week in the middle row.
+  Home, Food, and Exercise share the selected local date; Settings has no picker.
+  The right profile-picture slot is a placeholder. Bottom tabs retain names.
+- Every tab uses the same [KineSplitRow](src/components/kine-split-row.tsx): two
+  equal columns separated by 12px, content left and Kine right. Kine has the same
+  responsive size for a given content width. Home uses the internal `today` pose;
+  Food, Exercise, and Settings use their matching poses.
+- Home starts with a full-width calorie count and horizontal progress bar.
+  Below it, carbs, protein, and fat progress sit to Kine's left; each macro count
+  shares its label's line above the bar. Workout volume, duration, sets, and reps
+  follow, then steps and water side by side. Widget header icons sit on the right.
+- Food and Exercise begin with a full-width search field, then two centered-label
+  action buttons to Kine's left. Create Foods / View macros for the day and
+  Create Exercise / Create Workouts are disabled placeholders without visible
+  “Coming soon” captions. Search filters the selected day's existing entries.
+- Food retains Breakfast, Lunch, Dinner, and Snacks / Drinks sections with calories.
+  Exercise adds completed exercises with sets, reps, and actual load ranges;
+  planned sets do not count as completed activity. Days remain empty until logging
+  exists; omit repeated empty-meal captions and fabricated statistics.
+- Settings places its title to Kine's left and keeps profile and appearance controls.
+  Onboarding begins with welcome and goals before age confirmation, then profile
+  questions and editable calorie/macro targets. Automatic macros use 50% carbs,
+  25% protein, and 25% fat, with editable gram overrides.
+- Brief page and Kine greeting motion respects reduced motion. The artwork and
+  its responsive-resolution limits are documented in
+  [the mascot guide](assets/mascot/README.md).
+
+[PRODUCT.md](PRODUCT.md) defines the current feature scope; [README.md](README.md)
+records modules and verification. The studio recipes below remain useful for
+future catalog integration, which is not implemented in the Application.
 
 ## 1. Design identity
 
@@ -26,7 +73,7 @@ component treatment, content hierarchy, and interaction language.
 
 ## 2. Color tokens
 
-Source of truth: [globals.css](src/app/globals.css).
+Studio source of truth: [globals.css](https://github.com/arielhagay10-ui/KineVault/blob/main/src/app/globals.css).
 Use semantic names in components; switch their values with the theme.
 
 | Token | Light | Dark | Use |
@@ -125,12 +172,14 @@ The surrounding controls follow the app theme.
 
 ## 4. Typography
 
-Current font: **Geist**, loaded through `next/font/google`, Latin subset.
+Current studio font: **Geist**, loaded through `next/font/google`, Latin subset.
 Headings and body share the same sans-serif family. There is no separate display font.
 
-**Companion guidance:** bundle Geist when supported. Fallback to
-`ui-sans-serif, system-ui, sans-serif`. Native platform fonts are a fallback when
-Geist cannot be used; match weight, scale, and spacing as closely as possible.
+**Companion app:** as of 1 October 2026, use bundled Comfortaa at weights
+400, 500, 600, and 700 for all text, inputs, and navigation. The studio reference
+above retains Geist. Native platform fonts are a fallback only if loading fails.
+The companion uses Font Awesome 6 through its shared Icon component.
+Decorative icons stay hidden from assistive technology; icon-only controls need labels.
 
 | Role | Size / line height | Weight | Tracking |
 | --- | --- | --- | --- |
@@ -244,10 +293,12 @@ Maximum width includes container padding. Use centered containers and
 - The repository has no established persistent bottom navigation, app-wide sidebar,
   generic modal system, or tab bar.
 
-**Companion guidance:** use a compact top bar with a clear title/back action.
-If persistent native navigation is needed, use a small set of labeled destinations
-from the companion's actual features. Reuse Lucide outline icons, primary active
-color, muted inactive text, card surface, and a 1px divider. Respect safe areas.
+**Companion app:** use a compact top bar with a calendar chevron, selected date,
+and profile-picture placeholder. Omit the app name. Expand a seven-column,
+five-week calendar with the current week centered; share the selected day across
+Home, Food, and Exercise. Settings omits the picker. Use labeled bottom tabs,
+Font Awesome icons, primary active color, muted inactive text, a card surface,
+and a 1px divider. Respect safe areas.
 
 ## 7. Brand and icons
 
@@ -269,11 +320,12 @@ ArrowUpRight = explore, ShieldCheck = reviewed knowledge, Play/Pause = playback.
 
 Decorative icons should be hidden from assistive technology. Icon-only controls
 need an accessible name. Do not rely on tooltips to convey essential actions.
-Use the companion's own name while keeping this visual treatment.
+The companion uses Font Awesome 6 rather than Lucide. Its app name belongs in
+launcher/splash branding; the compact in-app top bar has no wordmark.
 
 ## 8. Buttons and action hierarchy
 
-Current shared [Button](src/components/ui/button.tsx) and page-specific buttons
+Current shared [Button](https://github.com/arielhagay10-ui/KineVault/blob/main/src/components/ui/button.tsx) and page-specific buttons
 have two densities. Do not assume every current button uses the shared primitive.
 
 | Kind | Surface/text | Shape and treatment |
@@ -361,7 +413,7 @@ Separate destructive actions spatially and state their consequence before confir
 - Unknown values read “Not classified” or “Unknown”; do not display raw enum strings.
 - Instruction sections use a compact uppercase subheading and readable multiline prose.
 
-## 11. Page composition recipes
+## 11. Studio page composition recipes
 
 ### Home
 
@@ -510,7 +562,9 @@ Current shared viewer canvas is 400px tall, 500px at `sm`; default canvas is 430
 
 Z-Anatomy and BodyParts3D attribution appears on the canvas and in supporting text;
 rendered media includes its own credit overlay. If reusing those assets, carry over
-the attribution and source license files in [public/models/z-anatomy](public/models/z-anatomy/ATTRIBUTION.md).
+the original attribution and source license files. The supplied reference names
+`public/models/z-anatomy/ATTRIBUTION.md`; that file is absent from the current
+studio checkout, so it is not linked as an available source.
 The UI style itself does not require copying those models. Pose studies should be
 described as illustrations, not measured joint angles or motion-capture recordings.
 
@@ -641,20 +695,23 @@ reduced-motion support, and responsive layouts.
 - Explain failures in user terms. Keep storage buckets, schema keys, render-worker
   internals, and other implementation details out of ordinary user flows.
 
-## 18. Companion implementation handoff
+## 18. Companion extension guidance
 
-For a matching app, implement in this order:
+The Application already has theme persistence, Comfortaa, Font Awesome 6, shared
+primitives, and its daily/onboarding screens. For future catalog features, the
+original handoff sequence remains a reference; it is not a list of current features:
 
 1. Copy the semantic palette into light/dark theme objects and add System preference.
-2. Install/bundle Geist and the Lucide icon family for the chosen platform.
-3. Define spacing and the overridden radius scale from this guide.
+2. Bundle Comfortaa and Font Awesome 6 for the companion app.
+3. Retain the Application's 12px structural spacing and shared radius scale.
 4. Build primitives: text, panel, button, field, tag, divider, disclosure, feedback.
 5. Build exercise cards and a 4:3 demonstration component.
 6. Build page shells for browsing, detail, forms, and account screens.
 7. Adapt navigation and hit targets to the platform while preserving visual hierarchy.
 8. Verify real screens in both themes, with long content, empty data, failures, and large text.
 
-Suggested portable names, mapped to current values:
+Suggested portable names for studio features, mapped to studio values. These
+are not the Application's actual token export:
 
 ```ts
 // Companion guidance: names for a portable design-token layer.
@@ -678,7 +735,7 @@ Do not depend on Next.js, Supabase, or Tailwind to reproduce the visual design.
 ### Quick visual acceptance checklist
 
 - [ ] Slate blue primary actions; correct light and dark foreground pairings.
-- [ ] Geist or a deliberately matched fallback; restrained uppercase labels.
+- [ ] Comfortaa in the companion; Geist in the studio; restrained uppercase labels.
 - [ ] Correct 14px field / 18px panel radius, rather than default Tailwind radii.
 - [ ] Flat bordered panels with selective shadows and consistent spacing.
 - [ ] Large, contained demonstrations; figure and equipment remain in frame.
@@ -694,28 +751,31 @@ viewport), desktop around 1440px, and widths immediately around layout breakpoin
 
 ## 19. Source map and maintenance
 
+The table links to the separate studio source. Application sources are linked
+in the implementation summary above.
+
 | Design area | Reference |
 | --- | --- |
-| Colors, radius, base focus/reduced motion | [globals.css](src/app/globals.css) |
-| Font and initial theme | [layout.tsx](src/app/layout.tsx) |
-| Appearance strip and persistence | [theme-control.tsx](src/components/theme-control.tsx) |
-| Shared button variants and sizes | [button.tsx](src/components/ui/button.tsx) |
-| Brand and hero | [Home](src/app/page.tsx) |
-| Search layout and filters | [Explore](src/app/exercises/page.tsx), [FilterSection](src/components/catalog/filter-section.tsx), [MobileFilters](src/components/catalog/mobile-filters.tsx) |
-| Card layout | [ExerciseCards](src/components/catalog/exercise-cards.tsx) |
-| Detail structure and tags | [Exercise detail](src/app/exercises/[slug]/page.tsx) |
-| Video, selectors, and timed notes | [MediaGallery](src/components/catalog/media-gallery.tsx) |
-| Taxonomy layouts | [TaxonomyLanding](src/components/catalog/taxonomy-landing.tsx), [Joint action](src/app/joint-actions/[slug]/page.tsx) |
-| Authentication | [AuthForm](src/components/auth/auth-form.tsx) |
-| Private form and advanced fields | [PrivateExerciseForm](src/components/private-exercises/private-exercise-form.tsx), [AdvancedPrivateFields](src/components/private-exercises/advanced-fields.tsx) |
-| Share controls | [SharePanel](src/components/private-exercises/share-panel.tsx) |
-| 3D viewer and playback | [MotionCanvas](src/components/character/motion-canvas.tsx), [SharedMotion](src/components/character/shared-motion.tsx) |
-| Anatomy colors and highlighting | [anatomy.ts](src/lib/motion/anatomy.ts), [AnatomyControls](src/components/character/anatomy-controls.tsx) |
-| Workshop structure and direct manipulation | [MotionWorkshop](src/components/character/motion-workshop.tsx), [StudioControls](src/components/character/studio-controls.tsx) |
-| Review comparisons and actions | [ReviewComparison](src/components/moderation/review-comparison.tsx), [ReviewDecisions](src/components/moderation/review-decisions.tsx) |
-| UI scaffold configuration | [components.json](components.json) — Radix Nova, neutral base, CSS variables, Lucide |
-| Existing theme/mobile verification | [appearance.spec.ts](tests/e2e/appearance.spec.ts) |
-| Product intent | [SPEC.md](SPEC.md), DESIGN and FILTER UI sections |
+| Colors, radius, base focus/reduced motion | [globals.css](https://github.com/arielhagay10-ui/KineVault/blob/main/src/app/globals.css) |
+| Font and initial theme | [layout.tsx](https://github.com/arielhagay10-ui/KineVault/blob/main/src/app/layout.tsx) |
+| Appearance strip and persistence | [theme-control.tsx](https://github.com/arielhagay10-ui/KineVault/blob/main/src/components/theme-control.tsx) |
+| Shared button variants and sizes | [button.tsx](https://github.com/arielhagay10-ui/KineVault/blob/main/src/components/ui/button.tsx) |
+| Brand and hero | [Home](https://github.com/arielhagay10-ui/KineVault/blob/main/src/app/page.tsx) |
+| Search layout and filters | [Explore](https://github.com/arielhagay10-ui/KineVault/blob/main/src/app/exercises/page.tsx), [FilterSection](https://github.com/arielhagay10-ui/KineVault/blob/main/src/components/catalog/filter-section.tsx), [MobileFilters](https://github.com/arielhagay10-ui/KineVault/blob/main/src/components/catalog/mobile-filters.tsx) |
+| Card layout | [ExerciseCards](https://github.com/arielhagay10-ui/KineVault/blob/main/src/components/catalog/exercise-cards.tsx) |
+| Detail structure and tags | [Exercise detail](https://github.com/arielhagay10-ui/KineVault/blob/main/src/app/exercises/%5Bslug%5D/page.tsx) |
+| Video, selectors, and timed notes | [MediaGallery](https://github.com/arielhagay10-ui/KineVault/blob/main/src/components/catalog/media-gallery.tsx) |
+| Taxonomy layouts | [TaxonomyLanding](https://github.com/arielhagay10-ui/KineVault/blob/main/src/components/catalog/taxonomy-landing.tsx), [Joint action](https://github.com/arielhagay10-ui/KineVault/blob/main/src/app/joint-actions/%5Bslug%5D/page.tsx) |
+| Authentication | [AuthForm](https://github.com/arielhagay10-ui/KineVault/blob/main/src/components/auth/auth-form.tsx) |
+| Private form and advanced fields | [PrivateExerciseForm](https://github.com/arielhagay10-ui/KineVault/blob/main/src/components/private-exercises/private-exercise-form.tsx), [AdvancedPrivateFields](https://github.com/arielhagay10-ui/KineVault/blob/main/src/components/private-exercises/advanced-fields.tsx) |
+| Share controls | [SharePanel](https://github.com/arielhagay10-ui/KineVault/blob/main/src/components/private-exercises/share-panel.tsx) |
+| 3D viewer and playback | [MotionCanvas](https://github.com/arielhagay10-ui/KineVault/blob/main/src/components/character/motion-canvas.tsx), [SharedMotion](https://github.com/arielhagay10-ui/KineVault/blob/main/src/components/character/shared-motion.tsx) |
+| Anatomy colors and highlighting | Supplied reference: `src/lib/motion/anatomy.ts` and `src/components/character/anatomy-controls.tsx`; absent from the current studio checkout |
+| Workshop structure and direct manipulation | [MotionWorkshop](https://github.com/arielhagay10-ui/KineVault/blob/main/src/components/character/motion-workshop.tsx), supplied reference `src/components/character/studio-controls.tsx` (absent from the current studio checkout) |
+| Review comparisons and actions | [ReviewComparison](https://github.com/arielhagay10-ui/KineVault/blob/main/src/components/moderation/review-comparison.tsx), [ReviewDecisions](https://github.com/arielhagay10-ui/KineVault/blob/main/src/components/moderation/review-decisions.tsx) |
+| UI scaffold configuration | [components.json](https://github.com/arielhagay10-ui/KineVault/blob/main/components.json) — Radix Nova, neutral base, CSS variables, Lucide |
+| Existing theme/mobile verification | [appearance.spec.ts](https://github.com/arielhagay10-ui/KineVault/blob/main/tests/e2e/appearance.spec.ts) |
+| Product intent | [SPEC.md](https://github.com/arielhagay10-ui/KineVault/blob/main/SPEC.md), DESIGN and FILTER UI sections |
 
 When shared tokens or major components change, update this guide in the same change.
 For exact current implementation, source files take precedence over an outdated guide.

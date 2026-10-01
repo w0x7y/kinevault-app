@@ -33,12 +33,13 @@ type Snapshot = {
   showSkip: boolean;
 };
 const fieldsByStep: Record<Step, (keyof Answers)[]> = {
-  welcome: ["age"],
+  welcome: [],
+  age: ["age"],
   name: ["name"],
   goal: ["goal"],
-  body: ["age", "height", "weight", "sex", "eligible"],
+  body: ["height", "weight", "sex", "eligible"],
   activity: ["activity"],
-  calories: ["customCalories"],
+  calories: ["customCalories", "customCarbs", "customProtein", "customFat"],
   review: [
     "name",
     "goal",
@@ -49,6 +50,9 @@ const fieldsByStep: Record<Step, (keyof Answers)[]> = {
     "eligible",
     "activity",
     "customCalories",
+    "customCarbs",
+    "customProtein",
+    "customFat",
   ],
 };
 
@@ -63,7 +67,7 @@ export function createOnboardingFlow(
   const listeners = new Set<() => void>();
   let snapshot: Snapshot = present({
     answers: { ...initial.answers },
-    step: initial.kind === "draft" ? initial.step : "name",
+    step: initial.kind === "draft" ? initial.step : "goal",
     editing,
     errors: {},
     direction: 1,
@@ -88,8 +92,8 @@ export function createOnboardingFlow(
             : returnToReview
               ? "Back to review"
               : "Continue",
-      showBack: !welcome && !(editing && state.step === "name"),
-      showSkip: !editing && welcome,
+      showBack: !welcome && !(editing && state.step === "goal"),
+      showSkip: !editing && state.step === "age",
     };
   }
   function publish(patch: Partial<Snapshot>) {
