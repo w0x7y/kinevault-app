@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KineVault · Icon & launch screens</title>
+  <link rel="icon" href="../assets/branding/favicon.png">
+  <style>
+    @font-face { font-family: Comfortaa; src: url('../node_modules/@expo-google-fonts/comfortaa/700Bold/Comfortaa_700Bold.ttf'); font-weight: 700; font-display: swap; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #e9edf1; color: #192f43; font-family: system-ui, sans-serif; }
+    main { max-width: 1440px; margin: auto; padding: 48px; }
+    header { display: flex; justify-content: space-between; gap: 24px; align-items: end; margin-bottom: 36px; }
+    h1 { font: 700 clamp(28px, 3vw, 40px)/1.3 Comfortaa, sans-serif; margin: 0 0 12px; }
+    p { margin: 0; color: #52606d; line-height: 1.5; }
+    h2 { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 24px; }
+    .board { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 32px; align-items: start; }
+    .icon-column { padding: 16px 24px 0 0; }
+    .hero-icon { width: min(100%, 256px); height: auto; border-radius: 23%; display: block; margin-bottom: 24px; }
+    .small-icons { display: flex; align-items: end; gap: 20px; margin: 28px 0 40px; }
+    figure { margin: 0; }
+    figcaption { color: #52606d; font-size: 12px; margin-top: 12px; }
+    .small-icons img { display: block; border-radius: 23%; }
+    .adaptive-row { display: flex; gap: 16px; }
+    .adaptive { width: 80px; height: 80px; position: relative; overflow: hidden; background: #f8f2e3; }
+    .adaptive img { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 150%; height: 150%; object-fit: contain; }
+    .circle { border-radius: 50%; }
+    .squircle { border-radius: 26%; }
+    .themed { background: #314e65; }
+    .phone { width: 100%; max-width: 300px; aspect-ratio: 390/844; background: #f6f7f9; border: 7px solid #192f43; border-radius: 42px; display: grid; place-items: center; position: relative; overflow: hidden; }
+    .phone::before { content: ''; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: 30%; height: 18px; border-radius: 14px; background: #192f43; }
+    .phone::after { content: ''; position: absolute; bottom: 13px; left: 35%; width: 30%; height: 4px; border-radius: 4px; background: #192f43; }
+    .phone img { width: 61.54%; height: auto; }
+    .phone.dark { background: #12171d; }
+    .phone.dark::after { background: #f8f2e3; }
+    .android { margin-top: 36px; padding-top: 24px; border-top: 1px solid #ced6de; }
+    .android-preview { display: flex; gap: 16px; }
+    .android-tile { height: 150px; flex: 1; display: grid; place-items: center; background: #f6f7f9; border-radius: 14px; }
+    .android-tile.dark { background: #12171d; }
+    .android-tile img { width: 100px; }
+    .note { font-size: 12px; max-width: 720px; margin-top: 36px; }
+    @media (max-width: 950px) { main { padding: 28px; } header { display: block; } .board { grid-template-columns: 1fr 1fr; } .icon-column { grid-column: 1/-1; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; } .icon-column>h2 { grid-column: 1/-1; margin: 0; } .small-icons { margin-top: 0; } .android { margin-top: 20px; } }
+    @media (max-width: 500px) { main { padding: 20px; } .board { gap: 16px; } .icon-column { display: block; } .icon-column>h2 { margin-bottom: 24px; } .hero-icon { width: 160px; } .small-icons { margin-top: 24px; } .phone { border-width: 4px; border-radius: 24px; } .phone::before { height: 10px; top: 9px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header><div><h1>Hello, Kine.</h1><p>KineVault Track · App icon & launch screens</p></div></header>
+    <div class="board">
+      <section class="icon-column" aria-labelledby="icons-title">
+        <h2 id="icons-title">The app icon</h2>
+        <div>
+          <img class="hero-icon" src="../assets/branding/icon.png" alt="Blue Kine mascot app icon on cream">
+          <div class="small-icons">
+            <figure><img src="../assets/branding/icon.png" width="64" height="64" alt="App icon at 64 pixels"><figcaption>64px</figcaption></figure>
+            <figure><img src="../assets/branding/icon.png" width="40" height="40" alt="App icon at 40 pixels"><figcaption>40px</figcaption></figure>
+            <figure><img src="../assets/branding/favicon.png" width="24" height="24" alt="Web favicon at 24 pixels"><figcaption>24px</figcaption></figure>
+          </div>
+        </div>
+        <div>
+          <h2>Android launcher masks</h2>
+          <div class="adaptive-row">
+            <figure><div class="adaptive circle"><img src="../assets/branding/adaptive-foreground.png" alt="Circular Android launcher icon"></div><figcaption>Circle</figcaption></figure>
+            <figure><div class="adaptive squircle"><img src="../assets/branding/adaptive-foreground.png" alt="Rounded-square Android launcher icon"></div><figcaption>Squircle</figcaption></figure>
+            <figure><div class="adaptive circle themed"><img src="../assets/branding/adaptive-monochrome.png" alt="Android themed monochrome icon"></div><figcaption>Themed</figcaption></figure>
+          </div>
+          <div class="android"><h2>Android launch mark</h2><div class="android-preview">
+            <div class="android-tile"><img src="../assets/branding/splash-android.png" alt="Android light splash mark"></div>
+            <div class="android-tile dark"><img src="../assets/branding/splash-android.png" alt="Android dark splash mark"></div>
+          </div></div>
+        </div>
+      </section>
+      <figure><h2>iOS · Light launch</h2><div class="phone"><img src="../assets/branding/splash-light.png" alt="Waving Kine mascot above navy KineVault Track wordmark"></div><figcaption>Original waving mascot · Comfortaa wordmark</figcaption></figure>
+      <figure><h2>iOS · Dark launch</h2><div class="phone dark"><img src="../assets/branding/splash-dark.png" alt="Waving Kine mascot above cream KineVault Track wordmark"></div><figcaption>Same composition · Dark system appearance</figcaption></figure>
+    </div>
+    <p class="note">Preview uses the exported production images. Phone frames show approximate layout; final launch behavior is verified in a native release build.</p>
+  </main>
+</body>
+</html>
