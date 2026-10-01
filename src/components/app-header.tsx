@@ -128,49 +128,69 @@ function DayCalendar() {
   );
 }
 
-export function AppHeader() {
+export function AppHeader({ onHeightChange }: { onHeightChange: (height: number) => void }) {
   const { colors } = useTheme();
   const { selectedDay, today } = useSelectedDay();
   const path = usePathname();
   const isSettings = path === "/settings";
   const [expanded, setExpanded] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(0);
   const dateLabel = parseDay(selectedDay).toLocaleDateString(undefined, {
     weekday: "short", month: "short", day: "numeric", year: "numeric",
   });
   return (
-    <SafeAreaView edges={["top", "left", "right"]} style={{ backgroundColor: colors.card }}>
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <View style={styles.bar}>
-          {isSettings ? <View style={styles.button} /> : (
-            <HeaderButton
-              label={expanded ? "Collapse calendar" : "Expand calendar"}
-              expanded={expanded}
-              onPress={() => setExpanded((previous) => !previous)}
+    <View pointerEvents="box-none" style={styles.overlay}>
+      <SafeAreaView
+        edges={["top", "left", "right"]}
+        style={{ backgroundColor: colors.card }}
+        onLayout={({ nativeEvent }) => {
+          const height = nativeEvent.layout.height;
+          setHeaderHeight(height);
+          onHeightChange(height);
+        }}
+      >
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <View style={styles.bar}>
+            {isSettings ? <View style={styles.button} /> : (
+              <HeaderButton
+                label={expanded ? "Collapse calendar" : "Expand calendar"}
+                expanded={expanded}
+                onPress={() => setExpanded((previous) => !previous)}
+              >
+                <Icon name={expanded ? "chevron-up" : "chevron-down"} size={16} color={colors.foreground} />
+              </HeaderButton>
+            )}
+            <AppText
+              variant="label"
+              accessibilityLabel={isSettings ? "Settings" : `${fullDate(selectedDay)}${selectedDay === today ? ", today" : ""}`}
+              numberOfLines={1}
+              style={styles.selectedDate}
             >
-              <Icon name={expanded ? "chevron-up" : "chevron-down"} size={16} color={colors.foreground} />
-            </HeaderButton>
-          )}
-          <AppText
-            variant="label"
-            accessibilityLabel={isSettings ? "Settings" : `${fullDate(selectedDay)}${selectedDay === today ? ", today" : ""}`}
-            numberOfLines={1}
-            style={styles.selectedDate}
-          >
-            {isSettings ? "Settings" : dateLabel}
-          </AppText>
-          <View accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.avatarSlot}>
-            <View style={[styles.avatar, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
-              <Icon name="user" size={15} color={colors.mutedForeground} />
+              {isSettings ? "Settings" : dateLabel}
+            </AppText>
+            <View accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.avatarSlot}>
+              <View style={[styles.avatar, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
+                <Icon name="user" size={15} color={colors.mutedForeground} />
+              </View>
             </View>
           </View>
         </View>
-        {!isSettings && expanded && <DayCalendar />}
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+      {!isSettings && expanded && (
+        <SafeAreaView
+          edges={["left", "right"]}
+          style={[styles.calendarOverlay, { top: headerHeight, backgroundColor: colors.card, borderColor: colors.border }]}
+        >
+          <DayCalendar />
+        </SafeAreaView>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 1 },
+  calendarOverlay: { position: "absolute", width: "100%", maxWidth: 600, alignSelf: "center", borderBottomWidth: 1, borderBottomLeftRadius: 14, borderBottomRightRadius: 14, boxShadow: "0 4px 12px rgba(0, 0, 0, 0.12)" },
   header: { borderBottomWidth: 1 },
   bar: { minHeight: 50, flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.layout, gap: spacing.layout, width: "100%", maxWidth: 768, alignSelf: "center" },
   button: { minWidth: 44, minHeight: 44, borderRadius: 10, borderWidth: 2, borderColor: "transparent", alignItems: "center", justifyContent: "center" },

@@ -1,5 +1,7 @@
 import { Redirect, Tabs } from "expo-router";
+import { useState } from "react";
 import { View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DayProvider } from "../../calendar/provider";
 import { AppHeader } from "../../components/app-header";
 import { Icon } from "../../components/icon";
@@ -9,6 +11,8 @@ import { useProfile } from "../../profile/provider";
 import { useReducedMotion } from "../../components/motion";
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+  const [headerHeight, setHeaderHeight] = useState(50 + insets.top + 1);
   const reduced = useReducedMotion();
   const { colors } = useTheme();
   const { state } = useProfile();
@@ -17,8 +21,8 @@ export default function TabLayout() {
   return (
     <DayProvider>
       <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <AppHeader />
-        <Tabs
+        <View style={{ flex: 1, paddingTop: headerHeight }}>
+          <Tabs
             screenOptions={{
               animation: reduced ? "none" : "fade",
               transitionSpec: { animation: "timing", config: { duration: 160 } },
@@ -71,7 +75,9 @@ export default function TabLayout() {
                 ),
               }}
             />
-        </Tabs>
+          </Tabs>
+        </View>
+        <AppHeader onHeightChange={setHeaderHeight} />
       </View>
     </DayProvider>
   );
