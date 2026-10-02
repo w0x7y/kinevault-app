@@ -9,21 +9,18 @@ import { NutritionWidget } from "../../daily/nutrition-widget";
 import { CalorieWidget } from "../../daily/calorie-widget";
 import { WorkoutWidget } from "../../daily/workout-widget";
 import { ActivityWidgets } from "../../daily/activity-widgets";
-import { useFoodLog } from "../../food/log-provider";
 import { FoodLogStatus } from "../../food/log-status";
-import { useWaterLog } from "../../water/provider";
 import { WaterEntryModal } from "../../water/entry-modal";
 
 export default function HomeScreen() {
   const { state } = useProfile();
-  const { day, summary } = useDayActivity();
-  const foodLog = useFoodLog();
-  const waterLog = useWaterLog();
+  const activity = useDayActivity();
   const [waterEntryDay, setWaterEntryDay] = useState<string | null>(null);
-  useEffect(() => { setWaterEntryDay(null); }, [day.date]);
+  useEffect(() => { setWaterEntryDay(null); }, [activity.date]);
   if (state.kind !== "ready") return null;
-  if (foodLog.state.kind !== "ready") return <Screen title="Home" showTitle={false} fill><FoodLogStatus fill /></Screen>;
+  if (activity.food.kind !== "ready") return <Screen title="Home" showTitle={false} fill><FoodLogStatus fill /></Screen>;
   const answers = state.document.answers;
+  const { summary } = activity.food;
   return (
     <Screen title="Home" showTitle={false}>
       <KineSplitRow pose="today" testIDPrefix="home" rowTestID="home-nutrition-row">
@@ -36,9 +33,10 @@ export default function HomeScreen() {
         )}
       </KineSplitRow>
       <CalorieWidget current={summary.calories} goal={calorieState(answers).target} macros={summary} />
-      <WorkoutWidget workout={summary.workout} />
-      <ActivityWidgets day={day} waterStatus={waterLog.state.kind} onAddWater={() => setWaterEntryDay(day.date)} />
-      {waterEntryDay === day.date && <WaterEntryModal key={waterEntryDay} date={waterEntryDay}
+      <WorkoutWidget workout={activity.workout} />
+      <ActivityWidgets steps={activity.steps} water={activity.water}
+        onAddWater={() => setWaterEntryDay(activity.date)} />
+      {waterEntryDay === activity.date && <WaterEntryModal key={waterEntryDay} date={waterEntryDay}
         onDismiss={() => setWaterEntryDay(current => current === waterEntryDay ? null : current)} />}
     </Screen>
   );

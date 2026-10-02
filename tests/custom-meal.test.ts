@@ -132,7 +132,7 @@ test("meal saves share the durable write lock with foods and keep existing recor
   storage.setItem = async () => { throw new Error("disk full"); };
   assert.equal(await store.addMeal(draft), null);
   assert.equal(raw(), before);
-  assert.ok(store.getSnapshot().error);
+  assert.equal(store.getSnapshot().error, "Couldn't save your meal. Your ingredients and values are still here. Try again.");
   const gate = deferred<void>();
   storage.setItem = async (key, value) => { await gate.promise; await write(key, value); };
   const pending = store.addMeal(draft);
@@ -144,4 +144,18 @@ test("meal saves share the durable write lock with foods and keep existing recor
   assert.ok(await pending);
   assert.equal(parseCustomFoods(raw()).foods.length, 1);
   assert.equal(parseCustomFoods(raw()).meals.length, 1);
+});
+
+test("invalid meal drafts and failed meal updates retain their distinct feedback", async () => {
+  const { store, storage, raw } = await ready();
+  assert.equal(await store.addMeal({ ...draft, ingredients: [] }), null);
+  assert.equal(store.getSnapshot().error, "Check the name, amounts, and nutrition values.");
+  assert.equal(raw(), null);
+  const meal = await store.addMeal(draft);
+  assert.ok(meal);
+  const saved = raw();
+  storage.setItem = async () => { throw new Error("disk full"); };
+  assert.equal(await store.updateMeal(meal.customId, { ...draft, name: "Edited breakfast" }), null);
+  assert.equal(store.getSnapshot().error, "Couldn't update your meal. Your changes are still here. Try again.");
+  assert.equal(raw(), saved);
 });

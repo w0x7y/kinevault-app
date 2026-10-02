@@ -26,7 +26,7 @@ function formatNutrient(value: number | null): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-export function DailyMacros({ day, onBack, onLayout }: { day: DailyActivity; onBack: () => void; onLayout: ViewProps["onLayout"] }) {
+export function DailyMacros({ day, onBack, onLayout }: { day: Pick<DailyActivity, "date" | "foods" | "workout">; onBack: () => void; onLayout: ViewProps["onLayout"] }) {
   const { state } = useProfile();
   const { colors } = useTheme();
   if (state.kind !== "ready") return null;

@@ -1,7 +1,7 @@
 import { parseDay } from "../calendar/dates.ts";
 
 export type WaterLogDocument = { version: 1; days: Record<string, number> };
-export type AddWaterInput = { date: string; ml: number };
+export type SetWaterInput = { date: string; ml: number };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -24,13 +24,17 @@ export function parseWaterLog(raw: string | null): WaterLogDocument {
   return { version: 1, days };
 }
 
-export function addWater(document: WaterLogDocument, { date, ml }: AddWaterInput): WaterLogDocument {
+export function setWater(document: WaterLogDocument, { date, ml }: SetWaterInput): WaterLogDocument {
   parseDay(date);
-  if (!Number.isSafeInteger(ml) || ml < 1 || ml > 10000)
-    throw new RangeError("Invalid water amount");
-  const total = (document.days[date] ?? 0) + ml;
-  if (!isTotal(total)) throw new RangeError("Invalid water total");
-  return { version: 1, days: { ...document.days, [date]: total } };
+  if (!isTotal(ml)) throw new RangeError("Invalid water amount");
+  return { version: 1, days: { ...document.days, [date]: ml } };
+}
+
+// Daily totals may exceed the limit for a single drink or the former incremental entry.
+export function manualWaterAmountFromText(text: string): number | null {
+  if (!/^\d+$/.test(text.trim())) return null;
+  const ml = Number(text.trim());
+  return isTotal(ml) ? ml : null;
 }
 
 export function waterAmountFromText(text: string): number | null {

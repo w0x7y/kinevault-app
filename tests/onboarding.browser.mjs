@@ -886,9 +886,15 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
           assert.equal(bodyText.includes(removed), false, `${tab} still shows removed caption: ${removed}`);
         }
         if (tab === "Home") {
-          assert.equal(await page.getByRole("progressbar").count(), 4);
+          const nutritionBars = page.getByRole("progressbar", { name: /^(?:Carbs,|Protein,|Fat,|0 kilocalories consumed, calorie goal)/ });
+          assert.equal(await nutritionBars.count(), 4);
+          for (const bar of await nutritionBars.all()) assert.equal(await bar.getAttribute("aria-valuenow"), "0");
+          const waterCup = page.getByRole("progressbar", { name: "Daily water goal", exact: true });
+          await waterCup.waitFor();
+          assert.equal(await waterCup.count(), 1);
+          assert.equal(await waterCup.getAttribute("aria-valuenow"), "0");
+          await page.getByTestId("home-water").getByText("Goal: 1,500 ml", { exact: true }).waitFor();
           assert.equal(await page.getByRole("heading", { name: "Today", exact: true }).count(), 0);
-          for (const bar of await page.getByRole("progressbar").all()) assert.equal(await bar.getAttribute("aria-valuenow"), "0");
           const cards = await page.getByText("0 / 345 g", { exact: true }).evaluate((el) => {
             const box = el.getBoundingClientRect();
             return { left: box.left, right: box.right, width: innerWidth };

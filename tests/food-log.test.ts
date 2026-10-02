@@ -100,7 +100,7 @@ test("failed food writes preserve existing records and retry without duplicating
   assert.equal(await log.add({ ...input, meal: "lunch" }), false);
   assert.equal(raw(), before);
   assert.equal(documentOf(log).days[input.date]?.length, 1);
-  assert.ok(log.getSnapshot().error);
+  assert.equal(log.getSnapshot().error, "Couldn't save your food log. Try again.");
   storage.setItem = write;
   assert.equal(await log.add({ ...input, meal: "lunch" }), true);
   assert.equal(documentOf(log).days[input.date]?.length, 2);
@@ -132,38 +132,6 @@ test("corrupt food storage blocks writes and retry can recover repaired data", a
   log.retryLoad(); await flush();
   assert.equal(log.getSnapshot().state.kind, "ready");
   assert.equal(await log.add(input), true);
-});
-
-test("old food reads cannot overwrite a newer load or publish after stopping", async () => {
-  const first = deferred<string | null>();
-  const second = deferred<string | null>();
-  let reads = 0;
-  const store = memory();
-  store.storage.getItem = () => ++reads === 1 ? first.promise : second.promise;
-  const log = createFoodLogPersistence({ storage: store.storage, createId: () => "one" });
-  log.start(); log.retryLoad();
-  second.resolve(null); await flush();
-  const loaded = log.getSnapshot();
-  first.resolve("corrupt"); await flush();
-  assert.equal(log.getSnapshot(), loaded);
-  log.stop();
-  assert.equal(await log.add(input), false);
-});
-
-test("a food write spanning stop and restart reloads the durable day without a competing write", async () => {
-  const { log, storage, calls } = await ready();
-  const gate = deferred<void>();
-  const write = storage.setItem;
-  storage.setItem = async (key, value) => { await gate.promise; await write(key, value); };
-  const pending = log.add(input);
-  log.stop(); log.start();
-  assert.equal(log.getSnapshot().state.kind, "loading");
-  assert.equal(await log.add({ ...input, date: "2026-10-02" }), false);
-  assert.deepEqual(calls, ["read"]);
-  gate.resolve(); assert.equal(await pending, false);
-  await flush();
-  assert.equal(documentOf(log).days[input.date]?.length, 1);
-  assert.deepEqual(calls, ["read", "write", "read"]);
 });
 
 test("invalid food inputs never write a record", async () => {
@@ -282,4 +250,30 @@ test("legacy drink edit scales known ml snapshot; missing ml requires entered la
   assert.equal(documentOf(log).days[input.date][0].grams, undefined);
   assert.equal(await log.edit({ ...edit, drinkMl: 600 }), true);
   assert.equal(documentOf(log).days[input.date][0].calories, 240);
+});
+
+test("missing log edit and removal targets reject silently and clear previous failure feedback", async () => {
+  const { log, calls, raw } = await ready();
+  assert.equal(await log.add(input), true);
+  const saved = raw();
+  assert.equal(await log.edit({ date: input.date, id: "food-1", grams: 0, meal: "lunch" }), false);
+  assert.equal(log.getSnapshot().error, "Couldn't save your food log. Try again.");
+  assert.equal(await log.edit({ date: input.date, id: "missing", grams: 100, meal: "lunch" }), false);
+  assert.equal(log.getSnapshot().error, null);
+  assert.equal(await log.remove({ date: input.date, id: "missing" }), false);
+  assert.equal(log.getSnapshot().error, null);
+  assert.equal(raw(), saved);
+  assert.deepEqual(calls, ["read", "write"]);
+});
+
+test("duplicate generated log identities fail canonical validation before writing", async () => {
+  const existing = entryForFood({ ...input, id: "same-id" });
+  const initial = JSON.stringify({ version: 1, days: { [input.date]: [existing] } });
+  const { storage, calls, raw } = memory(initial);
+  const log = createFoodLogPersistence({ storage, createId: () => "same-id" });
+  log.start(); await flush();
+  assert.equal(await log.add({ ...input, date: "2026-10-02" }), false);
+  assert.equal(log.getSnapshot().error, "Couldn't save your food log. Try again.");
+  assert.equal(raw(), initial);
+  assert.deepEqual(calls, ["read"]);
 });

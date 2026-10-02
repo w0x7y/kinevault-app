@@ -92,7 +92,7 @@ test("custom saves publish after durable success, block duplicates and preserve 
   storage.setItem = async () => { throw new Error("disk full"); };
   assert.equal(await store.add(draft), null);
   assert.equal(raw(), null);
-  assert.ok(store.getSnapshot().error);
+  assert.equal(store.getSnapshot().error, "Couldn't save your custom food. Your values are still here. Try again.");
   const gate = deferred<void>();
   storage.setItem = async (key, value) => { await gate.promise; await write(key, value); };
   const saving = store.add(draft);
@@ -115,17 +115,23 @@ test("corrupt custom storage blocks creation and retry recovers without overwrit
   assert.ok(await store.add(draft));
 });
 
-test("a custom save spanning stop and restart reloads the durable food", async () => {
+
+test("invalid custom drafts use validation feedback and never write", async () => {
+  const { store, raw } = await ready();
+  assert.equal(await store.add({ ...draft, name: "" }), null);
+  assert.equal(store.getSnapshot().error, "Check the name, amounts, and nutrition values.");
+  assert.equal(raw(), null);
+  assert.equal(store.getSnapshot().saving, false);
+});
+
+test("duplicate generated catalog identities fail canonical validation before writing", async () => {
   const { store, storage, raw } = await ready();
-  const gate = deferred<void>();
-  const write = storage.setItem;
-  storage.setItem = async (key, value) => { await gate.promise; await write(key, value); };
-  const saving = store.add(draft);
-  store.stop(); store.start();
-  assert.equal(store.getSnapshot().state.kind, "loading");
-  assert.equal(await store.add(draft), null);
-  gate.resolve();
-  assert.equal(await saving, null);
-  await flush();
-  assert.deepEqual(store.getSnapshot().state, { kind: "ready", document: parseCustomFoods(raw()) });
+  const food = await store.add(draft);
+  assert.ok(food);
+  const saved = raw();
+  const duplicate = createCustomFoodPersistence({ storage, createId: () => food.customId });
+  duplicate.start(); await flush();
+  assert.equal(await duplicate.add(draft), null);
+  assert.equal(duplicate.getSnapshot().error, "Couldn't save your custom food. Your values are still here. Try again.");
+  assert.equal(raw(), saved);
 });

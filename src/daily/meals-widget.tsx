@@ -7,7 +7,7 @@ import { meals, type DailyActivity, type FoodEntry } from "./model";
 import { FoodButton } from "../food/food-button";
 
 export function MealsWidget({ day, query, onRemove, onEdit, onLayout, saving, error }: {
-  day: DailyActivity;
+  day: Pick<DailyActivity, "foods">;
   query: string;
   onRemove: (id: string) => void;
   onEdit: (entry: FoodEntry) => void;

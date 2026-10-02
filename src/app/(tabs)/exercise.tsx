@@ -6,7 +6,7 @@ import { WorkoutWidget } from "../../daily/workout-widget";
 
 export default function ExerciseScreen() {
   const activity = useDayActivity();
-  return <ExerciseDay key={activity.day.date} activity={activity} />;
+  return <ExerciseDay key={activity.date} activity={activity} />;
 }
 
 function ExerciseDay({ activity }: { activity: ReturnType<typeof useDayActivity> }) {
@@ -14,7 +14,7 @@ function ExerciseDay({ activity }: { activity: ReturnType<typeof useDayActivity>
   return (
     <Screen title="Exercise" showTitle={false}>
       <SearchActions kind="exercise" query={query} onQueryChange={setQuery} />
-      <WorkoutWidget workout={activity.summary.workout} detailed query={query} />
+      <WorkoutWidget workout={activity.workout} detailed query={query} />
     </Screen>
   );
 }

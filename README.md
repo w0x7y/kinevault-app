@@ -7,10 +7,12 @@ studio is maintained separately.
 ## Current foundation
 
 - Home, Food, Exercise, and Settings tabs through Expo Router.
-- Compact header with profile placeholder and shared five-week day picker.
+- Compact header with a profile dropdown and shared five-week day picker.
   The current week stays centered; Settings has no calendar.
   Dates use the device's local time zone. Selecting Today follows local day
   changes; a deliberately chosen other date stays selected until changed again.
+  Profile, Friends, Messages, and KineVault appear above a separator, followed by
+  Support and Feedback. Each entry opens a coming-soon panel.
 - Daily layouts for nutrition, workouts, steps, water, and five meal sections.
   Kine uses the same even split and size beside Home macros, Food/Exercise
   action buttons, and the Settings title. Macro counts sit beside their labels.
@@ -28,8 +30,15 @@ studio is maintained separately.
 - Empty states and a missing-route recovery screen.
 - Offline food database search with 5,431 USDA foods, calories and macros per
   100 g, serving weights, and nutrition previews for a custom gram amount.
-- Tap Home's Water widget to add water in millilitres to the selected day.
+- Tap Home's Water widget to edit manually logged water in millilitres for the selected day.
+  The popup opens with the current manual amount. Save replaces that amount;
+  zero clears manual water. Drinks continue contributing separately to the Home total.
+  The -250 ml and +250 ml buttons adjust the draft amount before saving.
   Daily totals combine manual water with saved Drinks volumes and display in litres; failed saves retain the entry for retry.
+  Settings offers an editable daily water goal, defaulting to 1,500 ml.
+  Previously unset goals use this default. A confirmation appears after saving.
+  Home shows a compact cup beside the water amount that fills to the rim;
+  totals above the goal remain visible.
   Drinks use one whole amount from 1 to 10,000 ml for nutrition and hydration.
   Editing or removing a drink updates hydration with the same food-log save.
   Legacy Snacks stay Snacks and have no inferred drink volume.
@@ -414,13 +423,20 @@ launcher icons and splash screens. It runs independently of the Expo app.
 - `src/calendar/selection.ts`: shared Selected day lifecycle with clock and wake adapters.
 - `src/calendar/`: local date arithmetic, centered week grid, and React/platform wiring.
 - `src/daily/workout.ts`: one interpretation of completed sets for totals and exercise rows.
+- `src/daily/activity.ts`: selected-day food availability, combined manual/Drink
+  water availability, and goal progress; unavailable sources stay distinct from zero.
 - `src/daily/`: daily record types, nutrition summaries, and dashboard widgets.
+- `src/persistence/durable-write.ts`: shared read ordering, write exclusion,
+  durable publication, and restart recovery for food, catalog, water, and goal
+  records. Each domain retains its own keys, validation, and saved results.
 - `src/water/`: validated local water totals, persistence, and direct Home entry.
 - `src/food/`: offline catalog search, USDA data adapter, result pages, nutrition
   previews, and local food-log validation, persistence, and React wiring.
   Food search does not filter the daily log.
 - `src/food/catalog-selection.ts`: saved/bundled search assembly, current saved-item
   identity and kind, and eligible ingredient paging with volume-only exclusions.
+- `src/food/product-import-flow.ts`: Product import request ownership, cancellation,
+  retry, and reviewed/manual Catalog draft adoption through an injected lookup.
 - `scripts/import-food-catalog.py`: reproducible import of USDA FNDDS nutrition
   and serving weights. Source data and provenance live in `assets/food/`.
 - `src/profile/model.ts`: stored document parsing and legacy age recovery.
@@ -436,6 +452,9 @@ launcher icons and splash screens. It runs independently of the Expo app.
 - `CONTEXT.md`: profile, daily activity, and onboarding domain vocabulary.
 - `DESIGN.md`: supplied KineVault design reference, preserved as shared authority.
 - `PRODUCT.md`: confirmed product scope.
+
+The [import, Daily activity, and persistence depth contract](docs/superpowers/specs/2026-10-02-import-daily-persistence-depth.md)
+records the behavior and test seams preserved by the latest architecture work.
 
 Future tracking features should use the existing theme and components and keep
 their domain logic outside route files. Changes to shared design rules should be

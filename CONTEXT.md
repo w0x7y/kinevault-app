@@ -51,6 +51,16 @@ Saved food contributes to that day's calorie and macro totals. Home water combin
 manual water with explicit millilitres on saved Drinks entries for that date,
 and displays the total in litres. Drink edits and removals change hydration
 with the same food-log save. Catalog saves do not record intake or hydration.
+Unavailable food or water is distinct from a known empty day or zero intake;
+food totals can be known while hydration or goal progress is unavailable.
+
+**Manual water**: The millilitres entered directly for the Selected day,
+separate from saved Drinks. Editing replaces that day's manual amount; zero
+clears it without changing Drinks or other days.
+
+**Water goal**: The user's daily hydration target, initially 1,500 ml and always
+set. Manual water and saved Drinks contribute together, and reaching or exceeding
+the target means completed goal progress.
 
 **Food catalog**: Foods and prepared dishes with calories, macros, and known
 serving weights, available to search when choosing what to log.
@@ -106,7 +116,9 @@ It stays fixed when ingredient amounts change until calculated nutrition is rest
 sugars, mineral, vitamin D, caffeine, or alcohol. A missing food-source value
 makes that nutrient's daily total unavailable; a reported zero is known intake.
 
-**Product import**: An editable food draft from Open Food Facts barcode lookup.
+**Product import**: The journey from barcode lookup to review of an editable
+Custom food draft. Interrupted lookups can be retried; reviewed edits remain
+available, and a canceled or replaced lookup cannot reopen its old review.
 Food has two search-row controls: offline Search and barcode Scan, with a 75/25 split.
 Saved imports retain provider attribution and join offline food and ingredient
 search, including formatting differences and bounded typos in eligible words.

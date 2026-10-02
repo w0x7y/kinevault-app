@@ -3,14 +3,14 @@ import { createContext, useContext, useEffect, useState, useSyncExternalStore, t
 import { createWaterLogPersistence, type WaterLogSnapshot } from "./persistence";
 
 type WaterLogStore = ReturnType<typeof createWaterLogPersistence>;
-type WaterLogContextValue = WaterLogSnapshot & Pick<WaterLogStore, "add" | "retryLoad">;
+type WaterLogContextValue = WaterLogSnapshot & Pick<WaterLogStore, "set" | "retryLoad">;
 const WaterLogContext = createContext<WaterLogContextValue | null>(null);
 
 export function WaterLogProvider({ children }: PropsWithChildren) {
   const [log] = useState(() => createWaterLogPersistence({ storage: AsyncStorage }));
   const snapshot = useSyncExternalStore(log.subscribe, log.getSnapshot, log.getSnapshot);
   useEffect(() => { log.start(); return log.stop; }, [log]);
-  return <WaterLogContext.Provider value={{ ...snapshot, add: log.add, retryLoad: log.retryLoad }}>{children}</WaterLogContext.Provider>;
+  return <WaterLogContext.Provider value={{ ...snapshot, set: log.set, retryLoad: log.retryLoad }}>{children}</WaterLogContext.Provider>;
 }
 
 export function useWaterLog() {
