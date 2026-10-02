@@ -2,9 +2,10 @@ import { Asset } from "expo-asset";
 import { Image } from "expo-image";
 import type { Step } from "../profile/answers";
 
-export type KinePose = Step | "today" | "food" | "exercise" | "settings";
+export type KinePose = Step | "today" | "food" | "exercise" | "settings" | "loading";
 
 export const kineAssets: Record<KinePose, number> = {
+  loading: require("../../assets/mascot/2d/kine-loading.webp"),
   welcome: require("../../assets/mascot/2d/kine-welcome.webp"),
   name: require("../../assets/mascot/2d/kine-name.webp"),
   goal: require("../../assets/mascot/2d/kine-goal.webp"),
@@ -20,6 +21,7 @@ export const kineAssets: Record<KinePose, number> = {
 };
 
 const upcoming: Record<KinePose, KinePose[]> = {
+  loading: [],
   welcome: ["goal"],
   goal: ["age"],
   age: ["name"],

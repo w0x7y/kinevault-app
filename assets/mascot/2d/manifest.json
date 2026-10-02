@@ -3,7 +3,7 @@
   "format": "Transparent WebP",
   "quality": 80,
   "alphaQuality": 100,
-  "totalBytes": 199756,
+  "totalBytes": 216682,
   "assets": [
     {
       "file": "kine-activity.webp",
@@ -34,6 +34,11 @@
       "file": "kine-goal.webp",
       "pixels": 456,
       "bytes": 17872
+    },
+    {
+      "file": "kine-loading.webp",
+      "pixels": 456,
+      "bytes": 16926
     },
     {
       "file": "kine-name.webp",

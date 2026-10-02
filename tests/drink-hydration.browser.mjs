@@ -169,7 +169,7 @@ test("legacy snacks and drinks never guess ml, and unreadable manual water never
       assert.equal(await button(modal, "Add water").isDisabled(), true);
       await page.evaluate(() => { window.__waterFailure = false; });
       await button(modal, "Retry water log").click();
-      await modal.getByText("Loading water log...", { exact: true }).waitFor({ state: "detached" });
+      await modal.getByRole("progressbar", { name: "Loading water log...", exact: true }).waitFor({ state: "detached" });
       await button(modal, "Cancel").click();
       await water.getByText("0.35", { exact: true }).waitFor();
       if (waterState === "loading") await page.evaluate(() => window.__releaseWaterRead());

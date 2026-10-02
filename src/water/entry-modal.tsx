@@ -7,6 +7,7 @@ import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { waterAmountFromText } from "./model";
 import { useWaterLog } from "./provider";
+import { KineLoading } from "../components/kine-loading";
 
 export function WaterEntryModal({ date, onDismiss }: { date: string; onDismiss: () => void }) {
   const { colors } = useTheme();
@@ -48,7 +49,7 @@ export function WaterEntryModal({ date, onDismiss }: { date: string; onDismiss: 
             <AppText variant="heading" accessibilityRole="header">Add water</AppText>
             <AppText muted>For {date}</AppText>
             <AppText variant="caption" muted>Drinks are already included. Add other water here.</AppText>
-            {log.state.kind === "loading" && <AppText accessibilityLiveRegion="polite">Loading water log...</AppText>}
+            {log.state.kind === "loading" && <KineLoading compact label="Loading water log..." />}
             {log.state.kind === "error" && <>
               <AppText accessibilityRole="alert" style={{ color: colors.error }}>Couldn't load your water log.</AppText>
             </>}

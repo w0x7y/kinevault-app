@@ -169,11 +169,15 @@ test("a pending water read can be retried without inventing a zero total or losi
   await page.getByTestId("home-water").getByText("loading...", { exact: true }).waitFor();
   await page.getByTestId("home-nutrition-row").waitFor();
   await enter(page);
-  await dialog(page).getByText("Loading water log...", { exact: true }).waitFor();
+  const loading = dialog(page).getByRole("progressbar", { name: "Loading water log...", exact: true });
+  await loading.waitFor();
+  await loading.locator("img").evaluate(image => image.decode());
+  assert.equal(await loading.getAttribute("aria-busy"), "true");
+  assert.equal(await loading.innerText(), "");
   assert.equal(await button(dialog(page), "Add water").isDisabled(), true);
   await field(page).fill("250");
   await button(dialog(page), "Retry water log").click();
-  await dialog(page).getByText("Loading water log...", { exact: true }).waitFor({ state: "detached" });
+  await loading.waitFor({ state: "detached" });
   assert.equal(await field(page).inputValue(), "250");
   await save(page);
   assert.equal(JSON.parse(await stored(page)).days["2026-10-01"], 750);

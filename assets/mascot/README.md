@@ -1,7 +1,7 @@
 # Kine
 
 Kine is a flat 2D blue creature with cream mitten hands, feet, and asymmetrical
-head tips. The eleven page poses keep Kine's identity
+head tips. The twelve poses keep Kine's identity
 and greeting motion. These full-body page poses are separate from the
 purpose-built Kine launcher icon and splash assets in `../branding/`.
 
@@ -14,11 +14,19 @@ as its identity reference. Exact prompts and provenance are in `2d/prompts.json`
 
 Onboarding starts with welcome and flag (goal), then age confirmation, listening
 (name), measuring tape (body), running (activity), bowl (calories), and celebration
-(review). Age reuses `kine-body.webp`; there are eleven distinct image files for
-twelve pose keys.
+(review). Age reuses `kine-body.webp`; there are twelve distinct image files for
+thirteen pose keys, including loading.
 
 Tabs: morning stretch (Home, internally `today` / `kine-today.webp`), fruit and
 spoon (Food), side stretch (Exercise), notebook and pencil (Settings).
+
+Loading: the v2 pose holds a large hourglass with both hands. The shared
+`KineLoading` component shows it without visible text or animation, with a
+polite accessible loading label. Home centers it while the food log loads;
+Food uses it for the food log and saved foods, showing only one while both load.
+Compact instances fit the water form and barcode lookup. Web startup also uses
+the pose; native startup retains the existing splash until the app is ready.
+There is no minimum display time, so it disappears as soon as loading ends.
 
 Home places macro progress to Kine's left; Food and Exercise place their action
 buttons there, and Settings places its title there. All four use the same equal
@@ -53,5 +61,6 @@ npm run assets:mascot
 ```
 
 The asset regression checks transparency, the 840px/456px dimensions, a 50 KB
-limit per pose, and a 200 KB limit for the full collection. Browser tests verify the loaded poses,
+limit per pose, a 200 KB limit for the original eleven poses, and a separate
+20 KB startup budget for loading, for a 220 KB collection limit. Browser tests verify the loaded poses,
 eager loading, and prefetching only the next pose on a cold welcome screen.

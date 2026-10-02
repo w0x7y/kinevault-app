@@ -22,7 +22,7 @@ export default function HomeScreen() {
   const [waterEntryDay, setWaterEntryDay] = useState<string | null>(null);
   useEffect(() => { setWaterEntryDay(null); }, [day.date]);
   if (state.kind !== "ready") return null;
-  if (foodLog.state.kind !== "ready") return <Screen title="Home" showTitle={false}><FoodLogStatus /></Screen>;
+  if (foodLog.state.kind !== "ready") return <Screen title="Home" showTitle={false} fill><FoodLogStatus fill /></Screen>;
   const answers = state.document.answers;
   return (
     <Screen title="Home" showTitle={false}>

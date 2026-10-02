@@ -98,7 +98,7 @@ function FoodDay({ day }: { day: ReturnType<typeof useDayActivity>["day"] }) {
         macrosDisabled={log.state.kind !== "ready" || log.saving || custom.saving}
         onViewMacros={() => { setQuery(""); setView({ kind: "macros" }); scrollToContent(); }} />
       <FoodLogStatus />
-      <CustomFoodStatus />
+      {(log.state.kind !== "loading" || custom.state.kind !== "loading") && <CustomFoodStatus />}
       {!catalogEditing && view.kind !== "resume" && view.kind !== "import" && drafts.resumable.map(summary =>
         <FoodButton key={summary.key} label={`Resume draft: ${summary.name}`}
           disabled={custom.saving || log.saving} onPress={() => { drafts.resume(summary.handle); setQuery(""); setView({ kind: "resume", key: summary.key }); scrollToContent(); }} />)}

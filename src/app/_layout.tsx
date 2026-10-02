@@ -13,6 +13,7 @@ import { ThemeProvider, useTheme } from "../theme/provider";
 import { ProfileProvider, useProfile } from "../profile/provider";
 import { ProfileRecovery } from "../profile/recovery";
 import { MotionProvider, useReducedMotion } from "../components/motion";
+import { KineLoading } from "../components/kine-loading";
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -39,7 +40,7 @@ function RootNavigator() {
       document.documentElement.style.colorScheme = appearance;
   }, [appearance, colors.background]);
 
-  if (!loaded) return null;
+  if (!loaded) return <KineLoading fill />;
   return (
     <>
       <StatusBar style={appearance === "dark" ? "light" : "dark"} />

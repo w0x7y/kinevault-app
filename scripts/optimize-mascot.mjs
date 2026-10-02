@@ -7,8 +7,8 @@ const directory = fileURLToPath(new URL("../assets/mascot/2d/", import.meta.url)
 const sources = (await readdir(join(directory, "source")))
   .filter((file) => file.endsWith(".png"))
   .sort();
-if (sources.length !== 11)
-  throw new Error("Expected all 11 source poses before optimizing Kine.");
+if (sources.length !== 12)
+  throw new Error("Expected all 12 source poses before optimizing Kine.");
 
 const assets = [];
 for (const file of sources) {

@@ -794,7 +794,8 @@ test("Kine loads the visible pose first and warms the next pose without fetching
       .filter(({ name }) => /kine-[^/]+\.webp/.test(name))
       .map(({ name, encodedBodySize }) => ({ name, encodedBodySize })),
   );
-  assert.equal(assets.length, 2, "Only the visible and upcoming poses should be requested");
+  const pageAssets = assets.filter(({ name }) => !/kine-loading[^/]*\.webp/.test(name));
+  assert.equal(pageAssets.length, 2, "Only the visible and upcoming page poses should be requested alongside startup loading");
   assert.ok(assets.every(({ encodedBodySize }) => encodedBodySize > 0 && encodedBodySize <= 50000));
   assert.equal(await image.getAttribute("fetchpriority"), "high");
 });

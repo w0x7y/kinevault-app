@@ -12,6 +12,7 @@ import type { BrandedProduct } from "./product-model.ts";
 import type { CustomFood, CustomFoodDraft } from "./custom-model.ts";
 
 import { useFoodDrafts } from "./draft-provider";
+import { KineLoading } from "../components/kine-loading";
 
 type ImportState = { kind: "scanner" } | { kind: "loading"; barcode: string }
   | { kind: "missing"; barcode: string } | { kind: "error"; barcode: string; message: string }
@@ -71,7 +72,8 @@ export function FoodProductImport({ active, focused, scopeKey, onCancel, onSaved
   </View>;
   if (state.kind === "draft") return null;
   return <View testID="food-barcode-lookup" style={{ gap: spacing.layout }}>
-    <AppText variant="heading" accessibilityRole="header">{state.kind === "loading" ? "Looking up barcode..." : state.kind === "missing" ? "Product not found" : "Barcode lookup failed"}</AppText>
+    {state.kind === "loading" ? <KineLoading compact label="Looking up barcode..." /> :
+      <AppText variant="heading" accessibilityRole="header">{state.kind === "missing" ? "Product not found" : "Barcode lookup failed"}</AppText>}
     <AppText variant="caption" muted>Barcode {state.barcode}</AppText>
     {state.kind === "missing" && <AppText muted>Open Food Facts doesn't have this product. Enter the label details to create your food.</AppText>}
     {state.kind === "error" && <AppText accessibilityRole="alert" style={{ color: colors.error }}>{state.message}</AppText>}

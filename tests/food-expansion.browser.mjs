@@ -418,7 +418,7 @@ test("Scan reopens from review and cancels the previous lookup", async t => {
   const aborted = page.waitForEvent("requestfailed", { predicate: request => request.url().includes("/product/7290004131074") });
   await scan(page, "7290004131074");
   await started;
-  await heading(page, "Looking up barcode...");
+  await page.getByRole("progressbar", { name: "Looking up barcode...", exact: true }).waitFor();
   await button(page, "Scan food barcode").click();
   await heading(page, "Scan food barcode");
   const failedRequest = await aborted;

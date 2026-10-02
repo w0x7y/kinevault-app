@@ -31,6 +31,11 @@ reference patterns, not implemented companion features.
   equal columns separated by 12px, content left and Kine right. Kine has the same
   responsive size for a given content width. Home uses the internal `today` pose;
   Food, Exercise, and Settings use their matching poses.
+- The [loading pose](src/components/kine-loading.tsx) holds a large hourglass
+  with both hands. Center it while Home loads, and use compact instances for
+  saved foods, water entry, and barcode lookup. Web startup uses the same pose.
+  Keep it static, with an accessible loading label and no minimum display time;
+  errors retain their explanatory text and retry actions.
 - Home starts with carbs, protein, and fat progress to Kine's left, followed by
   a full-width calorie count and horizontal progress bar. Each macro count
   shares its label's line above the bar. Workout volume, duration, sets, and reps

@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 
-test("all 11 Kine poses stay transparent, sharp at 3×, and within the loading budget", async () => {
+test("all 12 Kine poses stay transparent, sharp at 3×, and within the loading budget", async () => {
   const directory = new URL("../assets/mascot/2d/", import.meta.url);
   const files = (await readdir(directory)).filter((file) => file.endsWith(".webp"));
-  assert.equal(files.length, 11);
+  assert.equal(files.length, 12);
+  assert.ok(files.includes("kine-loading.webp"));
   let total = 0;
   for (const file of files) {
     const image = await readFile(new URL(file, directory));
@@ -17,7 +18,11 @@ test("all 11 Kine poses stay transparent, sharp at 3×, and within the loading b
     assert.equal(image.readUIntLE(24, 3) + 1, expected, `${file} width`);
     assert.equal(image.readUIntLE(27, 3) + 1, expected, `${file} height`);
     assert.ok(image.length <= 50000, `${file} exceeds its 50 KB budget`);
-    total += image.length;
+    if (file === "kine-loading.webp") {
+      assert.ok(image.length <= 20000, "Loading pose exceeds its 20 KB startup budget");
+    } else {
+      total += image.length;
+    }
   }
   assert.ok(total <= 200000, `Kine's assets exceed the 200 KB total budget: ${total}`);
 });

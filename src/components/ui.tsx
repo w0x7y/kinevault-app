@@ -60,6 +60,7 @@ export function Screen({
   showTitle = true,
   scrollRef,
   adjustKeyboardInsets = false,
+  fill = false,
 }: PropsWithChildren<{
   title: string;
   description?: string;
@@ -67,6 +68,7 @@ export function Screen({
   showTitle?: boolean;
   scrollRef?: Ref<ScrollView>;
   adjustKeyboardInsets?: boolean;
+  fill?: boolean;
 }>) {
   const { colors } = useTheme();
   return (
@@ -81,7 +83,7 @@ export function Screen({
         ref={scrollRef}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets={adjustKeyboardInsets}
-        contentContainerStyle={styles.screen}
+        contentContainerStyle={[styles.screen, fill && { flexGrow: 1 }]}
       >
         {showTitle && (
           <View style={styles.intro}>
