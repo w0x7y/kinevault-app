@@ -2,13 +2,15 @@ import { nutritionForGrams, parseFoodGrams, type CatalogFood, type Nutrition, ty
 import { isRecord, parseCatalogFoodRecord } from "./catalog-record.ts";
 import { detailedNutrients, scaleNutrients, unknownNutrients, type DetailedNutrients } from "./nutrients.ts";
 import { nutritionAmountText, parseNutritionAmount } from "./number-input.ts";
+import { detailedNutrientsToDraft, parseMealDetailOverrides, validateDetailedNutrientDraft,
+  type DetailedNutrientAmounts, type DetailedNutrientDraft, type DetailedNutrientErrors } from "./detailed-nutrient-drafts.ts";
 
 export type CatalogKind = "food" | "meal";
 export type MealIngredient = { id: string; food: CatalogFood; grams: number };
 export type MealIngredientDraft = { id: string; food: CatalogFood; amount: string };
-export type MealDraft = { name: string; ingredients: MealIngredientDraft[]; overrides: Partial<Record<keyof Nutrition, string>> };
-export type CustomMeal = CatalogFood & { customId: string; fdcId?: never; category: "Custom meal"; ingredients: MealIngredient[]; overrides: Partial<Nutrition> };
-export type MealErrors = Partial<Record<keyof Nutrition | "name" | "ingredients", string>> & { amounts?: Record<string, string> };
+export type MealDraft = { name: string; ingredients: MealIngredientDraft[]; overrides: Partial<Record<keyof Nutrition, string>>; detailOverrides?: DetailedNutrientDraft };
+export type CustomMeal = CatalogFood & { per100g: Nutrition } & { customId: string; fdcId?: never; category: "Custom meal"; ingredients: MealIngredient[]; overrides: Partial<Nutrition>; detailOverrides?: DetailedNutrientAmounts };
+export type MealErrors = Partial<Record<keyof Nutrition | "name" | "ingredients", string>> & { amounts?: Record<string, string>; detailOverrides?: DetailedNutrientErrors };
 type MealCalculation = { grams: number; nutrition: ServingNutrition & { details: DetailedNutrients } };
 
 export function mealToDraft(meal: CustomMeal): MealDraft {
@@ -17,7 +19,7 @@ export function mealToDraft(meal: CustomMeal): MealDraft {
     const amount = meal.overrides[key];
     if (amount !== undefined) overrides[key] = nutritionAmountText(amount);
   }
-  return { name: meal.name, overrides, ingredients: meal.ingredients.map(ingredient => ({
+  return { name: meal.name, overrides, detailOverrides: detailedNutrientsToDraft(meal.detailOverrides ?? {}), ingredients: meal.ingredients.map(ingredient => ({
     id: ingredient.id, food: ingredient.food, amount: nutritionAmountText(ingredient.grams),
   })) };
 }
@@ -82,12 +84,14 @@ export function mealFromDraft(draft: MealDraft, customId: string): { ok: true; m
     if (amount === null) errors[key] = "Enter a number of 0 or more, or use calculated nutrition.";
     else overrides[key] = amount;
   }
-  if (Object.keys(errors).length || !calculation) return { ok: false, errors };
+  const detailOverrides = validateDetailedNutrientDraft(draft.detailOverrides);
+  if (!detailOverrides.ok) errors.detailOverrides = detailOverrides.errors;
+  if (Object.keys(errors).length || !calculation || !detailOverrides.ok) return { ok: false, errors };
   if (!customId.trim() || customId.length > 100) throw new Error("Invalid meal ID");
-  return assembleMeal(name, ingredients, overrides, customId, calculation);
+  return assembleMeal(name, ingredients, overrides, detailOverrides.amounts, customId, calculation);
 }
 
-function assembleMeal(name: string, ingredients: MealIngredient[], overrides: Partial<Nutrition>,
+function assembleMeal(name: string, ingredients: MealIngredient[], overrides: Partial<Nutrition>, detailOverrides: DetailedNutrientAmounts,
   customId: string, calculation: MealCalculation): { ok: true; meal: CustomMeal } | { ok: false; errors: MealErrors } {
   const errors: MealErrors = {};
   const totals = { ...calculation.nutrition, ...overrides };
@@ -97,9 +101,17 @@ function assembleMeal(name: string, ingredients: MealIngredient[], overrides: Pa
     if (!Number.isFinite(normalized)) errors[key] = "Enter a smaller nutrition value.";
     else per100g[key] = normalized;
   }
+  const details = scaleNutrients({ ...calculation.nutrition.details, ...detailOverrides }, 100 / calculation.grams);
+  for (const { key } of detailedNutrients) {
+    const amount = details[key];
+    if (amount !== null && !Number.isFinite(amount)) {
+      errors.detailOverrides ??= {};
+      errors.detailOverrides[key] = "Enter a smaller nutrition value.";
+    }
+  }
   if (Object.keys(errors).length) return { ok: false, errors };
   return { ok: true, meal: { customId, name, category: "Custom meal", ingredients, overrides, per100g,
-    details: scaleNutrients(calculation.nutrition.details, 100 / calculation.grams),
+    ...(Object.keys(detailOverrides).length ? { detailOverrides } : {}), details,
     portions: [{ label: "1 meal", grams: calculation.grams }] } };
 }
 
@@ -128,7 +140,8 @@ export function parseCustomMeal(value: unknown): CustomMeal {
     if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0) throw new Error("Invalid meal override");
     overrides[key] = amount;
   }
-  const result = assembleMeal(name, ingredients, overrides, value.customId, calculateMeal(ingredients));
+  const detailOverrides = parseMealDetailOverrides(value.detailOverrides);
+  const result = assembleMeal(name, ingredients, overrides, detailOverrides, value.customId, calculateMeal(ingredients));
   if (!result.ok) throw new Error("Invalid meal values");
   return result.meal;
 }

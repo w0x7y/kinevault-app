@@ -47,22 +47,57 @@ retrying the saved data or confirming a fresh start.
 weight multiplied by repetitions for each set.
 
 **Daily activity**: Food, workout, step, and water records for the Selected day.
-Saved food contributes to that day's calorie and macro totals.
+Saved food contributes to that day's calorie and macro totals. Home water combines
+manual water with explicit millilitres on saved Drinks entries for that date,
+and displays the total in litres. Drink edits and removals change hydration
+with the same food-log save. Catalog saves do not record intake or hydration.
 
 **Food catalog**: Foods and prepared dishes with calories, macros, and known
 serving weights, available to search when choosing what to log.
 
-**Logged food**: A chosen food and gram amount recorded in a meal on a specific
-day, with the calories and macros for that amount. Editing its amount or meal
-changes the existing entry when saved; cancel preserves it.
+**Ingredient selection**: Choosing a Catalog food with genuine gram nutrition
+for a Custom meal. Food catalog selection owns saved/bundled assembly, current
+saved-item identity and kind, and the logging/ingredient search purposes.
+Ingredient matches exclude Custom meals; matching volume-only drinks explain
+their missing gram basis. Eligible rows fill pages, and counts and clamped page
+positions refer only to those rows. Bundled drinks retain their source gram
+nutrition. Logging search includes foods and meals with the existing ranking
+and exact/generic metadata.
 
-**Meal**: Breakfast, Lunch, Dinner, or Snacks / Drinks within a day's food log.
+**Logged food**: A chosen solid gram amount or beverage volume recorded on a specific
+day, with the calories and macros for that amount. Editing its amount or meal
+changes the existing entry when saved; cancel preserves it. Drinks use one whole
+volume from 1 to 10,000 ml for nutrition and hydration, automatically stored in Drinks
+with explicit volume measurement and a nutrition snapshot. No gram mass is inferred.
+
+**Logging attempt**: The Selected day, add/edit target, entered amounts and label
+values, and chosen Meal prepared together for preview and saving. Preparation
+selects grams or volume and supplies required-label guidance. Incomplete or invalid
+input cannot be submitted. Ready input uses exactly the nutrition shown, preserving
+logged snapshots and the shared legacy detailed-nutrient source fallback. Drink
+preparation fixes the destination to Drinks; hydration changes only after the
+food-log write succeeds. Failed attempts retain the entered fields and destination.
+
+**Meal**: Breakfast, Lunch, Dinner, Snacks, or Drinks within a day's food log.
+Legacy snacks remain Snacks and have no guessed drink volume.
 
 **Custom food**: A reusable food with a name, serving weight, calories, and
-macros entered by the user.
+macros entered by the user, plus an optional editable brand and detailed nutrients.
+Blank detailed amounts mean unknown; zero is known. Imported foods require review
+and Save before becoming reusable local foods.
+
+**Catalog draft**: Unfinished editing of a reusable Custom food or Custom meal,
+including a Product import under review. The in-memory draft owner keeps editable
+fields, the retained Meal destination, and separate solid/drink label bases.
+Opening or resuming a session restores its destination. Food and meal creation
+remain independent. Cancel discards that session; only confirmed saves retire it.
+Session handles keep an older save from retiring a replacement draft. Successful
+catalog deletion retires only the affected item's editor. Day changes preserve
+these reusable drafts. Untouched editors are not offered as resumable drafts.
 
 **Custom meal**: A reusable collection of foods and their amounts. Its calories
 and macros begin as ingredient totals and can be overridden for the whole meal.
+Detailed nutrients use optional whole-meal overrides; clearing a value restores calculation.
 
 **Meal nutrition override**: A calorie or macro value entered for a Custom meal.
 It stays fixed when ingredient amounts change until calculated nutrition is restored.
@@ -71,4 +106,21 @@ It stays fixed when ingredient amounts change until calculated nutrition is rest
 sugars, mineral, vitamin D, caffeine, or alcohol. A missing food-source value
 makes that nutrient's daily total unavailable; a reported zero is known intake.
 
+**Product import**: An editable food draft from Open Food Facts barcode lookup.
+Food has two search-row controls: offline Search and barcode Scan, with a 75/25 split.
+Saved imports retain provider attribution and join offline food and ingredient
+search, including formatting differences and bounded typos in eligible words.
+Missing nutrition is blank. Drinks use confirmed label values per 100 ml; explicit
+Drink settings or provider beverage taxonomy establish classification. Volume
+packaging alone is insufficient. Solid ingredients still require real gram nutrition.
+The barcode badge marks only imports made through scanning or manual barcode lookup.
+Unknown scanned products can become manual foods without claiming provider provenance.
+
 **Kine**: The app's blue original creature, who guides setup and appears on each app tab.
+
+**Drink nutrition basis**: Calories/macros and optional nutrients per 100 ml,
+from a reviewed label or actual USDA non-iced fluid-volume serving. Unknown
+basis requires user entry. Bundled drinks retain source gram nutrition for meal
+ingredients; volume-only custom drinks cannot claim gram nutrition. Legacy
+known-ml snapshots scale directly by volume. Legacy missing ml requires entered
+ml and a label basis before an edit can move the entry into Drinks.

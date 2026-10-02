@@ -6,14 +6,19 @@
     "icon": "./assets/branding/icon.png",
     "scheme": "kinevaulttrack",
     "userInterfaceStyle": "automatic",
-    "ios": { "supportsTablet": true },
+    "ios": {
+      "supportsTablet": true
+    },
     "android": {
       "predictiveBackGestureEnabled": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/branding/adaptive-foreground.png",
         "monochromeImage": "./assets/branding/adaptive-monochrome.png",
         "backgroundColor": "#f8f2e3"
-      }
+      },
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -43,8 +48,18 @@
         }
       ],
       "expo-image",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow KineVault to use the camera to scan food barcodes.",
+          "recordAudioAndroid": false,
+          "microphonePermission": false
+        }
+      ]
     ],
-    "experiments": { "typedRoutes": true }
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }

@@ -29,17 +29,36 @@ Macro rows center vertically beside Kine. Carbs use amber, protein blue, and fat
 purple throughout the macro breakdown and stacked calorie bar. Calorie progress
 uses logged calories; the colored shares estimate macro energy using 4/4/9 kcal/g.
 Workout totals, steps, and water follow below. Widget icons sit at the right of their headers.
-Food groups meals into Breakfast, Lunch, Dinner, and Snacks / Drinks. Exercise
+Tap Water to add manual water in millilitres for the selected day. Home combines
+manual water with saved Drinks volumes and displays the total in litres.
+The tile and entry form explain that Drinks are already included. Cancel makes no change; failed saves retain the amount
+for retry, and unreadable water storage offers recovery without replacing its data.
+Food groups meals into Breakfast, Lunch, Dinner, Snacks, and Drinks. Logging or
+editing drinks requires one whole amount from 1 to 10,000 ml for nutrition and
+hydration. Beverages log automatically to Drinks without gram or meal controls. Saved edits and removals update hydration
+with the same food-log write. Legacy snacks remain Snacks without guessed ml. Exercise
 shows session totals and completed exercises with sets, reps, and actual
-weight ranges. Workouts, steps, and water use empty records until their logging
+weight ranges. Workouts and steps use empty records until their logging
 is implemented. Exercise search filters the selected day's entries.
+Drink search includes existing named energy drinks and common aliases for generic
+cola and pepper-style soda. Generic alternatives are labelled rather than treated as
+current branded nutrition. Food provides two search-row controls: offline Search and barcode Scan, using
+a 75/25 width split. Saved imports join offline food and ingredient search. Formatting
+differences and bounded typos in eligible words match locally, with every query term
+required and diet/zero variants preserved. Scan looks up exact products by barcode.
+Food displays one daily log below search. Search text filters logged names and
+also finds catalog foods. Solid serving presets precede nutrition and destination
+choices for the selected date. Long solid lists show 100 g and two source servings
+first. Drink details show only Drink amount (ml), nutrition per that volume, and
+Log drink to Drinks. Selecting a result dismisses the native keyboard.
+Catalog saves never add intake.
 Food search uses an offline USDA FNDDS catalog of 5,431 foods, with calorie and
-macro previews for a gram amount or source serving weight. Choose a meal to
+macro previews for a solid gram amount or a beverage volume. Choose a meal to
 save that amount to the selected day. Entries persist locally, can be edited or removed,
 and contribute to Home's daily calories and macros. Food results are separate
 from the daily log. Edit changes the amount or meal after a successful save;
 cancel and failed saves preserve the original entry. View macros for the day
-shows the selected date's calories and progress first, then calories, protein,
+shows the selected date's calories and progress first, then calories, carbs, protein,
 fat, its saturated/trans subtypes, fiber, total sugars, sodium, cholesterol,
 potassium, calcium, iron, vitamin D, caffeine, and alcohol in their metric units.
 Missing source values show Not available. New entries retain detailed nutrient
@@ -49,15 +68,29 @@ carbs, protein, and fat. Nutrition is entered per serving and normalized for
 search alongside USDA foods. Saving opens the serving screen without adding a
 meal entry; Log food records it on the selected day. Custom foods persist locally
 with separate IDs and storage, and unknown detailed nutrients remain unavailable.
+More nutrients expands optional per-serving fields using the existing g/mg/mcg
+units. Blank values are unknown; zero is known. Collapsing retains values.
 Failed saves retain the form for retry; unreadable custom storage blocks creation
 until a successful retry. Exercise creation buttons remain disabled.
-Food and Meal buttons below search choose the catalog and creation form. A custom
+Unified Food search finds USDA foods, custom foods and saved meals. Food and
+Meal buttons inside Create food/meal choose the creation form. A custom
 meal contains foods and gram amounts, with calories and macros calculated from
 the ingredients. Users can override any value or restore calculated nutrition.
+Detailed nutrient overrides are amounts for the whole meal. Clearing an individual
+field restores its ingredient total, and the detailed reset clears all such overrides.
 Meals persist locally, appear in meal search with a custom-item icon, and can be
-logged as one entry for a complete meal or a gram portion. Saving confirms where
-to find the item in search. Switching Food/Meal or calendar dates preserves open
+logged as one entry for a complete meal or a gram portion. Saving shows an inline
+Saved to your foods/meals message on its serving screen. Switching Food/Meal or calendar dates preserves open
 creation drafts.
+The small barcode button beside Food search supports EAN/UPC product scanning
+and manual barcode entry with on-demand camera permission. QR codes are excluded.
+Open Food Facts barcode lookup open editable, unsaved
+food drafts. Users review nutrition and brand before saving for offline reuse.
+Only foods imported through scanning or manual barcode lookup show the barcode
+badge. Previously saved non-scanned imports retain provenance without a scan badge. Provider attribution stays visible
+on imported foods. Missing nutrition stays blank; volume-based products require
+confirmation or entry of label nutrition per 100 ml for drinks. Volume packaging alone is insufficient to classify a beverage. The explicit editable Drink setting works for custom and scanned foods. Solid ingredients require gram nutrition. Closing, reopening Scan, tab blur,
+backgrounding, or changing the day cancels stale online work without saving or logging.
 Custom item details offer Edit food/meal and Delete food/meal. Edits reuse the
 prefilled creation form; saved meals retain their ingredient amounts and explicit
 nutrition overrides. Saves replace the catalog item under the same identity.
@@ -99,8 +132,9 @@ Keep interface copy short and conversational; omit repeated introductions.
 Food entries come from users logging catalog foods; no exercise records have
 been supplied. Food search uses USDA
 FoodData Central's FNDDS 2021-2023 release of October 31, 2024, with source
-attribution and provenance in the bundled catalog. Branded-product and barcode
-search are not included.
+attribution and provenance in the bundled catalog. Open Food Facts supplies
+product barcode lookup. Saved imports
+remain local and searchable offline.
 Empty days keep the metric and meal layouts without fabricated activity.
 Each empty meal says “No food has been logged yet”. Failed food-log loads
 show recovery before displaying meal records or Home totals.
@@ -111,3 +145,14 @@ Native device interaction and screen-reader behavior have not been verified by
 those exports. The known Router decoder dependency advisory remains documented
 in README.md; the app's configured linking parser bypasses that decoder, and a
 direct dependency override is incompatible.
+
+Drinks persist explicit volume entries with nutrition snapshots and no invented grams.
+Bundled beverage volume nutrition uses actual non-iced fluid source servings, with
+US fluid ounce and cup conversions. Condensed milk, unreconstituted lemonade
+concentrate, milk-derived powders, and desserts remain solids. Label drinks store
+per-100ml calories/macros and optional detailed nutrients. Missing values remain
+unknown; entered zero remains known. Volume-only custom drinks need a reliable
+gram basis before use as meal ingredients. Existing meal snapshots and overrides
+still use their real source gram nutrition. Editing legacy beverages preserves
+their known volume nutrition snapshot; missing volume requires entered ml and
+label nutrition per 100 ml. Stored legacy Snacks stay Snacks until explicit edit.

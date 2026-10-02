@@ -7,12 +7,14 @@ import { spacing } from "../theme/tokens";
 import type { CustomFood } from "./custom-model.ts";
 import type { CustomMeal } from "./meal-model.ts";
 import { useCustomFoods } from "./custom-provider";
+import { useFoodDrafts } from "./draft-provider";
 import { FoodButton } from "./food-button";
 
 export function CustomItemActions({ item, disabled, onEdit, onDeleted }: {
   item: CustomFood | CustomMeal; disabled: boolean; onEdit: () => void; onDeleted: () => void;
 }) {
   const custom = useCustomFoods();
+  const drafts = useFoodDrafts();
   const { colors } = useTheme();
   const [confirming, setConfirming] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -31,6 +33,7 @@ export function CustomItemActions({ item, disabled, onEdit, onDeleted }: {
     setFailed(false);
     try {
       const removed = await custom.remove(item.customId);
+      if (removed) drafts.retireDeletedItem(item);
       if (!mounted.current) return;
       if (removed) onDeleted();
       else setFailed(true);
@@ -49,7 +52,7 @@ export function CustomItemActions({ item, disabled, onEdit, onDeleted }: {
           <Panel accessibilityViewIsModal style={{ width: "100%", maxWidth: 360, gap: spacing.layout }}>
             <AppText variant="heading" accessibilityRole="header">{title}</AppText>
             <AppText>Delete “{item.name}” from your saved {kind === "meal" ? "meals" : "foods"}?</AppText>
-            <AppText variant="caption" muted>Existing log entries and ingredients in saved meals will be kept. This can't be undone.</AppText>
+            <AppText variant="caption" muted>Any unfinished edits to this item will be discarded. Existing log entries and ingredients in saved meals will be kept. This can't be undone.</AppText>
             {failed && <AppText accessibilityRole="alert" style={{ color: colors.error }}>
               {custom.error ?? "Couldn't delete this item. It is still saved. Try again."}
             </AppText>}

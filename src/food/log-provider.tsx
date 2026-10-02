@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createContext, useContext, useEffect, useState, useSyncExternalStore, type PropsWithChildren } from "react";
+import { foodDatabase } from "./database";
 import { createFoodLogPersistence, type FoodLogSnapshot } from "./log-persistence";
 
 type FoodLogStore = ReturnType<typeof createFoodLogPersistence>;
@@ -11,6 +12,7 @@ export function FoodLogProvider({ children }: PropsWithChildren) {
     let sequence = 0;
     return createFoodLogPersistence({
       storage: AsyncStorage,
+      findFood: foodDatabase.getById,
       createId: () => `${Date.now().toString(36)}-${++sequence}-${Math.random().toString(36).slice(2)}`,
     });
   });

@@ -6,20 +6,23 @@ export const meals = [
   { key: "breakfast", label: "Breakfast", icon: "mug-hot" },
   { key: "lunch", label: "Lunch", icon: "sun" },
   { key: "dinner", label: "Dinner", icon: "utensils" },
-  { key: "snacks", label: "Snacks / Drinks", icon: "apple-whole" },
+  { key: "snacks", label: "Snacks", icon: "apple-whole" },
+  { key: "drinks", label: "Drinks", icon: "glass-water" },
 ] as const;
 export type Meal = (typeof meals)[number]["key"];
 export type FoodEntry = FoodIdentity & {
   id: string;
   name: string;
   meal: Meal;
-  grams: number;
   calories: number;
   carbs: number;
   protein: number;
   fat: number;
   details?: DetailedNutrients;
-};
+} & (
+  | { measurement?: "grams"; grams: number; drinkMl?: number }
+  | { measurement: "volume"; drinkMl: number; meal: "drinks"; grams?: never }
+);
 type WorkoutSet = { weightKg: number; reps: number; completed: boolean };
 type WorkoutExercise = { id: string; name: string; sets: WorkoutSet[] };
 export type Workout = {
@@ -35,7 +38,7 @@ export type DailyActivity = {
   waterMl: number;
 };
 
-// Workouts, steps, and water have no logging source yet.
+// Workouts and steps have no logging source yet. Food and water logs fill their daily values.
 export function emptyDay(date: string): DailyActivity {
   return { date, foods: [], workout: null, steps: 0, waterMl: 0 };
 }

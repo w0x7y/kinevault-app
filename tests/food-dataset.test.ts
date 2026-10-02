@@ -15,10 +15,11 @@ test("the shipped food catalog has unique USDA IDs and complete per-100g nutriti
   for (const food of data.foods) {
     assert.ok(Number.isInteger(food.fdcId) && food.fdcId > 0);
     assert.ok(food.name.trim());
+    assert.ok(food.per100g);
     for (const key of ["calories", "carbs", "protein", "fat"] as const)
       assert.ok(Number.isFinite(food.per100g[key]) && food.per100g[key] >= 0, `${food.fdcId}: ${key}`);
     for (const { key } of detailedNutrients) {
-      const value = food.details?.[key];
+      const value: number | null | undefined = food.details?.[key];
       assert.ok(value === null || typeof value === "number" && Number.isFinite(value) && value >= 0, `${food.fdcId}: ${key}`);
     }
     for (const portion of food.portions)

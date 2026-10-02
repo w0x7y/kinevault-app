@@ -1,5 +1,6 @@
+import type { FindFood } from "./entry-nutrients.ts";
 import { parseDay } from "../calendar/dates.ts";
-import { entryForFood, nutritionForEntry, parseFoodLog, type AddFoodInput, type EditFoodInput, type FoodLogDocument } from "./log-model.ts";
+import { editedFoodEntry, entryForFood, parseFoodLog, type AddFoodInput, type EditFoodInput, type FoodLogDocument } from "./log-model.ts";
 export const foodLogStorageKey = "kinevault-track.food-log.v1";
 export type FoodLogStorage = {
   getItem(key: string): Promise<string | null>;
@@ -11,7 +12,7 @@ export type FoodLogSnapshot = Readonly<{
   error: string | null;
 }>;
 
-export function createFoodLogPersistence({ storage, createId }: { storage: FoodLogStorage; createId: () => string }) {
+export function createFoodLogPersistence({ storage, createId, findFood }: { storage: FoodLogStorage; createId: () => string; findFood?: FindFood }) {
   let snapshot: FoodLogSnapshot = { state: { kind: "loading" }, saving: false, error: null };
   const listeners = new Set<() => void>();
   let active = false;
@@ -82,13 +83,14 @@ export function createFoodLogPersistence({ storage, createId }: { storage: FoodL
         return { version: 1, days: { ...document.days, [input.date]: [...(document.days[input.date] ?? []), entry] } };
       });
     },
-    edit({ date, id, grams, meal }: EditFoodInput) {
+    edit(input: EditFoodInput) {
+      const { date, id } = input;
       return update(document => {
         parseDay(date);
         const previous = document.days[date] ?? [];
         const entry = previous.find(entry => entry.id === id);
         if (!entry) return null;
-        const edited = { ...entry, ...nutritionForEntry(entry, grams), grams, meal };
+        const edited = editedFoodEntry(entry, input, findFood);
         return { version: 1, days: { ...document.days, [date]: previous.map(food => food.id === id ? edited : food) } };
       });
     },

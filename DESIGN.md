@@ -4,7 +4,7 @@ Design reference for KineVault Track, the Expo app in `Application/`, and its
 separate [KineVault studio](https://github.com/arielhagay10-ui/KineVault).
 The supplied studio reference below describes its working source on
 **30 September 2026**; its measurements assume a 16px root font size.
-The Application summary records the implementation on **1 October 2026**.
+The Application summary records the implementation on **2 October 2026**.
 Preserve scalable text in both products.
 
 Outside the Application summary and explicitly labeled companion notes,
@@ -35,17 +35,21 @@ reference patterns, not implemented companion features.
   a full-width calorie count and horizontal progress bar. Each macro count
   shares its label's line above the bar. Workout volume, duration, sets, and reps
   follow, then steps and water side by side. Widget header icons sit on the right.
+  Water shows manual water plus saved Drinks volumes for the selected day.
+  The tile says Includes Drinks; the manual entry form explains that Drinks
+  are already included. Loading or unreadable water storage hides the total.
   Macro rows center vertically within their panel. Carbs, protein, and fat use
   their amber, blue, and purple theme tokens in labels, icons, progress fills,
   and the calorie bar's stacked segments. The unconsumed track stays neutral.
 - Food and Exercise begin with two centered-label action buttons to Kine's left,
-  followed by a full-width search field. Food places Food and Meal buttons below
-  search to switch catalogs and creation forms. Create food/meal opens an inline panel for
+  followed by search. Food uses two controls, Search and Scan, with a 75/25 width split.
+  Scan keeps the existing secondary colors and touch target. Food and Meal buttons inside Create food/meal
+  switch creation forms. Create food/meal opens an inline panel for
   a food name, serving weight, and calories/macros per serving. Nutrition inputs
   form a wrapping two-column grid with the existing macro colors; Save food and
   Cancel are full-width controls. Validation and failed saves appear inline and
-  preserve the draft. Saving opens the serving screen and a centered confirmation
-  popup directing users to food search, with an OK action. Custom foods join
+  preserve the draft. Saving opens the serving screen with an inline
+  Saved to your foods message. Custom foods join
   search results with a Custom food category and a small person-and-pen icon
   beside the name. Create Exercise and Create Workouts
   remain disabled placeholders without visible “Coming soon” captions.
@@ -53,20 +57,29 @@ reference patterns, not implemented companion features.
   selected date's ordered nutrient list. The meal form adds foods through ingredient
   search, shows editable gram amounts and removal controls, and calculates whole-meal
   nutrition in the same input grid. Edited nutrition stays overridden until Use
-  calculated nutrition is chosen. Saved meals have their own search catalog and
-  confirmation popup, with the same custom-item icon. Food searches the offline USDA and custom catalog; Exercise
+  calculated nutrition is chosen. Saved meals show Saved to your meals inline, with the same custom-item icon. Food searches the offline USDA, custom-food and saved-meal catalog; Exercise
   search filters the selected day's existing exercise rows.
 - Custom food and meal details place Edit and Delete controls below the name and
   category. Edit opens the matching prefilled form with Save food/meal changes
   and Cancel. Delete opens a themed confirmation popup naming the item and
   explaining that existing log entries and saved ingredients are kept. Failed
   writes show inline retry errors. USDA foods have no catalog edit/delete controls.
-- Food retains Breakfast, Lunch, Dinner, and Snacks / Drinks sections with calories.
-  Empty meals say “No food has been logged yet”. Search results show grams,
-  nutrition, meal choices with announced selection, and a primary Log food action for the selected
-  day. Saved entries show amounts, Edit, and a named removal control.
-  Edit reuses the amount, nutrition preview, and meal controls with Save changes
-  and Cancel edit actions. Failed saves retain the draft.
+- Food shows one daily log with Breakfast, Lunch, Dinner, Snacks, and Drinks,
+  below catalog search. Logged name filters never replace catalog results.
+  Empty meals say "No food has been logged yet". Solid details place gram amount
+  and serving choices before nutrition, with four meal destinations and a dated Log action.
+  Long lists show 100 g and two source servings first. Selecting results dismisses
+  the native keyboard. Saved entries show amounts, Edit, and a named removal control.
+  Drink details have one Drink amount (ml) field before the nutrition preview,
+  requiring whole millilitres from 1 to 10,000. No gram serving panel or meal chooser
+  appears. Nutrition uses that volume, and Log drink to Drinks includes hydration.
+  Unknown volume nutrition requests calories/macros per 100 ml from the label.
+  Blank initial volume uses neutral guidance; entered invalid volume shows an inline error.
+  Log remains disabled until required amounts are valid. Drink rows show ml.
+  Edit restores known volume and preserves it through catalog edits; Cancel and
+  failed saves retain the original entry. Unknown legacy volume is never inferred.
+  Custom creation offers Solid food and Drink settings. Each nutrition basis has
+  separate values, and switching units requests fresh label nutrition.
   The daily nutrient list has aligned label/value columns with units in labels;
   saturated fat and trans fat are indented under Fat. Missing values say
   Not available. Both themes preserve protein and fat category colors.

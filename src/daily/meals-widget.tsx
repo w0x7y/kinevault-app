@@ -34,12 +34,16 @@ export function MealsWidget({ day, query, onRemove, onEdit, onLayout, saving, er
             </View>
             {entries.length ? entries.map((food) => (
               <View key={food.id} style={{ flexDirection: "row", gap: spacing.layout, alignItems: "center" }}>
-                <View style={{ flex: 1, gap: spacing.xs }}>
-                  <AppText style={{ fontSize: 14 }} selectable>{food.name}</AppText>
-                  <AppText variant="caption" muted selectable>{food.grams.toLocaleString(undefined, { maximumFractionDigits: 1 })} g · {Math.round(food.calories).toLocaleString()} kcal</AppText>
-                </View>
                 <FoodButton label="Edit" accessibilityLabel={`Edit ${food.name} in ${label}`}
                   disabled={saving} onPress={() => onEdit(food)} />
+                <View style={{ flex: 1, gap: spacing.xs }}>
+                  <AppText style={{ fontSize: 14 }} selectable>{food.name}</AppText>
+                  <AppText variant="caption" muted selectable>{food.measurement === "volume"
+                    ? `${food.drinkMl.toLocaleString()} ml`
+                    : food.meal === "drinks" && food.drinkMl !== undefined
+                    ? `${food.drinkMl.toLocaleString()} ml`
+                    : `${food.grams.toLocaleString(undefined, { maximumFractionDigits: 1 })} g`} · {Math.round(food.calories).toLocaleString()} kcal</AppText>
+                </View>
                 <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${food.name} from ${label}`}
                   accessibilityState={{ disabled: saving }} disabled={saving} onPress={() => onRemove(food.id)}
                   style={({ pressed }) => ({ width: 44, minHeight: 44, alignItems: "center", justifyContent: "center",

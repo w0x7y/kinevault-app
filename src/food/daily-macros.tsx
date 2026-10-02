@@ -14,6 +14,7 @@ import { foodDatabase } from "./database";
 
 const nutrientRows = [
   { key: "calories", label: "Calories", unit: "kcal", indented: false },
+  { key: "carbs", label: "Carbs", unit: "g", indented: false },
   { key: "protein", label: "Protein", unit: "g", indented: false },
   { key: "fat", label: "Fat", unit: "g", indented: false },
   ...detailedNutrients,
@@ -53,7 +54,7 @@ export function DailyMacros({ day, onBack, onLayout }: { day: DailyActivity; onB
             gap: spacing.layout, paddingVertical: spacing.layout,
             borderTopWidth: index ? 1 : 0, borderColor: colors.border }}>
             <AppText testID="nutrient-label" variant="label" style={{ flex: 1, paddingLeft: indented ? spacing.layout : 0,
-              color: key === "protein" || key === "fat" ? colors[key] : colors.foreground }}>
+              color: key === "carbs" || key === "protein" || key === "fat" ? colors[key] : colors.foreground }}>
               {label} ({unit})
             </AppText>
             <AppText testID="nutrient-value" variant="label" selectable

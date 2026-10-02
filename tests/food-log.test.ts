@@ -222,3 +222,64 @@ test("invalid or missing edit targets never overwrite another saved entry", asyn
   assert.equal(raw(), before);
   assert.deepEqual(calls, ["read", "write"]);
 });
+
+
+const cola: CatalogFood = { fdcId: 2710541, name: "Soft drink, cola", category: "Soft drinks",
+  per100g: { calories: 42, carbs: 10.6, protein: 0, fat: 0 }, portions: [{ label: "1 fl oz", grams: 31 }] };
+const drinkInput = { date: input.date, food: cola, measurement: "volume", drinkMl: 250 } as const;
+test("volume entries have no fake grams, legacy snacks/drinks remain readable", () => {
+  const legacy = { ...entryForFood({ id: "legacy", ...input }), fdcId: cola.fdcId, name: cola.name, meal: "snacks" };
+  const roundTrip = (entry: unknown) => parseFoodLog(JSON.stringify({ version: 1, days: { [input.date]: [entry] } })).days[input.date][0];
+  assert.equal(roundTrip(legacy).meal, "snacks");
+  assert.equal(roundTrip({ ...legacy, meal: "drinks" }).drinkMl, undefined);
+  assert.equal(roundTrip({ ...legacy, meal: "drinks", drinkMl: 275 }).grams, 50);
+  const drink = entryForFood({ ...drinkInput, id: "drink" });
+  assert.equal(roundTrip(drink).drinkMl, 250);
+  assert.equal(drink.grams, undefined);
+  assert.equal(drink.measurement, "volume");
+  for (const patch of [{ grams: 1 }, { meal: "snacks" }, { drinkMl: 0 }, { drinkMl: 0.5 }, { drinkMl: 10001 }]) assert.throws(() => roundTrip({ ...drink, ...patch }));
+});
+test("new volume writes validate whole ml, reject gram beverage writes, and preserve unknown labels", async () => {
+  const { log, calls } = await ready();
+  for (const drinkMl of [0, -1, 1.5, 10001, Infinity, NaN]) assert.equal(await log.add({ ...drinkInput, drinkMl }), false);
+  assert.equal(await log.add({ ...input, food: cola }), false);
+  assert.equal(await log.add({ ...input, meal: "drinks" }), false);
+  const unknown: CatalogFood = { ...cola, portions: [], beverage: { kind: "unknown-volume" } };
+  assert.equal(await log.add({ ...drinkInput, food: unknown }), false);
+  assert.deepEqual(calls, ["read"]);
+  assert.equal(await log.add({ ...drinkInput, food: unknown, nutritionPer100ml: { calories: 0, carbs: 0, protein: 0, fat: 0 } }), true);
+});
+test("volume hydration follows durable add/edit/remove, failures, duplicate taps, restart and date", async () => {
+  const { log, storage, raw } = await ready();
+  const hydrate = (date = input.date as string) => (documentOf(log).days[date] ?? []).reduce((sum, entry) => sum + (entry.meal === "drinks" ? entry.drinkMl ?? 0 : 0), 0);
+  assert.equal(await log.add(drinkInput), true);
+  assert.equal(await log.add({ ...drinkInput, date: "2026-09-30", drinkMl: 125 }), true);
+  const originalCalories = documentOf(log).days[input.date][0].calories;
+  const edit = { date: input.date, id: "food-1", measurement: "volume", drinkMl: 400 } as const;
+  const write = storage.setItem;
+  storage.setItem = async () => { throw new Error("disk full"); };
+  assert.equal(await log.edit(edit), false); assert.equal(hydrate(), 250);
+  const gate = deferred<void>();
+  storage.setItem = async (key, value) => { await gate.promise; await write(key, value); };
+  const pending = log.edit(edit); assert.equal(hydrate(), 250); assert.equal(await log.edit(edit), false);
+  gate.resolve(); assert.equal(await pending, true); assert.equal(hydrate(), 400);
+  storage.setItem = write;
+  assert.equal(documentOf(log).days[input.date][0].calories, originalCalories * 400 / 250);
+  assert.equal(await log.edit({ date: input.date, id: "food-1", grams: 200, meal: "snacks" }), false);
+  assert.equal(documentOf((await ready(raw())).log).days[input.date][0].drinkMl, 400);
+  storage.setItem = async () => { throw new Error("disk full"); };
+  assert.equal(await log.remove({ date: input.date, id: "food-1" }), false); assert.equal(hydrate(), 400);
+  storage.setItem = write; assert.equal(await log.remove({ date: input.date, id: "food-1" }), true);
+  assert.equal(hydrate(), 0); assert.equal(hydrate("2026-09-30"), 125);
+});
+test("legacy drink edit scales known ml snapshot; missing ml requires entered label basis", async () => {
+  const legacy = { ...entryForFood({ id: "legacy", ...input }), name: cola.name, fdcId: cola.fdcId, meal: "snacks" };
+  const { log, calls } = await ready(JSON.stringify({ version: 1, days: { [input.date]: [legacy] } }));
+  const edit = { date: input.date, id: "legacy", measurement: "volume", drinkMl: 300 } as const;
+  assert.equal(await log.edit(edit), false); assert.deepEqual(calls, ["read"]);
+  assert.equal(await log.edit({ ...edit, nutritionPer100ml: { calories: 40, carbs: 10, protein: 0, fat: 0 } }), true);
+  assert.equal(documentOf(log).days[input.date][0].calories, 120);
+  assert.equal(documentOf(log).days[input.date][0].grams, undefined);
+  assert.equal(await log.edit({ ...edit, drinkMl: 600 }), true);
+  assert.equal(documentOf(log).days[input.date][0].calories, 240);
+});

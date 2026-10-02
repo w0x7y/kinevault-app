@@ -11,7 +11,7 @@ studio is maintained separately.
   The current week stays centered; Settings has no calendar.
   Dates use the device's local time zone. Selecting Today follows local day
   changes; a deliberately chosen other date stays selected until changed again.
-- Daily layouts for nutrition, workouts, steps, water, and four meal sections.
+- Daily layouts for nutrition, workouts, steps, water, and five meal sections.
   Kine uses the same even split and size beside Home macros, Food/Exercise
   action buttons, and the Settings title. Macro counts sit beside their labels.
   A full-width calorie count and progress bar sit below Home’s macro/Kine row.
@@ -19,8 +19,8 @@ studio is maintained separately.
   stacked calorie bar. The macro rows center vertically beside Kine.
   Food and Exercise place their search fields below their action/Kine rows.
   Workout details list completed exercises with sets, reps, and actual weight ranges.
-  Food records can be logged to a meal on the selected day. Workouts, steps,
-  and water remain empty; exercise creation buttons are disabled placeholders.
+  Food records can be logged to a meal on the selected day. Workouts and steps
+  remain empty; exercise creation buttons are disabled placeholders.
 - Shared 12px screen margins, panel padding, and gaps across tabs and onboarding.
 - Comfortaa typography, Font Awesome 6 icons, and shared themed components.
 - System, Light, and Dark appearance, saved locally on the device.
@@ -28,14 +28,23 @@ studio is maintained separately.
 - Empty states and a missing-route recovery screen.
 - Offline food database search with 5,431 USDA foods, calories and macros per
   100 g, serving weights, and nutrition previews for a custom gram amount.
-- Local food logging to Breakfast, Lunch, Dinner, or Snacks / Drinks, with
-  saved gram amounts, editing, removal, and shared daily calorie/macro totals.
+- Tap Home's Water widget to add water in millilitres to the selected day.
+  Daily totals combine manual water with saved Drinks volumes and display in litres; failed saves retain the entry for retry.
+  Drinks use one whole amount from 1 to 10,000 ml for nutrition and hydration.
+  Editing or removing a drink updates hydration with the same food-log save.
+  Legacy Snacks stay Snacks and have no inferred drink volume.
+- Drink search includes named energy drinks and common cola/pepper-style aliases.
+  Generic alternatives are labelled; use Scan for an exact product.
+- Local food logging to Breakfast, Lunch, Dinner, Snacks, or Drinks, with
+  saved gram or beverage volume amounts, editing, removal, and shared daily calorie/macro totals.
   Empty meals say “No food has been logged yet”.
 - Create reusable custom foods with a name, serving weight, calories, and macros.
   Foods persist on the device and appear alongside USDA foods in search.
 - Create reusable meals from foods and gram amounts, with calculated calories
-  and macros that can be overridden. Food/Meal buttons switch the search catalog.
-- View macros for the day shows calories first, then an ordered nutrient list
+  and macros that can be overridden. Food/Meal buttons switch creation forms.
+- Scan product barcodes, review an editable
+  import draft, and save it for offline reuse. Only scanned imports show a barcode badge.
+- View macros for the day shows calories, carbs, protein, and fat first, then an ordered nutrient list
   for the selected date with gram, milligram, and microgram units.
 - First-run onboarding with Kine, resumable local answers, and profile editing.
   Welcome and goals precede the age confirmation.
@@ -57,25 +66,34 @@ and KineVault integration are not implemented in this phase.
 
 ## Food database
 
-Use the Food and Meal buttons below search to choose a catalog. Tap Create
-food/meal to open the matching form. In Food mode, enter a name, serving weight in grams, and
+The daily log is displayed once under Food search. Searching filters logged names
+without hiding catalog search. Solid food details offer gram amounts, source serving
+presets, and a Breakfast, Lunch, Dinner, or Snacks destination for the displayed date.
+Drink details have one Drink amount (ml) input, no gram presets or meal picker,
+and Log drink to Drinks. Selecting a catalog result dismisses the native keyboard.
+Long solid serving lists show 100 g and two source servings initially.
+Catalog saves show inline confirmation and add no intake until that action.
+
+Search foods finds both foods and saved meals. Tap Create food/meal, then choose
+Food or Meal in the form. In Food mode, choose Solid food or Drink. Solid foods need a name, serving weight in grams, and
 calories, carbs, protein, and fat for that serving. All nutrition values are
 required; zero and decimal amounts are accepted. Save food stores it locally,
-then opens its serving screen with a confirmation popup explaining that the food
-is available in search. Dismiss the popup with OK. Custom search results show a
+then opens its serving screen with an inline Saved to your foods message. Custom search results show a
 small person-and-pen icon beside the name and announce their custom origin to
 screen readers. Choose a meal and tap Log food to add it to the
 selected day. Cancel discards the unsaved form. Failed saves keep the form for retry.
 Changing the selected calendar day preserves an open creation draft. Food names
 can be searched in non-English scripts as well as English.
 
-Custom foods are normalized to per-100g nutrition for search and have a separate
+Custom solid foods are normalized to per-100g nutrition for search and have a separate
 identity from USDA records. Their entered serving remains selectable. They use
 their own versioned storage key, `kinevault-track.custom-foods.v1`, and persist
 across restarts. A corrupt or unreadable custom catalog offers Retry custom foods
 and blocks creation, while USDA search and existing logged entries remain usable.
-Detailed nutrients for custom foods are unknown and display Not available in
-daily totals. Creating foods does not change the daily log until Log food is used.
+More nutrients opens optional fields in the existing g/mg/mcg units. Blank values
+remain unknown; entered zero is known. Hiding the fields preserves their values.
+Unknown values display Not available in daily totals. Creating foods does not
+change the daily log until Log food is used.
 Open a custom item from search to use Edit food/meal or Delete food/meal.
 Editing opens a prefilled form, saves under the same identity, and updates future
 logging and search. Cancel discards changes. Deletion requires confirmation and
@@ -88,14 +106,50 @@ Calories, carbs, protein, and fat are calculated for the whole collection.
 Editing a nutrition value overrides only that value; other values continue to
 follow ingredient amounts. Use calculated nutrition clears all overrides.
 Save meal stores the ingredients and nutrition locally, opens the serving screen,
-and confirms that it is available in meal search. Meal mode lists saved meals
-even with an empty query; Food mode searches USDA and custom foods. Both creation
+and shows Saved to your meals inline. Search foods finds USDA foods, custom foods and saved meals. Both creation
 drafts survive switching between Food and Meal or changing the selected day.
 One complete meal is its combined ingredient weight, up to 10,000 g. Log meal
-can record any gram amount as a single entry in Breakfast, Lunch, Dinner, or
-Snacks / Drinks. Its nutrition and ingredient amounts scale with the logged
+can record any gram amount as a single entry in Breakfast, Lunch, Dinner,
+or Snacks. Its nutrition and ingredient amounts scale with the logged
 portion. Detailed nutrients follow the ingredients, preserving unknown values.
+More nutrients supports individual whole-meal overrides. Clear a field to return
+that nutrient to its calculated amount, or use the reset button for all detailed overrides.
 Meals share the custom-food storage document; existing saved foods remain readable.
+
+Drinks store a per-100ml label basis and have no invented gram weight or serving.
+Bundled beverage nutrition converts only literal source US fluid ounce or cup
+servings, excluding with-ice and guideline portions. US fl oz is 29.5735295625 ml
+and cup is 236.5882365 ml, per [NIST SP 811](https://www.nist.gov/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9).
+The catalog keeps real gram nutrition for bundled beverages used as ingredients.
+Volume-only custom drinks are excluded from ingredient search with conversion guidance.
+Ingredient result counts and pages include only foods with gram nutrition, so
+unusable drinks cannot leave an empty page or hide selectable foods. A search
+matching only volume-based drinks explains the missing gram conversion.
+Unknown volume nutrition requires all four label calorie/macro values per 100 ml;
+blank nutrients remain unknown and zero is known. New drink log entries explicitly
+store volume and nutrition snapshots. Old gram logs remain readable. Editing a
+legacy beverage with known ml scales its stored snapshot; missing volume requires
+entered ml and a label basis. Legacy Snacks remain Snacks until explicitly edited.
+
+The barcode button on the right of Food search opens the camera and manual barcode
+entry. It supports EAN/UPC product barcodes, including UPC-E camera expansion,
+and excludes QR codes. Camera permission is requested on opening the scanner;
+denied or unavailable cameras leave manual entry usable. The camera closes on
+tab blur, scanner close, or app background. The expo-camera plugin declares a
+food-barcode camera permission, disables Android audio recording, blocks its
+microphone permission, and omits the iOS microphone permission. Camera capture
+still needs real-device verification on iOS and Android.
+
+Food has two search-row controls: offline Search and barcode Scan, with a 75/25
+width split. Barcode lookup opens an unsaved food draft with editable name,
+brand, macros, and optional nutrients. Saving adds it to local search without
+logging it. Saved names and brands support formatting differences and bounded
+one-letter typos in eligible words, including ingredient search, entirely offline.
+Every query term must match; variant words such as zero and diet remain distinct.
+Unknown scanned products offer a blank manual draft. Scan-origin metadata survives edits and reloads; previously saved non-scanned
+imports retain their provenance without a barcode badge. Imported records retain visible Open Food Facts
+attribution. Missing nutrition stays blank, and products reported by volume require
+label nutrition per 100 ml for drinks. Volume packaging alone does not classify a product as a drink; Open Food Facts beverage categories or the editable Drink setting do. Solid foods still need nutrition for a weighed serving.
 
 The Food tab searches a bundled copy of USDA FoodData Central's
 [FNDDS 2021-2023](https://fdc.nal.usda.gov/download-datasets/) dietary database,
@@ -105,7 +159,7 @@ has no nutrients and is excluded. Search runs on-device without an API key,
 network connection, or hosted backend. Results are paged in groups of 20.
 
 Search accepts partial words and common plurals, and matches words in any
-order. Open a result to choose a listed serving weight or enter grams. Values
+order. Open a solid result to choose a listed serving weight or enter grams. Values
 come from USDA's per-100g data and scale to that weight. Calories round to whole
 kcal and macros to one decimal for display; calculations retain source precision.
 Choose a meal and tap Log food to save the amount to the calendar's selected
@@ -122,7 +176,7 @@ profile and appearance preferences. Resetting the profile leaves food records
 intact.
 
 View macros for the day uses the calendar's selected date, including past days.
-Calories and progress appear first, followed by calories, protein, fat,
+Calories and progress appear first, followed by calories, carbs, protein, fat,
 saturated fat, trans fat, fiber, total sugars, sodium, cholesterol, potassium,
 calcium, iron, vitamin D, caffeine, and alcohol. Fat subtypes are indented.
 The importer retains the source's per-100g nutrient units; Vitamin D's micrograms
@@ -312,8 +366,22 @@ The detailed-nutrition increment passed 120 unit tests, all 21 browser tests,
 TypeScript with unused-code checks, and web/iOS/Android bundle exports. Reimporting
 the pinned archive reproduced the expanded catalog byte for byte.
 
-The dependency audit reports three moderate package entries for one advisory
-in the Router chain:
+The October 2, 2026 dependency audit reports seven affected package entries:
+four high and three moderate, representing two advisory chains. No critical
+findings were reported. These are installed dependency findings; a working
+application exploit was not demonstrated in this review.
+
+The high-severity chain is `expo` → `@expo/cli` →
+`@expo/code-signing-certificates` / `node-forge` 1.4.0. The
+[RSA signature-verification advisory](https://github.com/advisories/GHSA-86w9-cpqp-85rv)
+affects versions through 1.4.0; no patched release was available at review time.
+Expo tooling calls the affected verifier when validating code-signing certificates
+and checking generated signatures. The app source does not import this library,
+and no update-signing configuration is enabled. This does not establish that
+the tooling is safe. Update the compatible Expo toolchain when an upstream fix
+is available; the audit's proposed Expo 44 downgrade is unsuitable for SDK 57.
+
+The moderate-severity chain is:
 `expo-router` → `query-string` → `decode-uri-component`. The decoder has a
 [malformed-input denial-of-service advisory](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr).
 Its fixed version, 0.5.0, is ESM; the installed `query-string` 7 calls it through
@@ -325,7 +393,6 @@ open. An isolated compatibility check of the fixed decoder under query-string 7
 failed with `decodeComponent is not a function`.
 This needs a compatible Router update or a separately validated dependency patch. Do not use
 `npm audit fix --force`, which proposes an incompatible Router downgrade.
-There are no high or critical findings in this audit.
 
 Scoped overrides give the Xcode and Expo tunnel tools `uuid` 11.1.1, fixing
 [UUID output-buffer validation](https://github.com/advisories/GHSA-w5hq-g745-h8pq)
@@ -348,9 +415,12 @@ launcher icons and splash screens. It runs independently of the Expo app.
 - `src/calendar/`: local date arithmetic, centered week grid, and React/platform wiring.
 - `src/daily/workout.ts`: one interpretation of completed sets for totals and exercise rows.
 - `src/daily/`: daily record types, nutrition summaries, and dashboard widgets.
+- `src/water/`: validated local water totals, persistence, and direct Home entry.
 - `src/food/`: offline catalog search, USDA data adapter, result pages, nutrition
   previews, and local food-log validation, persistence, and React wiring.
   Food search does not filter the daily log.
+- `src/food/catalog-selection.ts`: saved/bundled search assembly, current saved-item
+  identity and kind, and eligible ingredient paging with volume-only exclusions.
 - `scripts/import-food-catalog.py`: reproducible import of USDA FNDDS nutrition
   and serving weights. Source data and provenance live in `assets/food/`.
 - `src/profile/model.ts`: stored document parsing and legacy age recovery.

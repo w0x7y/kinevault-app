@@ -105,7 +105,7 @@ test("custom food and meal edits and deletes persist, retry safely and preserve 
   assert.equal(await readLog(), originalLog);
   await page.evaluate(() => localStorage.setItem("kinevault-track.appearance", "dark"));
   await page.reload();
-  await button(page, "Meal").click();
+  await search.fill("Saved bowl");
   await button(page, "View nutrition for Saved bowl, custom meal").click();
   await button(page, "Edit meal").click();
   await heading(page, "Edit custom meal");
@@ -141,7 +141,7 @@ test("custom food and meal edits and deletes persist, retry safely and preserve 
   assert.equal(updatedMeal.overrides.fat, 0);
   assert.equal(await readLog(), originalLog);
   await page.reload();
-  await button(page, "Meal").click();
+  await search.fill("Revised bowl");
   await button(page, "View nutrition for Revised bowl, custom meal").click();
   await button(page, "Delete meal").click();
   const mealDelete = page.getByRole("dialog", { name: "Delete custom meal?" });
@@ -181,16 +181,16 @@ test("deleting the last item on a saved meal results page returns to the remaini
   });
   await page.reload();
   await page.getByRole("tab", { name: "Food" }).click();
-  await button(page, "Meal").click();
-  await button(page, "Next meal results").click();
+  await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("Saved meal");
+  await button(page, "Next food results").click();
   await button(page, "View nutrition for Saved meal 21, custom meal").click();
   await button(page, "Delete meal").click();
   await page.getByRole("dialog", { name: "Delete custom meal?" }).getByRole("button", { name: "Delete meal", exact: true }).click();
   await button(page, "View nutrition for Saved meal 1, custom meal").waitFor();
   assert.equal(await page.getByTestId("food-result").count(), 20);
-  assert.equal(await button(page, "Next meal results").count(), 0);
+  assert.equal(await button(page, "Next food results").count(), 0);
   await page.reload();
-  await button(page, "Meal").click();
+  await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("Saved meal");
   assert.equal(await button(page, "View nutrition for Saved meal 21, custom meal").count(), 0);
   await button(page, "View nutrition for Saved meal 1, custom meal").waitFor();
 });
@@ -203,10 +203,12 @@ test("meal creation calculates ingredients, preserves drafts across food/meal sw
   ] })));
   await page.reload();
   await page.getByRole("tab", { name: "Food" }).click();
-  await button(page, "Meal").click({ timeout: 3000 });
-  assert.equal(await button(page, "Meal").getAttribute("aria-pressed"), "true");
-  await heading(page, "Saved meals");
+  assert.equal(await button(page, "Food").count(), 0);
+  assert.equal(await button(page, "Meal").count(), 0);
   await button(page, "Create food/meal").click();
+  await heading(page, "Create food");
+  await button(page, "Meal").click();
+  assert.equal(await button(page, "Meal").getAttribute("aria-pressed"), "true");
   await heading(page, "Create meal");
   await button(page, "Save meal").click();
   await page.getByRole("alert").filter({ hasText: "Add at least one food" }).waitFor();
@@ -248,12 +250,14 @@ test("meal creation calculates ingredients, preserves drafts across food/meal sw
   assert.equal(await page.getByRole("textbox", { name: "Protein (g)", exact: true }).inputValue(), "35");
   assert.equal(await page.getByRole("textbox", { name: "Amount for Test yogurt (g)", exact: true }).inputValue(), "200");
   await button(page, "Save meal").click();
-  await page.getByRole("dialog", { name: "Meal created" }).waitFor();
-  await button(page, "OK").click();
+  await page.getByText("Saved to your meals", { exact: true }).waitFor();
+  assert.equal(await page.getByRole("dialog").count(), 0);
+  assert.equal(await button(page, "Food").count(), 0);
+  assert.equal(await button(page, "Meal").count(), 0);
   await heading(page, "Breakfast bowl");
   assert.equal(await page.getByRole("textbox", { name: "Amount (g)", exact: true }).inputValue(), "250");
   await page.getByRole("textbox", { name: "Amount (g)", exact: true }).fill("125");
-  await button(page, "Log to Dinner").click();
+  await button(page, "Dinner").click();
   await button(page, "Log meal").click();
   await page.getByTestId("food-nutrition-detail").waitFor({ state: "hidden" });
   const document = await page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.food-log.v1")));
@@ -264,16 +268,14 @@ test("meal creation calculates ingredients, preserves drafts across food/meal sw
   assert.equal(entries[0].fat, 0);
   assert.equal(entries[0].meal, "dinner");
   await page.reload();
-  await button(page, "Meal").click();
-  await page.getByRole("textbox", { name: "Search meals", exact: true }).fill("Breakfast bowl");
+  await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("Breakfast bowl");
   const mealResult = button(page, "View nutrition for Breakfast bowl, custom meal");
   await mealResult.waitFor();
   assert.equal(await mealResult.getByTestId("custom-food-icon").count(), 1);
   await mealResult.click();
   await heading(page, "Ingredients");
-  await button(page, "Food").click();
-  await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("Breakfast bowl");
-  assert.equal(await button(page, "View nutrition for Breakfast bowl, custom meal").count(), 0);
+  assert.equal(await button(page, "Food").count(), 0);
+  assert.equal(await button(page, "Meal").count(), 0);
   await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("Test oats");
   await button(page, "View nutrition for Test oats, custom food").waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
@@ -285,8 +287,8 @@ test("meal ingredient validation, removal, calendar changes and logged edits wor
   for (const theme of ["light", "dark"]) {
     await page.evaluate(theme => localStorage.setItem("kinevault-track.appearance", theme), theme);
     await page.reload();
-    await button(page, "Meal").click();
     await button(page, "Create food/meal").click();
+    await button(page, "Meal").click();
     await page.getByRole("textbox", { name: "Meal name", exact: true }).fill("Portable snack");
     const addBanana = async () => {
       await page.getByRole("textbox", { name: "Search ingredients", exact: true }).fill("banana raw");
@@ -320,14 +322,15 @@ test("meal ingredient validation, removal, calendar changes and logged edits wor
   assert.equal(await page.getByRole("textbox", { name: "Meal name", exact: true }).inputValue(), "Portable snack");
   assert.equal(await page.getByRole("textbox", { name: "Amount for Banana, raw (g)", exact: true }).inputValue(), "150");
   await button(page, "Save meal").click();
-  await page.getByRole("dialog", { name: "Meal created" }).waitFor();
-  await button(page, "OK").click();
+  await page.getByText("Saved to your meals", { exact: true }).waitFor();
+  assert.equal(await page.getByRole("dialog").count(), 0);
+  assert.equal(await button(page, "Food").count(), 0);
+  assert.equal(await button(page, "Meal").count(), 0);
   await button(page, "Log meal").click();
-  await button(page, "Food").click();
   await button(page, "Edit Portable snack in Breakfast").click();
   await heading(page, "Edit logged meal");
   await page.getByRole("textbox", { name: "Amount (g)", exact: true }).fill("75");
-  await button(page, "Log to Lunch").click();
+  await button(page, "Lunch").click();
   await button(page, "Save changes").click();
   await heading(page, "Daily food log");
   const document = await page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.food-log.v1")));
@@ -365,16 +368,14 @@ test("custom food creation validates, retries a failed save, logs and remains se
   assert.equal(await page.getByRole("dialog", { name: "Food created" }).count(), 0);
   assert.equal(await page.getByRole("textbox", { name: "Food name", exact: true }).inputValue(), "My oat bowl");
   await button(page, "Save food").click();
-  const confirmation = page.getByRole("dialog", { name: "Food created" });
-  await confirmation.waitFor({ timeout: 3000 });
-  assert.ok(await confirmation.getByText("You can find it anytime in food search.", { exact: true }).isVisible());
+  await page.getByText("Saved to your foods", { exact: true }).waitFor();
+  assert.equal(await page.getByRole("dialog").count(), 0);
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.custom-foods.v1")).foods.length), 1);
-  await confirmation.getByRole("button", { name: "OK", exact: true }).click();
-  await confirmation.waitFor({ state: "hidden" });
+  assert.equal(await page.evaluate(() => localStorage.getItem("kinevault-track.food-log.v1")), null);
   await heading(page, "My oat bowl");
   assert.equal(await page.getByRole("textbox", { name: "Amount (g)", exact: true }).inputValue(), "250");
   await page.getByRole("textbox", { name: "Amount (g)", exact: true }).fill("125");
-  await button(page, "Log to Lunch").click();
+  await button(page, "Lunch").click();
   await button(page, "Log food").click();
   await page.getByTestId("food-nutrition-detail").waitFor({ state: "hidden" });
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.food-log.v1")));
@@ -451,9 +452,8 @@ test("changing calendar day preserves a custom food draft and logs it to the new
   assert.equal(await page.getByRole("textbox", { name: "Calories (kcal)", exact: true }).inputValue(), "300");
   assert.ok(await page.getByRole("alert").filter({hasText: "Couldn't save your custom food"}).isVisible());
   await button(page, "Save food").click();
-  await page.getByRole("dialog", { name: "Food created" }).waitFor({ timeout: 3000 });
-  await page.keyboard.press("Escape");
-  await page.getByRole("dialog", { name: "Food created" }).waitFor({ state: "hidden" });
+  await page.getByText("Saved to your foods", { exact: true }).waitFor();
+  assert.equal(await page.getByRole("dialog").count(), 0);
   await heading(page, "שיבולת שועל");
   await button(page, "Log food").click();
   await page.getByTestId("food-nutrition-detail").waitFor({ state: "hidden" });
@@ -490,7 +490,7 @@ const heading = (page, title) =>
     .getByRole("heading", { name: title, exact: true })
     .waitFor({ timeout: 10000 });
 const button = (page, label) =>
-  page.getByRole("button", { name: label, exact: true });
+  page.getByRole("button", { name: label === "Log food" || label === "Log meal" ? new RegExp(`^${label} to `) : label, exact: true });
 const record = (page) =>
   page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
 async function continueTo(page, title) {
@@ -950,7 +950,16 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
           if (tab === "Exercise") {
             await heading(page, "Completed exercises");
             for (const label of ["Sets", "Reps", "Weight"]) assert.ok(await page.getByText(label, { exact: true }).count() >= 1);
-          } else assert.equal(await page.getByTestId("daily-food-log").getByText("No food has been logged yet", { exact: true }).count(), 4);
+          } else {
+            const foodLog = page.getByTestId("daily-food-log");
+            assert.equal(await foodLog.getByText("No food has been logged yet", { exact: true }).count(), 5);
+            for (const [key, label] of [["breakfast", "Breakfast"], ["lunch", "Lunch"], ["dinner", "Dinner"], ["snacks", "Snacks"], ["drinks", "Drinks"]]) {
+              const section = foodLog.getByTestId(`meal-${key}`);
+              assert.equal(await section.count(), 1);
+              await section.getByRole("heading", { name: label, exact: true }).waitFor();
+              assert.equal(await button(section, `Add food to ${label}`).count(), 0);
+            }
+          }
           const search = page.getByRole("textbox", { name: tab === "Food" ? "Search foods" : "Search exercises", exact: true });
           await search.fill("test");
           await button(page, "Clear search").click();
@@ -996,7 +1005,7 @@ test("food catalog searches offline, scales portions, pages results, and recover
   await button(page, "Back to food results").click();
   await results.getByText("Banana, raw", { exact: true }).waitFor();
   await search.fill("zzzzunmatchedfood");
-  await page.getByText("No foods found. Try a simpler name or a different preparation.", { exact: true }).waitFor();
+  await page.getByText("No foods or meals found. Try a simpler name or a different preparation.", { exact: true }).waitFor();
   await search.fill("chicken");
   await button(page, "Next food results").waitFor();
   const firstPage = await page.getByTestId("food-result").allTextContents();
@@ -1047,12 +1056,12 @@ test("food logging saves to the selected date and meal, retries failures, update
   await search.fill("banana raw");
   await button(page, "View nutrition for Banana, raw").click();
   await button(page, "1 banana, 126 g").click();
-  const lunchChoice = button(page, "Log to Lunch");
+  const lunchChoice = button(page, "Lunch");
   assert.equal(await lunchChoice.count(), 1);
   await lunchChoice.focus();
   await lunchChoice.press("Space");
   assert.equal(await lunchChoice.getAttribute("aria-pressed"), "true");
-  assert.equal(await button(page, "Log to Breakfast").getAttribute("aria-pressed"), "false");
+  assert.equal(await button(page, "Breakfast").getAttribute("aria-pressed"), "false");
   const amount = page.getByRole("textbox", { name: "Amount (g)", exact: true });
   await amount.fill("");
   assert.ok(await button(page, "Log food").isDisabled());
@@ -1067,7 +1076,9 @@ test("food logging saves to the selected date and meal, retries failures, update
   const lunch = page.getByTestId("meal-lunch");
   await lunch.getByText("Banana, raw", { exact: true }).waitFor();
   await lunch.getByText("126 g · 122 kcal", { exact: true }).waitFor();
-  assert.equal(await page.getByTestId("daily-food-log").getByText("No food has been logged yet", { exact: true }).count(), 3);
+  assert.equal(await page.getByTestId("daily-food-log").getByText("No food has been logged yet", { exact: true }).count(), 4);
+  for (const key of ["breakfast", "dinner", "snacks", "drinks"])
+    assert.equal(await page.getByTestId(`meal-${key}`).getByText("No food has been logged yet", { exact: true }).count(), 1);
   assert.equal(await search.inputValue(), "");
   const saved = await savedFoods();
   const [date] = Object.keys(saved.days);
@@ -1127,7 +1138,7 @@ test("logged food edits retain the draft on failure, move meals, update totals, 
   await heading(page, "Edit logged food");
   const amount = page.getByRole("textbox", { name: "Amount (g)", exact: true });
   assert.equal(await amount.inputValue(), "100");
-  assert.equal(await button(page, "Log to Breakfast").getAttribute("aria-pressed"), "true");
+  assert.equal(await button(page, "Breakfast").getAttribute("aria-pressed"), "true");
   await amount.fill("200");
   await button(page, "Cancel edit").click();
   assert.deepEqual(await snapshot(), before);
@@ -1135,7 +1146,7 @@ test("logged food edits retain the draft on failure, move meals, update totals, 
   await amount.fill("");
   assert.ok(await button(page, "Save changes").isDisabled());
   await amount.fill("200");
-  await button(page, "Log to Dinner").click();
+  await button(page, "Dinner").click();
   await page.evaluate(() => {
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
@@ -1149,7 +1160,7 @@ test("logged food edits retain the draft on failure, move meals, update totals, 
   await button(page, "Save changes").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save your changes" }).waitFor();
   assert.equal(await amount.inputValue(), "200");
-  assert.equal(await button(page, "Log to Dinner").getAttribute("aria-pressed"), "true");
+  assert.equal(await button(page, "Dinner").getAttribute("aria-pressed"), "true");
   assert.deepEqual(await snapshot(), before);
   await button(page, "Save changes").click();
   await heading(page, "Daily food log");
@@ -1215,6 +1226,10 @@ test("daily macro view uses consistent category colors, reflects edits, and foll
     await heading(page, "Daily macros");
     for (const [index, category] of ["carbs", "protein", "fat"].entries())
       assert.equal(await color(page.getByTestId(`day-calorie-${category}`)), colors[index]);
+    assert.equal(
+      await page.getByTestId("daily-nutrient-carbs").getByTestId("nutrient-label").evaluate(el => getComputedStyle(el).color),
+      colors[0],
+    );
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   }
   await button(page, "Expand calendar").click();
@@ -1233,7 +1248,7 @@ test("daily nutrition lists the requested units in order and supports old entrie
   const view = page.getByTestId("daily-macro-view");
   assert.equal(await view.getByText("Calories (kcal)", { exact: true }).count(), 1);
   const labels = view.getByTestId("nutrient-label");
-  const expectedLabels = ["Calories (kcal)", "Protein (g)", "Fat (g)", "Saturated fat (g)", "Trans fat (g)",
+  const expectedLabels = ["Calories (kcal)", "Carbs (g)", "Protein (g)", "Fat (g)", "Saturated fat (g)", "Trans fat (g)",
     "Fiber (g)", "Total sugars (g)", "Sodium (mg)", "Cholesterol (mg)", "Potassium (mg)",
     "Calcium (mg)", "Iron (mg)", "Vitamins D (mcg)", "Caffeine (mg)", "Alcohol (g)"];
   assert.deepEqual(await labels.allTextContents(), expectedLabels);
@@ -1254,7 +1269,7 @@ test("daily nutrition lists the requested units in order and supports old entrie
   await page.getByRole("textbox", { name: "Amount (g)", exact: true }).fill("200");
   await button(page, "Log food").click();
   await button(page, "View macros for the day").click();
-  for (const [key, value] of [["calories", "194"], ["protein", "1.48"], ["fat", "0.56"],
+  for (const [key, value] of [["calories", "194"], ["carbs", "45.4"], ["protein", "1.48"], ["fat", "0.56"],
     ["saturatedFat", "0.22"], ["transFat", "Not available"], ["fiber", "3.4"], ["totalSugars", "31.6"],
     ["sodium", "0"], ["cholesterol", "0"], ["potassium", "652"], ["calcium", "10"],
     ["iron", "0"], ["vitaminD", "0"], ["caffeine", "0"], ["alcohol", "0"]])
@@ -1277,7 +1292,7 @@ test("daily nutrition lists the requested units in order and supports old entrie
     for (const width of [320, 1280]) {
       await page.setViewportSize({ width, height: 844 });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-      assert.equal(await labels.count(), 15);
+      assert.equal(await labels.count(), 16);
     }
   }
 });

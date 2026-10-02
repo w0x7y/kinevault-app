@@ -61,7 +61,7 @@ test("custom food validation requires explicit macros, accepts zero and rejects 
   ]) assert.equal(customFoodFromDraft({ ...draft, ...patch }, "custom-one").ok, false);
   const result = customFoodFromDraft({ ...draft, calories: "0", carbs: "0", protein: ".5", fat: "0" }, "custom-one");
   assert.equal(result.ok, true);
-  if (result.ok) assert.equal(result.food.per100g.calories, 0);
+  if (result.ok) assert.equal(result.food.per100g?.calories, 0);
 });
 
 test("custom foods with non-English names remain searchable", () => {

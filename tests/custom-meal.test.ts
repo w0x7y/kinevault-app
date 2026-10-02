@@ -90,9 +90,7 @@ test("saved meals round trip with ingredient snapshots, reject corrupt ingredien
   assert.deepEqual(saved.meals[0], meal);
   assert.deepEqual((await ready(raw())).store.getSnapshot().state, store.getSnapshot().state);
   assert.equal(createFoodCatalog(saved.meals).search("oat breakfast").items[0]?.customId, meal.customId);
-  assert.deepEqual(parseCustomFoods(JSON.stringify({ version: 1, foods: [yogurt] })), { version: 1, foods: [
-    { ...yogurt, details: { ...unknownNutrients } },
-  ], meals: [] });
+  assert.deepEqual(parseCustomFoods(JSON.stringify({ version: 1, foods: [yogurt] })), { version: 1, foods: [yogurt], meals: [] });
   for (const patch of [
     { ingredients: [] }, { overrides: { protein: -1 } },
     { ingredients: [{ ...meal.ingredients[0], grams: 0 }] },

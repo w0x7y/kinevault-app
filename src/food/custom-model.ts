@@ -2,21 +2,25 @@ import { nutritionForGrams, parseFoodGrams, type CatalogFood, type Nutrition } f
 import { unknownNutrients } from "./nutrients.ts";
 import { nutritionAmountText, parseNutritionAmount } from "./number-input.ts";
 import { parseCustomMeal, type CustomMeal } from "./meal-model.ts";
-import { isRecord } from "./catalog-record.ts";
+import { isRecord, parseCatalogFoodRecord } from "./catalog-record.ts";
+import { parseFoodMetadata, type FoodImportSource } from "./import-metadata.ts";
+import { detailedNutrientsToDraft, validateDetailedNutrientDraft, type DetailedNutrientDraft, type DetailedNutrientErrors } from "./detailed-nutrient-drafts.ts";
 
 export type CustomFood = CatalogFood & { customId: string; fdcId?: never; category: "Custom food" };
-export type CustomFoodDraft = { name: string; servingGrams: string; calories: string; carbs: string; protein: string; fat: string };
+export type CustomFoodDraft = { name: string; brand?: string; importSource?: FoodImportSource; servingGrams: string; drink?: boolean; calories: string; carbs: string; protein: string; fat: string; details?: DetailedNutrientDraft };
 export type CustomFoodDocument = { version: 1; foods: CustomFood[]; meals: CustomMeal[] };
-export type CustomFoodErrors = Partial<Record<keyof CustomFoodDraft, string>>;
+export type CustomFoodErrors = Partial<Record<Exclude<keyof CustomFoodDraft, "details" | "importSource" | "drink">, string>> & { details?: DetailedNutrientErrors };
 
 export function customFoodToDraft(food: CustomFood): CustomFoodDraft {
-  const grams = food.portions[0].grams;
-  const nutrition = nutritionForGrams(food, grams);
+  const drink = food.beverage?.kind === "known-volume";
+  const basisAmount = drink ? 100 : food.portions[0].grams;
+  const nutrition = food.beverage?.kind === "known-volume" ? food.beverage.per100ml : nutritionForGrams(food, basisAmount);
   // Remove floating-point noise introduced by reversing per-100g normalization.
   const servingText = (amount: number) => nutritionAmountText(Number(amount.toPrecision(15)));
-  return { name: food.name, servingGrams: nutritionAmountText(grams),
+  return { name: food.name, drink, ...parseFoodMetadata(food), servingGrams: nutritionAmountText(basisAmount),
     calories: servingText(nutrition.calories), carbs: servingText(nutrition.carbs),
-    protein: servingText(nutrition.protein), fat: servingText(nutrition.fat) };
+    protein: servingText(nutrition.protein), fat: servingText(nutrition.fat),
+    details: detailedNutrientsToDraft(nutrition.details ?? unknownNutrients, servingText) };
 }
 
 export function customFoodFromDraft(draft: CustomFoodDraft, customId: string):
@@ -24,19 +28,24 @@ export function customFoodFromDraft(draft: CustomFoodDraft, customId: string):
   const errors: CustomFoodErrors = {};
   const name = draft.name.trim();
   if (!name || name.length > 400) errors.name = "Enter a food name up to 400 characters.";
-  const grams = parseFoodGrams(draft.servingGrams);
-  if (grams === null) errors.servingGrams = "Enter a serving weight greater than 0 and up to 10,000 g.";
-  const per100g: Nutrition = { calories: 0, carbs: 0, protein: 0, fat: 0 };
+  if (draft.brand !== undefined && draft.brand.length > 400) errors.brand = "Enter a brand up to 400 characters.";
+  const basisAmount = draft.drink ? 100 : parseFoodGrams(draft.servingGrams);
+  if (basisAmount === null) errors.servingGrams = "Enter a serving weight greater than 0 and up to 10,000 g.";
+  const baseNutrition: Nutrition = { calories: 0, carbs: 0, protein: 0, fat: 0 };
   for (const key of ["calories", "carbs", "protein", "fat"] as const) {
     const amount = parseNutritionAmount(draft[key]);
-    const normalized = amount === null ? NaN : amount * (100 / (grams ?? 100));
+    const normalized = amount === null ? NaN : amount * (100 / (basisAmount ?? 100));
     if (amount === null || !Number.isFinite(normalized)) errors[key] = "Enter a number of 0 or more.";
-    else per100g[key] = normalized;
+    else baseNutrition[key] = normalized;
   }
-  if (Object.keys(errors).length || grams === null) return { ok: false, errors };
+  const details = validateDetailedNutrientDraft(draft.details, 100 / (basisAmount ?? 100));
+  if (!details.ok) errors.details = details.errors;
+  if (Object.keys(errors).length || basisAmount === null || !details.ok) return { ok: false, errors };
   if (!customId.trim() || customId.length > 100) throw new Error("Invalid custom food ID");
-  return { ok: true, food: { customId, name, category: "Custom food", per100g,
-    details: { ...unknownNutrients }, portions: [{ label: "1 serving", grams }] } };
+  if (draft.drink) return { ok: true, food: { customId, name, category: "Custom food", portions: [],
+    beverage: { kind: "known-volume", source: "label", per100ml: { ...baseNutrition, details: { ...unknownNutrients, ...details.amounts } } }, ...parseFoodMetadata(draft) } };
+  return { ok: true, food: { customId, name, category: "Custom food", per100g: baseNutrition,
+    details: { ...unknownNutrients, ...details.amounts }, portions: [{ label: "1 serving", grams: basisAmount }], ...parseFoodMetadata(draft) } };
 }
 
 export function parseCustomFoods(raw: string | null): CustomFoodDocument {
@@ -45,25 +54,15 @@ export function parseCustomFoods(raw: string | null): CustomFoodDocument {
   if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.foods)) throw new Error("Unsupported custom foods");
   const ids = new Set<string>();
   const foods = value.foods.map((food: unknown): CustomFood => {
-    if (!food || typeof food !== "object" || Array.isArray(food)) throw new Error("Invalid custom food");
-    const record = food as Record<string, unknown>;
-    if (typeof record.customId !== "string" || !record.customId.trim() || record.customId.length > 100 ||
-      ids.has(record.customId) || record.fdcId !== undefined || typeof record.name !== "string" ||
-      !record.name.trim() || record.name.length > 400 || !record.per100g || typeof record.per100g !== "object" ||
-      !Array.isArray(record.portions) || record.portions.length !== 1) throw new Error("Invalid custom food values");
-    const nutrition = record.per100g as Record<string, unknown>;
-    const per100g: Nutrition = { calories: 0, carbs: 0, protein: 0, fat: 0 };
-    for (const key of ["calories", "carbs", "protein", "fat"] as const) {
-      const amount = nutrition[key];
-      if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0) throw new Error("Invalid custom nutrition");
-      per100g[key] = amount;
-    }
-    const portion = record.portions[0];
-    if (!portion || portion.label !== "1 serving" || typeof portion.grams !== "number" ||
-      !Number.isFinite(portion.grams) || portion.grams <= 0 || portion.grams > 10000) throw new Error("Invalid custom serving");
-    ids.add(record.customId);
-    return { customId: record.customId, name: record.name.trim(), category: "Custom food", per100g,
-      details: { ...unknownNutrients }, portions: [{ label: "1 serving", grams: portion.grams }] };
+    const parsed = parseCatalogFoodRecord(food);
+    if (!isRecord(food) || parsed.customId === undefined || parsed.fdcId !== undefined || ids.has(parsed.customId) || parsed.category !== "Custom food") throw new Error("Invalid custom food");
+    if (parsed.per100g) {
+      const portion = parsed.portions[0];
+      if (parsed.portions.length !== 1 || portion.label !== "1 serving" || portion.grams > 10000) throw new Error("Invalid custom serving");
+    } else if (parsed.beverage.kind !== "known-volume" || parsed.beverage.source !== "label") throw new Error("Invalid custom drink");
+    ids.add(parsed.customId);
+    const { fdcId: _fdcId, ...custom } = parsed;
+    return { ...custom, customId: parsed.customId, category: "Custom food" };
   });
   if (value.meals !== undefined && !Array.isArray(value.meals)) throw new Error("Invalid meal catalog");
   const meals = (value.meals ?? []).map((rawMeal: unknown) => {

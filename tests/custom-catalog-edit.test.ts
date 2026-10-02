@@ -32,7 +32,7 @@ test("editing a food replaces its catalog record and preserves saved meal ingred
   const saved = parseCustomFoods(raw());
   assert.equal(saved.foods.length, 1);
   assert.equal(saved.foods[0].name, "Revised oats");
-  assert.equal(saved.foods[0].per100g.calories, 250);
+  assert.equal(saved.foods[0].per100g?.calories, 250);
   assert.deepEqual(saved.meals[0], meal);
   assert.equal(entry.calories, 200);
   assert.equal(nutritionForEntry(entry, 25).calories, 100);
