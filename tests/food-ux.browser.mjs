@@ -22,6 +22,7 @@ async function open(t) {
   }, { answers });
   const page = await context.newPage();
   page.setDefaultTimeout(10000);
+  page.setDefaultNavigationTimeout(30000);
   await page.goto(baseURL);
   await page.getByRole("tab", { name: "Food", exact: true }).click();
   await heading(page, "Daily food log");

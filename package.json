@@ -51,7 +51,7 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
-    "test:browser": "node --test tests/*.browser.mjs",
+    "test:browser": "node --test --test-concurrency=2 tests/*.browser.mjs",
     "check": "npm run typecheck && npm test",
     "export:web": "expo export --platform web"
   },

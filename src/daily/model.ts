@@ -43,7 +43,7 @@ export function emptyDay(date: string): DailyActivity {
   return { date, foods: [], workout: null, steps: 0, waterMl: 0 };
 }
 
-export function summarizeDay(day: DailyActivity) {
+export function summarizeDay(day: Pick<DailyActivity, "foods" | "workout">) {
   const nutrition = day.foods.reduce(
     (sum, food) => ({
       calories: sum.calories + food.calories,

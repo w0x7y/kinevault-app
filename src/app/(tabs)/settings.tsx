@@ -7,6 +7,7 @@ import { useProfile } from "../../profile/provider";
 import { useTheme } from "../../theme/provider";
 import type { AppearancePreference } from "../../theme/preferences";
 import { radius, spacing } from "../../theme/tokens";
+import { WaterGoalSettings } from "../../water/goal-settings";
 
 const choices: {
   value: AppearancePreference;
@@ -24,7 +25,7 @@ export default function SettingsScreen() {
   const [focused, setFocused] = useState<AppearancePreference | null>(null);
   const { state } = useProfile();
   return (
-    <Screen title="Settings" pose="settings">
+    <Screen title="Settings" pose="settings" adjustKeyboardInsets>
       {state.kind === "ready" && state.document.kind === "complete" && (
         <>
           <Panel>
@@ -40,6 +41,7 @@ export default function SettingsScreen() {
           />
         </>
       )}
+      <WaterGoalSettings />
       <Panel>
         <AppText variant="heading" accessibilityRole="header">
           Appearance

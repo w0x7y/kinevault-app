@@ -25,16 +25,17 @@ import { FoodButton } from "../../food/food-button";
 import { AppText } from "../../components/ui";
 
 export default function FoodScreen() {
-  const { day } = useDayActivity();
-  return <FoodDraftProvider><FoodDay day={day} /></FoodDraftProvider>;
+  const activity = useDayActivity();
+  return <FoodDraftProvider><FoodDay activity={activity} /></FoodDraftProvider>;
 }
 
-function FoodDay({ day }: { day: ReturnType<typeof useDayActivity>["day"] }) {
+function FoodDay({ activity }: { activity: ReturnType<typeof useDayActivity> }) {
+  const { date, food } = activity;
   const drafts = useFoodDrafts();
   const { mealIntent, setMealIntent } = drafts;
   const [query, setQuery] = useState("");
   const [catalogEditing, setCatalogEditing] = useState(false);
-  const [viewDate, setViewDate] = useState(day.date);
+  const [viewDate, setViewDate] = useState(date);
   const [view, setView] = useState<{ kind: "log" } | { kind: "edit"; entry: FoodEntry } | { kind: "macros" }
     | { kind: "resume"; key: number } | { kind: "create" } | { kind: "import"; session: number }
     | { kind: "created"; food: CustomFood | CustomMeal }>({ kind: "log" });
@@ -53,8 +54,8 @@ function FoodDay({ day }: { day: ReturnType<typeof useDayActivity>["day"] }) {
   const log = useFoodLog();
   const custom = useCustomFoods();
   // Day-specific views reset before rendering children; reusable-food drafts stay mounted.
-  if (viewDate !== day.date) {
-    setViewDate(day.date);
+  if (viewDate !== date) {
+    setViewDate(date);
     if (!catalogEditing) {
       setQuery("");
       if (view.kind !== "create" && view.kind !== "created" && view.kind !== "import" && view.kind !== "resume") {
@@ -67,7 +68,7 @@ function FoodDay({ day }: { day: ReturnType<typeof useDayActivity>["day"] }) {
     if (!catalogEditing && view.kind !== "create" && view.kind !== "created" && view.kind !== "import" && view.kind !== "resume") {
       setMealIntent("breakfast");
     }
-  }, [day.date]);
+  }, [date]);
   function showLog() {
     setView({ kind: "log" });
     setMealIntent("breakfast");
@@ -95,7 +96,7 @@ function FoodDay({ day }: { day: ReturnType<typeof useDayActivity>["day"] }) {
         searchDisabled={custom.saving || log.saving}
         onCreateItem={() => { drafts.openCreation(); setQuery(""); setView({ kind: "create" }); scrollToContent(); }}
         onScanBarcode={openImport}
-        macrosDisabled={log.state.kind !== "ready" || log.saving || custom.saving}
+        macrosDisabled={food.kind !== "ready" || log.saving || custom.saving}
         onViewMacros={() => { setQuery(""); setView({ kind: "macros" }); scrollToContent(); }} />
       <FoodLogStatus />
       {(log.state.kind !== "loading" || custom.state.kind !== "loading") && <CustomFoodStatus />}
@@ -111,7 +112,7 @@ function FoodDay({ day }: { day: ReturnType<typeof useDayActivity>["day"] }) {
         </Panel>
       ) : view.kind === "import" ? (
         <Panel onLayout={event => { resultsTop.current = event.nativeEvent.layout.y; scrollToContent(); }}>
-          <FoodProductImport key={view.session} active={focused && foreground} focused={focused} scopeKey={day.date}
+          <FoodProductImport key={view.session} active={focused && foreground} focused={focused} scopeKey={date}
             onCancel={showLog} onSaved={created} />
         </Panel>
       ) : view.kind === "create" ? (
@@ -120,28 +121,28 @@ function FoodDay({ day }: { day: ReturnType<typeof useDayActivity>["day"] }) {
         </Panel>
       ) : view.kind === "created" ? (
         <Panel onLayout={event => { resultsTop.current = event.nativeEvent.layout.y; scrollToContent(); }}>
-          <FoodNutritionDetail initialMeal={mealIntent} savedCatalog target={{ kind: "add", food: view.food }} date={day.date}
+          <FoodNutritionDetail initialMeal={mealIntent} savedCatalog target={{ kind: "add", food: view.food }} date={date}
             onCatalogEditChange={setCatalogEditing}
             onBack={showLog} backLabel="Back to food log" onSaved={showLog} />
         </Panel>
-      ) : log.state.kind === "ready" && view.kind === "edit" ? (
+      ) : food.kind === "ready" && view.kind === "edit" ? (
         <Panel onLayout={event => { resultsTop.current = event.nativeEvent.layout.y; scrollToContent(); }}>
-          <FoodNutritionDetail target={{ kind: "edit", entry: view.entry }} date={day.date} onBack={showLog} onSaved={showLog} />
+          <FoodNutritionDetail target={{ kind: "edit", entry: view.entry }} date={date} onBack={showLog} onSaved={showLog} />
         </Panel>
-      ) : log.state.kind === "ready" && view.kind === "macros" ? (
-        <DailyMacros day={day} onBack={showLog}
+      ) : food.kind === "ready" && view.kind === "macros" ? (
+        <DailyMacros day={food.day} onBack={showLog}
           onLayout={event => { resultsTop.current = event.nativeEvent.layout.y; scrollToContent(); }} />
       ) : query.trim() ? (
-        <FoodSearchResults initialMeal={mealIntent} key={query} query={query} date={day.date}
+        <FoodSearchResults initialMeal={mealIntent} key={query} query={query} date={date}
           onCatalogEditChange={setCatalogEditing}
           onLogged={showLog}
           onLayout={event => { resultsTop.current = event.nativeEvent.layout.y; }}
           onNavigate={scrollToContent} />
-      ) : log.state.kind === "ready" ? (
-        <MealsWidget day={day} query="" saving={log.saving || custom.saving} error={log.error}
+      ) : food.kind === "ready" ? (
+        <MealsWidget day={food.day} query="" saving={log.saving || custom.saving} error={log.error}
           onLayout={event => { resultsTop.current = event.nativeEvent.layout.y; }}
           onEdit={entry => { setView({ kind: "edit", entry }); scrollToContent(); }}
-          onRemove={id => { void log.remove({ date: day.date, id }); }} />
+          onRemove={id => { void log.remove({ date, id }); }} />
       ) : null}
     </Screen>
   );
