@@ -48,4 +48,4 @@ dist-native/
 !.env.example
 
 # Local visual verification artifacts
-.impeccable/review/
+.impeccable/
