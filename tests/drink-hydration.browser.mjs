@@ -45,6 +45,7 @@ async function open(t, { food = null, water = null, waterState = "ready", custom
   }, { answers, foodKey, waterKey, food, water, waterState, custom });
   const page = await context.newPage();
   page.setDefaultTimeout(10000);
+  page.setDefaultNavigationTimeout(30000);
   await page.clock.install({ time: new Date("2026-10-01T12:00:00+03:00") });
   await page.goto(baseURL);
   await page.getByTestId("home-water").waitFor();

@@ -31,6 +31,7 @@ async function open(t, foods = []) {
   }, { answers, foods });
   const page = await context.newPage();
   page.setDefaultTimeout(10000);
+  page.setDefaultNavigationTimeout(30000);
   await page.goto(baseURL);
   await page.getByRole("tab", { name: "Food", exact: true }).click();
   await page.getByRole("heading", { name: "Daily food log", exact: true }).waitFor();

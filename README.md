@@ -341,6 +341,9 @@ GitHub Actions runs these checks and the browser regressions on pushes and pull 
 For browser checks, install Chromium once with `npx playwright install chromium`.
 Start the preview with `npm run web -- --port 8081`, then run `npm run test:browser`
 in another terminal. Set `KINE_PREVIEW_URL` if the preview uses a different address.
+The runner limits browser files to two at a time to reduce preview startup load.
+Suites with a 10-second interaction timeout allow 30 seconds for navigation,
+so initial page loads have a separate budget without relaxing interaction checks.
 These tests cover draft resume, calorie and macro overrides, canceled edits, switching to
 manual targets, age gating, teen setup, onboarding poses, daily tab layouts,
 shared calendar selection, responsive widths, Profile recovery and failed resets,

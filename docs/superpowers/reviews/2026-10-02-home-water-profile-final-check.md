@@ -149,3 +149,36 @@ scripts, model/asset tests, and the fresh platform exports.
 | `tests/water-goal.test.ts` | UI, architecture, documentation/tests |
 | `tests/water.browser.mjs` | UI, documentation/tests |
 | `tests/water.test.ts` | UI, architecture, documentation/tests |
+
+## CI browser follow-up, October 2, 2026
+
+The pull-request CI browser run passed 85 of 88 tests. Its three failures were
+initial `page.goto` calls exceeding 10 seconds in the Drink hydration, Drinks,
+and Food expansion helpers, before feature assertions ran. The same feature
+tree had passed all 88 tests in push CI and in the earlier local run limited to
+two browser files at a time. The browser npm script had allowed all eight files
+to start concurrently, and four helpers' 10-second interaction setting also
+limited navigation.
+
+`npm run test:browser` now limits file concurrency to two. The four helpers with
+10-second interaction limits set a separate 30-second navigation timeout.
+Every existing assertion and ordinary interaction timeout remains unchanged;
+the other suites and application source are unchanged. README documents these
+runner settings. The original 47-file review and evidence above remain intact.
+
+Fresh verification used an isolated preview on port 8088:
+
+- `KINE_PREVIEW_URL=http://localhost:8088 npm run test:browser`: all 88 tests
+  passed in 121.7 seconds, with zero failures, cancellations, skips, or todos.
+- The executed npm command, running parent/child processes, and installed Node
+  option parser confirmed `--test-concurrency=2` is applied as intended.
+- Installed Playwright timeout resolution confirms the separate navigation
+  setting takes precedence for navigation while interactions retain 10 seconds.
+- A byte comparison against HEAD confirmed each helper only adds the single
+  navigation setting; all other browser suites remain unchanged.
+- `git diff --check` and `git diff --cached --check` passed. Nothing was staged.
+
+Only the isolated preview was stopped. Model tests, Doctor, and platform exports
+were not repeated for this harness-only change; their earlier results above
+remain the feature verification record. The full local browser run verifies the
+revised command, but the hosted pull-request check still requires a fresh run.
