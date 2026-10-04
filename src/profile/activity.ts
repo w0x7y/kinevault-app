@@ -1,4 +1,4 @@
-import { addDays } from "../calendar/dates.ts";
+import { addDays, parseDay } from "../calendar/dates.ts";
 import { setMeasurements, type SetSide, type WorkoutSession } from "../exercise/model.ts";
 import type { FoodLogDocument } from "../food/log-model.ts";
 import type { WaterLogDocument } from "../water/model.ts";
@@ -45,8 +45,9 @@ export function profileStreak(input: {
     current += 1;
     end = addDays(end, -1);
   }
+  const weekStart = addDays(input.today, -parseDay(input.today).getDay());
   const week = Array.from({ length: 7 }, (_, index) => {
-    const date = addDays(input.today, index - 6);
+    const date = addDays(weekStart, index);
     return { date, logged: logged.has(date) };
   });
   return { current, longest, days, week };

@@ -17,13 +17,14 @@ The user confirmed:
 - Choose profile and progress photos from the photo library or camera, with
   replacement/removal controls. Show the profile photo in the shared avatar.
 - Count consecutive days containing saved food, water, or a completed workout.
-  Show current and longest streaks.
+  Show current and longest streaks. The displayed calendar week starts Sunday.
 - Show lifting progress, such as lifted volume, selected-exercise weights, and
   total workout duration, rather than an activity calendar.
 - Show saved calorie, macro, water, and weight-direction goals plus today's
   intake/progress. Edit individual profile sections directly.
-- Include an optional dated progress-photo gallery, notes, deletion, and
-  side-by-side comparison of two photos.
+- Include an optional dated progress-photo carousel, notes, and deletion.
+  Overview shows the earliest and latest saved photos. The subsequent revision
+  removes arbitrary two-photo selection and its comparison viewer.
 - Store the feature on the device. Account backup/sync belongs to a later phase.
 
 The existing physical-iPhone workout verification and general native
@@ -44,7 +45,8 @@ TODO.md records that correction. This does not verify the new Profile feature.
 ## Page structure and navigation
 
 Use a dedicated /profile route within the shared provider scope, hidden from the
-bottom tab destinations. The menu entry navigates to this page instead of its
+bottom tab destinations. Icons, labels, and tab bar dimensions stay consistent
+when entering Profile. The menu entry navigates to this page instead of its
 coming-soon panel. Return navigation restores the originating screen. Profile
 does not show a calendar picker or change the shared selected date.
 
@@ -56,16 +58,19 @@ The selected Personal journal composition has a centered profile photo, name,
 goal/activity summary, and edit action above three sections: Overview, Goals,
 and Photos. These are sections within Profile, not additional app tabs.
 
-- Overview: current/longest streaks and the last seven local dates, the workout
-  progress graph, a compact link to today's nutrition under Goals, and recent
-  progress-photo previews with a link to Photos.
+- Overview: current/longest streaks and the current Sunday-to-Saturday week,
+  the workout progress graph, a compact link to today's nutrition under Goals,
+  and Progress comparison. This section shows the earliest dated saved photo
+  on the left and the latest on the right, with dates beneath. It has no Add
+  or Compare button.
 - Goals: today's calories/carbs/protein/fat/water and their saved targets,
   followed by editable name, age, height, current weight, activity level,
   lose/maintain/gain direction, and calorie-estimation preference. Each logical
   section has an Edit action.
-- Photos: a dated progress-photo journal, optional notes, add/replace/edit/remove
-  actions, and selection of two photos for comparison. With no photos, show an
-  optional add action rather than fabricated photos or a large empty gallery.
+- Photos: a horizontally scrolling carousel in date order with a date below
+  each photo and a vertical separator between adjacent items. Photo presses
+  open the date/note/replace/remove editor; library/camera adding remains here.
+  There is no two-photo selection or comparison dialog.
 
 The chosen visual reference is VariantC in `design/profile-prototype.html`.
 Its numbers and photo wells are illustrative only. Production uses real saved
@@ -73,7 +78,8 @@ records and honest empty states. The user's subsequent screenshot instruction
 requires faithful Variant C typography and spacing: 76px avatar, underline
 section tabs, 18px card corners, compact streak circles, segmented graph
 metrics and a range dropdown, three macro columns with inline water, and an
-unframed dated photo journal. Text still follows native font scaling and
+unframed photo section, updated to a horizontal carousel by the latest request.
+Text still follows native font scaling and
 interactive targets remain at least 44px.
 
 ## Workout graph behavior
@@ -173,10 +179,12 @@ and optional note. Default a new photo's date to today. Allow multiple photos on
 the same date. Sort by date with stable ordering for ties. Replace/remove and
 metadata edits retain their drafts after failed saves.
 
-Comparison selects exactly two saved photos and opens a dedicated viewer with
-side-by-side images and their dates. Use fit/contain display rather than stretching
-or forcing unlike originals into identical crops. Preserve the gallery after
-closing comparison. Deleting a selected photo clears its selection safely.
+Progress comparison selects the earliest and latest dated saved records across
+the complete gallery, with stable ID ordering for ties. A single saved photo
+is both the first and latest; no photos show truthful empty placeholders. Dates
+include the year. The Photos carousel keeps original aspect ratios with
+contain-fit images, dates below, and separators between entries. Date edits and
+deletions immediately update ordering and the overview endpoints.
 
 Store photo metadata in a separate versioned document so existing profile answers
 and onboarding records remain readable. Use an application-owned native document
@@ -225,11 +233,12 @@ profile and preserve existing estimator/macro validation behavior.
 
 Verify navigation from each existing tab, avatar refresh, today's progress while
 another day is selected, section Save/Cancel/retry, all chart modes, photo date/note
-editing, two-photo comparison, and reload persistence in the preview.
+editing, first/latest previews, carousel scrolling, and reload persistence in
+the preview.
 
 Run the repository's TypeScript/direct-test checks, relevant browser regressions,
 and exports for web/iOS/Android. Verify new native picker/camera behavior,
-durable-photo reopen, scrolling, keyboard, accessibility, and comparison on
+durable-photo reopen, carousel scrolling, keyboard, and accessibility on
 available native hardware/emulators; distinguish those results from web evidence.
 
 The feature is complete when the agreed interactions work against real local

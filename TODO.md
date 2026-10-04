@@ -20,8 +20,8 @@ workout duplication, and a rest timer. Workout history charts are now in Profile
 
 ## Profile & integrations
 
-- [x] Build the Personal journal Profile with shared avatar, activity streaks, workout graphs, editable goals, and local progress-photo comparison.
-- [ ] Verify the new Profile camera/library, photo reopening, comparison, and accessibility on a physical iPhone. Android emulator photo flows and larger text are verified.
+- [x] Build the Personal journal Profile with shared avatar, activity streaks, workout graphs, editable goals, and local progress-photo carousel.
+- [ ] Verify the new Profile camera/library, photo reopening, carousel scrolling, and accessibility on a physical iPhone. Android emulator photo flows and larger text are verified.
 - [ ] Decide account/sync requirements and KineVault/video integration.
 - [ ] Configure app identifiers and store builds when ready to release.
 

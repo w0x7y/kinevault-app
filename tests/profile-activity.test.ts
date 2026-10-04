@@ -42,11 +42,28 @@ test("streak deduplicates qualifying sources and ignores future, zero water, and
       session({ date: "2026-10-02", id: "planned", status: "planned" }),
       session({ id: "active", status: "active" }), session({ date: "2026-10-05", id: "future" })] });
   assert.deepEqual(result, { current: 1, longest: 1, days: ["2026-10-01", "2026-10-03"], week: [
-    { date: "2026-09-28", logged: false }, { date: "2026-09-29", logged: false },
-    { date: "2026-09-30", logged: false }, { date: "2026-10-01", logged: true },
-    { date: "2026-10-02", logged: false }, { date: "2026-10-03", logged: true },
-    { date: "2026-10-04", logged: false },
+    { date: "2026-10-04", logged: false }, { date: "2026-10-05", logged: false },
+    { date: "2026-10-06", logged: false }, { date: "2026-10-07", logged: false },
+    { date: "2026-10-08", logged: false }, { date: "2026-10-09", logged: false },
+    { date: "2026-10-10", logged: false },
   ] });
+});
+
+test("streak displays the Sunday through Saturday calendar week containing today", () => {
+  for (const [today, todayIndex, dates] of [
+    ["2026-10-07", 3, ["2026-10-04", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10"]],
+    ["2026-10-04", 0, ["2026-10-04", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10"]],
+    ["2026-10-03", 6, ["2026-09-27", "2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03"]],
+    ["2026-10-01", 4, ["2026-09-27", "2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03"]],
+    ["2026-01-01", 4, ["2025-12-28", "2025-12-29", "2025-12-30", "2025-12-31", "2026-01-01", "2026-01-02", "2026-01-03"]],
+    ["2024-03-01", 5, ["2024-02-25", "2024-02-26", "2024-02-27", "2024-02-28", "2024-02-29", "2024-03-01", "2024-03-02"]],
+  ] satisfies [string, number, string[]][]) {
+    const result = profileStreak({ today, food: food(),
+      water: water(Object.fromEntries(dates.map(date => [date, 250]))), sessions: [] });
+    assert.deepEqual(result.week, dates.map((date, index) => ({ date, logged: index <= todayIndex })), today);
+    assert.equal(result.current, todayIndex + 1, today);
+    assert.equal(result.longest, todayIndex + 1, today);
+  }
 });
 
 test("current streak grants yesterday grace and expires the following day", () => {
@@ -78,7 +95,6 @@ test("longest streak includes earlier runs and local date arithmetic crosses lea
     const result = profileStreak({ today, food: food(), water: water(Object.fromEntries(days.map(date => [date, 1]))), sessions: [] });
     assert.equal(result.current, 3);
     assert.equal(result.longest, 3);
-    assert.deepEqual(result.week.slice(-3).map(day => day.date), days);
   }
   const result = profileStreak({ today: "2026-10-04", food: food(),
     water: water({ "2026-09-01": 1, "2026-09-02": 1, "2026-09-03": 1, "2026-10-04": 1 }), sessions: [] });

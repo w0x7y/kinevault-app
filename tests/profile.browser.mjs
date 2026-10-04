@@ -62,7 +62,7 @@ const session = {
   ],
 };
 const button = (p, name) => p.getByRole("button", { name, exact: true });
-const photoButton = (page, id, action) =>
+const photoButton = (page, id, action = "Edit") =>
   page
     .getByTestId(`progress-photo-${id}`)
     .getByRole("button", { name: new RegExp(`^${action} photo `) });
@@ -184,13 +184,165 @@ async function stored(page, key = profileKey) {
     await page.evaluate((key) => localStorage.getItem(key), key),
   );
 }
-test("historical Home date survives Profile/back; journal uses today and four bottom tabs", async (t) => {
+async function bottomTabGeometry(page) {
+  await page.evaluate(() => document.fonts.ready);
+  const tabs = await page.getByRole("tab").evaluateAll((elements) =>
+    elements.map((element) => {
+      const descendants = [...element.querySelectorAll("*")];
+      const name = descendants
+        .find((node) =>
+          node.childElementCount === 0 &&
+          ["Home", "Food", "Exercise", "Settings"].includes(node.textContent.trim()),
+        )
+        ?.textContent.trim();
+      const geometry = (node) => {
+        const style = getComputedStyle(node),
+          box = node.getBoundingClientRect();
+        return {
+          fontFamily: style.fontFamily,
+          fontSize: style.fontSize,
+          lineHeight: style.lineHeight,
+          width: Math.round(box.width * 100) / 100,
+          height: Math.round(box.height * 100) / 100,
+        };
+      };
+      return {
+        name,
+        icons: descendants
+          .filter((node) =>
+            node.childElementCount === 0 &&
+            getComputedStyle(node).fontFamily.includes("FontAwesome"),
+          )
+          .map(geometry),
+        labels: descendants
+          .filter((node) =>
+            node.childElementCount === 0 && node.textContent.trim() === name,
+          )
+          .map(geometry),
+      };
+    }),
+  );
+  assert.deepEqual(tabs.map((tab) => tab.name), [
+    "Home", "Food", "Exercise", "Settings",
+  ]);
+  for (const tab of tabs) {
+    assert.ok(tab.icons.length > 0, `${tab.name} has measured icon glyphs`);
+    assert.ok(tab.labels.length > 0, `${tab.name} has a measured text label`);
+    assert.ok(
+      [...tab.icons, ...tab.labels].every((item) => item.width > 0 && item.height > 0),
+    );
+  }
+  return tabs;
+}
+const photoDateLabel = (date) =>
+  new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+  });
+async function expectDateBelowPhoto(container, date) {
+  const image = container.getByRole("img", {
+    name: `Progress photo ${date}`, exact: true,
+  });
+  await image.waitFor();
+  const label = container.getByText(photoDateLabel(date), { exact: true });
+  await label.waitFor();
+  const imageBox = await image.boundingBox(),
+    dateBox = await label.boundingBox();
+  assert.ok(
+    dateBox.y >= imageBox.y + imageBox.height - 1,
+    `${date} date is beneath its image`,
+  );
+}
+async function expectComparison(page, firstDate, latestDate) {
+  const comparison = page.getByTestId("profile-recent-photos");
+  await comparison
+    .getByRole("heading", { name: "Progress comparison", exact: true })
+    .waitFor();
+  assert.deepEqual(
+    await comparison.getByRole("button").evaluateAll((elements) =>
+      elements.map((element) => element.getAttribute("data-testid")),
+    ),
+    ["profile-comparison-first", "profile-comparison-latest"],
+    "comparison offers only its two photo panes with no header or Add buttons",
+  );
+  for (const [side, date] of [["first", firstDate], ["latest", latestDate]]) {
+    const pane = comparison.getByTestId(`profile-comparison-${side}`);
+    await pane.waitFor();
+    if (date) await expectDateBelowPhoto(pane, date);
+    else {
+      assert.equal(await pane.getByRole("img").count(), 0);
+      await pane.getByText("No saved photo", { exact: true }).waitFor();
+    }
+  }
+  const firstBox = await comparison
+    .getByTestId("profile-comparison-first").boundingBox();
+  const latestBox = await comparison
+    .getByTestId("profile-comparison-latest").boundingBox();
+  assert.ok(firstBox.x + firstBox.width <= latestBox.x, "first photo is left of latest photo");
+}
+async function addPhoto(page, date, note = "") {
+  await button(page, "Add from library").click();
+  await upload(page, `photo-${date}.png`);
+  await page
+    .getByRole("textbox", { name: "Photo date (YYYY-MM-DD)", exact: true })
+    .fill(date);
+  if (note) await page
+    .getByRole("textbox", { name: "Photo note (optional)", exact: true })
+    .fill(note);
+  await button(page, "Save photo").click();
+  await page.getByRole("dialog").waitFor({ state: "detached" });
+  return (await stored(page, mediaKey)).photos.find((photo) => photo.date === date);
+}
+async function expectCarousel(page, photos) {
+  const journal = page.getByTestId("profile-photos");
+  assert.deepEqual(
+    await journal
+      .locator('[data-testid^="progress-photo-"]')
+      .evaluateAll((elements) => elements.map((element) =>
+        element.getAttribute("data-testid").slice("progress-photo-".length),
+      )),
+    photos.map((photo) => photo.id),
+    "carousel renders the entire saved gallery in date order",
+  );
+  assert.equal(
+    await journal.getByRole("button").count(), photos.length + 1,
+    "Photos offers one editor per item and one Add action",
+  );
+  const separators = journal.getByTestId("profile-photo-separator");
+  assert.equal(await separators.count(), Math.max(0, photos.length - 1));
+  for (const [index, photo] of photos.entries()) {
+    const item = journal.getByTestId(`progress-photo-${photo.id}`);
+    assert.equal(
+      await photoButton(page, photo.id).getAttribute("aria-label"),
+      `Edit photo ${index + 1} from ${photo.date}`,
+    );
+    await expectDateBelowPhoto(item, photo.date);
+    if (index < photos.length - 1) {
+      const divider = await separators.nth(index).boundingBox();
+      const image = await item
+        .getByRole("img", { name: `Progress photo ${photo.date}`, exact: true })
+        .boundingBox();
+      const nextItem = await journal
+        .getByTestId(`progress-photo-${photos[index + 1].id}`).boundingBox();
+      assert.ok(divider.height > divider.width * 10, "photo divider is vertical");
+      assert.ok(
+        divider.x >= image.x + image.width - 1 &&
+        divider.x + divider.width <= nextItem.x + 1,
+        "divider sits between adjacent photos",
+      );
+    }
+  }
+}
+test("historical Home date survives Profile/back; calendar streak week and four bottom tabs use consistent sizing", async (t) => {
   const page = await open(t);
+  const homeTabs = await bottomTabGeometry(page);
   await button(page, "Expand calendar").click();
   await button(page, "Select previous day").click();
   await button(page, "Collapse calendar").click();
   await profile(page);
-  assert.equal(await page.getByRole("tab").count(), 4);
+  assert.deepEqual(
+    await bottomTabGeometry(page), homeTabs,
+    "Profile keeps Home icon and label fonts and dimensions",
+  );
   assert.equal(await button(page, "Expand calendar").count(), 0);
   await page
     .getByTestId("profile-streak")
@@ -205,13 +357,13 @@ test("historical Home date survives Profile/back; journal uses today and four bo
         e.map((x) => x.getAttribute("data-testid").slice(11)),
       ),
     [
-      "2026-09-28",
-      "2026-09-29",
-      "2026-09-30",
-      "2026-10-01",
-      "2026-10-02",
-      "2026-10-03",
       "2026-10-04",
+      "2026-10-05",
+      "2026-10-06",
+      "2026-10-07",
+      "2026-10-08",
+      "2026-10-09",
+      "2026-10-10",
     ],
   );
   await button(page, "Show workout data").click();
@@ -285,7 +437,7 @@ test("focused editing validates, retains failed saves, merges latest values and 
   await page.getByRole("tab", { name: "Settings", exact: true }).click();
   await page.getByText("Your profile", { exact: true }).waitFor();
 });
-test("real library uploads support dated notes, replacement, two-photo comparison, reload and confirmed removal", async (t) => {
+test("real library uploads support dated notes, replacement, oldest/latest comparison, reload and confirmed removal", async (t) => {
   const page = await open(t);
   await profile(page);
   await button(page, "Photos").click();
@@ -323,26 +475,9 @@ test("real library uploads support dated notes, replacement, two-photo compariso
   const old = document.photos[0].image.id;
   document = await stored(page, mediaKey);
   assert.notEqual(document.photos[0].image.id, old);
-  if (await button(page, "Choose photos to compare").count())
-    await button(page, "Choose photos to compare").click();
-  assert.equal(
-    await button(page, "Compare selected photos").isDisabled(),
-    true,
-  );
-  await photoButton(page, document.photos[0].id, "Select").click();
-  if (await button(page, "Choose photos to compare").count())
-    await button(page, "Choose photos to compare").click();
-  assert.equal(
-    await button(page, "Compare selected photos").isDisabled(),
-    true,
-  );
-  await photoButton(page, document.photos[1].id, "Select").click();
-  await button(page, "Compare selected photos").click();
-  await page
-    .getByRole("dialog", { name: "Compare progress photos", exact: true })
-    .waitFor();
-  assert.equal(await page.getByRole("dialog").getByRole("img").count(), 2);
-  await button(page, "Back to photos").click();
+  await button(page, "Overview").click();
+  await expectComparison(page, "2026-10-01", "2026-10-04");
+  await button(page, "Photos").click();
   await page.reload();
   await button(page, "Photos").click();
   await page.getByText("Replaced", { exact: true }).waitFor();
@@ -715,33 +850,81 @@ test("journal sections and focused editors fit light and dark small, tablet and 
     }
   }
 });
-test("removing a selected photo lets another photo complete the comparison pair", async (t) => {
+test("dated carousel scrolls oldest to newest and date edits and removal update the comparison", async (t) => {
   const page = await open(t);
   await profile(page);
   await button(page, "Photos").click();
-  for (let i = 0; i < 3; i++) {
-    await button(page, "Add from library").click();
-    await upload(page, `photo-${i}.png`);
-    await button(page, "Save photo").click();
-    await page.getByRole("dialog").waitFor({ state: "detached" });
+  const photos = [];
+  // Save out of order so neither insertion order nor the two newest dates can pass.
+  for (const date of ["2026-10-03", "2026-08-23", "2026-10-01"])
+    photos.push(await addPhoto(page, date));
+  await expectCarousel(page, [photos[1], photos[2], photos[0]]);
+  await button(page, "Overview").click();
+  await expectComparison(page, "2026-08-23", "2026-10-03");
+  await button(page, "Photos").click();
+  assert.equal(await button(page, "Add from library").count(), 1);
+
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    const carousel = page.getByTestId("profile-photo-carousel");
+    await carousel.scrollIntoViewIfNeeded();
+    await carousel.evaluate((element) => { element.scrollLeft = 0; });
+    const initial = await carousel.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      scrollLeft: element.scrollLeft,
+    }));
+    assert.ok(initial.scrollWidth > initial.clientWidth, `${width}px carousel has more photos than its viewport`);
+    await carousel.hover();
+    await page.mouse.wheel(500, 0);
+    await page.waitForFunction(() => document.querySelector('[data-testid="profile-photo-carousel"]').scrollLeft > 0);
+    const scrolled = await carousel.evaluate((element) => element.scrollLeft);
+    assert.ok(scrolled > initial.scrollLeft, `${width}px carousel responds to horizontal wheel scrolling`);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${width}px Photos keeps horizontal scrolling inside the carousel`);
+    await photoButton(page, photos[0].id).click();
+    await page.getByRole("dialog", { name: "Edit progress photo", exact: true }).waitFor();
+    await button(page, "Cancel").click();
   }
-  const photos = (await stored(page, mediaKey)).photos;
-  await button(page, "Choose photos to compare").click();
-  await photoButton(page, photos[0].id, "Select").click();
-  await photoButton(page, photos[1].id, "Select").click();
-  assert.equal(
-    await photoButton(page, photos[2].id, "Select").isDisabled(),
-    true,
-  );
-  await photoButton(page, photos[0].id, "Edit").click();
-  await button(page, "Remove photo").click();
-  await button(page, "Confirm remove photo").click();
+
+  // Move the middle dated photo earlier than the original first photo.
+  await photoButton(page, photos[2].id).click();
+  await page.getByRole("textbox", { name: "Photo date (YYYY-MM-DD)", exact: true }).fill("2026-08-01");
+  await button(page, "Save photo").click();
   await page.getByRole("dialog").waitFor({ state: "detached" });
-  await photoButton(page, photos[2].id, "Select").click();
-  assert.equal(
-    await button(page, "Compare selected photos").isDisabled(),
-    false,
-  );
+  photos[2] = { ...photos[2], date: "2026-08-01" };
+  await expectCarousel(page, [photos[2], photos[1], photos[0]]);
+  await button(page, "Overview").click();
+  await expectComparison(page, "2026-08-01", "2026-10-03");
+  await button(page, "Photos").click();
+
+  // Editing the original first photo can also change the latest endpoint.
+  await photoButton(page, photos[1].id).click();
+  await page.getByRole("textbox", { name: "Photo date (YYYY-MM-DD)", exact: true }).fill("2026-10-04");
+  await button(page, "Save photo").click();
+  await page.getByRole("dialog").waitFor({ state: "detached" });
+  photos[1] = { ...photos[1], date: "2026-10-04" };
+  await expectCarousel(page, [photos[2], photos[0], photos[1]]);
+  await button(page, "Overview").click();
+  await expectComparison(page, "2026-08-01", "2026-10-04");
+  await button(page, "Photos").click();
+
+  for (const [removed, remaining] of [
+    [photos[2], [photos[0], photos[1]]],
+    [photos[1], [photos[0]]],
+    [photos[0], []],
+  ]) {
+    await photoButton(page, removed.id).click();
+    await button(page, "Remove photo").click();
+    await button(page, "Confirm remove photo").click();
+    await page.getByRole("dialog").waitFor({ state: "detached" });
+    assert.equal(await page.getByTestId(`progress-photo-${removed.id}`).count(), 0);
+    assert.equal((await stored(page, mediaKey)).photos.length, remaining.length);
+    await expectCarousel(page, remaining);
+    await button(page, "Overview").click();
+    await expectComparison(page, remaining[0]?.date, remaining.at(-1)?.date);
+    await button(page, "Photos").click();
+  }
+  await page.getByText("Your photo journal starts here.", { exact: true }).waitFor();
 });
 
 test("workout graph supports point selection and accessible data without web responder warnings", async (t) => {
@@ -1212,7 +1395,7 @@ test(
       });
       await new Promise((resolve, reject) => {
         const tx = db.transaction("photos", "readwrite");
-        for (const id of ["visual-image-aug", "visual-image-oct"])
+        for (const id of ["visual-image-aug", "visual-image-sep", "visual-image-oct"])
           tx.objectStore("photos").put({ id, original: blob, thumbnail: blob });
         tx.oncomplete = resolve;
         tx.onabort = () => reject(tx.error);
@@ -1225,16 +1408,22 @@ test(
           avatar: null,
           photos: [
             {
+              id: "visual-photo-oct",
+              date: "2026-10-04",
+              note: "Front view\nFeeling consistent with training.",
+              image: { id: "visual-image-oct", width: 320, height: 180 },
+            },
+            {
               id: "visual-photo-aug",
               date: "2026-08-23",
               note: "Front view\nStarting point.",
               image: { id: "visual-image-aug", width: 320, height: 180 },
             },
             {
-              id: "visual-photo-oct",
-              date: "2026-10-04",
-              note: "Front view\nFeeling consistent with training.",
-              image: { id: "visual-image-oct", width: 320, height: 180 },
+              id: "visual-photo-sep",
+              date: "2026-09-13",
+              note: "Front view\nThree weeks into training.",
+              image: { id: "visual-image-sep", width: 320, height: 180 },
             },
           ],
         }),
@@ -1258,6 +1447,9 @@ test(
       parent.scrollTop += el.getBoundingClientRect().top - 53;
     });
     await page.screenshot({ path: path.join(dir, "overview-scrolled.png") });
+    await expectComparison(page, "2026-08-23", "2026-10-04");
+    await page.getByTestId("profile-recent-photos").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(dir, "overview-comparison.png") });
     await button(page, "Goals").click();
     await button(page, "Change profile photo").scrollIntoViewIfNeeded();
     await page.screenshot({ path: path.join(dir, "goals.png") });
@@ -1265,7 +1457,12 @@ test(
     await page
       .getByRole("img", { name: "Progress photo 2026-10-04", exact: true })
       .waitFor();
+    const carousel = page.getByTestId("profile-photo-carousel");
+    await carousel.scrollIntoViewIfNeeded();
+    await carousel.evaluate((element) => { element.scrollLeft = 0; });
     await page.screenshot({ path: path.join(dir, "photos.png") });
+    await carousel.evaluate((element) => { element.scrollLeft = element.scrollWidth; });
+    await page.screenshot({ path: path.join(dir, "photos-scrolled.png") });
   },
 );
 
