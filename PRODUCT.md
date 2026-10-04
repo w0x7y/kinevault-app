@@ -37,9 +37,10 @@ Food groups meals into Breakfast, Lunch, Dinner, Snacks, and Drinks. Logging or
 editing drinks requires one whole amount from 1 to 10,000 ml for nutrition and
 hydration. Beverages log automatically to Drinks without gram or meal controls. Saved edits and removals update hydration
 with the same food-log write. Legacy snacks remain Snacks without guessed ml. Exercise
-shows totals for active or completed workouts, with sets, reps, and actual
-weight ranges. Exercise search opens library definitions for editing and matches
-Food's search and result styling, matching from the first character and showing
+shows summaries for active or completed workouts; totals include completed
+workouts only, with sets, reps, and actual weight ranges. Exercise search opens
+library definitions for editing and matches Food's search and result styling,
+matching from the first character and showing
 20 results per page. Each result has a landscape video placeholder with a
 No video found icon. The button beside search opens saved workouts and that day's drafts and
 logs. Logging starts only from a saved workout. Empty days show a button-only
@@ -131,16 +132,24 @@ The app is for ages 16 and up. Automatic estimates are adult-only; users aged
 16–17 can enter a target agreed with a qualified health professional or leave it unset.
 Exercise has a local library with name, optional muscle group, equipment, notes,
 and single-load or independent left/right tracking. Reusable workouts save only
-an ordered exercise list. Workout drafts start an explicit workout timer,
-restored from a saved timestamp after reopening. All entered sets become completed
-when Finish workout successfully saves. One timer may run at once. Draft and
-active workouts stay outside daily totals. Saved workouts can be logged
+a name, ordered exercise list, and optional planned set counts. Workout drafts
+require a nonblank name before starting an explicit workout timer,
+restored from a saved timestamp after reopening. Valid entered sets become completed
+when End workout successfully saves; untouched blank sets are skipped.
+One timer may run at once. Draft and active workouts stay outside daily totals. Saved workouts can be logged
 manually on any date, with optional duration. A left/right set counts as
 one set, with both sides contributing reps and kg-times-reps volume. Blank weight
 means bodyweight. Historical snapshots survive library edits and deletions.
 Development builds seed Squat, Push-up, and Dumbbell curl once; production builds
 do not inject these examples.
 Accounts, timed holds, cardio, and KineVault integration remain outside this increment.
+
+The agreed strength/bodyweight Exercise v1 is implemented. Physical-iPhone
+verification remains pending, including keyboard, exercise scrolling,
+background/reopen, completion, and completed editing. Previous reps/weights,
+progress/history charts, workout duplication, and a rest timer are optional
+ideas, not scheduled requirements. See [TODO.md](TODO.md) for outstanding work.
+
 Food search needs no credentials or hosted service. API and shared-login
 requirements remain undecided.
 

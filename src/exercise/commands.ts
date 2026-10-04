@@ -94,7 +94,7 @@ export function createExerciseCommands({ createId, now }: { createId: () => stri
     startSession(document: ExerciseDocument, id: string): ExerciseChange<true> {
       const session = requireSession(document, id);
       if (session.status !== "planned" || document.sessions.some(item => item.status === "active")) throw new Error("A workout is already active or this workout has finished.");
-      return replaceSession(document, { ...session, status: "active", startedAt: now(), durationSeconds: null });
+      return replaceSession(document, { ...session, name: name(session.name), status: "active", startedAt: now(), durationSeconds: null });
     },
     completeSession(document: ExerciseDocument, input: CompleteSessionInput): ExerciseChange<true> {
       const session = requireSession(document, input.id);

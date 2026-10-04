@@ -89,6 +89,25 @@ test("planned counts retain invalid text, reject shrink over entered sets, and r
   assert.equal(await edit.run("start"), true); assert.equal(f.saved().status, "active"); assert.equal(f.saved().exercises[0]!.sets.length, 1);
 });
 
+test("a cleared manual workout name stays editable until corrected before Start", async () => {
+  const f = await fixture("planned");
+  await f.editing.requestView({ kind: "session", id: "log", manual: true });
+  const edit = f.editing.edit("log");
+  for (const value of ["", "   "]) {
+    edit.change({ kind: "name", value });
+    assert.equal(await edit.run("start"), false);
+    assert.equal(f.saved().status, "planned");
+    assert.equal(edit.getSnapshot().fields.name, value);
+    assert.match(edit.getSnapshot().error!, /name/i);
+  }
+  edit.change({ kind: "name", value: "Corrected workout" });
+  assert.equal(await edit.run("start"), true);
+  assert.equal(f.saved().status, "active");
+  assert.equal(await edit.run("complete"), true);
+  assert.equal(f.saved().status, "completed");
+  assert.equal(f.saved().name, "Corrected workout");
+});
+
 test("competing view requests wait for the same save and only the latest request replaces the panel", async () => {
   const f = await fixture("active"); const edit = f.editing.edit("log"); const pending = gate();
   f.storage.setItem = async (key, value) => { await pending.promise; await f.write(key, value); };

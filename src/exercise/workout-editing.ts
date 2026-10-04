@@ -179,7 +179,10 @@ export function createWorkoutEditing(store: Store) {
           if (kind === "discard") success = await store.removeSession(id);
           else if (kind === "start") {
             success = await persist(id, entry, fields, entry.revision);
-            if (success) success = await store.startSession(id);
+            if (success) {
+              if (!fields.name.trim()) { success = false; error = "Enter a workout name before starting."; }
+              else success = await store.startSession(id);
+            }
           } else if (kind === "complete") success = await store.completeSession({ id, name: fields.name,
             exercises: fields.exercises, durationMinutes: fields.minutes });
           else success = await store.updateSession({ id, name: fields.name, exercises: fields.exercises,

@@ -259,6 +259,31 @@ test("the saved workout menu restores manual duration and starts a timed workout
   assert.ok(completed.sessions[0].durationSeconds < 750);
 });
 
+test("clearing a planned workout name blocks Start until Settings corrects it", async t => {
+  const planned = { id: "unnamed", date, name: "Named draft", status: "planned", startedAt: null, durationSeconds: null,
+    exercises: [{ id: "squat-row", exercise: single, sets: [{ id: "set", kind: "single", reps: "5", weightKg: "" }] }] };
+  const page = await open(t, { document: { ...empty(), exercises: [single], sessions: [planned] } });
+  await openLoggedWorkout(page, "Named draft");
+  const editor = page.getByTestId("session-editor");
+  const name = field(editor, "Workout name");
+  await name.fill("");
+  await button(editor, "Start workout").click();
+  await editor.getByRole("alert").getByText("Enter a workout name before starting.", { exact: true }).waitFor();
+  const retained = await documentFrom(page);
+  assert.equal(retained.sessions[0].status, "planned");
+  assert.equal(retained.sessions[0].startedAt, null);
+  assert.equal(await name.inputValue(), "");
+  assert.equal(await page.getByTestId("active-workout-timer").count(), 0);
+  await name.fill("Corrected workout");
+  await button(editor, "Start workout").click();
+  await page.getByTestId("active-workout-workspace").waitFor();
+  assert.equal(await field(editor, "Workout name").count(), 0);
+  await button(editor, "End workout").click();
+  const completed = await storedWhen(page, document => document.sessions[0].status === "completed");
+  assert.equal(completed.sessions[0].name, "Corrected workout");
+  assert.equal(completed.sessions[0].exercises[0].sets[0].reps, "5");
+});
+
 test("logging starts from a saved workout and rejects incomplete measurements before completion", async t => {
   const template = { id: "template", name: "Quick workout", exercises: [single] };
   const page = await open(t, { document: { ...empty(), exercises: [single], workouts: [template] } });

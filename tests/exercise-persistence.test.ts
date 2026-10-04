@@ -78,6 +78,22 @@ test("double starts and competing active workouts are rejected atomically", asyn
   assert.deepEqual(await Promise.all([f.store.startSession(sessionId), f.store.startSession(sessionId), f.store.startSession(other)]), [true, false, false]);
   assert.equal(doc(f.store).sessions.filter(session => session.status === "active").length, 1);
 });
+test("Start rejects unnamed drafts without starting their timer and accepts a corrected name", async () => {
+  const f = await ready(); const { sessionId } = await planned(f);
+  for (const name of ["", "   "]) {
+    assert.equal(await f.store.updateSession({ id: sessionId, name, exercises: entered(f, sessionId) }), true);
+    const raw = f.raw(), writes = f.writes();
+    assert.equal(await f.store.startSession(sessionId), false);
+    assert.equal(f.raw(), raw); assert.equal(f.writes(), writes);
+    assert.equal(doc(f.store).sessions[0]!.status, "planned");
+    assert.equal(doc(f.store).sessions[0]!.startedAt, null);
+    assert.match(f.store.getSnapshot().error!, /name/i);
+  }
+  assert.equal(await f.store.updateSession({ id: sessionId, name: "Corrected", exercises: entered(f, sessionId) }), true);
+  assert.equal(await f.store.startSession(sessionId), true);
+  assert.equal(await f.store.completeSession({ id: sessionId, name: "Corrected", exercises: doc(f.store).sessions[0]!.exercises }), true);
+  assert.equal(doc(f.store).sessions[0]!.status, "completed");
+});
 test("failed active completion retains running timestamp and retry measures the full elapsed time", async () => {
   const f = await ready(); const { sessionId } = await planned(f); await f.store.startSession(sessionId);
   const rows = entered(f, sessionId); await f.store.updateSession({ id: sessionId, name: "Strength", exercises: rows });

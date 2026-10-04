@@ -90,8 +90,9 @@ workout drafts, active workout, and completed logs for editing or removal.
 Settings inside a compact workout adjusts its counts before Start, without
 removing any entered measurements.
 
-Start workout runs the sole active timer. Its start time and entered sets are
-saved on the device, so switching tabs, backgrounding, or reopening keeps elapsed
+Start workout requires a nonblank name; an unnamed draft stays editable in
+Settings until corrected. It runs the sole active timer. Its start time and
+entered sets are saved on the device, so switching tabs, backgrounding, or reopening keeps elapsed
 time. Starting expands the card into a horizontally scrolling exercise bar and a selected-exercise
 detail with a sets/reps/weight table and video placeholder. Add set and View
 notes sit beside the exercise name. Dividers frame the scrolling bar.
@@ -143,6 +144,13 @@ the button cancels confirmation. Failed deletes retain data and offer retry.
 Development builds seed Squat, Push-up, and Dumbbell curl once, preserving
 existing data. The marker is saved with the exercises so deleted examples do
 not return after reopening. Production builds do not inject these examples.
+
+The agreed strength/bodyweight Exercise v1 is implemented. The remaining
+acceptance step is a complete workout on a physical iPhone, including keyboard,
+scrolling, background/reopen, End, and completed editing. Timed exercises and
+cardio with duration/distance belong to a later phase. Previous reps/weights,
+progress/history charts, workout duplication, and a rest timer remain optional
+ideas. See [TODO.md](TODO.md) for the current backlog.
 
 ## Food database
 
@@ -442,6 +450,14 @@ Independent UI, domain, and final reviews passed. See the
 [revision review](docs/superpowers/reviews/2026-10-04-saved-workout-revision-review.md)
 for the exact verification evidence and native-device limits.
 
+The workout architecture final check passed all 518 direct tests, all 115
+browser scenarios (27 Exercise regressions), TypeScript with unused-code checks,
+Expo Doctor's 21 checks, and web/iOS/Android exports. Start now rejects unnamed
+drafts without trapping them in the active layout. Both architecture refactors
+and the correction received independent reviews. See the
+[final-check report](docs/superpowers/reviews/2026-10-04-workout-depth-final-check.md)
+for coverage, remaining dependency findings, and physical-device limits.
+
 The October 1, 2026 final check passed TypeScript, including unused-code checks,
 84 unit tests, 15 browser tests, Expo Doctor's 21 checks, the 11-route static web
 export, and iOS/Android bundle exports. Browser checks cover 320, 390, and 1280px
@@ -469,8 +485,8 @@ The detailed-nutrition increment passed 120 unit tests, all 21 browser tests,
 TypeScript with unused-code checks, and web/iOS/Android bundle exports. Reimporting
 the pinned archive reproduced the expanded catalog byte for byte.
 
-The October 2, 2026 dependency audit reports seven affected package entries:
-four high and three moderate, representing two advisory chains. No critical
+The October 4, 2026 dependency audit reports 23 affected package entries:
+20 high and three moderate, representing four advisory chains. No critical
 findings were reported. These are installed dependency findings; a working
 application exploit was not demonstrated in this review.
 
@@ -484,6 +500,20 @@ and no update-signing configuration is enabled. This does not establish that
 the tooling is safe. Update the compatible Expo toolchain when an upstream fix
 is available; the audit's proposed Expo 44 downgrade is unsuitable for SDK 57.
 
+The other high-severity chains are Metro's `micromatch` → `braces` 3.0.3 and
+the development tunnel dependency `@expo/ngrok` → `got` → `cacheable-request` →
+`http-cache-semantics` 4.2.0. The
+[nested-pattern denial-of-service advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
+has no patched Braces release. Inspected Metro callers use configured glob
+patterns; no attacker-controlled pattern path was confirmed.
+The [shared-cache disclosure advisory](https://github.com/advisories/GHSA-ch52-4w7c-c8xp)
+also remains unresolved. The Ngrok caller does not enable Got caching, and the
+app has no shared response cache. An isolated synthetic test reproduced the
+reported zero-age/`max-stale` flaw in both 4.2.0 and registry release 4.3.0,
+despite 4.3.0 falling outside npm's affected range. Upgrading it alone would not
+establish remediation. Recheck these chains when verified compatible upstream
+fixes become available.
+
 The moderate-severity chain is:
 `expo-router` → `query-string` → `decode-uri-component`. The decoder has a
 [malformed-input denial-of-service advisory](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr).
@@ -494,8 +524,9 @@ The current Expo linking parser uses `URL.searchParams`; no reachable use of the
 vulnerable decoder was confirmed in this app. The dependency advisory remains
 open. An isolated compatibility check of the fixed decoder under query-string 7
 failed with `decodeComponent is not a function`.
-This needs a compatible Router update or a separately validated dependency patch. Do not use
-`npm audit fix --force`, which proposes an incompatible Router downgrade.
+This needs a compatible Router update or a separately validated dependency patch.
+Do not use `npm audit fix --force`; its proposed Expo or Router major-version
+changes require compatibility validation.
 
 Scoped overrides give the Xcode and Expo tunnel tools `uuid` 11.1.1, fixing
 [UUID output-buffer validation](https://github.com/advisories/GHSA-w5hq-g745-h8pq)
@@ -519,6 +550,10 @@ launcher icons and splash screens. It runs independently of the Expo app.
 - `src/daily/workout.ts`: one interpretation of completed sets for totals and exercise rows.
 - `src/exercise/`: validated local exercise definitions, ordered workout templates,
   queued workout-log persistence, resumable timers, side-aware totals, and tracking forms.
+- `src/exercise/workout-editing.ts`: retained log fields, count safety, save feedback,
+  and guarded panel replacement; `use-workout-editing.ts` binds the owner to React.
+- `src/exercise/workout-template-draft.ts`: template selection/order, raw counts,
+  retained definitions, and ready-to-save preparation for both form layouts.
 - `src/daily/activity.ts`: selected-day food availability, combined manual/Drink
   water availability, completed workout totals, and goal progress; unavailable
   sources stay distinct from zero.
@@ -549,6 +584,7 @@ launcher icons and splash screens. It runs independently of the Expo app.
 - `CONTEXT.md`: profile, daily activity, and onboarding domain vocabulary.
 - `DESIGN.md`: supplied KineVault design reference, preserved as shared authority.
 - `PRODUCT.md`: confirmed product scope.
+- `TODO.md`: completed work, outstanding verification, and future/optional work.
 
 The [import, Daily activity, and persistence depth contract](docs/superpowers/specs/2026-10-02-import-daily-persistence-depth.md)
 records the behavior and test seams preserved by the latest architecture work.

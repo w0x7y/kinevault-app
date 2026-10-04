@@ -62,7 +62,8 @@ counts being prepared for a reusable workout. A newly selected exercise defaults
 to three sets; removing and re-adding it retains its entered count. Saving a
 template draft does not change existing workout logs.
 
-**Active workout**: The sole workout with a running wall-clock timer. Its saved
+**Active workout**: The sole workout with a running wall-clock timer. Its name
+must be nonblank before Start; an unnamed draft remains editable. Its saved
 start time and draft sets survive tab switches and app reopening. It remains on
 its original date across midnight. End workout requires a successful durable save.
 The active editor retains local fields across searches and calendar changes.

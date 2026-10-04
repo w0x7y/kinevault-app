@@ -23,6 +23,10 @@ saved-workout-only revision below supersedes the earlier ad hoc session UI.
 
 ## Architecture and shared interfaces
 
+Start requires a nonblank workout name at the durable command boundary. An
+unnamed draft remains planned and editable under Settings, with actionable
+feedback; correcting its name permits Start and End without losing sets.
+
 One versioned exercise document owns the exercise library, workout templates, logs, and single-active invariant. This makes planning, snapshots, and completion atomic. Internal `WorkoutSession`, `sessions`, and lifecycle command names remain as version 1 serialization compatibility; they are not exposed as a separate product flow. Domain code remains outside Expo routes. Reuse `createDurableWrite`, with a lifecycle-safe serialized command queue so rapid draft updates cannot be dropped by concurrent-write exclusion.
 
 ```ts
