@@ -14,17 +14,24 @@ function ExerciseResult({ exercise, onSelect }: { exercise: ExerciseDefinition; 
   const [focused, setFocused] = useState(false);
   const metadata = [exercise.muscleGroup, exercise.equipment].filter(Boolean).join(" · ");
   return <Pressable testID="exercise-result" accessibilityRole="button"
-    accessibilityLabel={`Edit exercise ${exercise.name}`} accessibilityHint="Edit this exercise in your library"
+    accessibilityLabel={`Edit exercise ${exercise.name}`} accessibilityHint="No video found. Edit this exercise in your library"
     onPress={onSelect} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
     style={({ pressed }) => ({ minHeight: 88, padding: spacing.layout, gap: spacing.xs,
       borderWidth: 1, borderRadius: radius.control, borderColor: focused ? colors.ring : colors.border,
       backgroundColor: pressed ? colors.accent : colors.background })}>
     <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-      <AppText variant="label" style={{ flex: 1 }}>{exercise.name}</AppText>
+      <View style={{ flex: 1, minWidth: 0, gap: spacing.xs }}>
+        <AppText variant="label" style={{ flexShrink: 1 }}>{exercise.name}</AppText>
+        {Boolean(metadata) && <AppText variant="caption" muted>{metadata}</AppText>}
+        <AppText variant="caption" muted>{exercise.tracking === "sides" ? "Left and right" : "Single weight"}</AppText>
+      </View>
+      <View testID="exercise-video-placeholder" style={{ width: "32%", maxWidth: 160, aspectRatio: 16 / 9,
+        borderWidth: 1, borderRadius: radius.control, borderColor: colors.border, backgroundColor: colors.secondary,
+        alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <Icon name="video-slash" size={20} color={colors.mutedForeground} accessibilityLabel="No video found" />
+      </View>
       <Icon name="user-pen" size={14} color={colors.primary} />
     </View>
-    {Boolean(metadata) && <AppText variant="caption" muted>{metadata}</AppText>}
-    <AppText variant="caption" muted>{exercise.tracking === "sides" ? "Left and right" : "Single weight"}</AppText>
   </Pressable>;
 }
 
@@ -35,7 +42,7 @@ export function ExerciseSearchResults({ query, exercises, onSelect, onLayout, on
   const { colors } = useTheme();
   const [page, setPage] = useState(0);
   const normalized = query.trim().toLocaleLowerCase();
-  const matches = useMemo(() => normalized.length < 2 ? [] : exercises.filter(exercise =>
+  const matches = useMemo(() => !normalized ? [] : exercises.filter(exercise =>
     [exercise.name, exercise.muscleGroup, exercise.equipment, exercise.notes]
       .some(text => text.toLocaleLowerCase().includes(normalized))), [exercises, normalized]);
   const pageCount = Math.ceil(matches.length / pageSize);
@@ -52,7 +59,7 @@ export function ExerciseSearchResults({ query, exercises, onSelect, onLayout, on
   return <Panel testID="exercise-library" onLayout={onLayout} style={{ gap: spacing.layout }}>
     <AppText variant="heading" accessibilityRole="header">Exercise library</AppText>
     <AppText variant="caption" muted accessibilityLiveRegion="polite">
-      {normalized.length < 2 ? "Type at least two letters to search exercises." : matches.length
+      {!normalized ? "Type to search exercises." : matches.length
         ? `${matches.length.toLocaleString()} matching exercises.` : "No exercises found. Try a simpler name or different equipment."}
     </AppText>
     {matches.slice(resultPage * pageSize, (resultPage + 1) * pageSize).map(exercise =>

@@ -56,6 +56,7 @@ export default function ExerciseScreen() {
   const activeOnDate = active?.date === activity.date ? active : null;
   const normalized = query.trim().toLocaleLowerCase();
   const content = panel?.content;
+  const showDailyWorkout = activity.workoutState !== "ready" || (!panel && !normalized);
   const editingSession = content?.kind === "session" ? document?.sessions.find(session => session.id === content.id) : null;
   function scrollToResults() { scrollRef.current?.scrollTo({ y: resultsTop.current, animated: false }); }
   return <Screen title="Exercise" showTitle={false} scrollRef={scrollRef} adjustKeyboardInsets>
@@ -66,8 +67,8 @@ export default function ExerciseScreen() {
     {document && Boolean(normalized) && <ExerciseSearchResults key={normalized} query={query} exercises={document.exercises}
       onLayout={event => { resultsTop.current = event.nativeEvent.layout.y; }} onNavigate={scrollToResults}
       onSelect={exercise => void open({ kind: "exercise", exercise })} />}
-    <WorkoutWidget workout={activity.workout} detailed showEmptyGuidance activeWorkoutName={activeOnDate?.name || (activeOnDate ? "Active workout" : undefined)}
-      sourceState={activity.workoutState} onRetry={store.retryLoad} onAddWorkout={() => void open({ kind: "library", date: activity.date })} />
+    {showDailyWorkout && <WorkoutWidget workout={activity.workout} detailed showEmptyGuidance activeWorkoutName={activeOnDate?.name || (activeOnDate ? "Active workout" : undefined)}
+      sourceState={activity.workoutState} onRetry={store.retryLoad} onAddWorkout={() => void open({ kind: "library", date: activity.date })} />}
     {document && panel && <View key={panel.token} onLayout={event => {
       if ((content?.kind === "exercise" || content?.kind === "library") && scrolledPanel.current !== panel.token) {
         scrolledPanel.current = panel.token;

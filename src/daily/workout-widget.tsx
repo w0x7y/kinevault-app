@@ -45,8 +45,6 @@ export function WorkoutWidget({ workout, detailed = false, query = "", sourceSta
   );
   if (showEmptyGuidance && workout.name === null && !activeWorkoutName) return (
     <Panel testID={detailed ? "exercise-workout-empty" : "home-workout-empty"}>
-      <AppText variant="heading" accessibilityRole="header">Workout of the day</AppText>
-      <AppText variant="caption" muted>No workout logged</AppText>
       <Pressable accessibilityRole="button" accessibilityLabel="Add workout" accessibilityHint="Opens the saved workout menu"
         disabled={!onAddWorkout} accessibilityState={{ disabled: !onAddWorkout }} onPress={onAddWorkout}
         style={({ pressed }) => ({ minHeight: 44, padding: spacing.layout, borderWidth: 1, borderRadius: radius.control,
