@@ -1,6 +1,7 @@
 import { useState, type PropsWithChildren } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import { AppText } from "../components/ui";
+import { Icon, type IconName } from "../components/icon";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 
@@ -14,6 +15,17 @@ export function ExerciseButton({ label, accessibilityLabel = label, onPress, dis
       borderColor: selected ? colors.ring : colors.border, backgroundColor: primary ? colors.primary : pressed || selected ? colors.accent : colors.secondary,
       justifyContent: "center", opacity: disabled ? 0.5 : 1 })}>
     <AppText variant="label" style={{ textAlign: "center", color: primary ? colors.primaryForeground : colors.secondaryForeground }}>{label}</AppText>
+  </Pressable>;
+}
+export function ExerciseIconButton({ label, icon, onPress, disabled = false }: {
+  label: string; icon: IconName; onPress: () => void; disabled?: boolean;
+}) {
+  const { colors } = useTheme();
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }}
+    disabled={disabled} onPress={onPress} style={({ pressed }) => ({ width: 44, minHeight: 44, flexShrink: 0,
+      borderWidth: 1, borderRadius: radius.control, borderColor: colors.border,
+      backgroundColor: pressed ? colors.accent : colors.secondary, alignItems: "center", justifyContent: "center", opacity: disabled ? 0.5 : 1 })}>
+    <Icon name={icon} size={16} color={colors.secondaryForeground} />
   </Pressable>;
 }
 export function ExerciseField({ label, value, onChange, numeric, disabled = false, multiline = false }: {
