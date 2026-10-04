@@ -101,8 +101,10 @@ export function createWorkoutEditing(store: Store) {
   function flush(id: string, entry: Entry): Promise<boolean> {
     if (entry.state.session.status === "completed") return Promise.resolve(true);
     if (entry.pending) return entry.pending;
-    if (!countsValid(entry)) return Promise.resolve(false);
-    return lock(id, entry, () => persist(id, entry, entry.state.fields, entry.revision));
+    return lock(id, entry, async () => {
+      if (!countsValid(entry)) return false;
+      return persist(id, entry, entry.state.fields, entry.revision);
+    });
   }
   function replace(content: WorkoutView | null) {
     snapshot = { panel: content ? { content, token: ++sequence } : null }; emit();
@@ -151,8 +153,11 @@ export function createWorkoutEditing(store: Store) {
             : row.sets.map(set => set.id === input.setId ? input.build(set) : set) }) };
       }
       const countError = entry.state.session.status === "planned" ? plannedCountError(fields, counts) : null;
-      ++entry.revision; publish(entry, { fields, counts, countError });
-      if (entry.state.session.status !== "completed" && !resizeBlocked) void persist(id, entry, fields, entry.revision);
+      const revision = ++entry.revision;
+      // Commit state and enqueue this captured revision before observers can enter a newer change.
+      entry.state = { ...entry.state, fields, counts, countError };
+      if (entry.state.session.status !== "completed" && !resizeBlocked) void persist(id, entry, fields, revision);
+      emit();
     }
     async function run(kind: Action): Promise<boolean> {
       const originAttachment = attachment, originRequest = request;
@@ -164,8 +169,9 @@ export function createWorkoutEditing(store: Store) {
         if (success && current(id, entry)) { entries.delete(id); closeOrigin(originToken, originAttachment, originRequest); }
         return success;
       }
-      if (kind !== "discard" && !countsValid(entry)) return false;
       return lock(id, entry, async () => {
+        // Validation publishes feedback only after this action owns the operation.
+        if (kind !== "discard" && !countsValid(entry)) return false;
         publish(entry, { error: null });
         const fields = entry.state.fields;
         let success = false, error: string | null = null;

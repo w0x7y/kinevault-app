@@ -251,3 +251,33 @@ test("editing a valid count keeps another row's count problem visible while savi
   assert.ok(edit.getSnapshot().countError); assert.equal(edit.getSnapshot().counts.row, "-");
   assert.equal(f.saved().exercises[1]!.sets.length, 3); assert.equal(await edit.run("start"), false);
 });
+
+test("reentrant field observers preserve Latest as the final durable autosave", async () => {
+  const f = await fixture("active"), edit = f.editing.edit("log");
+  const unsubscribe = edit.subscribe(() => {
+    if (edit.getSnapshot().fields.name === "First") { unsubscribe(); edit.change({ kind: "name", value: "Latest" }); }
+  });
+  edit.change({ kind: "name", value: "First" }); await tick();
+  assert.equal(edit.getSnapshot().fields.name, "Latest");
+  assert.equal(f.saved().name, "Latest"); assert.equal(edit.getSnapshot().error, null);
+});
+
+test("planned count validation observers cannot replace Complete with a competing Discard", async () => {
+  const f = await fixture("planned"), edit = f.editing.edit("log");
+  let discarding: Promise<boolean> | undefined;
+  const unsubscribe = edit.subscribe(() => { unsubscribe(); discarding = edit.run("discard"); });
+  const completing = edit.run("complete");
+  assert.equal(await completing, true); assert.equal(await discarding, false);
+  assert.equal(parseExerciseDocument(f.raw()).sessions[0]!.status, "completed");
+});
+
+test("planned departure validation observers cannot replace the owned save with a competing Discard", async () => {
+  const f = await fixture("planned"); await f.editing.requestView({ kind: "session", id: "log", settings: true });
+  const edit = f.editing.edit("log");
+  let discarding: Promise<boolean> | undefined;
+  const unsubscribe = edit.subscribe(() => { unsubscribe(); discarding = edit.run("discard"); });
+  const leaving = f.editing.requestView({ kind: "library", date: "2026-10-05" });
+  assert.equal(await leaving, true); assert.equal(await discarding, false);
+  assert.equal(parseExerciseDocument(f.raw()).sessions[0]!.status, "planned");
+  assert.deepEqual(f.editing.getSnapshot().panel?.content, { kind: "library", date: "2026-10-05" });
+});
