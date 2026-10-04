@@ -39,11 +39,3 @@ export function ExerciseError({ message }: { message: string | null }) {
   const { colors } = useTheme();
   return message ? <AppText accessibilityRole="alert" style={{ color: colors.error }}>{message}</AppText> : null;
 }
-export function ConfirmAction({ question, label, onConfirm, onCancel, disabled }: {
-  question: string; label: string; onConfirm: () => void; onCancel: () => void; disabled?: boolean;
-}) {
-  return <View style={{ gap: spacing.layout }}><AppText>{question}</AppText><ActionRow>
-    <ExerciseButton label={label} onPress={onConfirm} disabled={disabled} />
-    <ExerciseButton label="Cancel" onPress={onCancel} disabled={disabled} />
-  </ActionRow></View>;
-}

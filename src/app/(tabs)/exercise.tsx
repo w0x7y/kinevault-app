@@ -17,7 +17,7 @@ import { ActiveWorkoutTimer } from "../../exercise/timer";
 import { WorkoutLibrary } from "../../exercise/workout-library";
 
 type Content = { kind: "exercise"; exercise?: ExerciseDefinition } | { kind: "workout"; workout?: WorkoutTemplate }
-  | { kind: "library"; date: string } | { kind: "session"; id: string };
+  | { kind: "library"; date: string } | { kind: "session"; id: string; manual?: boolean };
 type OpenPanel = { content: Content; token: number };
 
 export default function ExerciseScreen() {
@@ -27,6 +27,7 @@ export default function ExerciseScreen() {
   const consumedWorkoutMenu = useRef<string | string[] | null>(null);
   const [completedDrafts] = useState(createCompletedSessionDrafts);
   const [query, setQuery] = useState(""), [panel, setPanel] = useState<OpenPanel | null>(null);
+  const [closedWorkspace, setClosedWorkspace] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null), resultsTop = useRef(0), scrolledPanel = useRef<number | null>(null);
   const editorRef = useRef<SessionEditorHandle | null>(null), request = useRef(0), sequence = useRef(0), panelRef = useRef(panel);
   const alive = useRef(true);
@@ -35,11 +36,14 @@ export default function ExerciseScreen() {
   const open = useCallback(async (content: Content) => {
     const ticket = ++request.current;
     if (editorRef.current && !(await editorRef.current.flush())) return;
-    if (alive.current && ticket === request.current) setPanel({ content, token: ++sequence.current });
+    if (alive.current && ticket === request.current) {
+      if (content.kind === "session") setClosedWorkspace(null);
+      setPanel({ content, token: ++sequence.current });
+    }
   }, []);
   function close(token: number) { if (alive.current && panelRef.current?.token === token) { ++request.current; setPanel(null); } }
-  function created(token: number, id: string) {
-    if (alive.current && panelRef.current?.token === token) { ++request.current; setPanel({ content: { kind: "session", id }, token: ++sequence.current }); }
+  function created(token: number) {
+    if (alive.current && panelRef.current?.token === token) { ++request.current; setPanel(null); }
   }
   const document = store.state.kind === "ready" ? store.state.document : null;
   useEffect(() => {
@@ -56,19 +60,31 @@ export default function ExerciseScreen() {
   const activeOnDate = active?.date === activity.date ? active : null;
   const normalized = query.trim().toLocaleLowerCase();
   const content = panel?.content;
-  const showDailyWorkout = activity.workoutState !== "ready" || (!panel && !normalized);
+  const planned = document?.sessions.filter(session => session.date === activity.date && session.status === "planned") ?? [];
+  // Keep the editor mounted across search and calendar changes so failed local saves remain recoverable.
+  const defaultWorkspace = !panel && active && active.id !== closedWorkspace ? active : null;
+  const showDailyWorkout = activity.workoutState !== "ready" || (!panel && !normalized && !defaultWorkspace
+    && (planned.length === 0 || activity.workout.name !== null));
   const editingSession = content?.kind === "session" ? document?.sessions.find(session => session.id === content.id) : null;
   function scrollToResults() { scrollRef.current?.scrollTo({ y: resultsTop.current, animated: false }); }
   return <Screen title="Exercise" showTitle={false} scrollRef={scrollRef} adjustKeyboardInsets>
-    {active && <ActiveWorkoutTimer session={active} onOpen={() => void open({ kind: "session", id: active.id })} />}
     <SearchActions kind="exercise" query={query} onQueryChange={setQuery} disabled={!document}
       onCreateExercise={() => void open({ kind: "exercise" })} onCreateWorkout={() => void open({ kind: "workout" })}
       onSavedWorkouts={() => void open({ kind: "library", date: activity.date })} />
+    {active && <ActiveWorkoutTimer session={active} onOpen={() => void open({ kind: "session", id: active.id })} />}
     {document && Boolean(normalized) && <ExerciseSearchResults key={normalized} query={query} exercises={document.exercises}
       onLayout={event => { resultsTop.current = event.nativeEvent.layout.y; }} onNavigate={scrollToResults}
       onSelect={exercise => void open({ kind: "exercise", exercise })} />}
     {showDailyWorkout && <WorkoutWidget workout={activity.workout} detailed showEmptyGuidance activeWorkoutName={activeOnDate?.name || (activeOnDate ? "Active workout" : undefined)}
       sourceState={activity.workoutState} onRetry={store.retryLoad} onAddWorkout={() => void open({ kind: "library", date: activity.date })} />}
+    {document && !panel && !normalized && !defaultWorkspace && planned.map(session => <View key={session.id} testID={`planned-workout-${session.id}`}>
+      <SessionEditor drafts={completedDrafts} session={session} onClose={() => {}}
+        onManual={() => void open({ kind: "session", id: session.id, manual: true })} />
+    </View>)}
+    {defaultWorkspace && <SessionEditor key={`workspace-${defaultWorkspace.id}`} drafts={completedDrafts}
+      session={defaultWorkspace} editorRef={editorRef} onClose={() => {
+        ++request.current; setClosedWorkspace(defaultWorkspace.id);
+      }} />}
     {document && panel && <View key={panel.token} onLayout={event => {
       if ((content?.kind === "exercise" || content?.kind === "library") && scrolledPanel.current !== panel.token) {
         scrolledPanel.current = panel.token;
@@ -78,9 +94,11 @@ export default function ExerciseScreen() {
       {content?.kind === "exercise" && <ExerciseForm exercise={content.exercise} onClose={() => close(panel.token)} />}
       {content?.kind === "workout" && <WorkoutForm workout={content.workout} onClose={() => close(panel.token)} />}
       {content?.kind === "library" && <WorkoutLibrary date={content.date} onClose={() => close(panel.token)}
-        onEdit={workout => void open({ kind: "workout", workout })} onAdded={id => created(panel.token, id)}
+        onEdit={workout => void open({ kind: "workout", workout })} onAdded={() => created(panel.token)}
         onOpen={id => void open({ kind: "session", id })} />}
-      {content?.kind === "session" && (editingSession ? <SessionEditor drafts={completedDrafts} session={editingSession} editorRef={editorRef} onClose={() => close(panel.token)} />
+      {content?.kind === "session" && (editingSession ? <SessionEditor drafts={completedDrafts} session={editingSession} editorRef={editorRef}
+        manual={content.manual} onManual={() => void open({ kind: "session", id: editingSession.id, manual: true })}
+        onClose={() => { if (editingSession.status === "active") setClosedWorkspace(editingSession.id); close(panel.token); }} />
         : <Panel><AppText>This workout is no longer available.</AppText><ExerciseButton label="Close workout" onPress={() => close(panel.token)} /></Panel>)}
     </View>}
   </Screen>;
