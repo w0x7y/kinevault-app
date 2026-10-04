@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { mkdir } from "node:fs/promises";
+import path from "node:path";
 import { chromium } from "playwright";
 const baseURL = process.env.KINE_PREVIEW_URL || "http://localhost:8081";
 const profileKey = "kinevault-track.profile.v1",
@@ -121,7 +123,7 @@ async function open(t, options = {}) {
         };
       }
     },
-    { answers, food, session, options },
+    { answers: options.answers || answers, food, session, options },
   );
   const page = await context.newPage();
   page.on("filechooser", () => {});
@@ -140,6 +142,17 @@ async function open(t, options = {}) {
   await page.goto(baseURL);
   await button(page, "Profile menu").waitFor();
   return page;
+}
+async function editDetail(page, section) {
+  await button(page, "Edit details and goals").click();
+  await button(page, `Edit ${section}`).click();
+}
+async function expectGoal(page, field, label) {
+  await page.getByTestId(`profile-goal-${field}`).waitFor();
+  assert.equal(
+    await page.getByTestId(`profile-goal-${field}`).getAttribute("aria-label"),
+    label,
+  );
 }
 async function profile(page) {
   await button(page, "Profile menu").click();
@@ -201,27 +214,21 @@ test("historical Home date survives Profile/back; journal uses today and four bo
       "2026-10-04",
     ],
   );
+  await button(page, "Show workout data").click();
   await page.getByText("2026-10-04: 150 kg x reps", { exact: true }).waitFor();
-  await button(page, "Weight").click();
+  await button(page, "Exercise weight").click();
   await page
     .getByText("2026-10-04: Left 10 kg, Right 20 kg", { exact: true })
     .waitFor();
   await button(page, "Duration").click();
   await page.getByText("2026-10-04: 30 min", { exact: true }).waitFor();
   await button(page, "Today's nutrition").click();
-  await page.getByText("Today · 2026-10-04", { exact: true }).waitFor();
   await page
-    .getByTestId("profile-goal-calories")
-    .getByText("240 / 2,000 kcal", { exact: true })
+    .getByLabel("Today & targets · 2026-10-04", { exact: true })
     .waitFor();
-  await page
-    .getByTestId("profile-goal-carbs")
-    .getByText("30 / 0 g", { exact: true })
-    .waitFor();
-  await page
-    .getByTestId("profile-goal-water")
-    .getByText("2,500 / 1,500 ml", { exact: true })
-    .waitFor();
+  await expectGoal(page, "calories", "240 / 2,000 kcal");
+  await expectGoal(page, "carbs", "30 / 0 g");
+  await expectGoal(page, "water", "2,500 / 1,500 ml");
   await button(page, "Back from Profile").click();
   await page.waitForURL(baseURL + "/");
   await page.getByLabel("Saturday, October 3, 2026").waitFor();
@@ -230,7 +237,7 @@ test("focused editing validates, retains failed saves, merges latest values and 
   const page = await open(t);
   await profile(page);
   await button(page, "Goals").click();
-  await button(page, "Edit name").click();
+  await editDetail(page, "name");
   await page
     .getByRole("textbox", { name: "Your name (optional)", exact: true })
     .fill("New name");
@@ -257,7 +264,7 @@ test("focused editing validates, retains failed saves, merges latest values and 
   );
   await button(page, "Save name").click();
   assert.equal((await stored(page)).answers.name, "New name");
-  await button(page, "Edit age").click();
+  await editDetail(page, "age");
   await page
     .getByRole("textbox", { name: "Age (years)", exact: true })
     .fill("15");
@@ -270,7 +277,7 @@ test("focused editing validates, retains failed saves, merges latest values and 
     .getByRole("textbox", { name: "Age (years)", exact: true })
     .fill("17");
   await button(page, "Save age").click();
-  await button(page, "Edit body").waitFor();
+  await button(page, "Edit details and goals").waitFor();
   const next = (await stored(page)).answers;
   assert.equal(next.estimateEnabled, false);
   assert.equal(next.customCalories, "");
@@ -316,11 +323,15 @@ test("real library uploads support dated notes, replacement, two-photo compariso
   const old = document.photos[0].image.id;
   document = await stored(page, mediaKey);
   assert.notEqual(document.photos[0].image.id, old);
+  if (await button(page, "Choose photos to compare").count())
+    await button(page, "Choose photos to compare").click();
   assert.equal(
     await button(page, "Compare selected photos").isDisabled(),
     true,
   );
   await photoButton(page, document.photos[0].id, "Select").click();
+  if (await button(page, "Choose photos to compare").count())
+    await button(page, "Choose photos to compare").click();
   assert.equal(
     await button(page, "Compare selected photos").isDisabled(),
     true,
@@ -387,10 +398,7 @@ test("Profile water goal has focused cancel, validation, failed draft retry and 
       .count(),
     0,
   );
-  await page
-    .getByTestId("profile-goal-water")
-    .getByText("2,500 / 1,500 ml", { exact: true })
-    .waitFor();
+  await expectGoal(page, "water", "2,500 / 1,500 ml");
   await button(page, "Edit water goal").click();
   await page
     .getByRole("textbox", { name: "Daily water goal (ml)", exact: true })
@@ -422,10 +430,7 @@ test("Profile water goal has focused cancel, validation, failed draft retry and 
     "2000",
   );
   await button(page, "Save water goal").click();
-  await page
-    .getByTestId("profile-goal-water")
-    .getByText("2,500 / 2,000 ml", { exact: true })
-    .waitFor();
+  await expectGoal(page, "water", "2,500 / 2,000 ml");
   assert.equal(
     await page
       .getByRole("textbox", { name: "Daily water goal (ml)", exact: true })
@@ -434,10 +439,7 @@ test("Profile water goal has focused cancel, validation, failed draft retry and 
   );
   await page.reload();
   await button(page, "Goals").click();
-  await page
-    .getByTestId("profile-goal-water")
-    .getByText("2,500 / 2,000 ml", { exact: true })
-    .waitFor();
+  await expectGoal(page, "water", "2,500 / 2,000 ml");
 });
 test("each source recovers independently while usable sections remain available", async (t) => {
   for (const [name, key, section] of [
@@ -464,10 +466,12 @@ test("each source recovers independently while usable sections remain available"
         .getByText("Your photo journal starts here.", { exact: true })
         .waitFor();
       await button(page, "Overview").click();
-      if (name !== "workouts")
+      if (name !== "workouts") {
+        await button(page, "Show workout data").click();
         await page
           .getByText("2026-10-04: 150 kg x reps", { exact: true })
           .waitFor();
+      }
     }
     await page.evaluate(() => {
       window.__profileFailureKey = null;
@@ -543,6 +547,7 @@ test("avatar retains failed draft, prevents pending duplicate writes, replaces a
   });
   await button(page, "Saving profile photo…").waitFor();
   assert.equal(await button(page, "Cancel").isDisabled(), true);
+  await page.waitForFunction(() => window.__profileWrites === 1);
   assert.equal(await page.evaluate(() => window.__profileWrites), 1);
   await page.evaluate(() => window.__releaseProfileWrite());
   await dialog.waitFor({ state: "detached" });
@@ -693,7 +698,7 @@ test("journal sections and focused editors fit light and dark small, tablet and 
         assert.equal(await page.getByRole("tab").count(), 4);
       }
       await button(page, "Goals").click();
-      await button(page, "Edit body").click();
+      await editDetail(page, "body");
       assert.equal(
         await page.evaluate(
           () => document.documentElement.scrollWidth > innerWidth,
@@ -721,6 +726,7 @@ test("removing a selected photo lets another photo complete the comparison pair"
     await page.getByRole("dialog").waitFor({ state: "detached" });
   }
   const photos = (await stored(page, mediaKey)).photos;
+  await button(page, "Choose photos to compare").click();
   await photoButton(page, photos[0].id, "Select").click();
   await photoButton(page, photos[1].id, "Select").click();
   assert.equal(
@@ -809,17 +815,14 @@ test("delayed water save leaves replacement Name draft and section navigation in
   await delayWrite(page, "kinevault-track.water-goal.v1");
   await button(page, "Save water goal").click();
   await button(page, "Saving water goal…").waitFor();
-  await button(page, "Edit name").click();
+  await editDetail(page, "name");
   const name = page.getByRole("textbox", {
     name: "Your name (optional)",
     exact: true,
   });
   await name.fill("Replacement name draft");
   await page.evaluate(() => window.__releaseEditorWrite());
-  await page
-    .getByTestId("profile-goal-water")
-    .getByText("2,500 / 2,000 ml", { exact: true })
-    .waitFor();
+  await expectGoal(page, "water", "2,500 / 2,000 ml");
   assert.equal(await name.inputValue(), "Replacement name draft");
   assert.equal(
     await button(page, "Goals").getAttribute("aria-pressed"),
@@ -834,7 +837,7 @@ test("delayed profile save closes only its original editor and preserves replace
   const page = await open(t);
   await profile(page);
   await button(page, "Goals").click();
-  await button(page, "Edit name").click();
+  await editDetail(page, "name");
   await page
     .getByRole("textbox", { name: "Your name (optional)", exact: true })
     .fill("Pending saved name");
@@ -849,8 +852,7 @@ test("delayed profile save closes only its original editor and preserves replace
   await water.fill("2345");
   await page.evaluate(() => window.__releaseEditorWrite());
   await page
-    .getByTestId("profile-section")
-    .getByText("Pending saved name", { exact: true })
+    .getByRole("heading", { name: "Pending saved name", exact: true })
     .waitFor();
   assert.equal(await water.inputValue(), "2345");
   await button(page, "Save water goal").click();
@@ -914,10 +916,8 @@ test("section controls stay responsive during pending water and profile saves", 
     const page = await open(t);
     await profile(page);
     await button(page, "Goals").click();
-    await button(
-      page,
-      section === "water" ? "Edit water goal" : "Edit name",
-    ).click();
+    if (section === "water") await button(page, "Edit water goal").click();
+    else await editDetail(page, "name");
     const sourceField = page.getByRole("textbox", {
       name:
         section === "water" ? "Daily water goal (ml)" : "Your name (optional)",
@@ -949,10 +949,8 @@ test("section controls stay responsive during pending water and profile saves", 
       );
     }
     const replacement = section === "water" ? "name" : "water";
-    await button(
-      page,
-      replacement === "name" ? "Edit name" : "Edit water goal",
-    ).click();
+    if (replacement === "name") await editDetail(page, "name");
+    else await button(page, "Edit water goal").click();
     const draft = page.getByRole("textbox", {
       name:
         replacement === "name"
@@ -965,14 +963,10 @@ test("section controls stay responsive during pending water and profile saves", 
     );
     await page.evaluate(() => window.__releaseEditorWrite());
     if (section === "water")
-      await page
-        .getByTestId("profile-goal-water")
-        .getByText("2,500 / 2,000 ml", { exact: true })
-        .waitFor();
+      await expectGoal(page, "water", "2,500 / 2,000 ml");
     else
       await page
-        .getByTestId("profile-section")
-        .getByText("Pending name", { exact: true })
+        .getByRole("heading", { name: "Pending name", exact: true })
         .waitFor();
     assert.equal(
       await draft.inputValue(),
@@ -1088,4 +1082,243 @@ test("direct Profile Back uses Home fallback after dismissing an open menu", asy
   await page
     .getByLabel("Sunday, October 4, 2026, today", { exact: true })
     .waitFor();
+});
+
+// Opt-in screenshots use isolated browser storage, never the user's saved records.
+test(
+  "capture the approved journal with reference content",
+  { skip: !process.env.KINE_PROFILE_VISUAL_DIR },
+  async (t) => {
+    const page = await open(t, {
+      appearance: "dark",
+      answers: {
+        ...answers,
+        name: "Alex Morgan",
+        age: "29",
+        weight: "78",
+        goal: "gain",
+        customCalories: "2400",
+        customCarbs: "300",
+        customProtein: "150",
+        customFat: "67",
+      },
+    });
+    await page.setViewportSize({ width: 380, height: 766 });
+    await page.evaluate(async () => {
+      const date = (offset) => {
+        const d = new Date(2026, 9, 4);
+        d.setDate(d.getDate() + offset);
+        return [
+          d.getFullYear(),
+          String(d.getMonth() + 1).padStart(2, "0"),
+          String(d.getDate()).padStart(2, "0"),
+        ].join("-");
+      };
+      const days = {};
+      for (let i = 0; i < 12; i++) days[date(-i)] = i ? 250 : 1800;
+      for (let i = 45; i < 73; i++) days[date(-i)] = 250;
+      localStorage.setItem(
+        "kinevault-track.water-log.v1",
+        JSON.stringify({ version: 1, days }),
+      );
+      localStorage.setItem(
+        "kinevault-track.water-goal.v1",
+        JSON.stringify({ version: 1, dailyMl: 2500 }),
+      );
+      localStorage.setItem(
+        "kinevault-track.food-log.v1",
+        JSON.stringify({
+          version: 1,
+          days: {
+            "2026-10-04": [
+              {
+                id: "sample",
+                fdcId: 1,
+                name: "Sample",
+                meal: "breakfast",
+                grams: 100,
+                calories: 1746,
+                carbs: 214,
+                protein: 128,
+                fat: 42,
+              },
+            ],
+          },
+        }),
+      );
+      const sessions = [
+        7900, 8400, 8100, 9700, 9200, 10800, 10300, 12100, 11700, 13600, 14200,
+        15240,
+      ].map((volume, i) => ({
+        id: "visual-session-" + i,
+        date: date(-(11 - i) * 7),
+        name: "Lifting",
+        status: "completed",
+        startedAt: null,
+        durationSeconds: 1800,
+        exercises: [
+          {
+            id: "visual-row-" + i,
+            exercise: {
+              id: "squat",
+              name: "Barbell squat",
+              tracking: "single",
+              muscleGroup: "",
+              equipment: "",
+              notes: "",
+            },
+            sets: [
+              {
+                id: "visual-set-" + i,
+                kind: "single",
+                reps: "100",
+                weightKg: String(volume / 100),
+              },
+            ],
+          },
+        ],
+      }));
+      localStorage.setItem(
+        "kinevault-track.exercise.v1",
+        JSON.stringify({
+          version: 1,
+          exercises: [],
+          workouts: [],
+          sessions,
+          developmentExamplesSeeded: true,
+        }),
+      );
+      const c = document.createElement("canvas");
+      c.width = 320;
+      c.height = 180;
+      const x = c.getContext("2d");
+      x.fillStyle = "#25313d";
+      x.fillRect(0, 0, 320, 180);
+      x.fillStyle = "#b0bdca";
+      x.textAlign = "center";
+      x.font = "22px FontAwesome6Free-Solid";
+      x.fillText("\uf03e", 160, 88);
+      x.font = "9px Comfortaa_400Regular";
+      x.fillText("Progress photo", 160, 110);
+      const blob = await new Promise((resolve) =>
+        c.toBlob(resolve, "image/jpeg", 0.95),
+      );
+      const db = await new Promise((resolve, reject) => {
+        const r = indexedDB.open("kinevault-track.profile-media-files.v1", 1);
+        r.onupgradeneeded = () =>
+          r.result.createObjectStore("photos", { keyPath: "id" });
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction("photos", "readwrite");
+        for (const id of ["visual-image-aug", "visual-image-oct"])
+          tx.objectStore("photos").put({ id, original: blob, thumbnail: blob });
+        tx.oncomplete = resolve;
+        tx.onabort = () => reject(tx.error);
+      });
+      db.close();
+      localStorage.setItem(
+        "kinevault-track.profile-media.v1",
+        JSON.stringify({
+          version: 1,
+          avatar: null,
+          photos: [
+            {
+              id: "visual-photo-aug",
+              date: "2026-08-23",
+              note: "Front view\nStarting point.",
+              image: { id: "visual-image-aug", width: 320, height: 180 },
+            },
+            {
+              id: "visual-photo-oct",
+              date: "2026-10-04",
+              note: "Front view\nFeeling consistent with training.",
+              image: { id: "visual-image-oct", width: 320, height: 180 },
+            },
+          ],
+        }),
+      );
+    });
+    await page.goto(baseURL + "/profile");
+    await page.getByText("15,240", { exact: true }).waitFor();
+    await page
+      .getByRole("img", { name: "Progress photo 2026-10-04", exact: true })
+      .waitFor();
+    const dir = process.env.KINE_PROFILE_VISUAL_DIR;
+    await mkdir(dir, { recursive: true });
+    await page.screenshot({ path: path.join(dir, "overview.png") });
+    await page.getByTestId("profile-workout-chart").evaluate((el) => {
+      let parent = el.parentElement;
+      while (
+        parent &&
+        !["auto", "scroll"].includes(getComputedStyle(parent).overflowY)
+      )
+        parent = parent.parentElement;
+      parent.scrollTop += el.getBoundingClientRect().top - 53;
+    });
+    await page.screenshot({ path: path.join(dir, "overview-scrolled.png") });
+    await button(page, "Goals").click();
+    await button(page, "Change profile photo").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(dir, "goals.png") });
+    await button(page, "Photos").click();
+    await page
+      .getByRole("img", { name: "Progress photo 2026-10-04", exact: true })
+      .waitFor();
+    await page.screenshot({ path: path.join(dir, "photos.png") });
+  },
+);
+
+test("weekly chart selection matches the plotted total and range menu closes with Escape", async (t) => {
+  const page = await open(t);
+  await profile(page);
+  await page.evaluate(() => {
+    const key = "kinevault-track.exercise.v1",
+      doc = JSON.parse(localStorage.getItem(key));
+    doc.sessions.push({
+      ...doc.sessions[0],
+      id: "earlier",
+      date: "2026-10-02",
+      exercises: [
+        {
+          ...doc.sessions[0].exercises[0],
+          sets: [
+            {
+              id: "earlier-set",
+              kind: "sides",
+              left: { reps: "5", weightKg: "10" },
+              right: { reps: "5", weightKg: "10" },
+            },
+          ],
+        },
+      ],
+    });
+    localStorage.setItem(key, JSON.stringify(doc));
+  });
+  await page.reload();
+  await button(page, "Workout range").click();
+  await button(page, "4 weeks").click();
+  assert.equal(
+    await button(page, "Workout range").getAttribute("aria-expanded"),
+    "false",
+  );
+  const graph = button(page, "Select workout graph point"),
+    bounds = await graph.boundingBox();
+  await graph.click({ position: { x: bounds.width - 12, y: 50 } });
+  await page
+    .getByText("Week ending 2026-10-04: 250 kg x reps", { exact: true })
+    .waitFor();
+  await button(page, "Show workout data").click();
+  await button(page, "2026-10-04: 150 kg x reps").click();
+  assert.equal(
+    await page.getByText("2026-10-04: 150 kg x reps", { exact: true }).count(),
+    2,
+  );
+  await button(page, "Workout range").click();
+  await page.keyboard.press("Escape");
+  assert.equal(
+    await button(page, "Workout range").getAttribute("aria-expanded"),
+    "false",
+  );
+  assert.ok(page.url().endsWith("/profile"));
 });

@@ -215,7 +215,7 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
         }}
       >
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <View style={styles.bar}>
+          <View style={[styles.bar, isProfile && { minHeight: 52 }]}>
             {isProfile ? <HeaderButton label="Back from Profile" onPress={returnFromProfile}><Icon name="chevron-left" size={16} color={colors.foreground} /></HeaderButton> : isSettings ? <View style={styles.button} /> : (
               <HeaderButton
                 label={expanded ? "Collapse calendar" : "Expand calendar"}
@@ -229,7 +229,7 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
               variant="label"
               accessibilityLabel={isProfile ? "Profile" : isSettings ? "Settings" : `${fullDate(selectedDay)}${selectedDay === today ? ", today" : ""}`}
               numberOfLines={1}
-              style={styles.selectedDate}
+              style={[styles.selectedDate, isProfile && { fontSize: 14, lineHeight: 22 }]}
             >
               {isProfile ? "Profile" : isSettings ? "Settings" : dateLabel}
             </AppText>

@@ -1,52 +1,12 @@
-import { useState, type PropsWithChildren } from "react";
+import { type PropsWithChildren } from "react";
 import { Modal, Platform, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppText, Panel } from "../components/ui";
 import { FoodButton } from "../food/food-button";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
+import { JournalText } from "./journal-ui";
 export type ProfileSection = "Overview" | "Goals" | "Photos";
-function ProfileChoice({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const { colors } = useTheme();
-  const [focused, setFocused] = useState(false);
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected }}
-      aria-pressed={selected}
-      onPress={onPress}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      style={({ pressed }) => ({
-        flex: 1,
-        minHeight: 44,
-        paddingHorizontal: 4,
-        paddingVertical: 12,
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: focused || selected ? colors.ring : colors.border,
-        backgroundColor: selected || pressed ? colors.accent : colors.secondary,
-        justifyContent: "center",
-      })}
-    >
-      <AppText
-        variant="label"
-        style={{ textAlign: "center", color: colors.secondaryForeground }}
-      >
-        {label}
-      </AppText>
-    </Pressable>
-  );
-}
 export function ProfileChoices<T extends string | number>({
   label,
   values,
@@ -58,18 +18,56 @@ export function ProfileChoices<T extends string | number>({
   selected: T;
   select: (value: T) => void;
 }) {
+  const { colors } = useTheme();
   return (
     <View
       accessibilityLabel={label}
-      style={{ flexDirection: "row", gap: spacing.xs }}
+      style={{
+        flexDirection: "row",
+        gap: 3,
+        padding: 3,
+        backgroundColor: colors.secondary,
+        borderRadius: 10,
+      }}
     >
       {values.map((option) => (
-        <ProfileChoice
+        <Pressable
           key={option.value}
-          label={option.label}
-          selected={selected === option.value}
+          accessibilityRole="button"
+          accessibilityLabel={option.label}
+          accessibilityState={{ selected: selected === option.value }}
+          aria-pressed={selected === option.value}
           onPress={() => select(option.value)}
-        />
+          style={{
+            flex: option.value === "weight" ? 1.5 : 1,
+            minHeight: 44,
+            marginVertical: -4,
+            justifyContent: "center",
+          }}
+        >
+          <View
+            style={{
+              height: 36,
+              borderRadius: 7,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor:
+                selected === option.value ? colors.card : "transparent",
+            }}
+          >
+            <JournalText
+              size={10}
+              style={{
+                color:
+                  selected === option.value
+                    ? colors.primary
+                    : colors.mutedForeground,
+              }}
+            >
+              {option.label}
+            </JournalText>
+          </View>
+        </Pressable>
       ))}
     </View>
   );
@@ -81,16 +79,48 @@ export function ProfileControls({
   section: ProfileSection;
   select: (section: ProfileSection) => void;
 }) {
+  const { colors } = useTheme();
   return (
-    <ProfileChoices
-      label="Profile sections"
-      values={(["Overview", "Goals", "Photos"] as const).map((value) => ({
-        value,
-        label: value,
-      }))}
-      selected={section}
-      select={select}
-    />
+    <View
+      accessibilityLabel="Profile sections"
+      style={{
+        flexDirection: "row",
+        borderBottomWidth: 1,
+        borderColor: colors.border,
+        marginHorizontal: -12,
+        paddingHorizontal: 12,
+        marginBottom: 14,
+      }}
+    >
+      {(["Overview", "Goals", "Photos"] as const).map((name) => (
+        <Pressable
+          key={name}
+          accessibilityRole="button"
+          accessibilityLabel={name}
+          accessibilityState={{ selected: section === name }}
+          aria-pressed={section === name}
+          onPress={() => select(name)}
+          style={{
+            flex: 1,
+            minHeight: 44,
+            justifyContent: "center",
+            alignItems: "center",
+            borderBottomWidth: 2,
+            borderBottomColor:
+              section === name ? colors.primary : "transparent",
+          }}
+        >
+          <JournalText
+            size={11}
+            style={{
+              color: section === name ? colors.primary : colors.mutedForeground,
+            }}
+          >
+            {name}
+          </JournalText>
+        </Pressable>
+      ))}
+    </View>
   );
 }
 export function SourceStatus({

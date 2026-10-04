@@ -1,5 +1,4 @@
 import { View } from "react-native";
-import { AppText, Panel } from "../components/ui";
 import { Icon } from "../components/icon";
 import { useFoodLog } from "../food/log-provider";
 import { useWaterLog } from "../water/provider";
@@ -8,16 +7,12 @@ import { parseDay } from "../calendar/dates";
 import { profileStreak } from "./activity";
 import { SourceStatus } from "./profile-controls";
 import { useTheme } from "../theme/provider";
-import { spacing } from "../theme/tokens";
+import { JournalPanel, JournalText } from "./journal-ui";
 export function ProfileStreak({ today }: { today: string }) {
   const food = useFoodLog(),
     water = useWaterLog(),
     exercise = useExercises();
   const { colors } = useTheme();
-  const ready =
-    food.state.kind === "ready" &&
-    water.state.kind === "ready" &&
-    exercise.state.kind === "ready";
   const streak =
     food.state.kind === "ready" &&
     water.state.kind === "ready" &&
@@ -30,15 +25,7 @@ export function ProfileStreak({ today }: { today: string }) {
         })
       : null;
   return (
-    <Panel testID="profile-streak">
-      <AppText variant="heading" accessibilityRole="header">
-        Tracking streaks
-      </AppText>
-      {!ready && (
-        <AppText muted>
-          Streaks will appear when all activity records are available.
-        </AppText>
-      )}
+    <JournalPanel testID="profile-streak" accessibilityLabel="Tracking streaks">
       {food.state.kind !== "ready" && (
         <SourceStatus
           name="food log"
@@ -62,7 +49,7 @@ export function ProfileStreak({ today }: { today: string }) {
       )}
       {streak && (
         <>
-          <View style={{ flexDirection: "row", gap: spacing.layout }}>
+          <View style={{ flexDirection: "row", gap: 12 }}>
             {(
               [
                 {
@@ -76,21 +63,47 @@ export function ProfileStreak({ today }: { today: string }) {
                   icon: "trophy",
                 },
               ] as const
-            ).map((item) => (
-              <View key={item.label} style={{ flex: 1, gap: spacing.xs }}>
-                <Icon name={item.icon} size={20} color={colors.primary} />
-                <AppText variant="heading">
-                  {item.value} {item.value === 1 ? "day" : "days"}
-                </AppText>
-                <AppText variant="caption" muted>
-                  {item.label}
-                </AppText>
+            ).map((item, i) => (
+              <View
+                key={item.label}
+                style={{
+                  flex: 1,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 10,
+                  ...(i
+                    ? {
+                        borderLeftWidth: 1,
+                        borderColor: colors.border,
+                        paddingLeft: 12,
+                      }
+                    : {}),
+                }}
+              >
+                <Icon name={item.icon} size={18} color={colors.primary} />
+                <View>
+                  <JournalText size={18} variant="heading">
+                    {item.value}
+                    <JournalText size={10}>
+                      {" "}
+                      {item.value === 1 ? "day" : "days"}
+                    </JournalText>
+                  </JournalText>
+                  <JournalText size={10} muted>
+                    {item.label}
+                  </JournalText>
+                </View>
               </View>
             ))}
           </View>
           <View
             testID="streak-week"
-            style={{ flexDirection: "row", gap: spacing.xs }}
+            style={{
+              flexDirection: "row",
+              gap: 5,
+              marginTop: 15,
+              marginBottom: 8,
+            }}
           >
             {streak.week.map((day) => (
               <View
@@ -98,38 +111,58 @@ export function ProfileStreak({ today }: { today: string }) {
                 testID={`streak-day-${day.date}`}
                 accessible
                 accessibilityLabel={`${day.date}: ${day.logged ? "Activity logged" : "No activity logged"}`}
-                style={{
-                  flex: 1,
-                  gap: spacing.xs,
-                  alignItems: "center",
-                  paddingVertical: spacing.sm,
-                  borderRadius: 10,
-                  backgroundColor: day.logged
-                    ? colors.accent
-                    : colors.background,
-                }}
+                style={{ flex: 1, gap: 6, alignItems: "center" }}
               >
-                <AppText variant="caption" muted>
-                  {parseDay(day.date).toLocaleDateString(undefined, {
-                    weekday: "narrow",
-                  })}
-                </AppText>
-                <AppText variant="label">
-                  {parseDay(day.date).getDate()}
-                </AppText>
-                <Icon
-                  name={day.logged ? "check" : "minus"}
-                  size={12}
-                  color={colors.primary}
-                />
+                <JournalText size={9} muted>
+                  {day.date === today
+                    ? "Today"
+                    : parseDay(day.date).toLocaleDateString(undefined, {
+                        weekday: "narrow",
+                      })}
+                </JournalText>
+                <View
+                  style={{
+                    width: 35,
+                    height: 35,
+                    marginVertical: -4,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 18,
+                    borderWidth: day.date === today ? 1 : 0,
+                    borderColor: colors.primary,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 27,
+                      height: 27,
+                      borderRadius: 14,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: day.logged
+                        ? colors.primary
+                        : colors.secondary,
+                    }}
+                  >
+                    <Icon
+                      name={day.logged ? "check" : "minus"}
+                      size={10}
+                      color={
+                        day.logged
+                          ? colors.primaryForeground
+                          : colors.mutedForeground
+                      }
+                    />
+                  </View>
+                </View>
               </View>
             ))}
           </View>
-          <AppText variant="caption" muted>
-            Food, water, or a completed workout counts as a logged day.
-          </AppText>
+          <JournalText size={10} muted>
+            Food, water, or a completed workout counts.
+          </JournalText>
         </>
       )}
-    </Panel>
+    </JournalPanel>
   );
 }

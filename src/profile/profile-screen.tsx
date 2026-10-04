@@ -1,17 +1,22 @@
 import { useRef, useState } from "react";
-import { View } from "react-native";
+import { Platform, View, type ViewStyle } from "react-native";
+import { useTheme } from "../theme/provider";
 import { Screen } from "../components/ui";
-import { FoodButton } from "../food/food-button";
 import { useSelectedDay } from "../calendar/provider";
 import { spacing } from "../theme/tokens";
 import { ProfileIdentity } from "./profile-identity";
 import { ProfileControls, type ProfileSection } from "./profile-controls";
 import { ProfileStreak } from "./profile-streak";
 import { WorkoutChart } from "./workout-chart";
-import { ProfileGoals, type ProfileEditorInstance } from "./profile-goals";
+import {
+  ProfileGoals,
+  TodayNutrition,
+  type ProfileEditorInstance,
+} from "./profile-goals";
 import { ProgressPhotos } from "./progress-photos";
 import type { ProfileEditSection } from "./section-editing";
 export function ProfileScreen() {
+  const { colors } = useTheme();
   const { today } = useSelectedDay();
   const [section, setSection] = useState<ProfileSection>("Overview");
   const [editor, setEditor] = useState<ProfileEditorInstance | null>(null);
@@ -30,7 +35,20 @@ export function ProfileScreen() {
     setEditor((current) => (current?.id === id ? null : current));
   }
   return (
-    <Screen title="Profile" showTitle={false} adjustKeyboardInsets>
+    <Screen
+      title="Profile"
+      showTitle={false}
+      adjustKeyboardInsets
+      contentContainerStyle={{ gap: 0 }}
+      scrollStyle={
+        Platform.OS === "web"
+          ? ({
+              scrollbarWidth: "thin",
+              scrollbarColor: `${colors.border} transparent`,
+            } as ViewStyle)
+          : undefined
+      }
+    >
       <ProfileIdentity edit={() => edit("name")} />
       <ProfileControls section={section} select={select} />
       <View
@@ -42,10 +60,7 @@ export function ProfileScreen() {
           <>
             <ProfileStreak today={today} />
             <WorkoutChart today={today} />
-            <FoodButton
-              label="Today's nutrition"
-              onPress={() => select("Goals")}
-            />
+            <TodayNutrition today={today} onPress={() => select("Goals")} />
             <ProgressPhotos
               today={today}
               recent

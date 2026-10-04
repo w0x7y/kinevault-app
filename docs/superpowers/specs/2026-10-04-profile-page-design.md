@@ -69,7 +69,12 @@ and Photos. These are sections within Profile, not additional app tabs.
 
 The chosen visual reference is VariantC in `design/profile-prototype.html`.
 Its numbers and photo wells are illustrative only. Production uses real saved
-records, honest empty states, and the existing app's scalable text sizes.
+records and honest empty states. The user's subsequent screenshot instruction
+requires faithful Variant C typography and spacing: 76px avatar, underline
+section tabs, 18px card corners, compact streak circles, segmented graph
+metrics and a range dropdown, three macro columns with inline water, and an
+unframed dated photo journal. Text still follows native font scaling and
+interactive targets remain at least 44px.
 
 ## Workout graph behavior
 
@@ -86,9 +91,12 @@ The proposed interpretation of the user's examples is three switchable metrics:
   invent body mass or a weighted personal record.
 
 Start with Volume and the last 12 weeks ending today. Offer 4-, 12-, and 52-week
-ranges. Plot values by local date with readable date ticks and units. Tapping a
-data point reveals its date and values; expose the same information in accessible
-text so the graph is not the only way to read it.
+ranges. Plot weekly buckets with readable date ticks and units. Volume and known
+durations sum within each week; exercise weight uses the highest recorded
+weight, with independent maxima for left/right. Missing weeks remain gaps and
+partial duration stays marked. Tapping a plotted point reveals its week-ending
+date and weekly value; an accessible daily data list retains the original
+record values and independent day selection.
 
 Multiple workouts on a date add volume and known duration. If a date includes
 workouts with missing duration, identify its known duration as partial; if none

@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { Platform, View } from "react-native";
-import { AppText, Panel } from "../components/ui";
+import { Platform, Pressable, View } from "react-native";
+import { Icon } from "../components/icon";
+import { useTheme } from "../theme/provider";
+import { parseDay } from "../calendar/dates";
+import { JournalAction, JournalHeading, JournalText } from "./journal-ui";
 import { FoodButton } from "../food/food-button";
 import { ErrorText } from "../onboarding/controls";
-import { spacing } from "../theme/tokens";
 import { useProfileMedia } from "./media-provider";
 import { pickProfilePhoto } from "./media-picker";
 import type { PhotoSource, ProgressPhoto } from "./media-model";
 import { PhotoImage } from "./photo-image";
-import { SourceStatus } from "./profile-controls";
+import { ProfileDialog, SourceStatus } from "./profile-controls";
 import { PhotoEditor } from "./photo-editor";
 import { PhotoComparison } from "./photo-comparison";
 export function ProgressPhotos({
@@ -21,6 +23,9 @@ export function ProgressPhotos({
   openPhotos?: () => void;
 }) {
   const media = useProfileMedia();
+  const { colors } = useTheme();
+  const [selecting, setSelecting] = useState(false),
+    [sources, setSources] = useState(false);
   const [editor, setEditor] = useState<{
     photo?: ProgressPhoto;
     source?: PhotoSource;
@@ -61,7 +66,7 @@ export function ProgressPhotos({
           (a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id),
         )
       : [];
-  const visible = recent ? photos.slice(0, 2) : photos;
+  const visible = recent ? photos.slice(0, 2).reverse() : photos;
   const chosen = photos
     .filter((photo) => selected.includes(photo.id))
     .sort((a, b) => a.date.localeCompare(b.date));
@@ -77,11 +82,83 @@ export function ProgressPhotos({
           : available;
     });
   }
+  function add() {
+    if (Platform.OS === "web") void pick("library");
+    else setSources(true);
+  }
+  const unavailable = picking || media.saving || media.state.kind !== "ready";
+  const dateLabel = (date: string) =>
+    parseDay(date).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  function photoWell(photo?: ProgressPhoto, journal = false) {
+    return photo ? (
+      <PhotoImage
+        image={photo.image}
+        thumbnail
+        accessibilityLabel={`Progress photo ${photo.date}`}
+        style={{
+          width: "100%",
+          aspectRatio: journal ? 16 / 9 : 1,
+          borderRadius: 12,
+        }}
+      />
+    ) : (
+      <View
+        style={{
+          width: "100%",
+          aspectRatio: journal ? 16 / 9 : 1,
+          borderRadius: 12,
+          backgroundColor: colors.secondary,
+          justifyContent: "center",
+          alignItems: "center",
+          gap: 9,
+        }}
+      >
+        <Icon
+          name="image"
+          size={journal ? 22 : 19}
+          color={colors.mutedForeground}
+        />
+        {journal && (
+          <JournalText size={9} muted>
+            Progress photo
+          </JournalText>
+        )}
+      </View>
+    );
+  }
   return (
-    <Panel testID={recent ? "profile-recent-photos" : "profile-photos"}>
-      <AppText variant="heading" accessibilityRole="header">
-        {recent ? "Recent photos" : "Photo journal"}
-      </AppText>
+    <View
+      testID={recent ? "profile-recent-photos" : "profile-photos"}
+      style={{ paddingVertical: 10, paddingHorizontal: 3 }}
+    >
+      <JournalHeading
+        title={recent ? "Progress photos" : "Photo journal"}
+        style={{ marginBottom: recent ? 2 : 0 }}
+      >
+        <JournalAction
+          label={
+            recent ? "Compare" : selecting ? "Compare selected" : "Compare two"
+          }
+          accessibilityLabel={
+            recent
+              ? "View photos"
+              : selecting
+                ? "Compare selected photos"
+                : "Choose photos to compare"
+          }
+          disabled={
+            !recent && selecting && (chosen.length !== 2 || media.saving)
+          }
+          onPress={() => {
+            if (recent) openPhotos?.();
+            else if (selecting) setComparing(true);
+            else setSelecting(true);
+          }}
+        />
+      </JournalHeading>
       {media.state.kind !== "ready" ? (
         <SourceStatus
           name="profile media"
@@ -90,97 +167,265 @@ export function ProgressPhotos({
         />
       ) : (
         <>
-          {photos.length === 0 && (
-            <AppText muted>Your photo journal starts here.</AppText>
-          )}
-          <View
-            style={{
-              flexDirection: "row",
-              flexWrap: "wrap",
-              gap: spacing.layout,
-            }}
-          >
-            {visible.map((photo, index) => (
-              <View
-                key={photo.id}
-                testID={`progress-photo-${photo.id}`}
+          {recent ? (
+            <View
+              style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}
+            >
+              {[0, 1].map((index) => (
+                <Pressable
+                  key={index}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    visible[index]
+                      ? `View progress photo ${visible[index].date}`
+                      : `View photo journal ${index + 1}`
+                  }
+                  onPress={() => openPhotos?.()}
+                  style={{ flex: 1 }}
+                >
+                  {photoWell(visible[index])}
+                  {visible[index] && (
+                    <JournalText size={9} style={{ marginTop: 6 }}>
+                      {dateLabel(visible[index].date)}
+                    </JournalText>
+                  )}
+                </Pressable>
+              ))}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add from library"
+                disabled={unavailable}
+                onPress={add}
                 style={{
-                  flexGrow: 1,
-                  flexBasis: "46%",
-                  minWidth: 120,
-                  gap: spacing.sm,
+                  width: 62,
+                  height: 62,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderStyle: "dashed",
+                  borderColor: colors.border,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 5,
+                  opacity: unavailable ? 0.5 : 1,
                 }}
               >
-                <PhotoImage
-                  image={photo.image}
-                  thumbnail
-                  accessibilityLabel={`Progress photo ${photo.date}`}
-                  style={{ width: "100%", height: 180, borderRadius: 14 }}
-                />
-                <AppText variant="label">{photo.date}</AppText>
-                {photo.note !== "" && (
-                  <AppText variant="caption" muted>
-                    {photo.note}
-                  </AppText>
-                )}
-                {!recent && (
-                  <>
-                    <FoodButton
-                      label={
-                        selected.includes(photo.id)
-                          ? "Selected"
-                          : "Select for comparison"
-                      }
-                      accessibilityLabel={`Select photo ${index + 1} from ${photo.date}`}
-                      selected={selected.includes(photo.id)}
-                      disabled={
-                        !selected.includes(photo.id) && chosen.length === 2
-                      }
-                      onPress={() => toggle(photo.id)}
-                    />
-                    <FoodButton
-                      label="Edit photo"
-                      accessibilityLabel={`Edit photo ${index + 1} from ${photo.date}`}
-                      disabled={media.saving}
-                      onPress={() => setEditor({ photo })}
-                    />
-                  </>
-                )}
-              </View>
-            ))}
-          </View>
-          {recent ? (
-            <FoodButton label="View photos" onPress={() => openPhotos?.()} />
+                <Icon name="plus" size={14} color={colors.primary} />
+                <JournalText size={9} style={{ color: colors.primary }}>
+                  Add
+                </JournalText>
+              </Pressable>
+            </View>
           ) : (
             <>
-              <FoodButton
-                primary
-                label={picking ? "Opening photo picker…" : "Add from library"}
-                disabled={picking || media.saving}
-                onPress={() => void pick("library")}
-              />
-              {Platform.OS !== "web" && (
-                <FoodButton
-                  label="Add from camera"
-                  disabled={picking || media.saving}
-                  onPress={() => void pick("camera")}
-                />
+              {photos.length === 0 && (
+                <View style={{ marginTop: 4, marginBottom: 15 }}>
+                  {photoWell(undefined, true)}
+                  <JournalText size={10} muted style={{ marginTop: 7 }}>
+                    Your photo journal starts here.
+                  </JournalText>
+                </View>
               )}
-              <AppText variant="caption" muted>
-                Select exactly two photos to compare. {chosen.length} selected.
-              </AppText>
-              <FoodButton
-                label="Compare selected photos"
-                disabled={chosen.length !== 2 || media.saving}
-                onPress={() => setComparing(true)}
-              />
-              {error && <ErrorText message={error} />}
+              {visible.map((photo, index) => {
+                const date = parseDay(photo.date),
+                  noteLines = photo.note.split("\n"),
+                  checked = selected.includes(photo.id);
+                return (
+                  <View
+                    key={photo.id}
+                    testID={`progress-photo-${photo.id}`}
+                    style={{
+                      flexDirection: "row",
+                      gap: 12,
+                      marginTop: 4,
+                      marginBottom: 15,
+                    }}
+                  >
+                    <View
+                      style={{ width: 48, alignItems: "center", paddingTop: 8 }}
+                    >
+                      <JournalText size={9} muted>
+                        {date.toLocaleDateString("en-US", { month: "short" })}
+                      </JournalText>
+                      <JournalText size={21} variant="heading">
+                        {date.getDate()}
+                      </JournalText>
+                      <JournalText size={9} muted>
+                        {date.getFullYear()}
+                      </JournalText>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`${selecting ? "Select" : "Edit"} photo ${index + 1} from ${photo.date}`}
+                        accessibilityState={{
+                          selected: checked,
+                          disabled:
+                            media.saving ||
+                            (selecting && !checked && chosen.length === 2),
+                        }}
+                        aria-pressed={selecting ? checked : undefined}
+                        disabled={
+                          media.saving ||
+                          (selecting && !checked && chosen.length === 2)
+                        }
+                        onPress={() =>
+                          selecting ? toggle(photo.id) : setEditor({ photo })
+                        }
+                      >
+                        {photoWell(photo, true)}
+                        {selecting && (
+                          <View
+                            style={{
+                              position: "absolute",
+                              right: 10,
+                              top: 10,
+                              width: 28,
+                              height: 28,
+                              borderRadius: 14,
+                              borderWidth: 1,
+                              borderColor: colors.primary,
+                              backgroundColor: checked
+                                ? colors.primary
+                                : colors.card,
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <Icon
+                              name={checked ? "check" : "plus"}
+                              size={12}
+                              color={
+                                checked
+                                  ? colors.primaryForeground
+                                  : colors.primary
+                              }
+                            />
+                          </View>
+                        )}
+                      </Pressable>
+                      {selecting && (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Edit photo ${index + 1} from ${photo.date}`}
+                          disabled={media.saving}
+                          onPress={() => setEditor({ photo })}
+                          style={{
+                            position: "absolute",
+                            left: 0,
+                            top: 0,
+                            width: 44,
+                            height: 44,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <View
+                            style={{
+                              padding: 6,
+                              borderRadius: 7,
+                              backgroundColor: colors.card,
+                            }}
+                          >
+                            <Icon name="pen" size={12} color={colors.primary} />
+                          </View>
+                        </Pressable>
+                      )}
+                      {photo.note !== "" && (
+                        <>
+                          <JournalText size={10} style={{ marginTop: 7 }}>
+                            {noteLines[0]}
+                          </JournalText>
+                          {noteLines.length > 1 && (
+                            <JournalText
+                              size={9}
+                              muted
+                              style={{ marginTop: 3 }}
+                            >
+                              {noteLines.slice(1).join("\n")}
+                            </JournalText>
+                          )}
+                        </>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+              {selecting && (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <JournalText size={10} muted>
+                    Select exactly two photos to compare. {chosen.length}{" "}
+                    selected.
+                  </JournalText>
+                  <JournalAction
+                    label="Cancel"
+                    accessibilityLabel="Cancel photo selection"
+                    onPress={() => {
+                      setSelecting(false);
+                      setSelected([]);
+                    }}
+                  />
+                </View>
+              )}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add from library"
+                disabled={unavailable}
+                onPress={add}
+                style={{
+                  minHeight: 44,
+                  marginVertical: -1,
+                  borderRadius: 10,
+                  backgroundColor: colors.secondary,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
+                  gap: 8,
+                  opacity: unavailable ? 0.5 : 1,
+                }}
+              >
+                <Icon name="plus" size={11} color={colors.primary} />
+                <JournalText size={11} style={{ color: colors.primary }}>
+                  {picking ? "Opening photo picker…" : "Add progress photo"}
+                </JournalText>
+              </Pressable>
+              <JournalText
+                size={9}
+                muted
+                style={{ textAlign: "center", marginTop: 9 }}
+              >
+                Optional · Stored on this device
+              </JournalText>
             </>
           )}
-          <AppText variant="caption" muted>
-            Optional · Saved on this device
-          </AppText>
+          {error && <ErrorText message={error} />}
         </>
+      )}
+      {sources && (
+        <ProfileDialog
+          title="Add progress photo"
+          dismiss={() => setSources(false)}
+        >
+          <FoodButton
+            label="Add from library"
+            onPress={() => {
+              setSources(false);
+              void pick("library");
+            }}
+          />
+          <FoodButton
+            label="Add from camera"
+            onPress={() => {
+              setSources(false);
+              void pick("camera");
+            }}
+          />
+        </ProfileDialog>
       )}
       {editor && (
         <PhotoEditor
@@ -196,6 +441,6 @@ export function ProgressPhotos({
           close={() => setComparing(false)}
         />
       )}
-    </Panel>
+    </View>
   );
 }

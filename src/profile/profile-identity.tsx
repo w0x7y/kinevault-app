@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { useEffect, useRef, useState } from "react";
-import { Platform, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import { AppText } from "../components/ui";
 import { DeleteButton } from "../components/delete-button";
 import { FoodButton } from "../food/food-button";
@@ -13,9 +13,17 @@ import { PhotoImage } from "./photo-image";
 import type { PhotoSource } from "./media-model";
 import { ProfileDialog, SourceStatus } from "./profile-controls";
 import { useTheme } from "../theme/provider";
-import { spacing } from "../theme/tokens";
 
-export function ProfileAvatar({ size = 32 }: { size?: number }) {
+import { Icon } from "../components/icon";
+import { JournalText, JournalAction } from "./journal-ui";
+
+export function ProfileAvatar({
+  size = 28,
+  person = false,
+}: {
+  size?: number;
+  person?: boolean;
+}) {
   const media = useProfileMedia(),
     profile = useProfile();
   const { colors } = useTheme();
@@ -44,21 +52,29 @@ export function ProfileAvatar({ size = 32 }: { size?: number }) {
       style={[
         style,
         {
-          backgroundColor: colors.secondary,
+          backgroundColor: colors.accent,
           alignItems: "center",
           justifyContent: "center",
         },
       ]}
     >
-      <AppText variant="label" style={{ fontSize: size < 40 ? 10 : 24 }}>
-        {initials}
-      </AppText>
+      {person ? (
+        <Icon name="user" size={29} color={colors.primary} />
+      ) : (
+        <JournalText
+          size={size < 40 ? 11 : 24}
+          style={{ color: colors.primary }}
+        >
+          {initials}
+        </JournalText>
+      )}
     </View>
   );
 }
 export function ProfileIdentity({ edit }: { edit: () => void }) {
   const profile = useProfile(),
     media = useProfileMedia();
+  const { colors } = useTheme();
   const [open, setOpen] = useState(false),
     [draft, setDraft] = useState<PhotoSource | null>(null);
   const [picking, setPicking] = useState(false),
@@ -130,16 +146,41 @@ export function ProfileIdentity({ edit }: { edit: () => void }) {
     media.state.kind === "ready" && media.state.document.avatar !== null;
   const busy = picking || media.saving;
   return (
-    <View style={{ alignItems: "center", gap: spacing.sm }}>
-      <ProfileAvatar size={88} />
-      <AppText
+    <View style={{ alignItems: "center", paddingTop: 12, paddingBottom: 4 }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Change profile photo"
+        onPress={() => setOpen(true)}
+        style={{ marginBottom: 12 }}
+      >
+        <ProfileAvatar size={76} person />
+        <View
+          style={{
+            position: "absolute",
+            right: -1,
+            bottom: -1,
+            width: 25,
+            height: 25,
+            borderRadius: 13,
+            borderWidth: 3,
+            borderColor: colors.card,
+            backgroundColor: colors.primary,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Icon name="camera" size={10} color={colors.primaryForeground} />
+        </View>
+      </Pressable>
+      <JournalText
+        size={20}
         variant="heading"
         accessibilityRole="header"
-        style={{ textAlign: "center" }}
+        style={{ textAlign: "center", marginBottom: 4 }}
       >
         {answers.name.trim() || "Your journal"}
-      </AppText>
-      <AppText variant="caption" muted style={{ textAlign: "center" }}>
+      </JournalText>
+      <JournalText size={10} muted style={{ textAlign: "center" }}>
         {[
           goals.find((goal) => goal.value === answers.goal)?.label,
           activities.find((activity) => activity.value === answers.activity)
@@ -147,21 +188,8 @@ export function ProfileIdentity({ edit }: { edit: () => void }) {
         ]
           .filter(Boolean)
           .join(" · ") || "Your goals, at your pace"}
-      </AppText>
-      <View
-        style={{
-          flexDirection: "row",
-          gap: spacing.sm,
-          flexWrap: "wrap",
-          justifyContent: "center",
-        }}
-      >
-        <FoodButton label="Edit profile" onPress={edit} />
-        <FoodButton
-          label="Change profile photo"
-          onPress={() => setOpen(true)}
-        />
-      </View>
+      </JournalText>
+      <JournalAction size={10} label="Edit profile" onPress={edit} />
       {media.state.kind !== "ready" && (
         <SourceStatus
           name="profile media"

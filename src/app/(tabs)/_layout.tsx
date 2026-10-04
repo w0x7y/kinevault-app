@@ -1,4 +1,4 @@
-import { Redirect, Tabs } from "expo-router";
+import { Redirect, Tabs, usePathname } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,6 +17,7 @@ import { ProfileMediaProvider } from "../../profile/media-provider";
 import { ExerciseProvider } from "../../exercise/provider";
 
 export default function TabLayout() {
+  const journal = usePathname() === "/profile";
   const insets = useSafeAreaInsets();
   const [headerHeight, setHeaderHeight] = useState(50 + insets.top + 1);
   const reduced = useReducedMotion();
@@ -41,9 +42,10 @@ export default function TabLayout() {
                 backgroundColor: colors.card,
                 borderTopColor: colors.border,
                 minHeight: 64,
+                ...(journal ? { height: 64 + insets.bottom, paddingTop: 8, paddingBottom: Math.max(8, insets.bottom) } : {}),
               },
               tabBarItemStyle: { minHeight: 48 },
-              tabBarLabelStyle: { fontFamily: fonts.medium, fontSize: 12 },
+              tabBarLabelStyle: { fontFamily: fonts.medium, fontSize: journal ? 9 : 12, ...(journal ? { lineHeight: 14 } : {}) },
               sceneStyle: { backgroundColor: colors.background },
             }}
           >
@@ -52,7 +54,7 @@ export default function TabLayout() {
               options={{
                 title: "Home",
                 tabBarIcon: ({ focused, size }) => (
-                  <Icon name="house" size={size} color={focused ? colors.primary : colors.mutedForeground} />
+                  <Icon name="house" size={journal ? 17 : size} color={focused ? colors.primary : colors.mutedForeground} />
                 ),
               }}
             />
@@ -61,7 +63,7 @@ export default function TabLayout() {
               options={{
                 title: "Food",
                 tabBarIcon: ({ focused, size }) => (
-                  <Icon name="utensils" size={size} color={focused ? colors.primary : colors.mutedForeground} />
+                  <Icon name="utensils" size={journal ? 17 : size} color={focused ? colors.primary : colors.mutedForeground} />
                 ),
               }}
             />
@@ -70,7 +72,7 @@ export default function TabLayout() {
               options={{
                 title: "Exercise",
                 tabBarIcon: ({ focused, size }) => (
-                  <Icon name="dumbbell" size={size} color={focused ? colors.primary : colors.mutedForeground} />
+                  <Icon name="dumbbell" size={journal ? 17 : size} color={focused ? colors.primary : colors.mutedForeground} />
                 ),
               }}
             />
@@ -79,7 +81,7 @@ export default function TabLayout() {
               options={{
                 title: "Settings",
                 tabBarIcon: ({ focused, size }) => (
-                  <Icon name="gear" size={size} color={focused ? colors.primary : colors.mutedForeground} />
+                  <Icon name="gear" size={journal ? 17 : size} color={focused ? colors.primary : colors.mutedForeground} />
                 ),
               }}
             />
