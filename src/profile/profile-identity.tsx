@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
 import { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
 import { AppText } from "../components/ui";
 import { DeleteButton } from "../components/delete-button";
 import { FoodButton } from "../food/food-button";
@@ -171,19 +172,13 @@ export function ProfileIdentity() {
             justifyContent: "center",
           }}
         >
-          <Icon
-            name="camera"
-            size={10}
-            color={colors.primaryForeground}
-            style={{
-              width: 14,
-              height: 14,
-              lineHeight: 14,
-              textAlign: "center",
-              textAlignVertical: "center",
-              includeFontPadding: false,
-            }}
-          />
+          <Svg width={12} height={12} viewBox="0 0 24 24" aria-hidden>
+            <Path
+              fill={colors.primaryForeground}
+              fillRule="evenodd"
+              d="M8 4h8l2 3h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2l2-3Zm4 5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z"
+            />
+          </Svg>
         </View>
       </Pressable>
       <ProfileName />

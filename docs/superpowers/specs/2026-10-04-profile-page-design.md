@@ -58,9 +58,11 @@ The selected Personal journal composition has a centered profile photo, name,
 and goal/activity summary above three sections: Overview, Goals,
 and Photos. These are sections within Profile, not additional app tabs.
 The name has a small pencil beside it. Pressing the pencil opens an underlined
-name field in place, with save/cancel actions, without switching sections. The
+name field centered beneath the avatar, with Cancel on the left and Save on the
+right, without switching sections. The
 former Edit profile action and its route to the Goals name editor are removed.
-The profile-photo camera glyph is centered within its circular badge.
+The profile-photo camera uses an SVG drawing centered within its circular badge
+so its alignment does not depend on icon-font baselines.
 
 - Overview: current/longest streaks and the current Sunday-to-Saturday week,
   the workout progress graph, a compact link to today's nutrition under Goals,

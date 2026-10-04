@@ -974,11 +974,15 @@ test("inline name editing stays in place, cancels cleanly, saves, and persists",
     assert.equal(await page.getByText(caption, { exact: true }).count(), 0);
   }
   const badge = await page.getByTestId("profile-camera-badge").evaluate((node) => {
-    const parent = node.getBoundingClientRect(), icon = node.firstElementChild.getBoundingClientRect();
-    return { x: Math.abs(parent.x + parent.width / 2 - icon.x - icon.width / 2),
-      y: Math.abs(parent.y + parent.height / 2 - icon.y - icon.height / 2) };
+    const parent = node.getBoundingClientRect(), svg = node.querySelector("svg"), path = svg.querySelector("path");
+    const bounds = path.getBBox(), point = svg.createSVGPoint();
+    point.x = bounds.x + bounds.width / 2;
+    point.y = bounds.y + bounds.height / 2;
+    const center = point.matrixTransform(path.getScreenCTM());
+    return { x: Math.abs(parent.x + parent.width / 2 - center.x),
+      y: Math.abs(parent.y + parent.height / 2 - center.y) };
   });
-  assert.ok(badge.x <= 0.5 && badge.y <= 0.5, "camera glyph box is centered in its badge");
+  assert.ok(badge.x <= 0.5 && badge.y <= 0.5, "the visible camera drawing is centered in its badge");
   const name = page.getByRole("textbox", { name: "Profile name", exact: true });
   await button(page, "Edit profile name").click();
   assert.equal(await button(page, "Overview").getAttribute("aria-pressed"), "true");
@@ -993,6 +997,16 @@ test("inline name editing stays in place, cancels cleanly, saves, and persists",
   await page.setViewportSize({ width: 320, height: 844 });
   await name.fill("a".repeat(40));
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "inline editing fits a narrow phone");
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    const input = await name.boundingBox();
+    const avatar = await button(page, "Change profile photo").boundingBox();
+    const cancel = await button(page, "Cancel name editing").boundingBox();
+    const save = await button(page, "Save profile name").boundingBox();
+    assert.ok(Math.abs(input.x + input.width / 2 - avatar.x - avatar.width / 2) <= 0.5, "editing name is centered under the avatar");
+    assert.ok(cancel.x + cancel.width <= input.x + 0.5, "Cancel is left of the name");
+    assert.ok(save.x >= input.x + input.width - 0.5, "Save is right of the name");
+  }
   await name.fill("Saved name");
   await button(page, "Save profile name").click();
   await name.waitFor({ state: "detached" });
@@ -1002,6 +1016,7 @@ test("inline name editing stays in place, cancels cleanly, saves, and persists",
   await button(page, "Cancel name editing").click();
   await page.reload();
   await page.getByRole("heading", { name: "Saved name", exact: true }).waitFor();
+  assert.deepEqual(page.__profileWarnings.filter(text => text.includes("non-boolean attribute")), [], "decorative camera SVG emits no DOM attribute warning");
 });
 
 test("inline name validation and failed save retain the draft for retry", async (t) => {

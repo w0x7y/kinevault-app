@@ -99,6 +99,7 @@ export function ProfileName() {
       >
         {editing ? (
           <>
+            {action("Cancel name editing", "xmark", cancel, profile.saving)}
             <TextInput
               accessibilityLabel="Profile name"
               value={draft}
@@ -140,7 +141,6 @@ export function ProfileName() {
               () => void save(),
               profile.saving,
             )}
-            {action("Cancel name editing", "xmark", cancel, profile.saving)}
           </>
         ) : (
           <>
