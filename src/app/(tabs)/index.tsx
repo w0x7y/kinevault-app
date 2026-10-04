@@ -11,19 +11,20 @@ import { WorkoutWidget } from "../../daily/workout-widget";
 import { ActivityWidgets } from "../../daily/activity-widgets";
 import { FoodLogStatus } from "../../food/log-status";
 import { WaterEntryModal } from "../../water/entry-modal";
+import { useExercises } from "../../exercise/provider";
 
 export default function HomeScreen() {
   const { state } = useProfile();
   const activity = useDayActivity();
+  const { retryLoad: retryWorkouts } = useExercises();
   const [waterEntryDay, setWaterEntryDay] = useState<string | null>(null);
   useEffect(() => { setWaterEntryDay(null); }, [activity.date]);
   if (state.kind !== "ready") return null;
-  if (activity.food.kind !== "ready") return <Screen title="Home" showTitle={false} fill><FoodLogStatus fill /></Screen>;
   const answers = state.document.answers;
-  const { summary } = activity.food;
+  const summary = activity.food.kind === "ready" ? activity.food.summary : null;
   return (
     <Screen title="Home" showTitle={false}>
-      <KineSplitRow pose="today" testIDPrefix="home" rowTestID="home-nutrition-row">
+      {summary ? <><KineSplitRow pose="today" testIDPrefix="home" rowTestID="home-nutrition-row">
         {(columnWidth) => (
           <NutritionWidget
             width={columnWidth}
@@ -32,8 +33,8 @@ export default function HomeScreen() {
           />
         )}
       </KineSplitRow>
-      <CalorieWidget current={summary.calories} goal={calorieState(answers).target} macros={summary} />
-      <WorkoutWidget workout={activity.workout} />
+      <CalorieWidget current={summary.calories} goal={calorieState(answers).target} macros={summary} /></> : <FoodLogStatus />}
+      <WorkoutWidget workout={activity.workout} sourceState={activity.workoutState} onRetry={retryWorkouts} />
       <ActivityWidgets steps={activity.steps} water={activity.water}
         onAddWater={() => setWaterEntryDay(activity.date)} />
       {waterEntryDay === activity.date && <WaterEntryModal key={waterEntryDay} date={waterEntryDay}

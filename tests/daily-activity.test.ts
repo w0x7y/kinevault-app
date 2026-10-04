@@ -111,3 +111,41 @@ test("recovery publishes usable data only when both logs are known and goal only
   assert.deepEqual(failed.water.total, { kind: "error" });
   assert.equal(failed.water.progress, null);
 });
+
+test("exercise records aggregate only completed sessions on the selected date independently of food", () => {
+  const definition = { id: "squat", name: "Squat", muscleGroup: "Legs", equipment: "Barbell", notes: "", tracking: "single" as const };
+  const session = { id: "morning", date, name: "Morning", status: "completed" as const,
+    startedAt: null, durationSeconds: 600,
+    exercises: [{ id: "squat-row", exercise: definition, sets: [{ id: "set", kind: "single" as const, reps: "5", weightKg: "40" }] }] };
+  const exercise = { kind: "ready" as const, document: { version: 1 as const, exercises: [definition], workouts: [],
+    sessions: [session, { ...session, id: "evening", name: "Evening" },
+      { ...session, id: "planned", status: "planned" as const, durationSeconds: null },
+      { ...session, id: "other-date", date: otherDate }] } };
+  const activity = interpretDayActivity({ ...sources, food: { kind: "error" }, exercise });
+  assert.equal(activity.food.kind, "error");
+  assert.equal(activity.workoutState, "ready");
+  assert.equal(activity.workout.volume, 400);
+  assert.equal(activity.workout.sets, 2);
+  assert.equal(activity.workout.reps, 10);
+  assert.equal(activity.workout.durationSeconds, 1200);
+  assert.equal(activity.workout.exercises.length, 2);
+  const past = interpretDayActivity({ ...sources, selectedDay: otherDate, exercise });
+  assert.equal(past.workout.volume, 200);
+});
+
+for (const kind of ["loading", "error"] as const) {
+  test(`unavailable exercise ${kind} keeps known nutrition and explicit workout source state`, () => {
+    const activity = interpretDayActivity({ ...sources, exercise: { kind } });
+    assert.equal(activity.food.kind, "ready");
+    if (activity.food.kind === "ready") assert.equal(activity.food.summary.calories, 100);
+    assert.equal(activity.workoutState, kind);
+  });
+}
+
+test("ready empty exercise storage is distinct from failed storage", () => {
+  const activity = interpretDayActivity({ ...sources,
+    exercise: { kind: "ready", document: { version: 1, exercises: [], workouts: [], sessions: [] } } });
+  assert.equal(activity.workoutState, "ready");
+  assert.equal(activity.workout.sets, 0);
+  assert.equal(activity.workout.name, null);
+});

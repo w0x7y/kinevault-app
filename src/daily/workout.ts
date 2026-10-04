@@ -17,6 +17,7 @@ type CompletedExercise = {
 export type CompletedWorkout = {
   readonly name: string | null;
   readonly durationSeconds: number;
+  readonly durationKnown?: boolean;
   readonly volume: number;
   readonly sets: number;
   readonly reps: number;

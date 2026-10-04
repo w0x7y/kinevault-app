@@ -4,16 +4,19 @@ import { Icon, type IconName } from "../components/icon";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import type { CompletedWorkout } from "./workout";
+import { Pressable } from "react-native";
 
-export function WorkoutWidget({ workout, detailed = false, query = "" }: {
+export function WorkoutWidget({ workout, detailed = false, query = "", sourceState = "ready", onRetry }: {
   workout: CompletedWorkout;
   detailed?: boolean;
   query?: string;
+  sourceState?: "ready" | "loading" | "error";
+  onRetry?: () => void;
 }) {
   const { colors } = useTheme();
   const stats: { label: string; value: string; icon: IconName }[] = [
     { label: "Total lifted", value: `${workout.volume.toLocaleString()} kg`, icon: "weight-hanging" },
-    { label: "Duration", value: `${Math.floor(workout.durationSeconds / 60)} min`, icon: "stopwatch" },
+    { label: workout.durationKnown === undefined ? "Duration" : "Recorded duration", value: workout.durationKnown === false ? "Not recorded" : `${Math.floor(workout.durationSeconds / 60)} min`, icon: "stopwatch" },
     { label: "Sets", value: String(workout.sets), icon: "layer-group" },
     { label: "Reps", value: String(workout.reps), icon: "repeat" },
     ...(detailed ? [
@@ -24,6 +27,18 @@ export function WorkoutWidget({ workout, detailed = false, query = "" }: {
   const normalizedQuery = query.trim().toLowerCase();
   const exercises = workout.exercises.filter((exercise) =>
     exercise.name.toLowerCase().includes(normalizedQuery),
+  );
+  if (sourceState !== "ready") return (
+    <Panel testID={detailed ? "exercise-workout" : "home-workout"}>
+      <AppText variant="heading">Workouts</AppText>
+      <AppText accessibilityRole={sourceState === "error" ? "alert" : undefined}>
+        {sourceState === "loading" ? "Loading your workouts..." : "Couldn't load your workouts."}
+      </AppText>
+      {sourceState === "error" && onRetry && <Pressable accessibilityRole="button" accessibilityLabel="Retry workouts"
+        onPress={onRetry} style={{ minHeight: 44, justifyContent: "center" }}>
+        <AppText variant="label" style={{ color: colors.primary }}>Retry workouts</AppText>
+      </Pressable>}
+    </Panel>
   );
   return (
     <Panel testID={detailed ? "exercise-workout" : "home-workout"} style={{ padding: spacing.layout, gap: spacing.layout }}>

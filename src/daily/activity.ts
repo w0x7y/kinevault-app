@@ -4,6 +4,8 @@ import type { WaterGoalSnapshot } from "../water/goal-persistence.ts";
 import { waterGoalProgress } from "../water/goal-model.ts";
 import { summarizeDay, type DailyActivity } from "./model.ts";
 import { interpretWorkout } from "./workout.ts";
+import type { ExerciseSnapshot } from "../exercise/persistence.ts";
+import { summarizeSessions } from "../exercise/summary.ts";
 
 type Unavailable = { kind: "loading" } | { kind: "error" };
 type FoodDay = Pick<DailyActivity, "date" | "foods" | "workout">;
@@ -11,11 +13,12 @@ type FoodActivity = Unavailable | { kind: "ready"; day: FoodDay; summary: Return
 type WaterTotal = Unavailable | { kind: "ready"; manualMl: number; drinkMl: number; ml: number };
 type WaterGoal = Unavailable | { kind: "ready"; ml: number };
 
-export function interpretDayActivity({ selectedDay, food, water, goal }: {
+export function interpretDayActivity({ selectedDay, food, water, goal, exercise }: {
   selectedDay: string;
   food: FoodLogSnapshot["state"];
   water: WaterLogSnapshot["state"];
   goal: WaterGoalSnapshot["state"];
+  exercise?: ExerciseSnapshot["state"];
 }) {
   let foodActivity: FoodActivity;
   if (food.kind === "ready") {
@@ -40,8 +43,11 @@ export function interpretDayActivity({ selectedDay, food, water, goal }: {
   const progress = waterGoalProgress(total.kind === "ready" ? total.ml : null,
     waterGoal.kind === "ready" ? waterGoal.ml : null);
 
-  // Workouts and steps have no logging source yet and remain independently usable.
-  return { date: selectedDay, food: foodActivity, steps: 0, workout: interpretWorkout(null),
+  const workoutState = exercise?.kind ?? "ready";
+  const workout = exercise?.kind === "ready"
+    ? summarizeSessions(exercise.document.sessions.filter(session => session.date === selectedDay))
+    : interpretWorkout(null);
+  return { date: selectedDay, food: foodActivity, steps: 0, workout, workoutState,
     water: { total, goal: waterGoal, progress } };
 }
 
