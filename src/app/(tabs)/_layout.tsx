@@ -13,6 +13,7 @@ import { FoodLogProvider } from "../../food/log-provider";
 import { CustomFoodProvider } from "../../food/custom-provider";
 import { WaterLogProvider } from "../../water/provider";
 import { WaterGoalProvider } from "../../water/goal-provider";
+import { ProfileMediaProvider } from "../../profile/media-provider";
 import { ExerciseProvider } from "../../exercise/provider";
 
 export default function TabLayout() {
@@ -24,7 +25,7 @@ export default function TabLayout() {
   if (state.kind !== "ready") return null;
   if (state.document.kind === "draft") return <Redirect href="/onboarding" />;
   return (
-    <CustomFoodProvider><FoodLogProvider><WaterLogProvider><WaterGoalProvider><ExerciseProvider><DayProvider>
+    <ProfileMediaProvider><CustomFoodProvider><FoodLogProvider><WaterLogProvider><WaterGoalProvider><ExerciseProvider><DayProvider>
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <View style={{ flex: 1, paddingTop: headerHeight }}>
           <Tabs
@@ -44,6 +45,7 @@ export default function TabLayout() {
               sceneStyle: { backgroundColor: colors.background },
             }}
           >
+            <Tabs.Screen name="profile" options={{ href: null }} />
             <Tabs.Screen
               name="index"
               options={{
@@ -84,6 +86,6 @@ export default function TabLayout() {
         </View>
         <AppHeader onHeightChange={setHeaderHeight} />
       </View>
-    </DayProvider></ExerciseProvider></WaterGoalProvider></WaterLogProvider></FoodLogProvider></CustomFoodProvider>
+    </DayProvider></ExerciseProvider></WaterGoalProvider></WaterLogProvider></FoodLogProvider></CustomFoodProvider></ProfileMediaProvider>
   );
 }

@@ -49,11 +49,11 @@ test("profile trigger is accessible, toggles the ordered dropdown, and is mutual
   await button(page, "Select today").waitFor();
 });
 
-test("every menu entry opens an honest coming-soon panel, closes the menu, and dismisses without changing routes or data", async t => {
+test("other menu entries open honest coming-soon panels, closes the menu, and dismisses without changing routes or data", async t => {
   const page = await open(t);
   const originalURL = page.url();
   const initialProfile = await page.evaluate(() => localStorage.getItem("kinevault-track.profile.v1"));
-  for (const name of names) {
+  for (const name of names.filter(name => name !== "Profile")) {
     await trigger(page).click();
     await menu(page).getByRole("menuitem", { name, exact: true }).click();
     await menu(page).waitFor({ state: "detached" });
@@ -148,3 +148,16 @@ test("outside click, keyboard focus leaving, and route changes close the dropdow
   await page.mouse.click(3, 100);
   await page.getByRole("dialog").waitFor({ state: "detached" });
 });
+
+ test("Profile menu navigates to the journal and returns to the previous tab", async t => {
+  const page = await open(t);
+  await page.getByRole("tab", { name: "Food", exact: true }).click();
+  await trigger(page).click();
+  await menu(page).getByRole("menuitem", { name: "Profile", exact: true }).click();
+  await page.waitForURL("**/profile");
+  await button(page, "Overview").waitFor();
+  assert.equal(await page.getByRole("tab").count(), 4);
+  assert.equal(await button(page, "Expand calendar").count(), 0);
+  await button(page, "Back from Profile").click();
+  await page.waitForURL("**/food");
+ });
