@@ -22,7 +22,7 @@ studio is maintained separately.
   Food and Exercise place their search fields below their action/Kine rows.
   Workout details list completed exercises with sets, reps, and actual weight ranges.
   Food records can be logged to a meal on the selected day. Exercise supports
-  user-created exercises, reusable workouts, and multiple sessions per day.
+  user-created exercises, reusable workouts, and multiple workout logs per day.
   Steps remain empty until their logging is implemented.
 - Shared 12px screen margins, panel padding, and gaps across tabs and onboarding.
 - Comfortaa typography, Font Awesome 6 icons, and shared themed components.
@@ -78,26 +78,36 @@ and KineVault integration are not implemented in this phase.
 
 Create Exercise saves a reusable local definition with a name, optional muscle
 group, equipment, and notes. Choose single-load or separate left/right tracking.
-Search finds your exercises; selecting one always asks which session should
-receive it, with an option to create a session on the selected date.
+Search finds exercises for editing. Results appear only while searching; there
+is no exercise-library widget on the daily screen.
 
-Create Workouts saves a named, ordered exercise list. Sets, reps, and weights
-belong to logged sessions. The button beside exercise search opens saved
-workouts; selecting one adds a planned session without starting its timer.
+Create Workouts saves a named, ordered exercise list. Logging begins only from
+a saved workout in the menu beside search. Choosing one opens a workout draft
+on the captured selected date. The menu also provides access to that day's
+workout drafts, active workout, and completed logs for editing or removal.
 
 Start workout runs the sole active timer. Its start time and entered sets are
 saved on the device, so switching tabs, backgrounding, or reopening keeps elapsed
-time. Finish workout validates and saves the completed session. Planned and
-active sessions do not contribute to daily totals. A manually completed workout
-can also be logged on any selected date, with optional duration in minutes.
+time. Finish workout validates and saves the completed workout. Drafts and
+active workouts do not contribute to daily totals. A saved workout can also be
+logged manually on any selected date, with optional duration in minutes.
+
+Home and Exercise show the workout summary only when that day has an active or
+completed workout. An empty day instead explains how to use the workout menu
+or create a workout. There is no separate sessions widget or ad hoc logging flow.
 
 Bodyweight uses repetitions and blank kilograms, without inventing lifted body
 mass. Left/right sets keep each side's reps and weight, count as one set, and
-add both sides' reps and lifted volume. Multiple completed sessions contribute
+add both sides' reps and lifted volume. Multiple completed workouts contribute
 to Home and Exercise's shared daily totals. Missing manual duration is shown as
-not recorded. Library edits and deletions preserve historical session snapshots.
-Session changes stay on the captured date, including across midnight. All data
-is local and available offline; timed holds and cardio remain future increments.
+not recorded. Library edits and deletions preserve historical exercise snapshots.
+Workout changes stay on the captured date, including across midnight. All
+exercise data is local and available offline; timed holds and cardio remain
+future increments.
+
+Development builds seed Squat, Push-up, and Dumbbell curl once, preserving
+existing data. The marker is saved with the exercises so deleted examples do
+not return after reopening. Production builds do not inject these examples.
 
 ## Food database
 
@@ -362,7 +372,7 @@ tests keep totals, exercise rows, and load ranges consistent.
 Exercise tests cover strict completed-set validation, raw draft ordering, separate
 left/right measurements, historical snapshots, failed completion retries, and
 active timer restoration. Browser checks exercise library and workout creation,
-manual and timed sessions, completed edits across exercise selection, confirmed
+manual and timed workouts, completed edits across exercise editing and workout-menu navigation, confirmed
 deletion, and independent Home recovery when Food or Exercise storage fails.
 Connection checks use local HTTP fixtures for
 manifest errors, bundle host rules, HTTPS links, startup retries, and shutdown. Formula assumptions and supported ranges are recorded
@@ -388,6 +398,14 @@ its remaining layout test used an obsolete expectation that Exercise creation
 buttons were disabled and passed after that assertion was updated. Web, iOS,
 and Android bundle exports passed. Native keyboard, app backgrounding, and
 screen-reader interactions still need a device or simulator check.
+
+The saved-workout-only revision passed 476 unit tests, TypeScript with unused-code
+checks, and all 103 browser scenarios. The full run passed 102; its remaining
+captured-date test was corrected to include the calendar's existing “today”
+accessible-label suffix and passed on rerun. Web/iOS/Android exports passed.
+Independent UI, domain, and final reviews passed. See the
+[revision review](docs/superpowers/reviews/2026-10-04-saved-workout-revision-review.md)
+for the exact verification evidence and native-device limits.
 
 The October 1, 2026 final check passed TypeScript, including unused-code checks,
 84 unit tests, 15 browser tests, Expo Doctor's 21 checks, the 11-route static web
@@ -465,7 +483,7 @@ launcher icons and splash screens. It runs independently of the Expo app.
 - `src/calendar/`: local date arithmetic, centered week grid, and React/platform wiring.
 - `src/daily/workout.ts`: one interpretation of completed sets for totals and exercise rows.
 - `src/exercise/`: validated local exercise definitions, ordered workout templates,
-  queued session persistence, resumable timers, side-aware totals, and tracking forms.
+  queued workout-log persistence, resumable timers, side-aware totals, and tracking forms.
 - `src/daily/activity.ts`: selected-day food availability, combined manual/Drink
   water availability, completed workout totals, and goal progress; unavailable
   sources stay distinct from zero.

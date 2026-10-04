@@ -6,17 +6,19 @@ import { spacing } from "../theme/tokens";
 import type { CompletedWorkout } from "./workout";
 import { Pressable } from "react-native";
 
-export function WorkoutWidget({ workout, detailed = false, query = "", sourceState = "ready", onRetry }: {
+export function WorkoutWidget({ workout, detailed = false, query = "", sourceState = "ready", onRetry, showEmptyGuidance = false, activeWorkoutName }: {
   workout: CompletedWorkout;
   detailed?: boolean;
   query?: string;
   sourceState?: "ready" | "loading" | "error";
   onRetry?: () => void;
+  showEmptyGuidance?: boolean;
+  activeWorkoutName?: string;
 }) {
   const { colors } = useTheme();
   const stats: { label: string; value: string; icon: IconName }[] = [
     { label: "Total lifted", value: `${workout.volume.toLocaleString()} kg`, icon: "weight-hanging" },
-    { label: workout.durationKnown === undefined ? "Duration" : "Recorded duration", value: workout.durationKnown === false ? "Not recorded" : `${Math.floor(workout.durationSeconds / 60)} min`, icon: "stopwatch" },
+    { label: workout.durationKnown === undefined ? "Duration" : "Recorded duration", value: activeWorkoutName && workout.name === null ? "In progress" : workout.durationKnown === false ? "Not recorded" : `${Math.floor(workout.durationSeconds / 60)} min`, icon: "stopwatch" },
     { label: "Sets", value: String(workout.sets), icon: "layer-group" },
     { label: "Reps", value: String(workout.reps), icon: "repeat" },
     ...(detailed ? [
@@ -40,12 +42,17 @@ export function WorkoutWidget({ workout, detailed = false, query = "", sourceSta
       </Pressable>}
     </Panel>
   );
+  if (showEmptyGuidance && workout.name === null && !activeWorkoutName) return (
+    <AppText testID={detailed ? "exercise-workout-empty" : "home-workout-empty"} muted>
+      Log a saved workout from the workout menu in Exercise, or create a workout to get started.
+    </AppText>
+  );
   return (
     <Panel testID={detailed ? "exercise-workout" : "home-workout"} style={{ padding: spacing.layout, gap: spacing.layout }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.layout }}>
         <View style={{ flex: 1, gap: 4 }}>
-          <AppText variant="heading" accessibilityRole="header">{workout.name ?? "Workout of the day"}</AppText>
-          <AppText variant="caption" muted>{workout.name !== null ? "Your session summary" : "No workout logged"}</AppText>
+          <AppText variant="heading" accessibilityRole="header">{workout.name ?? activeWorkoutName ?? "Workout of the day"}</AppText>
+          <AppText variant="caption" muted>{workout.name !== null ? "Your workout summary" : activeWorkoutName ? "Workout in progress" : "No workout logged"}</AppText>
         </View>
         <Icon name="dumbbell" size={20} color={colors.primary} style={{ alignSelf: "flex-start", marginTop: 4 }} />
       </View>
@@ -60,7 +67,7 @@ export function WorkoutWidget({ workout, detailed = false, query = "", sourceSta
           </View>
         ))}
       </View>
-      {detailed && (
+      {detailed && workout.exercises.length > 0 && (
         <View style={{ borderTopWidth: 1, borderColor: colors.border, paddingTop: spacing.layout, gap: spacing.layout }}>
           <AppText variant="label" accessibilityRole="header">Completed exercises</AppText>
           <View style={{ flexDirection: "row", gap: spacing.layout }}>

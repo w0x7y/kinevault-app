@@ -853,12 +853,14 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
     for (const width of [320, 390, 1280]) {
       await page.setViewportSize({ width, height: 844 });
       let homeKineWidth;
-      for (const [tab, title] of [["Home", "Calories"], ["Food", "Daily food log"], ["Exercise", "Workout of the day"], ["Settings", "Settings"]]) {
+      for (const [tab, title] of [["Home", "Calories"], ["Food", "Daily food log"], ["Exercise", null], ["Settings", "Settings"]]) {
         await page.getByRole("tab", { name: new RegExp(tab) }).click();
-        await heading(page, title);
+        if (title) await heading(page, title);
+        else await page.getByTestId("exercise-workout-empty").waitFor();
         await page.evaluate(() => document.fonts.ready);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${tab} overflows at ${width}px`);
-        const font = await page.getByRole("heading", { name: title, exact: true }).evaluate((el) => getComputedStyle(el).fontFamily);
+        const text = title ? page.getByRole("heading", { name: title, exact: true }) : page.getByTestId("exercise-workout-empty");
+        const font = await text.evaluate((el) => getComputedStyle(el).fontFamily);
         assert.match(font, /Comfortaa/);
         if (tab !== "Settings") assert.equal(await page.getByRole("heading", { name: tab, exact: true }).count(), 0);
         const pose = tab === "Home" ? "today" : tab.toLowerCase();
@@ -912,7 +914,7 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
           assert.ok(Math.abs(macrosBox.width - kineColumnBox.width) <= 1, "macros and Kine split the row evenly");
           assert.ok(macrosBox.x + macrosBox.width <= kineColumnBox.x, "Home Kine is to the right of macros");
           assert.ok(Math.abs(mascotBox.width - kineColumnBox.width) <= 1, "Kine fills his half of the row");
-          const workoutBox = await page.getByTestId("home-workout").boundingBox();
+          const workoutBox = await page.getByTestId("home-workout-empty").boundingBox();
           const activityBox = await page.getByTestId("home-activity-row").boundingBox();
           const stepsBox = await page.getByTestId("home-steps").boundingBox();
           const waterBox = await page.getByTestId("home-water").boundingBox();
@@ -940,7 +942,7 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
         } else if (tab !== "Settings") {
           const splitBox = await page.getByTestId(`${pose}-kine-row`).boundingBox();
           const searchActionsBox = await page.getByTestId(`${pose}-search-actions`).boundingBox();
-          const logBox = await page.getByTestId(tab === "Food" ? "daily-food-log" : "exercise-workout").boundingBox();
+          const logBox = await page.getByTestId(tab === "Food" ? "daily-food-log" : "exercise-workout-empty").boundingBox();
           const searchBox = await page.getByTestId(`${pose}-search-box`).boundingBox();
           assert.ok(Math.abs(searchBox.y - splitBox.y - splitBox.height - 12) <= 1, `${tab} actions-to-search gap is 12px`);
           assert.ok(Math.abs(logBox.y - searchActionsBox.y - searchActionsBox.height - 12) <= 1, `${tab} actions-to-log gap is 12px`);
@@ -955,8 +957,10 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
             assert.ok(box.x + box.width <= mascotBox.x, `${label} sits to Kine's left`);
           }
           if (tab === "Exercise") {
-            await heading(page, "Completed exercises");
-            for (const label of ["Sets", "Reps", "Weight"]) assert.ok(await page.getByText(label, { exact: true }).count() >= 1);
+            assert.equal(await page.getByTestId("exercise-workout").count(), 0);
+            assert.equal(await page.getByTestId("session-list").count(), 0);
+            assert.equal(await page.getByTestId("exercise-library").count(), 0);
+            assert.match(await page.getByTestId("exercise-workout-empty").innerText(), /workout menu.*create a workout/);
           } else {
             const foodLog = page.getByTestId("daily-food-log");
             assert.equal(await foodLog.getByText("No food has been logged yet", { exact: true }).count(), 5);

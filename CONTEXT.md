@@ -41,28 +41,33 @@ date later becomes Today; selecting Today resumes daily advancement.
 muscle group, equipment, notes, and single-load or separate left/right tracking.
 
 **Workout template**: A named, ordered exercise list. Sets, reps, and weights
-are entered for each session rather than prescribed by the template.
+are entered when logging the saved workout rather than prescribed by the template.
 
-**Workout session**: A named exercise session attached to the Selected day when
-created. Several sessions may belong to a day. Planned sessions become active
-only through Start workout, or become completed through manual logging.
+**Workout log**: A record created from a saved workout on the Selected day.
+Several logs may belong to a day. A workout draft becomes active through Start
+workout, or becomes completed through manual logging. The workout menu gives
+access to drafts and existing logs; there is no ad hoc session creation.
 
-**Active workout**: The sole session with a running wall-clock timer. Its saved
+**Active workout**: The sole workout with a running wall-clock timer. Its saved
 start time and draft sets survive tab switches and app reopening. It remains on
 its original date across midnight. Finishing requires a successful durable save.
 
-**Completed workout**: A finished or manually logged session's valid sets and
-the exercises that have at least one set. Planned and active sessions do not
-contribute to daily totals. Editing a completed session requires an explicit save.
+**Completed workout**: A finished or manually logged workout's valid sets and
+the exercises that have at least one set. Drafts and active workouts do not
+contribute to daily totals. Editing a completed workout requires an explicit save.
 
-**Exercise snapshot**: The exercise definition retained in a template or session.
-Historical sessions survive changes or deletion of their library sources.
+**Exercise snapshot**: The exercise definition retained in a template or log.
+Historical logs survive changes or deletion of their library sources.
+
+**Development exercises**: Squat, Push-up, and Dumbbell curl seeded once in a
+development build. A saved marker prevents examples from returning after deletion.
+Production builds leave the exercise library untouched.
 
 **Side set**: One set with independently entered left/right reps and kilograms.
 It contributes one set and the sum of both sides' reps and lifted volume.
 
 **Recorded duration**: Elapsed seconds measured by a workout timer, or optional
-minutes entered for a manually completed session. Missing duration is unknown.
+minutes entered for a manually completed workout. Missing duration is unknown.
 
 **Profile recovery**: Returning to a usable Profile after loading fails, by
 retrying the saved data or confirming a fresh start.
@@ -77,7 +82,7 @@ and displays the total in litres. Drink edits and removals change hydration
 with the same food-log save. Catalog saves do not record intake or hydration.
 Unavailable food or water is distinct from a known empty day or zero intake;
 food totals can be known while hydration or goal progress is unavailable.
-Completed workout sessions contribute independently to daily totals. Exercise
+Completed workout logs contribute independently to daily totals. Exercise
 storage loading or failure does not hide known food records, and Food recovery
 does not hide known workout totals.
 
