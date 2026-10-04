@@ -302,7 +302,7 @@
       document.querySelector('#theme-toggle').textContent = theme === 'dark' ? 'Light preview' : 'Dark preview';
       if (updateUrl) { const url = new URL(location.href); url.searchParams.set('theme', theme); history.replaceState(null, '', url); }
     }
-    function readUrl() { const params = new URLSearchParams(location.search); applyVariant(params.get('variant') || 'all', false); setTheme(params.get('theme') || 'light', false); }
+    function readUrl() { const params = new URLSearchParams(location.search); applyVariant(params.get('variant') || 'C', false); setTheme(params.get('theme') || 'light', false); }
     function setJournalTab(key) {
       document.querySelectorAll('[data-section]').forEach(button => { const active = button.dataset.section === key; button.setAttribute('aria-selected', String(active)); button.tabIndex = active ? 0 : -1; });
       ['overview', 'goals', 'photos'].forEach(section => { document.querySelector(`#journal-${section}`).hidden = section !== key; });

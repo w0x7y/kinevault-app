@@ -144,11 +144,28 @@ Development builds seed Squat, Push-up, and Dumbbell curl once; production build
 do not inject these examples.
 Accounts, timed holds, cardio, and KineVault integration remain outside this increment.
 
-The agreed strength/bodyweight Exercise v1 is implemented. Physical-iPhone
-verification remains pending, including keyboard, exercise scrolling,
+The agreed strength/bodyweight Exercise v1 is implemented. The user confirmed
+physical-iPhone verification, including keyboard, exercise scrolling,
 background/reopen, completion, and completed editing. Previous reps/weights,
-progress/history charts, workout duplication, and a rest timer are optional
+workout duplication and a rest timer are optional
 ideas, not scheduled requirements. See [TODO.md](TODO.md) for outstanding work.
+
+Profile uses the selected Personal journal layout with Overview, Goals, and
+Photos sections. It opens from the existing avatar menu, preserves the four
+bottom tabs and selected date, and shows today. Current/longest streaks derive
+from saved food/drinks, positive manual water, and completed workouts. Workout
+graphs offer volume, duration, or a selected exercise's heaviest set across
+4/12/52 weeks, starting with 12-week volume. Goals combines saved targets with
+today's calorie, macro, and water intake, with focused section editing.
+
+The avatar and optional dated progress photos support library/camera selection,
+replacement/removal, notes, and a comparison of two photos. Files and thumbnails
+remain on the device, separately from profile answers. No account, target-weight
+history, weekly-workout target, or cloud backup is included in this version.
+Library and camera are native sources; web offers file selection. Android
+emulator checks cover the new photo flows, durable reopening, comparison, and
+larger text. Physical-iPhone Profile acceptance remains separate from the
+completed workout checks.
 
 Food search needs no credentials or hosted service. API and shared-login
 requirements remain undecided.
@@ -160,16 +177,16 @@ Comfortaa throughout and Font Awesome 6 icons. Preserve mobile spacing and
 accessible touch targets. Screens use 12px outer margins, panel padding, and
 gaps between cards or form groups. Local label spacing stays compact.
 The compact top bar has a calendar chevron on the left,
-the selected date in the middle, and a profile-picture placeholder on the right.
+the selected date in the middle, and a saved avatar or initials on the right.
 Its calendar has seven columns and five rows, with the current week centered.
-Home, Food, and Exercise share the selected day; Settings has no calendar.
+Home, Food, and Exercise share the selected day; Settings and Profile have no calendar.
 Dates follow the device's local time zone. Selecting Today resumes automatic
 day advancement; deliberately selecting another date preserves that choice.
 Kine guides onboarding, which starts with a welcome and goals before asking age,
 and stays on Home, Food, Exercise, and Settings. Home places him beside
 nutrition; Food and Exercise place their action buttons to his left, and
 Settings places its title to his left. Food and Exercise search fields follow
-the action/Kine row. Every tab uses the same even split and
+the action/Kine row. These four tabs use the same even split and
 mascot size for a given content width. Full-body page poses are separate from
 the purpose-built Kine launcher icon and splash branding.
 Motion is brief and respects system reduced-motion preferences.

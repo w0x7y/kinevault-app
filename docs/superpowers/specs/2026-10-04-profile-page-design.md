@@ -1,7 +1,8 @@
 # Profile page design
 
-Status: approved for implementation. The user selected version 3, Personal
-journal, from the three-layout prototype on October 4, 2026.
+Status: implemented. The user selected version 3, Personal journal, from the
+three-layout prototype on October 4, 2026. Android emulator photo acceptance
+passed; the new physical-iPhone photo flow remains to verify separately.
 
 ## Purpose and agreed scope
 

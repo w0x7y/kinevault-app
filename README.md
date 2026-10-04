@@ -8,11 +8,12 @@ studio is maintained separately.
 
 - Home, Food, Exercise, and Settings tabs through Expo Router.
 - Compact header with a profile dropdown and shared five-week day picker.
-  The current week stays centered; Settings has no calendar.
+  The current week stays centered; Settings and Profile have no calendar.
   Dates use the device's local time zone. Selecting Today follows local day
   changes; a deliberately chosen other date stays selected until changed again.
   Profile, Friends, Messages, and KineVault appear above a separator, followed by
-  Support and Feedback. Each entry opens a coming-soon panel.
+  Support and Feedback. Profile opens the personal journal; the other entries
+  open coming-soon panels.
 - Daily layouts for nutrition, workouts, steps, water, and five meal sections.
   Kine uses the same even split and size beside Home macros, Food/Exercise
   action buttons, and the Settings title. Macro counts sit beside their labels.
@@ -145,12 +146,48 @@ Development builds seed Squat, Push-up, and Dumbbell curl once, preserving
 existing data. The marker is saved with the exercises so deleted examples do
 not return after reopening. Production builds do not inject these examples.
 
-The agreed strength/bodyweight Exercise v1 is implemented. The remaining
-acceptance step is a complete workout on a physical iPhone, including keyboard,
-scrolling, background/reopen, End, and completed editing. Timed exercises and
+The agreed strength/bodyweight Exercise v1 is implemented. The
+physical-iPhone workout acceptance is complete according to the user, including
+keyboard, scrolling, background/reopen, End, and completed editing. Timed exercises and
 cardio with duration/distance belong to a later phase. Previous reps/weights,
-progress/history charts, workout duplication, and a rest timer remain optional
+workout duplication and a rest timer remain optional
 ideas. See [TODO.md](TODO.md) for the current backlog.
+
+## Personal journal Profile
+
+Open Profile from the top-right avatar menu. Overview, Goals, and Photos are
+sections inside Profile; Home, Food, Exercise, and Settings remain the four
+bottom tabs. Back returns to the previous tab without changing its selected date.
+Profile always uses today in the device's local time zone.
+
+Overview shows current and longest streaks, the last seven days, and workout
+progress. Saved food/drinks, positive manual water, and completed workouts count
+once per day. Current streak can end yesterday while today is still available
+to log. Deleted and future records do not count.
+
+Workout charts start with lifted volume over 12 weeks and offer 4, 12, or 52
+weeks. Switch to duration or an exercise's heaviest recorded set. Independent
+left/right weights remain separate. Missing duration stays unknown or partial;
+bodyweight sets do not invent kilograms, and missing days remain gaps.
+
+Goals shows today's calorie, macro, and combined water intake against saved
+targets. Focused editors save personal details, calorie preferences, macro
+overrides, and the water goal. Cancel or a failed save preserves saved values.
+Editing one section keeps unrelated current answers.
+
+Choose an avatar or optional progress photos from the library or camera.
+Progress photos have a date and optional note; select two for a contained,
+side-by-side comparison. Images and thumbnails persist in the owned native
+document directory or browser IndexedDB. Photo metadata uses the separate
+`kinevault-track.profile-media.v1` key. No account or photo upload is involved.
+Native supports library and camera; the web preview offers file selection.
+
+Android emulator checks cover library/camera selection, cancellation, avatar
+cropping, saved-photo reopening, comparison, removal, and larger text in both
+themes. A physical iPhone check of the new photo flow remains in TODO.md.
+
+The selected layout is version 3, Personal journal, in the standalone
+[layout reference](design/profile-prototype.html).
 
 ## Food database
 
@@ -387,7 +424,7 @@ clear a field or leave a decimal separator while typing.
 npm run check
 npx expo-doctor
 npm run export:web
-npx expo export --platform ios --platform android --output-dir dist-native
+npx expo export --platform all --output-dir dist
 ```
 
 Tests cover appearance, profile record validation, draft resume, staged profile
@@ -545,6 +582,11 @@ launcher icons and splash screens. It runs independently of the Expo app.
 - `src/profile/answers.ts`: profile vocabulary and editable numeric strings.
 - `src/profile/calories.ts`: estimate/manual/teen policy, answer changes, and target source.
 - `src/profile/macros.ts`: calculated gram targets and custom overrides.
+- `src/profile/activity.ts`: local-date streaks and historical workout graph data.
+- `src/profile/media-persistence.ts`: durable avatar/photo metadata and owned-file lifecycle;
+  `media-files.ts` and `media-files.web.ts` own native files and browser IndexedDB blobs.
+- `src/profile/profile-screen.tsx`: Personal journal composition and editor requests;
+  focused goals, charts, photo editors, and comparison reuse the shared providers.
 - `src/calendar/selection.ts`: shared Selected day lifecycle with clock and wake adapters.
 - `src/calendar/`: local date arithmetic, centered week grid, and React/platform wiring.
 - `src/daily/workout.ts`: one interpretation of completed sets for totals and exercise rows.

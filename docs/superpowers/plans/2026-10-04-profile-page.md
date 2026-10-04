@@ -51,7 +51,7 @@ function workoutGraph(input: {
 }): WorkoutGraph;
 ```
 
-- [ ] Write failing tests using real validated fixtures. Catch duplicate qualifying sources, today/yesterday grace, clearing/deleting records, future exclusion, leap/year/DST date boundaries, multiple workouts per day, side-specific loads, bodyweight-only records, and missing/partial duration.
+- [x] Write failing tests using real validated fixtures. Catch duplicate qualifying sources, today/yesterday grace, clearing/deleting records, future exclusion, leap/year/DST date boundaries, multiple workouts per day, side-specific loads, bodyweight-only records, and missing/partial duration.
 
 ```ts
 assert.equal(profileStreak({ today: "2026-10-04", food: {version:1,days:{}},
@@ -60,15 +60,15 @@ assert.equal(profileStreak({ today: "2026-10-05", food: {version:1,days:{}},
   water: {version:1,days:{"2026-10-02":250,"2026-10-03":250}}, sessions: [] }).current, 0);
 ```
 
-- [ ] Run `node --experimental-strip-types --test tests/profile-activity.test.ts`, observe missing-feature failure, then implement the contracts.
-- [ ] Build sorted unique qualifying dates through today; current ends today or yesterday and longest uses all qualifying dates. Return seven chronological dates ending today.
-- [ ] Chart points cover every local date in the range. Days without workouts have null values. Volume sums kg-times-reps; duration totals known seconds/60 and records partial duration; weight uses the highest positive kg from sets with positive reps.
-- [ ] Group exercise options by JSON-encoded `[exercise.id, exercise.tracking]`; use latest historical names, retain deleted definitions, and never merge tracking modes.
-- [ ] Run the focused suite and strict TypeScript, self-review, commit only task files, and return the task report.
+- [x] Run `node --experimental-strip-types --test tests/profile-activity.test.ts`, observe missing-feature failure, then implement the contracts.
+- [x] Build sorted unique qualifying dates through today; current ends today or yesterday and longest uses all qualifying dates. Return seven chronological dates ending today.
+- [x] Chart points cover every local date in the range. Days without workouts have null values. Volume sums kg-times-reps; duration totals known seconds/60 and records partial duration; weight uses the highest positive kg from sets with positive reps.
+- [x] Group exercise options by JSON-encoded `[exercise.id, exercise.tracking]`; use latest historical names, retain deleted definitions, and never merge tracking modes.
+- [x] Run the focused suite and strict TypeScript, self-review, commit only task files, and return the task report.
 
 ## Task 2: Durable local media
 
-**Files:** Create `src/profile/media-model.ts`, `media-persistence.ts`, `media-files.ts`, `media-files.web.ts`, `media-picker.ts`, `media-provider.tsx`, `photo-image.tsx`; create `tests/profile-media.test.ts`.
+**Files:** Create `src/profile/media-model.ts`, `media-persistence.ts`, `media-files.ts`, `media-files.web.ts`, `media-picker.ts`, `media-provider.tsx`, `photo-image.tsx`; create `tests/profile-media.test.ts` and `tests/profile-media.browser.mjs`.
 
 **Consumes:** AsyncStorage-like metadata storage; platform media-file adapter; unique ID generator. Packages/config are prepared by the parent.
 
@@ -106,7 +106,7 @@ returns `Promise<PhotoSource | null>`. `PhotoImage` consumes `image:StoredPhoto`
 and `contentFit?:"cover"|"contain"`, resolves/releases URIs, and renders a truthful
 unavailable state on missing/corrupt images.
 
-- [ ] Write and run failing persistence tests using controllable metadata/file storage. Assert observable publication order, write failure/retry, canceled lifecycle reads, duplicate commands, invalid metadata, replacing/deleting without losing unrelated photos, and missing photo IDs.
+- [x] Write and run failing persistence tests using controllable metadata/file storage. Assert observable publication order, write failure/retry, canceled lifecycle reads, duplicate commands, invalid metadata, replacing/deleting without losing unrelated photos, and missing photo IDs.
 
 ```ts
 // A failed metadata publication must preserve the previously saved avatar.
@@ -116,24 +116,25 @@ assert.equal(await store.saveAvatar(source), false);
 assert.deepEqual(store.getSnapshot().state, before.state);
 ```
 
-- [ ] Parse absent metadata to an empty document under `kinevault-track.profile-media.v1`. Validate safe IDs, positive integer dimensions, ISO local dates, notes up to 2,000 characters, and globally unique image/photo identities. Never accept arbitrary file paths.
-- [ ] Serialize mutations, validate before imports/writes, and publish only after durable metadata save. On failed metadata write, remove only the newly imported asset. Commit replacement/removal metadata before cleaning old files; cleanup errors must not report the successful metadata save as failed or delete another asset.
-- [ ] Native adapter uses an owned document directory and modern Expo File/Directory APIs. Resize originals to at most 1,600 px and thumbnails to at most 320 px, JPEG quality 0.85/0.75. Preserve progress-photo aspect ratio. Own filenames are derived solely from safe IDs.
-- [ ] Web adapter uses IndexedDB blobs for original/thumbnail persistence and canvas resizing. Await transaction completion, handle unavailable storage explicitly, release generated object URLs, and remain inert during static export.
-- [ ] Picker supports native library/camera, image-only selection, camera permission on demand, cancellation, optional avatar crop, and web file input via Expo ImagePicker. Native camera needs hardware; no web camera parity claim. Denied/canceled selection must not write metadata.
-- [ ] Add provider and resolved image component. Read/import failures show recovery or unavailable state; failed mutations preserve editable source data in the caller.
-- [ ] Run focused tests and strict TypeScript, self-review, commit only task files, and return report. Do not alter app routes, providers, package/config, or the Profile screen.
+- [x] Parse absent metadata to an empty document under `kinevault-track.profile-media.v1`. Validate safe IDs, positive integer dimensions, ISO local dates, notes up to 2,000 characters, and globally unique image/photo identities. Never accept arbitrary file paths.
+- [x] Serialize mutations, validate before imports/writes, and publish only after durable metadata save. On failed metadata write, remove only the newly imported asset. Commit replacement/removal metadata before cleaning old files; cleanup errors must not report the successful metadata save as failed or delete another asset.
+- [x] Native adapter uses an owned document directory and modern Expo File/Directory APIs. Resize originals to at most 1,600 px and thumbnails to at most 320 px, JPEG quality 0.85/0.75. Preserve progress-photo aspect ratio. Own filenames are derived solely from safe IDs.
+- [x] Keep real-browser adapter checks in the browser suite, which runs after Chromium installation; pure persistence checks remain in the direct suite.
+- [x] Web adapter uses IndexedDB blobs for original/thumbnail persistence and canvas resizing. Await transaction completion, handle unavailable storage explicitly, release generated object URLs, and remain inert during static export.
+- [x] Picker supports native library/camera, image-only selection, camera permission on demand, cancellation, optional avatar crop, and web file input via Expo ImagePicker. Native camera needs hardware; no web camera parity claim. Denied/canceled selection must not write metadata.
+- [x] Add provider and resolved image component. Read/import failures show recovery or unavailable state; failed mutations preserve editable source data in the caller.
+- [x] Run focused tests and strict TypeScript, self-review, commit only task files, and return report. Do not alter app routes, providers, package/config, or the Profile screen.
 
 ## Task 3: Profile sections and navigation
 
-**Files:** Create `src/app/(tabs)/profile.tsx`, `src/profile/profile-screen.tsx`, `profile-controls.tsx`, `profile-identity.tsx`, `profile-streak.tsx`, `workout-chart.tsx`, `profile-goals.tsx`, `section-editing.ts`, `profile-editor.tsx`, `progress-photos.tsx`, `photo-editor.tsx`, `photo-comparison.tsx`; create `tests/profile-section-editing.test.ts`, `tests/profile.browser.mjs`. Modify `src/app/(tabs)/_layout.tsx` and `src/components/app-header.tsx`.
+**Files:** Create `src/app/(tabs)/profile.tsx`, `src/profile/profile-screen.tsx`, `profile-controls.tsx`, `profile-identity.tsx`, `profile-streak.tsx`, `workout-chart.tsx`, `profile-goals.tsx`, `section-editing.ts`, `profile-editor.tsx`, `progress-photos.tsx`, `photo-editor.tsx`, `photo-comparison.tsx`, `water-goal-editor.tsx`; create `tests/profile-section-editing.test.ts`, `tests/profile.browser.mjs`. Modify `src/app/(tabs)/_layout.tsx` and `src/components/app-header.tsx`; update `tests/profile-menu.browser.mjs` for the new Profile destination.
 
 **Consumes:** Task 1/2 contracts, existing profile/activity providers, `useSelectedDay().today`, existing Question/validation/calorie-change functions, shared panels/buttons/delete confirmation.
 
 **Produces:** A working hidden `/profile` tab route and focused Personal journal UI with no extra bottom-tab destination.
 
-- [ ] Write failing browser scenarios for Profile-menu navigation from a historical Home date; four bottom tabs; no Profile calendar; returning to the original selected date; section changes; real streak/chart totals; Goals showing today; and direct section editing. Add focused edit tests that prevent unrelated-current-answer overwrites and preserve estimator/teen transitions.
-- [ ] Reuse the current saved answers at Save time. Apply only the active section's draft through existing calorie-change/validation behavior. Keep the form and fields after errors; use Save/Cancel; Settings/onboarding remains compatible.
+- [x] Write failing browser scenarios for Profile-menu navigation from a historical Home date; four bottom tabs; no Profile calendar; returning to the original selected date; section changes; real streak/chart totals; Goals showing today; and direct section editing. Add focused edit tests that prevent unrelated-current-answer overwrites and preserve estimator/teen transitions.
+- [x] Reuse the current saved answers at Save time. Apply only the active section's draft through existing calorie-change/validation behavior. Keep the form and fields after errors; use Save/Cancel; Settings/onboarding remains compatible.
 
 ```ts
 type ProfileEditSection = "name"|"age"|"body"|"goal"|"activity"|"calories";
@@ -142,13 +143,13 @@ function editedProfileAnswers(current: Answers, draft: Answers, section: Profile
 assert.equal(editedProfileAnswers({...saved,weight:"81"},{...saved,name:"New name"},"name").weight,"81");
 ```
 
-- [ ] Build a centered avatar/name/goal/activity header and Overview/Goals/Photos controls with accessible selected state. Use actual app typography and touch targets rather than copying the tiny desktop comparison sizes.
-- [ ] Overview gates streak on all source readiness; shows seven chronological local dates, graph, a today's-nutrition link to Goals, and recent photos with Photos navigation. Each source failure has its own retry action without hiding unrelated usable sections.
-- [ ] Graph uses react-native-svg, themed colors, labelled left/right series, truthful empty/missing states, and text data access. Support tap/select of points with dates/units and avoid implying measurements between missing data. Controls select metric/range/exercise without changing workout records.
-- [ ] Goals reuses `interpretDayActivity` for today and existing target functions. Show unset/zero/over-goal values correctly, inline nutrition/personal editors, and an editable water goal through existing water persistence.
-- [ ] Photos shows dated real images/notes, Add from library/camera, editable date/note, replace/remove with confirmation, and exactly-two selection for comparison. Use contain-fit for comparison and return to the gallery after dismissal. Failed picker/save/remove actions keep data and drafts; show pending state and prevent double submissions.
-- [ ] Wrap tabs/header with one `ProfileMediaProvider`, register Profile with `href:null`, and route the menu's Profile entry to `/profile`. On Profile, show a back action/title instead of calendar controls; preserve the previous tab and selected day. Shared avatar uses saved media or initials, with recoverable media errors.
-- [ ] Run focused direct/browser tests and strict TypeScript, inspect light/dark layouts at 320/390/tablet/desktop widths with T3 preview tools, self-review, commit only task files, and return report.
+- [x] Build a centered avatar/name/goal/activity header and Overview/Goals/Photos controls with accessible selected state. Use actual app typography and touch targets rather than copying the tiny desktop comparison sizes.
+- [x] Overview gates streak on all source readiness; shows seven chronological local dates, graph, a today's-nutrition link to Goals, and recent photos with Photos navigation. Each source failure has its own retry action without hiding unrelated usable sections.
+- [x] Graph uses react-native-svg, themed colors, labelled left/right series, truthful empty/missing states, and text data access. Support tap/select of points with dates/units and avoid implying measurements between missing data. Controls select metric/range/exercise without changing workout records.
+- [x] Goals reuses `interpretDayActivity` for today and existing target functions. Show unset/zero/over-goal values correctly, inline nutrition/personal editors, and an editable water goal through existing water persistence.
+- [x] Photos shows dated real images/notes, Add from library/camera, editable date/note, replace/remove with confirmation, and exactly-two selection for comparison. Use contain-fit for comparison and return to the gallery after dismissal. Failed picker/save/remove actions keep data and drafts; show pending state and prevent double submissions.
+- [x] Wrap tabs/header with one `ProfileMediaProvider`, register Profile with `href:null`, and route the menu's Profile entry to `/profile`. On Profile, show a back action/title instead of calendar controls; preserve the previous tab and selected day. Shared avatar uses saved media or initials, with recoverable media errors.
+- [x] Run focused direct/browser tests and strict TypeScript, inspect light/dark layouts at 320/390/tablet/desktop widths with T3 preview tools, self-review, commit only task files, and return report.
 
 ## Task 4: Verification, review, and documentation
 
