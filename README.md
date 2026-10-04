@@ -93,13 +93,17 @@ active workouts do not contribute to daily totals. A saved workout can also be
 logged manually on any selected date, with optional duration in minutes.
 
 Home and Exercise show the workout summary only when that day has an active or
-completed workout. An empty day shows an Add workout widget that opens the same
+completed workout. An empty day shows a button-only Add workout widget that opens the same
 saved-workout menu as the button beside search. Home opens this menu in Exercise
 for the selected day. An empty menu says “No workout found. Create a workout to
 get started.” There is no separate sessions widget or ad hoc logging flow.
 
-Exercise search shares Food's field and result-card styling. It searches after
-two letters, shows exercise metadata, and pages results in groups of 20.
+Exercise shows its daily widget only when no search, form, saved menu, or workout
+editor is open. Storage loading and recovery remain visible.
+
+Exercise search shares Food's field and result-card styling. It searches from
+the first character, shows exercise metadata, and pages results in groups of 20.
+Each result reserves a landscape video preview with a No video found icon.
 
 Bodyweight uses repetitions and blank kilograms, without inventing lifted body
 mass. Left/right sets keep each side's reps and weight, count as one set, and

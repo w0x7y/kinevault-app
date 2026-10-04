@@ -197,6 +197,8 @@ test("exercise search edits definitions without adding them to a running or plan
   await field(page, "Search exercises").fill("Curl");
   await button(page, "Edit exercise Curl").click();
   await page.getByTestId("exercise-form").waitFor();
+  assert.equal(await page.getByTestId("exercise-workout").count(), 0);
+  assert.equal(await page.getByTestId("active-workout-timer").count(), 1);
   assert.equal(await page.getByTestId("session-picker").count(), 0);
   assert.equal(await button(page, "New workout session").count(), 0);
   assert.deepEqual((await documentFrom(page)).sessions, [active, planned]);
@@ -313,6 +315,7 @@ test("library edits and confirmed deletion preserve historical snapshots and ses
   assert.equal((await documentFrom(page)).sessions[0].exercises[0].sets[0].reps, "5");
   await button(editor, "Save changes").click();
   document = await storedWhen(page, document => document.sessions[0].exercises[0].sets[0].reps === "10");
+  await button(page, "Clear search").click();
   await page.getByTestId("exercise-workout").getByText("400 kg", { exact: true }).waitFor();
   await button(page, "Saved workouts").click();
   await button(page, "Delete logged workout Manual").click();
@@ -450,7 +453,7 @@ test("Home Add workout opens the saved menu once with the selected date", async 
   assert.equal(document.sessions[0].date, "2026-10-03");
 });
 
-test("Exercise search matches Food field and result styling, pages results, and clears them", async t => {
+test("Exercise search matches Food styling, finds from the first letter, pages results, and clears them", async t => {
   const exercises = Array.from({ length: 21 }, (_, index) => ({ ...single, id: `squat-${index}`, name: `Squat ${index + 1}` }));
   const page = await open(t, { document: { ...empty(), exercises } });
   const styles = locator => locator.evaluate(element => {
@@ -470,8 +473,10 @@ test("Exercise search matches Food field and result styling, pages results, and 
     await page.getByRole("tab", { name: /Exercise/ }).click();
     assert.deepEqual(await styles(page.getByTestId("exercise-search-box")), foodFieldStyle);
     await field(page, "Search exercises").fill("S");
-    await page.getByText("Type at least two letters to search exercises.", { exact: true }).waitFor();
-    assert.equal(await page.getByTestId("exercise-result").count(), 0);
+    await page.getByTestId("exercise-result").first().waitFor();
+    assert.equal(await page.getByTestId("exercise-result").count(), 20);
+    assert.equal(await button(page, "Edit exercise Squat 1").count(), 1);
+    assert.equal(await page.getByTestId("exercise-workout-empty").count(), 0);
     await field(page, "Search exercises").fill("Squat");
     await page.getByTestId("exercise-result").first().waitFor();
     assert.deepEqual(await styles(page.getByTestId("exercise-result").first()), foodResultStyle);
@@ -494,5 +499,80 @@ test("Exercise search matches Food field and result styling, pages results, and 
     assert.equal(await page.getByTestId("exercise-library").count(), 0);
     assert.equal(await field(page, "Search exercises").inputValue(), "");
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  }
+});
+
+test("Add workout is a button-only fallback that hides behind every Exercise view", async t => {
+  const template = { id: "template", name: "Leg day", exercises: [single] };
+  const page = await open(t, { document: { ...empty(), exercises: [single], workouts: [template] } });
+  const fallback = page.getByTestId("exercise-workout-empty");
+  await fallback.waitFor();
+  assert.equal(await fallback.getByRole("heading").count(), 0);
+  assert.doesNotMatch(await fallback.innerText(), /Workout of the day|No workout logged/);
+  for (const [action, form] of [["Create Exercise", "exercise-form"], ["Create Workouts", "workout-form"]]) {
+    await button(page, action).click();
+    await page.getByTestId(form).waitFor();
+    assert.equal(await fallback.count(), 0);
+    await button(page.getByTestId(form), "Cancel").click();
+    await fallback.waitFor();
+  }
+  await button(fallback, "Add workout").click();
+  await page.getByTestId("workout-library").waitFor();
+  assert.equal(await fallback.count(), 0);
+  await button(page, "Add Leg day to selected day").click();
+  const editor = page.getByTestId("session-editor");
+  await editor.waitFor();
+  assert.equal(await fallback.count(), 0);
+  await button(editor, "Close workout").click();
+  await fallback.waitFor();
+  await field(page, "Search exercises").fill("S");
+  await button(page, "Edit exercise Squat").waitFor();
+  assert.equal(await fallback.count(), 0);
+  await button(page, "Edit exercise Squat").click();
+  await button(page.getByTestId("exercise-form"), "Cancel").click();
+  assert.equal(await fallback.count(), 0, "the retained search still occupies the content area");
+  await field(page, "Search exercises").fill("unmatched");
+  await page.getByText("No exercises found. Try a simpler name or different equipment.", { exact: true }).waitFor();
+  assert.equal(await fallback.count(), 0);
+  await button(page, "Clear search").click();
+  await fallback.waitFor();
+  await field(page, "Search exercises").fill("   ");
+  assert.equal(await page.getByTestId("exercise-library").count(), 0);
+  assert.equal(await fallback.count(), 1);
+  await page.getByRole("tab", { name: /Home/ }).click();
+  const homeFallback = page.getByTestId("home-workout-empty");
+  await homeFallback.waitFor();
+  assert.equal(await homeFallback.getByRole("heading").count(), 0);
+  assert.doesNotMatch(await homeFallback.innerText(), /Workout of the day|No workout logged/);
+});
+
+test("exercise results reserve a responsive video preview without hiding long names", async t => {
+  const longName = "Split squat with a very long exercise name and independent left and right repetitions";
+  const longExercise = { ...sides, id: "long", name: longName, muscleGroup: "Legs with a long muscle group description", equipment: "Dumbbells and additional equipment details" };
+  const page = await open(t, { document: { ...empty(), exercises: [single, longExercise] } });
+  for (const appearance of ["light", "dark"]) {
+    await page.evaluate(value => localStorage.setItem("kinevault-track.appearance", value), appearance);
+    await page.reload();
+    await page.getByTestId("exercise-search-actions").waitFor();
+    await field(page, "Search exercises").fill(" S ");
+    await page.getByTestId("exercise-video-placeholder").first().waitFor();
+    assert.equal(await page.getByTestId("exercise-video-placeholder").count(), 2);
+    assert.equal(await page.getByRole("img", { name: "No video found", exact: true }).count(), 2);
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      const result = button(page, `Edit exercise ${longName}`);
+      const previewBox = await result.getByTestId("exercise-video-placeholder").boundingBox();
+      const nameBox = await result.getByText(longName, { exact: true }).boundingBox();
+      const resultBox = await result.boundingBox();
+      assert.ok(previewBox.width >= 48);
+      assert.ok(Math.abs(previewBox.width / previewBox.height - 16 / 9) < 0.05);
+      assert.ok(nameBox.x + nameBox.width <= previewBox.x + 1, "exercise text stays beside the preview");
+      assert.ok(previewBox.x + previewBox.width <= resultBox.x + resultBox.width, "preview stays inside its card");
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    }
+    await page.getByTestId("exercise-video-placeholder").first().click();
+    await page.getByTestId("exercise-form").waitFor();
+    assert.equal(await field(page, "Exercise name").inputValue(), "Squat");
+    await button(page.getByTestId("exercise-form"), "Cancel").click();
   }
 });

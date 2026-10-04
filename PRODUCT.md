@@ -39,10 +39,13 @@ hydration. Beverages log automatically to Drinks without gram or meal controls. 
 with the same food-log write. Legacy snacks remain Snacks without guessed ml. Exercise
 shows totals for active or completed workouts, with sets, reps, and actual
 weight ranges. Exercise search opens library definitions for editing and matches
-Food's search and result styling, with at least two letters and 20 results per
-page. The button beside search opens saved workouts and that day's drafts and
-logs. Logging starts only from a saved workout. Empty days show an Add workout
-widget opening the same menu. Home opens it in Exercise for the selected day.
+Food's search and result styling, matching from the first character and showing
+20 results per page. Each result has a landscape video placeholder with a
+No video found icon. The button beside search opens saved workouts and that day's drafts and
+logs. Logging starts only from a saved workout. Empty days show a button-only
+Add workout widget opening the same menu. Exercise hides its daily widget while
+search, a form, the saved menu, or a workout editor occupies the screen. Storage
+recovery stays visible. Home opens the menu in Exercise for the selected day.
 An empty menu says “No workout found. Create a workout to get started.” The sessions and exercise
 library widgets are removed. Steps remain empty.
 Drink search includes existing named energy drinks and common aliases for generic

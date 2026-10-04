@@ -859,7 +859,7 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
         else await page.getByTestId("exercise-workout-empty").waitFor();
         await page.evaluate(() => document.fonts.ready);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${tab} overflows at ${width}px`);
-        const text = title ? page.getByRole("heading", { name: title, exact: true }) : page.getByTestId("exercise-workout-empty").getByRole("heading", { name: "Workout of the day", exact: true });
+        const text = title ? page.getByRole("heading", { name: title, exact: true }) : button(page.getByTestId("exercise-workout-empty"), "Add workout").getByText("Add workout", { exact: true });
         const font = await text.evaluate((el) => getComputedStyle(el).fontFamily);
         assert.match(font, /Comfortaa/);
         if (tab !== "Settings") assert.equal(await page.getByRole("heading", { name: tab, exact: true }).count(), 0);
