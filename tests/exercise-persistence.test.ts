@@ -1,0 +1,166 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createExercisePersistence, exerciseStorageKey } from "../src/exercise/persistence.ts";
+import { parseExerciseDocument, type SessionExercise } from "../src/exercise/model.ts";
+import type { DurableStorage } from "../src/persistence/durable-write.ts";
+
+const flush = async () => { for (let n = 0; n < 12; n++) await Promise.resolve(); };
+function deferred<T>() { let resolve!: (value: T) => void; let reject!: (error: Error) => void;
+  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }
+function fixture(initial: string | null = null) {
+  let raw = initial, clock = 1000000, ids = 0, writes = 0;
+  const storage: DurableStorage = { async getItem(key) { assert.equal(key, exerciseStorageKey); return raw; },
+    async setItem(key, value) { assert.equal(key, exerciseStorageKey); ++writes; raw = value; } };
+  const store = createExercisePersistence({ storage, createId: () => `id-${++ids}`, now: () => clock });
+  return { store, storage, raw: () => raw, writes: () => writes, setRaw: (value: string) => { raw = value; }, setNow: (value: number) => { clock = value; } };
+}
+async function ready(initial: string | null = null) { const f = fixture(initial); f.store.start(); await flush(); assert.equal(f.store.getSnapshot().state.kind, "ready"); return f; }
+function doc(store: ReturnType<typeof fixture>["store"]) { const state = store.getSnapshot().state; if (state.kind !== "ready") throw new Error("Not ready"); return state.document; }
+async function planned(f: ReturnType<typeof fixture>, name = "Strength") {
+  const exerciseId = await f.store.saveExercise({ name: "Squat", muscleGroup: "Legs", equipment: "Barbell", notes: "", tracking: "single" }); assert.ok(exerciseId);
+  const sessionId = await f.store.createSession({ date: "2026-10-04", name }); assert.ok(sessionId);
+  assert.equal(await f.store.addExercise({ sessionId, exerciseId }), true);
+  return { sessionId, exerciseId };
+}
+function entered(f: ReturnType<typeof fixture>, sessionId: string, reps = "8"): SessionExercise[] {
+  return doc(f.store).sessions.find(session => session.id === sessionId)!.exercises.map(row => ({ ...row, sets: [{ id: "set-1", kind: "single", reps, weightKg: "10" }] }));
+}
+
+test("library and templates preserve history and resolve live definitions before retained snapshots", async () => {
+  const f = await ready(); const { exerciseId, sessionId } = await planned(f);
+  const workoutId = await f.store.saveWorkout({ name: "Leg day", exerciseIds: [exerciseId] }); assert.ok(workoutId);
+  assert.equal(await f.store.saveExercise({ id: exerciseId, name: "Front squat", muscleGroup: "Legs", equipment: "Barbell", notes: "new", tracking: "single" }), exerciseId);
+  const first = await f.store.planWorkout({ date: "2026-10-03", workoutId }); assert.ok(first);
+  assert.equal(doc(f.store).sessions.find(session => session.id === first)!.exercises[0]!.exercise.name, "Front squat");
+  assert.equal(doc(f.store).sessions.find(session => session.id === sessionId)!.exercises[0]!.exercise.name, "Squat");
+  assert.equal(await f.store.removeExercise(exerciseId), true);
+  const second = await f.store.planWorkout({ date: "2026-10-02", workoutId }); assert.ok(second);
+  assert.equal(doc(f.store).sessions.find(session => session.id === second)!.exercises[0]!.exercise.name, "Squat");
+  assert.equal(await f.store.saveWorkout({ id: workoutId, name: "Renamed", exerciseIds: [exerciseId] }), workoutId);
+  assert.equal(await f.store.removeWorkout(workoutId), true); assert.equal(doc(f.store).sessions.length, 3);
+});
+test("ordered templates and sessions support repeated library exercise occurrences", async () => {
+  const f = await ready(); const { exerciseId, sessionId } = await planned(f);
+  const next = await f.store.saveExercise({ name: "Press", muscleGroup: "", equipment: "", notes: "", tracking: "sides" }); assert.ok(next);
+  const workoutId = await f.store.saveWorkout({ name: "Upper", exerciseIds: [next, exerciseId] }); assert.ok(workoutId);
+  const id = await f.store.planWorkout({ date: "2026-10-01", workoutId }); assert.ok(id);
+  assert.deepEqual(doc(f.store).sessions.find(session => session.id === id)!.exercises.map(row => row.exercise.id), [next, exerciseId]);
+  assert.equal(await f.store.addExercise({ sessionId, exerciseId }), true);
+  const rows = doc(f.store).sessions.find(session => session.id === sessionId)!.exercises;
+  assert.equal(rows.length, 2); assert.notEqual(rows[0]!.id, rows[1]!.id);
+});
+test("rapid drafts serialize without losing the last input and detach caller-owned arrays", async () => {
+  const f = await ready(); const { sessionId } = await planned(f); const gate = deferred<void>(); const write = f.storage.setItem;
+  f.storage.setItem = async (key, value) => { await gate.promise; await write(key, value); };
+  const first = f.store.updateSession({ id: sessionId, name: "First", exercises: entered(f, sessionId, "1") }); await flush();
+  const rows = entered(f, sessionId, "1e"); const second = f.store.updateSession({ id: sessionId, name: "Second", exercises: rows });
+  rows[0]!.sets = [];
+  const third = f.store.updateSession({ id: sessionId, name: "Third", exercises: entered(f, sessionId, "-") });
+  assert.equal(doc(f.store).sessions[0]!.name, "Strength"); gate.resolve();
+  assert.deepEqual(await Promise.all([first, second, third]), [true, true, true]);
+  assert.equal(doc(f.store).sessions[0]!.name, "Third");
+  assert.equal((doc(f.store).sessions[0]!.exercises[0]!.sets[0] as { reps: string }).reps, "-");
+  assert.equal(parseExerciseDocument(f.raw()).sessions[0]!.name, "Third");
+});
+test("active restart keeps start time, drafts and captured date across midnight", async () => {
+  const f = await ready(); const { sessionId } = await planned(f);
+  assert.equal(await f.store.startSession(sessionId), true);
+  assert.equal(await f.store.updateSession({ id: sessionId, name: "Strength", exercises: entered(f, sessionId) }), true);
+  const restored = await ready(f.raw()); restored.setNow(1120000);
+  assert.equal(doc(restored.store).sessions[0]!.startedAt, 1000000);
+  assert.equal(await restored.store.completeSession({ id: sessionId, name: "Strength", exercises: doc(restored.store).sessions[0]!.exercises }), true);
+  assert.equal(doc(restored.store).sessions[0]!.durationSeconds, 120); assert.equal(doc(restored.store).sessions[0]!.date, "2026-10-04");
+});
+test("double starts and competing active workouts are rejected atomically", async () => {
+  const f = await ready(); const { sessionId } = await planned(f); const other = await f.store.createSession({ date: "2026-10-05", name: "Other" }); assert.ok(other);
+  assert.deepEqual(await Promise.all([f.store.startSession(sessionId), f.store.startSession(sessionId), f.store.startSession(other)]), [true, false, false]);
+  assert.equal(doc(f.store).sessions.filter(session => session.status === "active").length, 1);
+});
+test("failed active completion retains running timestamp and retry measures the full elapsed time", async () => {
+  const f = await ready(); const { sessionId } = await planned(f); await f.store.startSession(sessionId);
+  const rows = entered(f, sessionId); await f.store.updateSession({ id: sessionId, name: "Strength", exercises: rows });
+  const raw = f.raw(), write = f.storage.setItem; f.storage.setItem = async () => { throw new Error("Disk full"); }; f.setNow(1060000);
+  assert.equal(await f.store.completeSession({ id: sessionId, name: "Edited", exercises: rows }), false);
+  assert.equal(f.raw(), raw); assert.equal(doc(f.store).sessions[0]!.status, "active"); assert.equal(doc(f.store).sessions[0]!.startedAt, 1000000);
+  assert.ok(f.store.getSnapshot().error); f.storage.setItem = write; f.setNow(1120000);
+  assert.equal(await f.store.completeSession({ id: sessionId, name: "Edited", exercises: rows }), true);
+  assert.equal(doc(f.store).sessions[0]!.durationSeconds, 120); assert.equal(f.store.getSnapshot().error, null);
+});
+test("manual completion distinguishes unknown duration and supports validated completed edits", async () => {
+  const f = await ready(); const { sessionId } = await planned(f);
+  assert.equal(await f.store.completeSession({ id: sessionId, name: "Manual", exercises: entered(f, sessionId), durationMinutes: "" }), true);
+  assert.equal(doc(f.store).sessions[0]!.durationSeconds, null);
+  assert.equal(await f.store.updateSession({ id: sessionId, name: "Updated", exercises: entered(f, sessionId, "10"), durationSeconds: 150 }), true);
+  assert.equal(doc(f.store).sessions[0]!.durationSeconds, 150);
+  assert.equal(await f.store.updateSession({ id: sessionId, name: "Bad", exercises: entered(f, sessionId, "abc") }), false);
+  assert.equal(doc(f.store).sessions[0]!.name, "Updated");
+  assert.equal(await f.store.completeSession({ id: sessionId, name: "Updated", exercises: entered(f, sessionId), durationMinutes: "2.5" }), true);
+  assert.equal(doc(f.store).sessions[0]!.durationSeconds, 150);
+  assert.equal(await f.store.removeSession(sessionId), true); assert.deepEqual(doc(f.store).sessions, []);
+});
+test("invalid completion never changes the durable draft", async () => {
+  const f = await ready(); const { sessionId } = await planned(f); const raw = f.raw();
+  for (const input of [
+    { name: "", exercises: entered(f, sessionId) }, { name: "Name", exercises: [] },
+    { name: "Name", exercises: entered(f, sessionId, "0") }, { name: "Name", exercises: entered(f, sessionId), durationMinutes: "1e2" },
+  ]) assert.equal(await f.store.completeSession({ id: sessionId, ...input }), false);
+  assert.equal(f.raw(), raw);
+});
+test("queued stale draft cannot overwrite completion or recreate a deleted session", async () => {
+  const f = await ready(); const { sessionId } = await planned(f); const gate = deferred<void>(); const write = f.storage.setItem;
+  f.storage.setItem = async (key, value) => { await gate.promise; await write(key, value); };
+  const completing = f.store.completeSession({ id: sessionId, name: "Finished", exercises: entered(f, sessionId) });
+  const stale = f.store.updateSession({ id: sessionId, name: "Old draft", exercises: entered(f, sessionId, "-") }); gate.resolve();
+  assert.equal(await completing, true); assert.equal(await stale, false); assert.equal(doc(f.store).sessions[0]!.name, "Finished");
+  const deleting = f.store.removeSession(sessionId); const deletedUpdate = f.store.updateSession({ id: sessionId, name: "Revive", exercises: entered(f, sessionId) });
+  assert.equal(await deleting, true); assert.equal(await deletedUpdate, false); assert.deepEqual(doc(f.store).sessions, []);
+});
+test("stop/start invalidates queued work while an in-flight write reloads its durable outcome", async () => {
+  const f = await ready(); const { sessionId } = await planned(f); const gate = deferred<void>(); const write = f.storage.setItem;
+  f.storage.setItem = async (key, value) => { await gate.promise; await write(key, value); };
+  const first = f.store.updateSession({ id: sessionId, name: "Written", exercises: entered(f, sessionId) }); await flush();
+  const queued = f.store.updateSession({ id: sessionId, name: "Canceled", exercises: entered(f, sessionId) });
+  f.store.stop(); f.store.start(); assert.equal(f.store.getSnapshot().state.kind, "loading");
+  gate.resolve(); assert.deepEqual(await Promise.all([first, queued]), [false, false]); await flush();
+  assert.equal(doc(f.store).sessions[0]!.name, "Written");
+  assert.equal(await f.store.updateSession({ id: sessionId, name: "Restarted", exercises: entered(f, sessionId) }), true);
+});
+test("corrupt and unavailable storage block edits until recovery without writing fake emptiness", async () => {
+  for (const brokenRead of [false, true]) {
+    const f = fixture("broken"); if (brokenRead) f.storage.getItem = async () => { throw new Error("Offline"); };
+    f.store.start(); await flush(); assert.equal(f.store.getSnapshot().state.kind, "error");
+    assert.equal(await f.store.createSession({ date: "2026-10-04", name: "Name" }), null); assert.equal(f.writes(), 0);
+    f.storage.getItem = async () => null; f.store.retryLoad(); await flush();
+    assert.ok(await f.store.createSession({ date: "2026-10-04", name: "Name" }));
+  }
+});
+test("updates cannot alter captured identity, date, status or start time through extra properties", async () => {
+  const f = await ready(); const { sessionId } = await planned(f); await f.store.startSession(sessionId);
+  assert.equal(await f.store.updateSession({ id: sessionId, name: "Name", exercises: entered(f, sessionId), date: "2027-01-01", status: "completed", startedAt: 0 } as never), true);
+  const saved = doc(f.store).sessions[0]!; assert.equal(saved.date, "2026-10-04"); assert.equal(saved.status, "active"); assert.equal(saved.startedAt, 1000000);
+});
+test("input capture works without a browser-only clone API and never converts invalid numbers to null", async () => {
+  const original = globalThis.structuredClone;
+  try {
+    globalThis.structuredClone = undefined as never;
+    const f = await ready(); const { sessionId } = await planned(f);
+    assert.equal(await f.store.updateSession({ id: sessionId, name: "Native draft", exercises: entered(f, sessionId) }), true);
+    assert.equal(await f.store.completeSession({ id: sessionId, name: "Native saved", exercises: entered(f, sessionId) }), true);
+    const raw = f.raw();
+    for (const durationSeconds of [NaN, Infinity, -1]) {
+      assert.equal(await f.store.updateSession({ id: sessionId, name: "Invalid", exercises: entered(f, sessionId), durationSeconds }), false);
+    }
+    assert.equal(f.raw(), raw);
+  } finally { globalThis.structuredClone = original; }
+});
+test("failed write across restart invalidates queued drafts and reloads the original document", async () => {
+  const f = await ready(); const { sessionId } = await planned(f); const gate = deferred<void>(); const write = f.storage.setItem;
+  f.storage.setItem = async (key, value) => { await gate.promise; await write(key, value); };
+  const first = f.store.updateSession({ id: sessionId, name: "Failed", exercises: entered(f, sessionId) }); await flush();
+  const queued = f.store.updateSession({ id: sessionId, name: "Canceled", exercises: entered(f, sessionId) });
+  f.store.stop(); f.store.start(); gate.reject(new Error("Disk full"));
+  assert.deepEqual(await Promise.all([first, queued]), [false, false]); await flush();
+  assert.equal(doc(f.store).sessions[0]!.name, "Strength"); assert.equal(f.store.getSnapshot().error, null);
+  f.storage.setItem = write;
+  assert.equal(await f.store.updateSession({ id: sessionId, name: "Recovered", exercises: entered(f, sessionId) }), true);
+});
