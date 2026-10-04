@@ -42,8 +42,11 @@ export default function ExerciseScreen() {
     }
   }, []);
   function close(token: number) { if (alive.current && panelRef.current?.token === token) { ++request.current; setPanel(null); } }
-  function created(token: number) {
-    if (alive.current && panelRef.current?.token === token) { ++request.current; setPanel(null); }
+  function created(token: number, id: string) {
+    if (alive.current && panelRef.current?.token === token) {
+      ++request.current;
+      setPanel({ content: { kind: "session", id, manual: false }, token: ++sequence.current });
+    }
   }
   const document = store.state.kind === "ready" ? store.state.document : null;
   useEffect(() => {
@@ -94,7 +97,7 @@ export default function ExerciseScreen() {
       {content?.kind === "exercise" && <ExerciseForm exercise={content.exercise} onClose={() => close(panel.token)} />}
       {content?.kind === "workout" && <WorkoutForm workout={content.workout} onClose={() => close(panel.token)} />}
       {content?.kind === "library" && <WorkoutLibrary date={content.date} onClose={() => close(panel.token)}
-        onEdit={workout => void open({ kind: "workout", workout })} onAdded={() => created(panel.token)}
+        onEdit={workout => void open({ kind: "workout", workout })} onAdded={id => created(panel.token, id)}
         onOpen={id => void open({ kind: "session", id })} />}
       {content?.kind === "session" && (editingSession ? <SessionEditor drafts={completedDrafts} session={editingSession} editorRef={editorRef}
         manual={content.manual} onManual={() => void open({ kind: "session", id: editingSession.id, manual: true })}
