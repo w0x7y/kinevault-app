@@ -159,12 +159,14 @@ graphs offer volume, duration, or a selected exercise's heaviest set across
 today's calorie, macro, and water intake, with focused section editing.
 
 The avatar and optional dated progress photos support library/camera selection,
-replacement/removal, notes, and a comparison of two photos. Files and thumbnails
-remain on the device, separately from profile answers. No account, target-weight
+replacement/removal and notes. Photos is a dated horizontal carousel with
+separators; Overview automatically compares the earliest and latest dated photos
+without a separate comparison picker. The streak week starts on Sunday. Files
+and thumbnails remain on the device, separately from profile answers. No account, target-weight
 history, weekly-workout target, or cloud backup is included in this version.
 Library and camera are native sources; web offers file selection. Android
-emulator checks cover the new photo flows, durable reopening, comparison, and
-larger text. Physical-iPhone Profile acceptance remains separate from the
+emulator checks cover the new photo flows, durable reopening, carousel scrolling,
+and larger text. Physical-iPhone Profile acceptance remains separate from the
 completed workout checks.
 
 Food search needs no credentials or hosted service. API and shared-login

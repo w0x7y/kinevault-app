@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useState } from "react";
 import { Platform, Pressable, ScrollView, View } from "react-native";
 import { Icon } from "../components/icon";
 import { useTheme } from "../theme/provider";
@@ -7,8 +7,8 @@ import { JournalHeading, JournalText } from "./journal-ui";
 import { FoodButton } from "../food/food-button";
 import { ErrorText } from "../onboarding/controls";
 import { useProfileMedia } from "./media-provider";
-import { pickProfilePhoto } from "./media-picker";
-import type { PhotoSource, ProgressPhoto } from "./media-model";
+import { useMediaEditing } from "./use-media-editing";
+import type { ProgressPhoto } from "./media-model";
 import { PhotoImage } from "./photo-image";
 import { ProfileDialog, SourceStatus } from "./profile-controls";
 import { PhotoEditor } from "./photo-editor";
@@ -26,39 +26,11 @@ export function ProgressPhotos({
   const media = useProfileMedia();
   const { colors } = useTheme();
   const [sources, setSources] = useState(false);
-  const [editor, setEditor] = useState<{
-    photo?: ProgressPhoto;
-    source?: PhotoSource;
-  } | null>(null);
-  const [picking, setPicking] = useState(false),
-    [error, setError] = useState<string | null>(null);
+  const edit = useMediaEditing("photos", today);
+  const { editing, phase, error } = edit;
+  const picking = phase === "picking";
+  const pick = editing.pick;
   const [galleryWidth, setGalleryWidth] = useState(0);
-  const pending = useRef(false),
-    mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-  async function pick(origin: "library" | "camera") {
-    if (pending.current || media.saving || media.state.kind !== "ready") return;
-    pending.current = true;
-    setPicking(true);
-    setError(null);
-    try {
-      const source = await pickProfilePhoto(origin, false);
-      if (source) {
-        if (mounted.current) setEditor({ source });
-        else media.files.releaseUri(source.uri);
-      }
-    } catch {
-      if (mounted.current) setError("Couldn't open your photo. Try again.");
-    } finally {
-      pending.current = false;
-      if (mounted.current) setPicking(false);
-    }
-  }
   const { photos, first, latest } = progressPhotoTimeline(
     media.state.kind === "ready" ? media.state.document.photos : [],
   );
@@ -205,7 +177,7 @@ export function ProgressPhotos({
                             accessibilityLabel={`Edit photo ${index + 1} from ${photo.date}`}
                             accessibilityState={{ disabled: media.saving }}
                             disabled={media.saving}
-                            onPress={() => setEditor({ photo })}
+                            onPress={() => editing.open(photo)}
                           >
                             {photoWell(photo, true)}
                           </Pressable>
@@ -259,7 +231,7 @@ export function ProgressPhotos({
               </JournalText>
             </>
           )}
-          {error && <ErrorText message={error} />}
+          {error && edit.attempt.kind === "closed" && <ErrorText message={error} />}
         </>
       )}
       {sources && (
@@ -283,13 +255,8 @@ export function ProgressPhotos({
           />
         </ProfileDialog>
       )}
-      {editor && (
-        <PhotoEditor
-          photo={editor.photo}
-          initialSource={editor.source}
-          today={today}
-          close={() => setEditor(null)}
-        />
+      {edit.attempt.kind === "photo" && (
+        <PhotoEditor key={edit.attempt.id} editing={editing} snapshot={edit} />
       )}
     </View>
   );

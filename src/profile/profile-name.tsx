@@ -1,66 +1,26 @@
-import { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, TextInput, View } from "react-native";
 import { Icon, type IconName } from "../components/icon";
 import { ErrorText } from "../onboarding/controls";
 import { useTheme } from "../theme/provider";
 import { fonts } from "../theme/tokens";
-import { validateAnswers } from "./calories";
 import { JournalText } from "./journal-ui";
 import { useProfile } from "./provider";
-import { editedProfileAnswers } from "./section-editing";
+import { useFocusedProfileEdit } from "./use-focused-edit";
 
 export function ProfileName() {
   const profile = useProfile();
   const { colors } = useTheme();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const pending = useRef(false),
-    mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
+  const { edit, attempt, busy } = useFocusedProfileEdit();
   if (profile.state.kind !== "ready") return null;
   const name = profile.state.document.answers.name;
-  function start() {
-    setDraft(name);
-    setError(null);
-    setEditing(true);
-  }
-  function cancel() {
-    if (pending.current) return;
-    setEditing(false);
-    setError(null);
-  }
-  async function save() {
-    if (pending.current || profile.saving || profile.state.kind !== "ready")
-      return;
-    const current = profile.state.document.answers;
-    const answers = editedProfileAnswers(
-      current,
-      { ...current, name: draft },
-      "name",
-    );
-    const errors = validateAnswers(answers);
-    if (Object.keys(errors).length) {
-      setError(Object.values(errors)[0] || "Check your name and try again.");
-      return;
-    }
-    pending.current = true;
-    setError(null);
-    try {
-      const saved = await profile.save({ version: 1, kind: "complete", answers });
-      if (mounted.current) {
-        if (saved) setEditing(false);
-        else setError("Couldn't save your name. Try again.");
-      }
-    } finally {
-      pending.current = false;
-    }
-  }
+  const editing = attempt !== null;
+  const draft = attempt?.draft.name || "";
+  const error = attempt?.error
+    ? "Couldn't save your name. Try again."
+    : Object.values(attempt?.errors || {})[0];
+  function start() { edit.begin("name"); }
+  function cancel() { edit.cancel(); }
+  function save() { return edit.save(); }
   function action(
     label: string,
     icon: IconName,
@@ -99,21 +59,21 @@ export function ProfileName() {
       >
         {editing ? (
           <>
-            {action("Cancel name editing", "xmark", cancel, profile.saving)}
+            {action("Cancel name editing", "xmark", cancel, busy)}
             <TextInput
               accessibilityLabel="Profile name"
               value={draft}
+              maxLength={40}
               autoFocus
               selectTextOnFocus
-              editable={!profile.saving}
+              editable={!busy}
               returnKeyType="done"
               onSubmitEditing={() => void save()}
               onKeyPress={({ nativeEvent }) => {
                 if (nativeEvent.key === "Escape") cancel();
               }}
               onChangeText={(value) => {
-                setDraft(value);
-                setError(null);
+                edit.change({ kind: "fields", patch: { name: value } });
               }}
               selectionColor={colors.primary}
               underlineColorAndroid="transparent"
@@ -136,10 +96,10 @@ export function ProfileName() {
               }}
             />
             {action(
-              profile.saving ? "Saving profile name…" : "Save profile name",
+              busy ? "Saving profile name…" : "Save profile name",
               "check",
               () => void save(),
-              profile.saving,
+              busy,
             )}
           </>
         ) : (

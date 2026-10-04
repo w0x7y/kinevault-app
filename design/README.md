@@ -5,7 +5,10 @@
 `profile-prototype.html` is a standalone comparison of three Profile layouts.
 Version 3, Personal journal, is the selected design and opens by default.
 Values and photo placeholders are illustrative. It does not
-read or modify app data.
+read or modify app data. This records the initial layout exploration. Later
+production revisions use a Sunday-first streak week, inline name pencil,
+automatic earliest/latest Progress comparison, and a horizontal photo carousel;
+the prototype’s Edit profile and comparison controls are historical references.
 
 From `Application/`, run:
 

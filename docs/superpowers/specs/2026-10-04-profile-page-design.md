@@ -167,7 +167,10 @@ progress graphics may cap their fill without hiding the excess.
 Editing uses focused sections with Save and Cancel, existing validation, and
 the existing adult-estimate/teen-manual rules. Estimated targets respond to body,
 activity, and goal changes as they do now. Manual calorie and macro overrides
-retain their current meaning. Failed saves retain entered fields for retry.
+retain their current meaning. Failed saves retain entered fields for retry. Names
+are limited to 40 stored characters, including whitespace, across validation
+and inline input. The details chooser has a visible Cancel action that returns
+to Goals without opening an editor or saving changes.
 Save only the section's changes against current saved answers so another edit
 cannot silently overwrite unrelated changes.
 

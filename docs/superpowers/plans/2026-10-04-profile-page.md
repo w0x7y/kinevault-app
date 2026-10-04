@@ -10,6 +10,11 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-04-profile-page-design.md`
 
+This is the completed initial implementation plan. Subsequent user revisions
+(such as the Sunday-first week, inline name and photo carousel) are recorded in
+the current spec and the revision reports; the original task checklist remains
+as historical implementation evidence.
+
 ## Global constraints
 
 - Use the selected Personal journal composition in VariantC of `design/profile-prototype.html` with Overview, Goals, and Photos sections.

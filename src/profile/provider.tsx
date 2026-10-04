@@ -19,6 +19,7 @@ type ProfileContextValue = ProfileSnapshot & {
   reset: () => Promise<void>;
 };
 const ProfileContext = createContext<ProfileContextValue | null>(null);
+const ProfilePersistenceContext = createContext<ReturnType<typeof createProfilePersistence> | null>(null);
 
 export function ProfileProvider({ children }: PropsWithChildren) {
   const [profile] = useState(() => createProfilePersistence(AsyncStorage));
@@ -30,15 +31,22 @@ export function ProfileProvider({ children }: PropsWithChildren) {
     return profile.stop;
   }, [profile]);
   return (
-    <ProfileContext.Provider value={{
-      ...snapshot,
-      save: profile.save,
-      reset: profile.reset,
-      retryLoad: profile.retryLoad,
-    }}>
-      {children}
-    </ProfileContext.Provider>
+    <ProfilePersistenceContext.Provider value={profile}>
+      <ProfileContext.Provider value={{
+        ...snapshot,
+        save: profile.save,
+        reset: profile.reset,
+        retryLoad: profile.retryLoad,
+      }}>
+        {children}
+      </ProfileContext.Provider>
+    </ProfilePersistenceContext.Provider>
   );
+}
+export function useProfilePersistence() {
+  const value = useContext(ProfilePersistenceContext);
+  if (!value) throw new Error("useProfilePersistence must be used inside ProfileProvider");
+  return value;
 }
 export function useProfile() {
   const value = useContext(ProfileContext);

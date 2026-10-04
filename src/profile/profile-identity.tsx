@@ -1,5 +1,4 @@
 import { Image } from "expo-image";
-import { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { AppText } from "../components/ui";
@@ -9,9 +8,8 @@ import { ErrorText } from "../onboarding/controls";
 import { activities, goals } from "./answers";
 import { useProfile } from "./provider";
 import { useProfileMedia } from "./media-provider";
-import { pickProfilePhoto } from "./media-picker";
+import { useMediaEditing } from "./use-media-editing";
 import { PhotoImage } from "./photo-image";
-import type { PhotoSource } from "./media-model";
 import { ProfileDialog, SourceStatus } from "./profile-controls";
 import { useTheme } from "../theme/provider";
 
@@ -77,82 +75,23 @@ export function ProfileIdentity() {
   const profile = useProfile(),
     media = useProfileMedia();
   const { colors } = useTheme();
-  const [open, setOpen] = useState(false),
-    [draft, setDraft] = useState<PhotoSource | null>(null);
-  const [picking, setPicking] = useState(false),
-    [error, setError] = useState<string | null>(null);
-  const pending = useRef(false),
-    source = useRef<PhotoSource | null>(null),
-    mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-      if (!pending.current && source.current)
-        media.files.releaseUri(source.current.uri);
-    };
-  }, [media.files]);
-  function release() {
-    if (source.current) media.files.releaseUri(source.current.uri);
-    source.current = null;
-    setDraft(null);
-  }
-  function close() {
-    if (pending.current || picking) return;
-    release();
-    setOpen(false);
-    setError(null);
-  }
-  async function pick(origin: "library" | "camera") {
-    if (pending.current || picking) return;
-    pending.current = true;
-    setPicking(true);
-    setError(null);
-    try {
-      const next = await pickProfilePhoto(origin, true);
-      if (next) {
-        if (!mounted.current) media.files.releaseUri(next.uri);
-        else {
-          release();
-          source.current = next;
-          setDraft(next);
-        }
-      }
-    } catch {
-      if (mounted.current) setError("Couldn't open your photo. Try again.");
-    } finally {
-      pending.current = false;
-      if (mounted.current) setPicking(false);
-      else if (source.current) media.files.releaseUri(source.current.uri);
-    }
-  }
-  async function save(remove = false) {
-    if (pending.current || media.saving || (!remove && !draft)) return false;
-    pending.current = true;
-    try {
-      const saved = await media.saveAvatar(remove ? null : draft);
-      if (saved && mounted.current) {
-        release();
-        setOpen(false);
-      }
-      return saved;
-    } finally {
-      pending.current = false;
-      if (!mounted.current && source.current)
-        media.files.releaseUri(source.current.uri);
-    }
-  }
+  const { editing, attempt, phase, error } = useMediaEditing("avatar");
+  const open = attempt.kind === "avatar";
+  const draft = attempt.kind === "avatar" ? attempt.source : undefined;
+  const picking = phase === "picking";
+  const close = () => { editing.cancel(); };
+  const pick = editing.pick;
   if (profile.state.kind !== "ready") return null;
   const answers = profile.state.document.answers;
   const hasAvatar =
     media.state.kind === "ready" && media.state.document.avatar !== null;
-  const busy = picking || media.saving;
+  const busy = phase !== "idle" || media.saving;
   return (
     <View style={{ alignItems: "center", paddingTop: 12, paddingBottom: 4 }}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Change profile photo"
-        onPress={() => setOpen(true)}
+        onPress={() => editing.open()}
         style={{ marginBottom: 12 }}
       >
         <ProfileAvatar size={76} person />
@@ -245,7 +184,7 @@ export function ProfileIdentity() {
                       : "Save profile photo"
                   }
                   disabled={busy}
-                  onPress={() => void save()}
+                  onPress={() => void editing.save()}
                 />
               )}
               {hasAvatar && (
@@ -253,7 +192,7 @@ export function ProfileIdentity() {
                   label="Remove profile photo"
                   confirmAccessibilityLabel="Confirm remove profile photo"
                   disabled={busy}
-                  onDelete={() => save(true)}
+                  onDelete={editing.remove}
                 />
               )}
               {busy && (

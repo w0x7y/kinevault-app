@@ -392,6 +392,29 @@ test("historical Home date survives Profile/back; calendar streak week and four 
   await page.waitForURL(baseURL + "/");
   await page.getByLabel("Saturday, October 3, 2026").waitFor();
 });
+test("details chooser cancels without opening an editor or changing saved answers", async (t) => {
+  const page = await open(t);
+  await profile(page);
+  await button(page, "Goals").click();
+  const before = await stored(page);
+  const trigger = button(page, "Edit details and goals");
+  await trigger.click();
+  const chooser = page.getByRole("dialog", { name: "Edit details & goals", exact: true });
+  await chooser.waitFor();
+  const cancel = chooser.getByRole("button", { name: "Cancel", exact: true });
+  await cancel.focus();
+  await cancel.press("Enter");
+  await chooser.waitFor({ state: "detached" });
+  assert.equal(await page.getByTestId("profile-editor").count(), 0);
+  assert.deepEqual(await stored(page), before);
+  assert.equal(await button(page, "Goals").getAttribute("aria-pressed"), "true");
+  assert.equal(await trigger.evaluate(node => node === document.activeElement), true);
+  await trigger.click();
+  await chooser.waitFor();
+  await chooser.getByRole("button", { name: "Edit age", exact: true }).click();
+  await page.getByRole("textbox", { name: "Age (years)", exact: true }).waitFor();
+});
+
 test("focused editing validates, retains failed saves, merges latest values and keeps Settings compatible", async (t) => {
   const page = await open(t);
   await profile(page);
@@ -1032,14 +1055,14 @@ test("inline name editing stays in place, cancels cleanly, saves, and persists",
   assert.deepEqual(page.__profileWarnings.filter(text => text.includes("non-boolean attribute")), [], "decorative camera SVG emits no DOM attribute warning");
 });
 
-test("inline name validation and failed save retain the draft for retry", async (t) => {
+test("inline name input limit and failed save retain the draft for retry", async (t) => {
   const page = await open(t);
   await profile(page);
   await button(page, "Edit profile name").click();
   const name = page.getByRole("textbox", { name: "Profile name", exact: true });
   await name.fill("a".repeat(41));
-  await button(page, "Save profile name").click();
-  await page.getByText("Use 40 characters or fewer.", { exact: true }).waitFor();
+  assert.equal(await name.getAttribute("maxlength"), "40");
+  assert.equal(await name.inputValue(), "a".repeat(40));
   assert.equal((await stored(page)).answers.name, "Journal fixture");
   await name.fill("Retry name");
   await page.evaluate((key) => {

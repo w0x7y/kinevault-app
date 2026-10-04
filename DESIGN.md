@@ -31,10 +31,12 @@ reference patterns, not implemented companion features.
 - Profile uses version 3, Personal journal, in
   [the layout reference](design/profile-prototype.html): centered avatar/name,
   goal/activity summary, and Overview, Goals, and Photos section controls.
-  Overview groups streak, workout graph, today's nutrition link, and recent
-  photos. Goals shows real intake/targets and focused editors. Photos is a
-  dated optional journal with notes and comparison of exactly two images.
-  Comparison contains images without stretching or forcing matching crops.
+  Overview groups the Sunday–Saturday streak week, workout graph, today's nutrition
+  link, and automatic earliest/latest Progress comparison with dates below each
+  image. Goals shows real intake/targets and focused editors. Photos is an optional
+  horizontal carousel with dates, separators and notes. Comparison contains images
+  without stretching or forcing matching crops. The name pencil opens a centered,
+  underlined field with Cancel on the left and Save on the right.
   Charts use the existing theme, distinct labelled Left/Right series, honest
   missing-data gaps, and equivalent readable values. Empty state has an optional
   add action; it never fills the gallery or chart with illustrative records.

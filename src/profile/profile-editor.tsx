@@ -1,16 +1,11 @@
-import { useRef, useState } from "react";
 import { View } from "react-native";
 import { AppText, Panel } from "../components/ui";
 import { Question } from "../onboarding/steps";
 import { ErrorText } from "../onboarding/controls";
 import { FoodButton } from "../food/food-button";
-import type { Answers, FieldErrors } from "./answers";
-import { changeAnswers, validateAnswers } from "./calories";
-import { useProfile } from "./provider";
-import {
-  editedProfileAnswers,
-  type ProfileEditSection,
-} from "./section-editing";
+import type { Answers } from "./answers";
+import type { ProfileEditSection } from "./section-editing";
+import { useFocusedProfileEdit } from "./use-focused-edit";
 import { spacing } from "../theme/tokens";
 export function ProfileEditor({
   section,
@@ -21,29 +16,11 @@ export function ProfileEditor({
   initial: Answers;
   close: () => void;
 }) {
-  const profile = useProfile();
-  const [draft, setDraft] = useState(initial);
-  const [errors, setErrors] = useState<FieldErrors>({});
-  const pending = useRef(false);
-  async function save() {
-    if (pending.current || profile.saving || profile.state.kind !== "ready")
-      return;
-    const answers = editedProfileAnswers(
-      profile.state.document.answers,
-      draft,
-      section,
-    );
-    const nextErrors = validateAnswers(answers);
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length) return;
-    pending.current = true;
-    try {
-      if (await profile.save({ version: 1, kind: "complete", answers }))
-        close();
-    } finally {
-      pending.current = false;
-    }
-  }
+  const { edit, attempt, busy } = useFocusedProfileEdit({
+    initial: { section, answers: initial }, close,
+  });
+  if (!attempt) return null;
+  const { draft, errors, error } = attempt;
   return (
     <Panel testID="profile-editor">
       <AppText variant="heading" accessibilityRole="header">
@@ -52,13 +29,10 @@ export function ProfileEditor({
       <Question
         step={section}
         answers={draft}
-        disabled={profile.saving}
+        disabled={busy}
         errors={errors}
         edit={() => {}}
-        update={(change) => {
-          setDraft((value) => changeAnswers(value, change));
-          setErrors({});
-        }}
+        update={(change) => { edit.change(change); }}
       />
       {Object.entries(errors)
         .filter(
@@ -82,21 +56,21 @@ export function ProfileEditor({
         .map(([field, message]) => (
           <ErrorText key={field} message={message} />
         ))}
-      {profile.error && <ErrorText message={profile.error} />}
+      {error && <ErrorText message={error} />}
       <View style={{ flexDirection: "row", gap: spacing.layout }}>
         <View style={{ flex: 1 }}>
           <FoodButton
             label="Cancel"
-            disabled={profile.saving}
-            onPress={close}
+            disabled={busy}
+            onPress={() => { edit.cancel(); }}
           />
         </View>
         <View style={{ flex: 1 }}>
           <FoodButton
             primary
-            label={profile.saving ? "Saving…" : `Save ${section}`}
-            disabled={profile.saving}
-            onPress={() => void save()}
+            label={busy ? "Saving…" : `Save ${section}`}
+            disabled={busy}
+            onPress={() => void edit.save()}
           />
         </View>
       </View>

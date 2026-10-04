@@ -372,6 +372,7 @@ export function ProfileGoals({
               }}
             />
           ))}
+          <FoodButton label="Cancel" onPress={() => setChoosing(false)} />
         </ProfileDialog>
       )}
     </View>

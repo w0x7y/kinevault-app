@@ -49,7 +49,7 @@ export function estimateCalories(answers: Answers) {
 export function validateAnswers(answers: Answers): FieldErrors {
   const errors: FieldErrors = {};
   const needsEstimate = calorieState(answers).kind === "estimate";
-  if (answers.name.trim().length > 40)
+  if (answers.name.length > 40)
     errors.name = "Use 40 characters or fewer.";
   const metrics = [
     {
