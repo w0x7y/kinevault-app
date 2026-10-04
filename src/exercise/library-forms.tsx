@@ -8,6 +8,7 @@ import type { ExerciseDefinition, WorkoutTemplate } from "./model";
 import { useExercises } from "./provider";
 import { ActionRow, ExerciseButton, ExerciseError, ExerciseField, ExerciseIconButton } from "./controls";
 import { exerciseRowLabel, WorkoutWorkspace } from "./workout-workspace";
+import { createWorkoutTemplateDraft } from "./workout-template-draft";
 
 function useAlive() {
   const alive = useRef(true);
@@ -50,36 +51,25 @@ export function WorkoutForm({ workout, onClose }: { workout?: WorkoutTemplate; o
   const store = useExercises();
   const { colors } = useTheme();
   const exercises = store.state.kind === "ready" ? store.state.document.exercises : [];
-  const [name, setName] = useState(workout?.name ?? ""), [selected, setSelected] = useState(workout?.exercises ?? []);
-  const [setCounts, setSetCounts] = useState<Record<string, string>>(() => Object.fromEntries(
-    (workout?.exercises ?? []).map(item => [item.id, String(workout?.setCounts?.[item.id] ?? 0)])));
+  const [draft, setDraft] = useState(() => createWorkoutTemplateDraft(workout));
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const alive = useAlive(), pending = useRef(false);
   const [query, setQuery] = useState(""), [limit, setLimit] = useState(20);
   const [settingsOpen, setSettingsOpen] = useState(false), [selectedId, setSelectedId] = useState(workout?.exercises[0]?.id);
   const [notesId, setNotesId] = useState<string | null>(null);
   const search = query.trim().toLocaleLowerCase();
-  const available = search ? exercises.filter(item => !selected.some(row => row.id === item.id)
+  const available = search ? exercises.filter(item => !draft.rows.some(row => row.exercise.id === item.id)
     && [item.name, item.muscleGroup, item.equipment, item.notes].some(value => value.toLocaleLowerCase().includes(search))) : [];
-  function move(index: number, direction: number) {
-    setSelected(rows => { const next = [...rows]; [next[index], next[index + direction]] = [next[index + direction]!, next[index]!]; return next; });
-  }
   async function save(remove = false) {
     if (pending.current) return;
-    const counts: Record<string, number> = {};
-    if (!remove) {
-      for (const item of selected) {
-        const value = (setCounts[item.id] ?? "3").trim();
-        if (!/^\d+$/.test(value) || Number(value) > 100) {
-          setError(`Enter a whole number of sets from 0 to 100 for ${item.name}.`);
-          return;
-        }
-        counts[item.id] = Number(value);
-      }
+    const preparation = remove ? null : draft.prepare();
+    if (preparation?.kind === "invalid") {
+      setError(preparation.message);
+      return;
     }
     pending.current = true; setBusy(true); setError(null);
     const success = remove && workout ? await store.removeWorkout(workout.id)
-      : await store.saveWorkout({ id: workout?.id, name, exerciseIds: selected.map(item => item.id), setCounts: counts });
+      : preparation?.kind === "ready" ? await store.saveWorkout(preparation.input) : false;
     pending.current = false;
     if (!alive.current) return;
     setBusy(false);
@@ -87,7 +77,7 @@ export function WorkoutForm({ workout, onClose }: { workout?: WorkoutTemplate; o
     return success;
   }
   const builder = <View testID="workout-template-settings" style={{ gap: spacing.layout }}>
-    <ExerciseField label="Workout name" value={name} onChange={setName} disabled={busy} />
+    <ExerciseField label="Workout name" value={draft.name} onChange={name => setDraft(current => current.rename(name))} disabled={busy} />
     <AppText variant="label">Available exercises</AppText>
     <ExerciseField label="Search workout exercises" value={query} onChange={value => { setQuery(value); setLimit(20); }} disabled={busy} />
     {exercises.length === 0 ? <AppText muted>Create an exercise first, then return to build your workout.</AppText>
@@ -95,28 +85,29 @@ export function WorkoutForm({ workout, onClose }: { workout?: WorkoutTemplate; o
       : available.length === 0 ? <AppText muted>No available exercises match your search.</AppText> : null}
     {available.slice(0, limit).map(item => <ExerciseButton key={item.id}
       label={item.name} accessibilityLabel={`Add ${item.name} to workout`} onPress={() => {
-        setSelected(rows => rows.some(row => row.id === item.id) ? rows : [...rows, item]); setSelectedId(item.id);
+        setDraft(current => current.add(item)); setSelectedId(item.id);
       }} disabled={busy} />)}
     {available.length > limit && <ExerciseButton label="Show more exercises" onPress={() => setLimit(value => value + 20)} disabled={busy} />}
     <AppText variant="label">Exercise order</AppText>
-    {selected.length === 0 && <AppText muted>Search above to choose exercises, then set how many sets you plan to do.</AppText>}
-    {selected.map((item, index) => <View key={item.id} style={{ gap: spacing.layout }}>
+    {draft.rows.length === 0 && <AppText muted>Search above to choose exercises, then set how many sets you plan to do.</AppText>}
+    {draft.rows.map(({ exercise: item, rawCount }, index) => <View key={item.id} style={{ gap: spacing.layout }}>
       <AppText variant="label">{index + 1}. {item.name}</AppText>
-      {!workout && <ExerciseField label={`Planned sets for ${item.name}`} value={setCounts[item.id] ?? "3"}
-        onChange={value => setSetCounts(previous => ({ ...previous, [item.id]: value }))} numeric disabled={busy} />}
+      {!workout && <ExerciseField label={`Planned sets for ${item.name}`} value={rawCount}
+        onChange={value => setDraft(current => current.setCount(item.id, value))} numeric disabled={busy} />}
       <ActionRow>
-        <ExerciseButton label="Up" accessibilityLabel={`Move ${item.name} up`} onPress={() => move(index, -1)} disabled={busy || index === 0} />
-        <ExerciseButton label="Down" accessibilityLabel={`Move ${item.name} down`} onPress={() => move(index, 1)} disabled={busy || index === selected.length - 1} />
+        <ExerciseButton label="Up" accessibilityLabel={`Move ${item.name} up`} onPress={() => setDraft(current => current.move(index, -1))} disabled={busy || index === 0} />
+        <ExerciseButton label="Down" accessibilityLabel={`Move ${item.name} down`} onPress={() => setDraft(current => current.move(index, 1))} disabled={busy || index === draft.rows.length - 1} />
         <DeleteButton label="Remove" accessibilityLabel={`Remove ${item.name} from workout`} confirmAccessibilityLabel="Confirm remove workout exercise"
-          onDelete={() => setSelected(rows => rows.filter(row => row.id !== item.id))} disabled={busy} />
+          onDelete={() => setDraft(current => current.remove(item.id))} disabled={busy} />
       </ActionRow></View>)}
   </View>;
-  const selectedExercise = selected.find(item => item.id === selectedId) ?? selected[0];
-  const rows = selected.map(exercise => ({ id: exercise.id, exercise }));
+  const selectedDraftRow = draft.rows.find(row => row.exercise.id === selectedId) ?? draft.rows[0];
+  const selectedExercise = selectedDraftRow?.exercise;
+  const rows = draft.rows.map(({ exercise }) => ({ id: exercise.id, exercise }));
   const selectedRow = rows.find(row => row.id === selectedExercise?.id);
   const rowLabel = selectedRow ? exerciseRowLabel(rows, selectedRow, rows.indexOf(selectedRow)) : "";
   return <Panel testID="workout-form">
-    {workout ? <WorkoutWorkspace name={name.trim() || "Edit workout"} testID="template-workout-workspace"
+    {workout ? <WorkoutWorkspace name={draft.name.trim() || "Edit workout"} testID="template-workout-workspace"
       headerRight={<View style={{ flexDirection: "row", gap: spacing.sm }}>
         <ExerciseIconButton label="Settings" icon="gear" onPress={() => setSettingsOpen(value => !value)} disabled={busy} />
         <ExerciseIconButton label="Cancel" icon="xmark" onPress={onClose} disabled={busy} />
@@ -127,13 +118,13 @@ export function WorkoutForm({ workout, onClose }: { workout?: WorkoutTemplate; o
           onDelete={() => save(true)} disabled={busy} /></View>
         <View style={{ flex: 1, minWidth: 0 }}><ExerciseButton label="Save workout" fill onPress={() => void save()} primary disabled={busy} /></View>
       </View>}>
-      {selectedExercise ? <>
+      {selectedDraftRow && selectedExercise ? <>
         <View testID="exercise-heading-row" style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
           <AppText variant="heading" accessibilityRole="header" style={{ flex: 1, minWidth: 0 }}>{selectedExercise.name}</AppText>
           <ExerciseIconButton label={`View notes for ${rowLabel}`} icon="note-sticky" onPress={() => setNotesId(previous => previous === selectedExercise.id ? null : selectedExercise.id)} disabled={busy} />
         </View>
-        <ExerciseField label={`Planned sets for ${rowLabel}`} value={setCounts[selectedExercise.id] ?? "3"}
-          onChange={value => setSetCounts(previous => ({ ...previous, [selectedExercise.id]: value }))} numeric disabled={busy} />
+        <ExerciseField label={`Planned sets for ${rowLabel}`} value={selectedDraftRow.rawCount}
+          onChange={value => setDraft(current => current.setCount(selectedExercise.id, value))} numeric disabled={busy} />
         {notesId === selectedExercise.id && <AppText variant="caption" muted>{selectedExercise.notes || "No notes for this exercise."}</AppText>}
         <View testID="exercise-video-placeholder" accessibilityLabel="No exercise video available"
           style={{ minHeight: 220, borderWidth: 1, borderColor: colors.border, borderRadius: radius.panel,
