@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Keyboard, Pressable, View } from "react-native";
+import { Keyboard, Pressable, View, type ViewProps } from "react-native";
 import { Icon } from "../components/icon";
 import { AppText, Panel } from "../components/ui";
 import { useTheme } from "../theme/provider";
@@ -28,8 +28,9 @@ function ExerciseResult({ exercise, onSelect }: { exercise: ExerciseDefinition; 
   </Pressable>;
 }
 
-export function ExerciseSearchResults({ query, exercises, onSelect }: {
+export function ExerciseSearchResults({ query, exercises, onSelect, onLayout, onNavigate }: {
   query: string; exercises: ExerciseDefinition[]; onSelect: (exercise: ExerciseDefinition) => void;
+  onLayout: ViewProps["onLayout"]; onNavigate: () => void;
 }) {
   const { colors } = useTheme();
   const [page, setPage] = useState(0);
@@ -44,7 +45,11 @@ export function ExerciseSearchResults({ query, exercises, onSelect }: {
     Keyboard.dismiss();
     onSelect(exercise);
   }
-  return <Panel testID="exercise-library" style={{ gap: spacing.layout }}>
+  function changePage(nextPage: number) {
+    setPage(nextPage);
+    onNavigate();
+  }
+  return <Panel testID="exercise-library" onLayout={onLayout} style={{ gap: spacing.layout }}>
     <AppText variant="heading" accessibilityRole="header">Exercise library</AppText>
     <AppText variant="caption" muted accessibilityLiveRegion="polite">
       {normalized.length < 2 ? "Type at least two letters to search exercises." : matches.length
@@ -55,8 +60,8 @@ export function ExerciseSearchResults({ query, exercises, onSelect }: {
     {pageCount > 1 && <View style={{ gap: spacing.sm }}>
       <AppText variant="caption" muted>Showing {resultPage * pageSize + 1} to {Math.min((resultPage + 1) * pageSize, matches.length)} of {matches.length.toLocaleString()}</AppText>
       <View style={{ flexDirection: "row", justifyContent: "space-between", gap: spacing.layout }}>
-        <ExerciseButton label="Previous" accessibilityLabel="Previous exercise results" disabled={resultPage === 0} onPress={() => setPage(resultPage - 1)} />
-        <ExerciseButton label="Next" accessibilityLabel="Next exercise results" disabled={resultPage + 1 >= pageCount} onPress={() => setPage(resultPage + 1)} />
+        <ExerciseButton label="Previous" accessibilityLabel="Previous exercise results" disabled={resultPage === 0} onPress={() => changePage(resultPage - 1)} />
+        <ExerciseButton label="Next" accessibilityLabel="Next exercise results" disabled={resultPage + 1 >= pageCount} onPress={() => changePage(resultPage + 1)} />
       </View>
     </View>}
     <View style={{ borderTopWidth: 1, borderColor: colors.border, paddingTop: spacing.layout }}>

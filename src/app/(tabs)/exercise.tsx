@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { View, type ScrollView } from "react-native";
 import { parseDay } from "../../calendar/dates";
 import { AppText, Panel, Screen } from "../../components/ui";
 import { useDayActivity } from "../../daily/use-day";
@@ -27,6 +27,7 @@ export default function ExerciseScreen() {
   const consumedWorkoutMenu = useRef<string | string[] | null>(null);
   const [completedDrafts] = useState(createCompletedSessionDrafts);
   const [query, setQuery] = useState(""), [panel, setPanel] = useState<OpenPanel | null>(null);
+  const scrollRef = useRef<ScrollView>(null), resultsTop = useRef(0), scrolledPanel = useRef<number | null>(null);
   const editorRef = useRef<SessionEditorHandle | null>(null), request = useRef(0), sequence = useRef(0), panelRef = useRef(panel);
   const alive = useRef(true);
   panelRef.current = panel;
@@ -56,16 +57,23 @@ export default function ExerciseScreen() {
   const normalized = query.trim().toLocaleLowerCase();
   const content = panel?.content;
   const editingSession = content?.kind === "session" ? document?.sessions.find(session => session.id === content.id) : null;
-  return <Screen title="Exercise" showTitle={false} adjustKeyboardInsets>
+  function scrollToResults() { scrollRef.current?.scrollTo({ y: resultsTop.current, animated: false }); }
+  return <Screen title="Exercise" showTitle={false} scrollRef={scrollRef} adjustKeyboardInsets>
     {active && <ActiveWorkoutTimer session={active} onOpen={() => void open({ kind: "session", id: active.id })} />}
     <SearchActions kind="exercise" query={query} onQueryChange={setQuery} disabled={!document}
       onCreateExercise={() => void open({ kind: "exercise" })} onCreateWorkout={() => void open({ kind: "workout" })}
       onSavedWorkouts={() => void open({ kind: "library", date: activity.date })} />
     {document && Boolean(normalized) && <ExerciseSearchResults key={normalized} query={query} exercises={document.exercises}
+      onLayout={event => { resultsTop.current = event.nativeEvent.layout.y; }} onNavigate={scrollToResults}
       onSelect={exercise => void open({ kind: "exercise", exercise })} />}
     <WorkoutWidget workout={activity.workout} detailed showEmptyGuidance activeWorkoutName={activeOnDate?.name || (activeOnDate ? "Active workout" : undefined)}
       sourceState={activity.workoutState} onRetry={store.retryLoad} onAddWorkout={() => void open({ kind: "library", date: activity.date })} />
-    {document && panel && <View key={panel.token}>
+    {document && panel && <View key={panel.token} onLayout={event => {
+      if (content?.kind === "exercise" && scrolledPanel.current !== panel.token) {
+        scrolledPanel.current = panel.token;
+        scrollRef.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: false });
+      }
+    }}>
       {content?.kind === "exercise" && <ExerciseForm exercise={content.exercise} onClose={() => close(panel.token)} />}
       {content?.kind === "workout" && <WorkoutForm workout={content.workout} onClose={() => close(panel.token)} />}
       {content?.kind === "library" && <WorkoutLibrary date={content.date} onClose={() => close(panel.token)}
