@@ -758,3 +758,225 @@ test("workout graph supports point selection and accessible data without web res
     [],
   );
 });
+
+async function delayWrite(page, key) {
+  await page.evaluate((key) => {
+    const set = Storage.prototype.setItem;
+    window.__editorWriteCount = 0;
+    Storage.prototype.setItem = function (k, value) {
+      if (k !== key) return set.call(this, k, value);
+      window.__editorWriteCount++;
+      return new Promise((resolve) => {
+        window.__releaseEditorWrite = () => {
+          Storage.prototype.setItem = set;
+          set.call(this, k, value);
+          resolve();
+        };
+      });
+    };
+  }, key);
+}
+
+test("identity Edit profile opens a fresh Name editor after every Cancel or Save", async (t) => {
+  const page = await open(t);
+  await profile(page);
+  const name = page.getByRole("textbox", {
+    name: "Your name (optional)",
+    exact: true,
+  });
+  await button(page, "Edit profile").click();
+  await name.fill("Discarded");
+  await button(page, "Cancel").click();
+  await button(page, "Edit profile").click();
+  await name.waitFor();
+  assert.equal(await name.inputValue(), "Journal fixture");
+  await name.fill("Saved name");
+  await button(page, "Save name").click();
+  await name.waitFor({ state: "detached" });
+  await button(page, "Edit profile").click();
+  await name.waitFor();
+  assert.equal(await name.inputValue(), "Saved name");
+});
+
+test("delayed water save leaves replacement Name draft and section navigation intact", async (t) => {
+  const page = await open(t);
+  await profile(page);
+  await button(page, "Goals").click();
+  await button(page, "Edit water goal").click();
+  await page
+    .getByRole("textbox", { name: "Daily water goal (ml)", exact: true })
+    .fill("2000");
+  await delayWrite(page, "kinevault-track.water-goal.v1");
+  await button(page, "Save water goal").click();
+  await button(page, "Saving water goal…").waitFor();
+  await button(page, "Edit name").click();
+  const name = page.getByRole("textbox", {
+    name: "Your name (optional)",
+    exact: true,
+  });
+  await name.fill("Replacement name draft");
+  await page.evaluate(() => window.__releaseEditorWrite());
+  await page
+    .getByTestId("profile-goal-water")
+    .getByText("2,500 / 2,000 ml", { exact: true })
+    .waitFor();
+  assert.equal(await name.inputValue(), "Replacement name draft");
+  assert.equal(
+    await button(page, "Goals").getAttribute("aria-pressed"),
+    "true",
+  );
+  await button(page, "Save name").click();
+  await name.waitFor({ state: "detached" });
+  assert.equal((await stored(page)).answers.name, "Replacement name draft");
+});
+
+test("delayed profile save closes only its original editor and preserves replacement water draft", async (t) => {
+  const page = await open(t);
+  await profile(page);
+  await button(page, "Goals").click();
+  await button(page, "Edit name").click();
+  await page
+    .getByRole("textbox", { name: "Your name (optional)", exact: true })
+    .fill("Pending saved name");
+  await delayWrite(page, profileKey);
+  await button(page, "Save name").click();
+  await button(page, "Saving…").waitFor();
+  await button(page, "Edit water goal").click();
+  const water = page.getByRole("textbox", {
+    name: "Daily water goal (ml)",
+    exact: true,
+  });
+  await water.fill("2345");
+  await page.evaluate(() => window.__releaseEditorWrite());
+  await page
+    .getByTestId("profile-section")
+    .getByText("Pending saved name", { exact: true })
+    .waitFor();
+  assert.equal(await water.inputValue(), "2345");
+  await button(page, "Save water goal").click();
+  await water.waitFor({ state: "detached" });
+  assert.equal(
+    (await stored(page, "kinevault-track.water-goal.v1")).dailyMl,
+    2345,
+  );
+});
+
+test("identity Edit profile requests during water or profile saves retain the new editor instance", async (t) => {
+  for (const section of ["water", "name"]) {
+    const page = await open(t);
+    await profile(page);
+    await button(page, "Edit profile").click();
+    const name = page.getByRole("textbox", {
+      name: "Your name (optional)",
+      exact: true,
+    });
+    if (section === "water") {
+      await button(page, "Edit water goal").click();
+      await page
+        .getByRole("textbox", { name: "Daily water goal (ml)", exact: true })
+        .fill("2000");
+    } else {
+      await name.fill("Pending identity name");
+    }
+    await delayWrite(
+      page,
+      section === "water" ? "kinevault-track.water-goal.v1" : profileKey,
+    );
+    await button(
+      page,
+      section === "water" ? "Save water goal" : "Save name",
+    ).click();
+    await button(
+      page,
+      section === "water" ? "Saving water goal…" : "Saving…",
+    ).waitFor();
+    await button(page, "Edit profile").click();
+    await name.waitFor();
+    if (section === "water") await name.fill("Identity replacement draft");
+    else assert.equal(await name.isEditable(), false);
+    await page.evaluate(() => window.__releaseEditorWrite());
+    await button(page, "Save name").waitFor();
+    assert.equal(await name.isEditable(), true);
+    assert.equal(
+      await name.inputValue(),
+      section === "water" ? "Identity replacement draft" : "Journal fixture",
+    );
+    await name.fill("Final identity name");
+    await button(page, "Save name").click();
+    await name.waitFor({ state: "detached" });
+    assert.equal((await stored(page)).answers.name, "Final identity name");
+    assert.equal(await page.evaluate(() => window.__editorWriteCount), 1);
+  }
+});
+
+test("section controls stay responsive during pending water and profile saves", async (t) => {
+  for (const section of ["water", "name"]) {
+    const page = await open(t);
+    await profile(page);
+    await button(page, "Goals").click();
+    await button(
+      page,
+      section === "water" ? "Edit water goal" : "Edit name",
+    ).click();
+    const sourceField = page.getByRole("textbox", {
+      name:
+        section === "water" ? "Daily water goal (ml)" : "Your name (optional)",
+      exact: true,
+    });
+    await sourceField.fill(section === "water" ? "2000" : "Pending name");
+    await delayWrite(
+      page,
+      section === "water" ? "kinevault-track.water-goal.v1" : profileKey,
+    );
+    await button(
+      page,
+      section === "water" ? "Save water goal" : "Save name",
+    ).click();
+    await button(
+      page,
+      section === "water" ? "Saving water goal…" : "Saving…",
+    ).waitFor();
+    for (const destination of ["Photos", "Overview", "Goals"]) {
+      assert.equal(await button(page, destination).isEnabled(), true);
+      await button(page, destination).click();
+      assert.equal(
+        await button(page, destination).getAttribute("aria-pressed"),
+        "true",
+      );
+      assert.equal(
+        await page.getByTestId("profile-section").getAttribute("aria-label"),
+        `${destination} section`,
+      );
+    }
+    const replacement = section === "water" ? "name" : "water";
+    await button(
+      page,
+      replacement === "name" ? "Edit name" : "Edit water goal",
+    ).click();
+    const draft = page.getByRole("textbox", {
+      name:
+        replacement === "name"
+          ? "Your name (optional)"
+          : "Daily water goal (ml)",
+      exact: true,
+    });
+    await draft.fill(
+      replacement === "name" ? "Replacement after navigation" : "2345",
+    );
+    await page.evaluate(() => window.__releaseEditorWrite());
+    if (section === "water")
+      await page
+        .getByTestId("profile-goal-water")
+        .getByText("2,500 / 2,000 ml", { exact: true })
+        .waitFor();
+    else
+      await page
+        .getByTestId("profile-section")
+        .getByText("Pending name", { exact: true })
+        .waitFor();
+    assert.equal(
+      await draft.inputValue(),
+      replacement === "name" ? "Replacement after navigation" : "2345",
+    );
+  }
+});

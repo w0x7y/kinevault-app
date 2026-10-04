@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { View } from "react-native";
 import { AppText, Panel } from "../components/ui";
 import { FoodButton } from "../food/food-button";
@@ -17,12 +16,20 @@ import { useProfile } from "./provider";
 import { ProfileEditor } from "./profile-editor";
 import type { ProfileEditSection } from "./section-editing";
 import { SourceStatus } from "./profile-controls";
+export type ProfileEditorInstance = {
+  id: number;
+  section: ProfileEditSection | "water";
+};
 export function ProfileGoals({
   today,
-  initialEdit,
+  editor,
+  edit,
+  close,
 }: {
   today: string;
-  initialEdit?: ProfileEditSection;
+  editor: ProfileEditorInstance | null;
+  edit: (section: ProfileEditSection | "water") => void;
+  close: (id: number) => void;
 }) {
   const profile = useProfile(),
     food = useFoodLog(),
@@ -30,9 +37,6 @@ export function ProfileGoals({
     goal = useWaterGoal(),
     exercise = useExercises();
   const { colors } = useTheme();
-  const [editing, setEditing] = useState<ProfileEditSection | "water" | null>(
-    initialEdit ?? null,
-  );
   if (profile.state.kind !== "ready") return null;
   const answers = profile.state.document.answers;
   const activity = interpretDayActivity({
@@ -141,14 +145,14 @@ export function ProfileGoals({
         )}
         <FoodButton
           label="Edit nutrition goals"
-          onPress={() => setEditing("calories")}
+          onPress={() => edit("calories")}
         />
-        {editing === "calories" && (
+        {editor?.section === "calories" && (
           <ProfileEditor
-            key={editing}
-            section={editing}
+            key={editor.id}
+            section={editor.section}
             initial={answers}
-            close={() => setEditing(null)}
+            close={() => close(editor.id)}
           />
         )}
       </Panel>
@@ -182,16 +186,14 @@ export function ProfileGoals({
             kind={goal.state.kind}
             retry={goal.retryLoad}
           />
-        ) : editing === "water" ? (
+        ) : editor?.section === "water" ? (
           <WaterGoalEditor
+            key={editor.id}
             initial={goal.state.document.dailyMl}
-            close={() => setEditing(null)}
+            close={() => close(editor.id)}
           />
         ) : (
-          <FoodButton
-            label="Edit water goal"
-            onPress={() => setEditing("water")}
-          />
+          <FoodButton label="Edit water goal" onPress={() => edit("water")} />
         )}
       </Panel>
       <Panel>
@@ -237,15 +239,15 @@ export function ProfileGoals({
               </View>
               <FoodButton
                 label={`Edit ${section}`}
-                onPress={() => setEditing(section)}
+                onPress={() => edit(section)}
               />
             </View>
-            {editing === section && (
+            {editor?.section === section && (
               <ProfileEditor
-                key={editing}
-                section={editing}
+                key={editor.id}
+                section={editor.section}
                 initial={answers}
-                close={() => setEditing(null)}
+                close={() => close(editor.id)}
               />
             )}
           </View>
