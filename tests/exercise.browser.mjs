@@ -121,7 +121,8 @@ test("active timer restores elapsed time and drafts after reload and remains vis
   await page.getByRole("button", { name: "Saturday, October 3, 2026", exact: true }).click();
   await button(page, "Collapse calendar").click();
   assert.equal(await timer.isVisible(), true);
-  assert.match(await timer.innerText(), /Active training/);
+  assert.match(await timer.innerText(), /Started for 2026-10-04/);
+  assert.doesNotMatch(await timer.innerText(), /Active training/);
   await page.getByTestId("exercise-workout-empty").waitFor();
   assert.equal(await page.getByTestId("exercise-workout").count(), 0);
   for (const width of [320, 390]) {
@@ -149,9 +150,17 @@ test("create exercises and ordered workouts, then add a planned session without 
   await field(form, "Search workout exercises").fill("Curl");
   await button(form, "Add Curl to workout").click();
   await button(form, "Move Curl up").click();
+  assert.equal(await field(form, "Planned sets for Squat").inputValue(), "3");
+  await field(form, "Planned sets for Curl").fill("2");
+  await field(form, "Planned sets for Squat").fill("1.5");
+  await button(form, "Save workout").click();
+  await form.getByRole("alert").waitFor();
+  assert.equal((await documentFrom(page)).workouts.length, 0);
+  await field(form, "Planned sets for Squat").fill("4");
   await button(form, "Save workout").click();
   let document = await storedWhen(page, document => document.workouts.length === 1);
   assert.deepEqual(document.workouts[0].exercises.map(exercise => exercise.name), ["Curl", "Squat"]);
+  assert.deepEqual(Object.values(document.workouts[0].setCounts), [2, 4]);
   assert.equal(document.sessions.length, 0);
   await button(page, "Saved workouts").click();
   await button(page.getByTestId("workout-library"), "Add Upper day to selected day").click();
@@ -160,6 +169,7 @@ test("create exercises and ordered workouts, then add a planned session without 
   assert.equal(document.sessions[0].status, "planned");
   assert.equal(document.sessions[0].startedAt, null);
   assert.deepEqual(document.sessions[0].exercises.map(row => row.exercise.name), ["Curl", "Squat"]);
+  assert.deepEqual(document.sessions[0].exercises.map(row => row.sets.length), [2, 4]);
   assert.equal(await page.getByTestId("active-workout-timer").count(), 0);
   await page.reload();
   await page.getByTestId("exercise-search-actions").waitFor();
@@ -634,10 +644,10 @@ test("workout creation searches above its ordered list and confirms removal insi
   assert.deepEqual(document.workouts[0].exercises.map(item => item.name), ["Squat 25"]);
 });
 
-test("a compact selected workout starts the sidebar workspace, restores sets, and ends into daily totals", async t => {
+test("a compact workout configures planned sets and starts a scrolling exercise bar, counting only logged sets", async t => {
   const squat = { ...single, notes: "Keep your chest up." };
   const long = { ...single, id: "long", name: "Single-leg squat with an extended exercise name for narrow phone layouts" };
-  const template = { id: "template", name: "Strength day", exercises: [squat, sides, long] };
+  const template = { id: "template", name: "Strength day", exercises: [squat, sides, long], setCounts: { squat: 3, curl: 2, long: 2 } };
   const page = await open(t, { document: { ...empty(), exercises: [squat, sides, long], workouts: [template] } });
   await button(page, "Saved workouts").click();
   await button(page, "Add Strength day to selected day").click();
@@ -648,21 +658,36 @@ test("a compact selected workout starts the sidebar workspace, restores sets, an
   assert.equal(await page.getByTestId("active-workout-timer").count(), 0);
   await page.reload();
   await compact.waitFor();
+  await button(compact, "Settings").click();
+  const settings = page.getByTestId("planned-workout-settings");
+  assert.equal(await field(settings, "Planned sets for Squat").inputValue(), "3");
+  await field(settings, "Planned sets for Squat").fill("2");
+  await field(settings, "Planned sets for Curl").fill("3");
+  await button(settings, "Save settings").click();
+  await storedWhen(page, document => document.sessions[0].exercises[0].sets.length === 2
+    && document.sessions[0].exercises[1].sets.length === 3);
+  await page.reload();
+  await compact.waitFor();
   await button(compact, "Start workout").click();
   await storedWhen(page, document => document.sessions[0].status === "active");
-  const workspace = page.getByTestId("active-workout-workspace"), sidebar = page.getByTestId("exercise-sidebar");
+  const workspace = page.getByTestId("active-workout-workspace"), topbar = page.getByTestId("exercise-topbar");
   const details = page.getByTestId("exercise-details");
   await workspace.waitFor();
   assert.equal(await compact.count(), 0);
   assert.equal(await page.getByTestId("session-editor").count(), 1);
+  assert.equal(await field(page, "Workout name").count(), 0);
+  assert.equal(await page.getByTestId("active-workout-timer").getByText("Strength day", { exact: true }).count(), 0);
+  assert.equal(await page.getByTestId("session-editor").getByRole("heading", { name: "Strength day", exact: true }).count(), 1);
+  assert.equal(await button(page.getByTestId("session-editor"), /Remove/).count(), 0);
   await button(details, "View notes for Squat").click();
   await details.getByText("Keep your chest up.", { exact: true }).waitFor();
-  await button(details, "Add set to Squat").click();
+  assert.equal(await field(details, "Squat set 2 reps").count(), 1);
+  assert.equal(await field(details, "Squat set 3 reps").count(), 0);
   await field(details, "Squat set 1 reps").fill("5");
   await field(details, "Squat set 1 weight (kg)").fill("40");
-  await button(sidebar, "Select exercise Curl").click();
+  await button(topbar, "Select exercise Curl").click();
   assert.equal(await field(page, "Squat set 1 reps").count(), 0);
-  await button(details, "Add set to Curl").click();
+  assert.equal(await field(details, "Curl set 3 left reps").count(), 1);
   await field(details, "Curl set 1 left reps").fill("8");
   await field(details, "Curl set 1 left weight (kg)").fill("10");
   await field(details, "Curl set 1 right reps").fill("6");
@@ -671,38 +696,93 @@ test("a compact selected workout starts the sidebar workspace, restores sets, an
   await page.reload();
   await workspace.waitFor();
   assert.equal(await field(details, "Squat set 1 reps").inputValue(), "5");
-  await button(sidebar, "Select exercise Curl").click();
+  await button(topbar, "Select exercise Curl").click();
   assert.equal(await field(details, "Curl set 1 right reps").inputValue(), "6");
   assert.equal(await field(details, "Curl set 1 left weight (kg)").inputValue(), "10");
   for (const appearance of ["light", "dark"]) {
     await page.evaluate(value => localStorage.setItem("kinevault-track.appearance", value), appearance);
     await page.reload();
     await workspace.waitFor();
-    await button(sidebar, `Select exercise ${long.name}`).click();
+    await button(topbar, `Select exercise ${long.name}`).click();
     for (const width of [320, 390, 1280]) {
       await page.setViewportSize({ width, height: 844 });
       await page.waitForFunction(() => {
-        const sidebar = document.querySelector('[data-testid="exercise-sidebar"]');
-        const end = sidebar?.querySelector('[aria-label="End workout"]');
-        if (!sidebar || !end) return false;
-        return Math.abs(end.getBoundingClientRect().bottom - sidebar.getBoundingClientRect().bottom) < 2;
+        const workspace = document.querySelector('[data-testid="active-workout-workspace"]');
+        const bar = document.querySelector('[data-testid="exercise-topbar"]');
+        const details = document.querySelector('[data-testid="exercise-details"]');
+        const end = workspace?.querySelector('[aria-label="End workout"]');
+        if (!workspace || !bar || !details || !end) return false;
+        return bar.getBoundingClientRect().bottom <= details.getBoundingClientRect().top + 1
+          && end.getBoundingClientRect().top >= details.getBoundingClientRect().bottom
+          && Math.abs(end.getBoundingClientRect().bottom - workspace.getBoundingClientRect().bottom) < 2;
       });
-      const sidebarBox = await sidebar.boundingBox(), detailsBox = await details.boundingBox();
-      const endBox = await button(sidebar, "End workout").boundingBox();
-      const lastExerciseBox = await button(sidebar, `Select exercise ${long.name}`).boundingBox();
-      assert.ok(sidebarBox.x + sidebarBox.width <= detailsBox.x + 1);
-      assert.ok(endBox.y >= lastExerciseBox.y + lastExerciseBox.height);
+      if (width === 320) await page.waitForFunction(() => {
+        const bar = document.querySelector('[data-testid="exercise-topbar"]');
+        return bar && [bar, ...bar.querySelectorAll("*")].some(node =>
+          /auto|scroll/.test(getComputedStyle(node).overflowX) && node.scrollWidth > node.clientWidth);
+      });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     }
   }
-  await button(sidebar, "End workout").click();
+  await button(workspace, "End workout").click();
   const document = await storedWhen(page, document => document.sessions[0].status === "completed");
   assert.ok(document.sessions[0].durationSeconds >= 0);
+  assert.deepEqual(document.sessions[0].exercises.map(row => row.sets.length), [1, 1, 0]);
   const summary = page.getByTestId("exercise-workout");
   await summary.getByText("352 kg", { exact: true }).waitFor();
   assert.equal(await summary.getByText("19", { exact: true }).count(), 1);
+  assert.equal(await summary.getByText("Sets", { exact: true }).first().locator("../..").getByText("2", { exact: true }).count(), 1);
+  assert.equal(await summary.getByText(long.name, { exact: true }).count(), 0);
   assert.equal(await workspace.count(), 0);
   assert.equal(await page.getByTestId("active-workout-timer").count(), 0);
+});
+
+test("planned workout settings preserve entered sets and block start on invalid counts or failed saves", async t => {
+  const planned = { id: "settings", date, name: "Settings draft", status: "planned", startedAt: null, durationSeconds: null,
+    exercises: [{ id: "squat-row", exercise: single, sets: [
+      { id: "one", kind: "single", reps: "", weightKg: "" },
+      { id: "two", kind: "single", reps: "5", weightKg: "40" },
+      { id: "three", kind: "single", reps: "", weightKg: "" },
+    ] }] };
+  const page = await open(t, { document: { ...empty(), exercises: [single], sessions: [planned] } });
+  const compact = page.getByTestId("planned-workout-card");
+  await button(compact, "Settings").click();
+  const settings = page.getByTestId("planned-workout-settings");
+  const count = field(settings, "Planned sets for Squat");
+  await count.fill("1");
+  await button(compact, "Start workout").click();
+  assert.equal((await documentFrom(page)).sessions[0].status, "planned");
+  assert.equal((await documentFrom(page)).sessions[0].exercises[0].sets[1].reps, "5");
+  await page.getByTestId("session-editor").getByRole("alert").first().waitFor();
+  await count.fill("101");
+  await button(settings, "Save settings").click();
+  assert.equal((await documentFrom(page)).sessions[0].exercises[0].sets.length, 3);
+  await count.fill("2");
+  await button(settings, "Save settings").click();
+  await storedWhen(page, document => document.sessions[0].exercises[0].sets.length === 2);
+  await button(compact, "Settings").click();
+  assert.equal(await count.inputValue(), "2");
+  await page.evaluate(() => { window.__exerciseWriteFailure = true; });
+  await count.fill("4");
+  await button(compact, "Start workout").click();
+  await page.getByTestId("session-editor").getByRole("alert").first().waitFor();
+  assert.equal((await documentFrom(page)).sessions[0].status, "planned");
+  assert.equal((await documentFrom(page)).sessions[0].exercises[0].sets.length, 2);
+  assert.equal(await count.inputValue(), "4");
+  await button(page, "Create Exercise").click();
+  assert.equal(await page.getByTestId("exercise-form").count(), 0);
+  assert.equal(await count.inputValue(), "4");
+  await page.evaluate(() => { window.__exerciseWriteFailure = false; });
+  await button(settings, "Save settings").click();
+  await storedWhen(page, document => document.sessions[0].exercises[0].sets.length === 4);
+  await button(compact, "Start workout").click();
+  await page.getByTestId("active-workout-workspace").waitFor();
+  assert.equal(await field(page, "Squat set 2 reps").inputValue(), "5");
+  await button(page, "End workout").click();
+  const completed = await storedWhen(page, document => document.sessions[0].status === "completed");
+  assert.equal(completed.sessions[0].exercises[0].sets.length, 1);
+  assert.equal(completed.sessions[0].exercises[0].sets[0].id, "two");
+  await page.getByTestId("exercise-workout").getByText("200 kg", { exact: true }).waitFor();
 });
 
 test("failed active draft edits survive search and calendar changes before a guarded retry", async t => {

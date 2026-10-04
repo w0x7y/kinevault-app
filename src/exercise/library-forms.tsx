@@ -48,6 +48,8 @@ export function WorkoutForm({ workout, onClose }: { workout?: WorkoutTemplate; o
   const store = useExercises();
   const exercises = store.state.kind === "ready" ? store.state.document.exercises : [];
   const [name, setName] = useState(workout?.name ?? ""), [selected, setSelected] = useState(workout?.exercises ?? []);
+  const [setCounts, setSetCounts] = useState<Record<string, string>>(() => Object.fromEntries(
+    (workout?.exercises ?? []).map(item => [item.id, String(workout?.setCounts?.[item.id] ?? 0)])));
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const alive = useAlive(), pending = useRef(false);
   const [query, setQuery] = useState(""), [limit, setLimit] = useState(20);
@@ -59,9 +61,20 @@ export function WorkoutForm({ workout, onClose }: { workout?: WorkoutTemplate; o
   }
   async function save(remove = false) {
     if (pending.current) return;
+    const counts: Record<string, number> = {};
+    if (!remove) {
+      for (const item of selected) {
+        const value = (setCounts[item.id] ?? "3").trim();
+        if (!/^\d+$/.test(value) || Number(value) > 100) {
+          setError(`Enter a whole number of sets from 0 to 100 for ${item.name}.`);
+          return;
+        }
+        counts[item.id] = Number(value);
+      }
+    }
     pending.current = true; setBusy(true); setError(null);
     const success = remove && workout ? await store.removeWorkout(workout.id)
-      : await store.saveWorkout({ id: workout?.id, name, exerciseIds: selected.map(item => item.id) });
+      : await store.saveWorkout({ id: workout?.id, name, exerciseIds: selected.map(item => item.id), setCounts: counts });
     pending.current = false;
     if (!alive.current) return;
     setBusy(false);
@@ -80,9 +93,12 @@ export function WorkoutForm({ workout, onClose }: { workout?: WorkoutTemplate; o
       label={item.name} accessibilityLabel={`Add ${item.name} to workout`} onPress={() => setSelected(rows => rows.some(row => row.id === item.id) ? rows : [...rows, item])} disabled={busy} />)}
     {available.length > limit && <ExerciseButton label="Show more exercises" onPress={() => setLimit(value => value + 20)} disabled={busy} />}
     <AppText variant="label">Exercise order</AppText>
-    {selected.length === 0 && <AppText muted>Search above to choose exercises. Sets and weights are entered when you log a workout.</AppText>}
+    {selected.length === 0 && <AppText muted>Search above to choose exercises, then set how many sets you plan to do.</AppText>}
     {selected.map((item, index) => <View key={item.id} style={{ gap: spacing.layout }}>
-      <AppText variant="label">{index + 1}. {item.name}</AppText><ActionRow>
+      <AppText variant="label">{index + 1}. {item.name}</AppText>
+      <ExerciseField label={`Planned sets for ${item.name}`} value={setCounts[item.id] ?? "3"}
+        onChange={value => setSetCounts(previous => ({ ...previous, [item.id]: value }))} numeric disabled={busy} />
+      <ActionRow>
         <ExerciseButton label="Up" accessibilityLabel={`Move ${item.name} up`} onPress={() => move(index, -1)} disabled={busy || index === 0} />
         <ExerciseButton label="Down" accessibilityLabel={`Move ${item.name} down`} onPress={() => move(index, 1)} disabled={busy || index === selected.length - 1} />
         <DeleteButton label="Remove" accessibilityLabel={`Remove ${item.name} from workout`} confirmAccessibilityLabel="Confirm remove workout exercise"

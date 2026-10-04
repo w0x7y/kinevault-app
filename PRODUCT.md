@@ -49,11 +49,17 @@ recovery stays visible. Home opens the menu in Exercise for the selected day.
 An empty menu says “No workout found. Create a workout to get started.” The sessions and exercise
 library widgets are removed. Steps remain empty.
 Workout creation searches available exercises above the ordered list. Selecting
-a saved workout shows a compact card with Start workout and manual logging.
-Start expands it into an exercise sidebar and selected-exercise sets table,
-with notes and a video placeholder. End workout stays at the sidebar's bottom
+a saved workout shows a compact card with Start workout, Settings and manual logging.
+Templates and pre-start Settings can set exercise counts from 0 to 100; new
+template exercises default to three. Start expands the card into a horizontally
+scrolling exercise bar above the selected-exercise sets table,
+with notes and a video placeholder. The workout name appears inside the active
+widget without an editable name field. End workout stays at the widget's bottom
 and saves completion before stopping the timer. Exercise selection, search and
-calendar changes preserve entered sets. Delete, remove and discard actions
+calendar changes preserve entered sets. Set counts cannot remove entered data.
+Workout logging has no remove-set or remove-exercise buttons. Entirely blank
+sets and unlogged exercises do not contribute to completion totals; partially
+entered sets must be valid. Delete, remove and discard actions
 are red and confirm by changing their own label to "Are you sure?" before a
 second tap. Failed deletion keeps the saved data and editable drafts.
 Drink search includes existing named energy drinks and common aliases for generic

@@ -82,18 +82,25 @@ Search finds exercises for editing. Results appear only while searching; there
 is no exercise-library widget on the daily screen.
 
 Create Workouts saves a named, ordered exercise list. Search for available
-exercises above the order list; matching rows load in groups of 20. Logging begins
+exercises above the order list; matching rows load in groups of 20. Set planned
+counts from 0 to 100 per exercise; new selections default to three sets. Logging begins
 only from a saved workout in the menu beside search. Choosing one shows a compact
 workout card on the captured selected date. The menu also provides access to that day's
 workout drafts, active workout, and completed logs for editing or removal.
+Settings inside a compact workout adjusts its counts before Start, without
+removing any entered measurements.
 
 Start workout runs the sole active timer. Its start time and entered sets are
 saved on the device, so switching tabs, backgrounding, or reopening keeps elapsed
-time. Starting expands the card into an exercise sidebar and a selected-exercise
+time. Starting expands the card into a horizontally scrolling exercise bar and a selected-exercise
 detail with a sets/reps/weight table, Add set, View notes, and video placeholder.
-End workout sits at the bottom of the sidebar and validates and saves the completed workout. Drafts and
+The workout name appears inside the widget, with no active name field.
+End workout sits at the bottom of the widget and validates and saves the completed workout. Drafts and
 active workouts do not contribute to daily totals. A saved workout can also be
 logged manually on any selected date, with optional duration in minutes.
+Logging has no remove-set or remove-exercise buttons. Entirely blank sets are
+skipped when saving completion, so unlogged exercises do not enter daily totals.
+Partially entered sets still require valid repetitions and weight.
 
 Home and Exercise show the workout summary only when that day has an active or
 completed workout. An empty day shows a button-only Add workout widget that opens the same

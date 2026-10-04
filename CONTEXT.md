@@ -40,15 +40,17 @@ date later becomes Today; selecting Today resumes daily advancement.
 **Exercise definition**: A reusable, locally saved exercise with a name, optional
 muscle group, equipment, notes, and single-load or separate left/right tracking.
 
-**Workout template**: A named, ordered exercise list. Sets, reps, and weights
-are entered when logging the saved workout rather than prescribed by the template.
+**Workout template**: A named, ordered exercise list with optional planned set
+counts per exercise. Reps and weights are entered while logging. New templates
+default to three sets per exercise; legacy templates retain their existing data.
 
 **Workout log**: A record created from a saved workout on the Selected day.
 Several logs may belong to a day. A workout draft becomes active through Start
 workout, or becomes completed through manual logging. The workout menu gives
 access to drafts and existing logs; there is no ad hoc session creation.
 Selected drafts display compact workout cards. Start expands a card into the
-exercise sidebar and selected-exercise detail; manual logging remains available.
+scrolling exercise bar above the selected-exercise detail; manual logging remains available.
+Settings on a compact draft can change planned counts before Start.
 
 **Active workout**: The sole workout with a running wall-clock timer. Its saved
 start time and draft sets survive tab switches and app reopening. It remains on
@@ -56,7 +58,8 @@ its original date across midnight. End workout requires a successful durable sav
 The active editor retains local fields across searches and calendar changes.
 
 **Completed workout**: A finished or manually logged workout's valid sets and
-the exercises that have at least one set. Drafts and active workouts do not
+the exercises that have at least one logged set. Untouched blank sets are skipped
+on completion; partially entered sets require valid measurements. Drafts and active workouts do not
 contribute to daily totals. Editing a completed workout requires an explicit save.
 
 **Exercise snapshot**: The exercise definition retained in a template or log.
