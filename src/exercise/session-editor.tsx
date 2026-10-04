@@ -4,7 +4,7 @@ import { AppText, Panel } from "../components/ui";
 import { DeleteButton } from "../components/delete-button";
 import { useTheme } from "../theme/provider";
 import { radius, spacing } from "../theme/tokens";
-import { durationFromMinutes, type ExerciseSet, type SessionExercise, type WorkoutSession } from "./model";
+import { createEmptySet, durationFromMinutes, isBlankSet, type ExerciseSet, type SessionExercise, type WorkoutSession } from "./model";
 import type { CompletedSessionDrafts, SessionDraft } from "./session-drafts";
 import { useExercises } from "./provider";
 import { ActionRow, ExerciseButton, ExerciseError, ExerciseField } from "./controls";
@@ -14,8 +14,9 @@ import { exerciseRowLabel, WorkoutWorkspace } from "./workout-workspace";
 export type SessionEditorHandle = { flush: () => Promise<boolean> };
 function localId() { return `set-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`; }
 
-export function SessionEditor({ session, drafts, editorRef, onClose, manual = false, onManual }: {
-  session: WorkoutSession; drafts: CompletedSessionDrafts; editorRef?: Ref<SessionEditorHandle>; onClose: () => void; manual?: boolean; onManual?: () => void;
+export function SessionEditor({ session, drafts, editorRef, onClose, manual = false, onManual, initialSettings = false, onSettings }: {
+  session: WorkoutSession; drafts: CompletedSessionDrafts; editorRef?: Ref<SessionEditorHandle>; onClose: () => void;
+  manual?: boolean; onManual?: () => void; initialSettings?: boolean; onSettings?: () => void;
 }) {
   const store = useExercises(), storeRef = useRef(store);
   const { colors } = useTheme();
@@ -29,6 +30,9 @@ export function SessionEditor({ session, drafts, editorRef, onClose, manual = fa
   const draftRef = useRef(draft);
   const [busy, setBusy] = useState(false), busyRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(initialSettings), [settingsError, setSettingsError] = useState<string | null>(null);
+  const [counts, setCounts] = useState<Record<string, string>>(() => Object.fromEntries(session.exercises.map(row => [row.id, String(row.sets.length)])));
+  const countsRef = useRef(counts);
   const [selectedId, setSelectedId] = useState(session.exercises[0]?.id), [notesId, setNotesId] = useState<string | null>(null);
   const alive = useRef(true), revision = useRef(0);
   useEffect(() => {
@@ -57,8 +61,35 @@ export function SessionEditor({ session, drafts, editorRef, onClose, manual = fa
     if (sessionRef.current.status === "completed") drafts.write(session.id, next);
     else void persist(next, currentRevision);
   }
+  function countProblem(row: SessionExercise, raw: string): string | null {
+    const text = raw.trim(), count = Number(text);
+    if (!/^\d+$/.test(text) || !Number.isSafeInteger(count) || count < 0 || count > 100) return `Enter a whole planned set count from 0 to 100 for ${row.exercise.name}.`;
+    const lastEntered = row.sets.reduce((last, set, index) => isBlankSet(set) ? last : index, -1);
+    return count <= lastEntered ? `${row.exercise.name} has entered values in later sets. Keep at least ${lastEntered + 1} sets.` : null;
+  }
+  function validateSettings() {
+    if (!settingsOpen || sessionRef.current.status !== "planned") return true;
+    const problem = draftRef.current.exercises.map(row => countProblem(row, countsRef.current[row.id] ?? String(row.sets.length))).find(Boolean) ?? null;
+    setSettingsError(problem);
+    return !problem;
+  }
+  function changeCount(rowId: string, raw: string) {
+    if (busyRef.current) return;
+    const next = { ...countsRef.current, [rowId]: raw };
+    countsRef.current = next; setCounts(next);
+    const row = draftRef.current.exercises.find(item => item.id === rowId);
+    if (!row) return;
+    const problem = countProblem(row, raw);
+    if (!problem) {
+      const count = Number(raw.trim());
+      rowChange(rowId, value => ({ ...value, sets: count <= value.sets.length ? value.sets.slice(0, count)
+        : [...value.sets, ...Array.from({ length: count - value.sets.length }, () => createEmptySet(value.exercise.tracking, localId()))] }));
+    }
+    validateSettings();
+  }
   async function flush() {
     if (busyRef.current) return false;
+    if (!validateSettings()) return false;
     if (sessionRef.current.status === "completed") return true;
     busyRef.current = true; setBusy(true);
     const result = await persist(draftRef.current, revision.current);
@@ -72,6 +103,7 @@ export function SessionEditor({ session, drafts, editorRef, onClose, manual = fa
   }
   async function transition(kind: "start" | "complete" | "save" | "discard") {
     if (busyRef.current) return false;
+    if (kind !== "discard" && !validateSettings()) return false;
     busyRef.current = true; setBusy(true); setError(null);
     const value = draftRef.current;
     let success = false;
@@ -109,23 +141,19 @@ export function SessionEditor({ session, drafts, editorRef, onClose, manual = fa
     return <View key={row.id} style={{ gap: spacing.layout, minWidth: 0 }}>
       <AppText variant="heading" accessibilityRole="header">{row.exercise.name}</AppText>
       <ExerciseSetTable sets={row.sets} rowLabel={rowLabel} busy={busy}
-        onChange={(setId, build) => setChange(row.id, setId, build)}
-        onRemove={setId => rowChange(row.id, value => ({ ...value, sets: value.sets.filter(set => set.id !== setId) }))} />
+        onChange={(setId, build) => setChange(row.id, setId, build)} />
       <ActionRow>
         <ExerciseButton label="Add set" accessibilityLabel={`Add set to ${rowLabel}`} disabled={busy}
           onPress={() => rowChange(row.id, value => ({ ...value,
-            sets: [...value.sets, row.exercise.tracking === "single" ? { id: localId(), kind: "single", reps: "", weightKg: "" }
-              : { id: localId(), kind: "sides", left: { reps: "", weightKg: "" }, right: { reps: "", weightKg: "" } }] }))} />
+            sets: [...value.sets, createEmptySet(row.exercise.tracking, localId())] }))} />
         {workspace && <ExerciseButton label="View notes" accessibilityLabel={`View notes for ${rowLabel}`} disabled={busy}
           onPress={() => setNotesId(previous => previous === row.id ? null : row.id)} />}
       </ActionRow>
       {(workspace ? notesId === row.id : Boolean(row.exercise.notes)) && <AppText variant="caption" muted>{row.exercise.notes || "No notes for this exercise."}</AppText>}
-      <ActionRow>
+      {!workspace && <ActionRow>
         <ExerciseButton label="Up" accessibilityLabel={`Move ${rowLabel} in workout up`} disabled={busy || index === 0} onPress={() => move(index, -1)} />
         <ExerciseButton label="Down" accessibilityLabel={`Move ${rowLabel} in workout down`} disabled={busy || index === draft.exercises.length - 1} onPress={() => move(index, 1)} />
-      </ActionRow>
-      <DeleteButton label="Remove exercise" accessibilityLabel={`Remove ${rowLabel} from workout`} confirmAccessibilityLabel="Confirm remove exercise" disabled={busy}
-        onDelete={() => change(value => ({ ...value, exercises: value.exercises.filter(item => item.id !== row.id) }))} />
+      </ActionRow>}
       {workspace && <View testID="exercise-video-placeholder" accessibilityLabel="No exercise video available"
         style={{ minHeight: 220, borderWidth: 1, borderColor: colors.border, borderRadius: radius.panel,
           backgroundColor: colors.background, alignItems: "center", justifyContent: "center", padding: spacing.layout }}>
@@ -135,6 +163,16 @@ export function SessionEditor({ session, drafts, editorRef, onClose, manual = fa
   }
   const compact = session.status === "planned" && !manual;
   const selected = draft.exercises.find(row => row.id === selectedId) ?? draft.exercises[0];
+  const instructions = <AppText variant="caption" muted>Blank weight means bodyweight. Left and right repetitions can differ; an unused side may stay blank. Untouched sets are skipped when you log the workout.</AppText>;
+  const feedback = <>
+    <ExerciseError message={error} />
+    {error && session.status !== "completed" && <ExerciseButton label="Retry draft save" onPress={() => void flush()} disabled={busy} />}
+  </>;
+  const closeActions = <ActionRow>
+    <ExerciseButton label="Close workout" onPress={() => void close()} disabled={busy} />
+    {session.status !== "completed" && <DeleteButton label="Discard workout" confirmAccessibilityLabel="Confirm discard workout"
+      onDelete={() => transition("discard")} disabled={busy} />}
+  </ActionRow>;
   return <Panel testID="session-editor">
     {compact ? <View testID="planned-workout-card" style={{ gap: spacing.sm }}>
       <AppText variant="heading" accessibilityRole="header">{draft.name}</AppText>
@@ -143,32 +181,37 @@ export function SessionEditor({ session, drafts, editorRef, onClose, manual = fa
         <View style={{ flex: 1, minWidth: 0 }}><ExerciseButton label="Start workout" primary onPress={() => void transition("start")} disabled={busy} /></View>
         <View style={{ flex: 1, minWidth: 0 }}><ExerciseButton label="Log completed workout" onPress={() => onManual?.()} disabled={busy || !onManual} /></View>
       </View>
-    </View> : <>
-      <AppText variant="heading" accessibilityRole="header">{session.status === "completed" ? "Edit completed workout" : session.status === "active" ? draft.name : "Log workout"}</AppText>
-      <AppText variant="caption" muted>{session.date} · {session.status === "active" ? "In progress" : session.status === "completed" ? "Completed" : "Enter your completed sets"}</AppText>
-      {session.status !== "active" && <>
-        <ExerciseField label="Workout name" value={draft.name} onChange={name => change(value => ({ ...value, name }))} disabled={busy} />
-        <ExerciseField label="Duration in minutes (optional)" value={draft.minutes}
-          onChange={minutes => change(value => ({ ...value, minutes }))} numeric disabled={busy} />
-      </>}
-      {session.status === "active" ? <WorkoutWorkspace exercises={draft.exercises} selectedId={selected?.id} onSelect={setSelectedId}
-        onEnd={() => void transition("complete")} busy={busy}>
-        {selected ? renderExercise(selected, draft.exercises.indexOf(selected), true)
-          : <AppText muted>This workout has no exercises.</AppText>}
-      </WorkoutWorkspace> : draft.exercises.map((row, index) => renderExercise(row, index, false))}
-      <AppText variant="caption" muted>Blank weight means bodyweight. Left and right repetitions can differ; an unused side may stay blank.</AppText>
-      {session.status === "active" && <ExerciseField label="Workout name" value={draft.name}
-        onChange={name => change(value => ({ ...value, name }))} disabled={busy} />}
+      <ExerciseButton label="Settings" onPress={() => onSettings ? onSettings() : setSettingsOpen(true)} disabled={busy} />
+      {settingsOpen && <View testID="planned-workout-settings" style={{ gap: spacing.layout }}>
+        <AppText variant="label">Planned sets</AppText>
+        {draft.exercises.map((row, index) => <ExerciseField key={row.id} label={`Planned sets for ${exerciseRowLabel(draft.exercises, row, index)}`}
+          value={counts[row.id] ?? String(row.sets.length)} onChange={raw => changeCount(row.id, raw)} numeric disabled={busy} />)}
+        <ExerciseError message={settingsError} />
+        <ExerciseButton label="Save settings" onPress={() => { void (async () => {
+          if (await flush() && alive.current) setSettingsOpen(false);
+        })(); }} disabled={busy} />
+      </View>}
+      {feedback}
+    </View> : session.status === "active" ? <WorkoutWorkspace name={draft.name} date={session.date}
+      exercises={draft.exercises} selectedId={selected?.id} onSelect={setSelectedId}
+      onEnd={() => void transition("complete")} busy={busy} footer={<>{instructions}{closeActions}{feedback}</>}>
+      {selected ? renderExercise(selected, draft.exercises.indexOf(selected), true)
+        : <AppText muted>This workout has no exercises.</AppText>}
+    </WorkoutWorkspace> : <>
+      <AppText variant="heading" accessibilityRole="header">{session.status === "completed" ? "Edit completed workout" : "Log workout"}</AppText>
+      <AppText variant="caption" muted>{session.date} · {session.status === "completed" ? "Completed" : "Enter your completed sets"}</AppText>
+      <ExerciseField label="Workout name" value={draft.name} onChange={name => change(value => ({ ...value, name }))} disabled={busy} />
+      <ExerciseField label="Duration in minutes (optional)" value={draft.minutes}
+        onChange={minutes => change(value => ({ ...value, minutes }))} numeric disabled={busy} />
+      {draft.exercises.map((row, index) => renderExercise(row, index, false))}
+      {instructions}
       <ActionRow>
         {session.status === "planned" && <ExerciseButton label="Start workout" onPress={() => void transition("start")} disabled={busy} />}
-        {session.status !== "active" && <ExerciseButton label={session.status === "completed" ? "Save changes" : "Log completed workout"}
-          onPress={() => void transition(session.status === "completed" ? "save" : "complete")} primary disabled={busy} />}
-        <ExerciseButton label="Close workout" onPress={() => void close()} disabled={busy} />
-        {session.status !== "completed" && <DeleteButton label="Discard workout" confirmAccessibilityLabel="Confirm discard workout"
-          onDelete={() => transition("discard")} disabled={busy} />}
+        <ExerciseButton label={session.status === "completed" ? "Save changes" : "Log completed workout"}
+          onPress={() => void transition(session.status === "completed" ? "save" : "complete")} primary disabled={busy} />
       </ActionRow>
+      {closeActions}
+      {feedback}
     </>}
-    <ExerciseError message={error} />
-    {error && session.status !== "completed" && <ExerciseButton label="Retry draft save" onPress={() => void flush()} disabled={busy} />}
   </Panel>;
 }

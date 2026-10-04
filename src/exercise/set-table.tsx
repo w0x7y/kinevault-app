@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { TextInput, View } from "react-native";
-import { DeleteButton } from "../components/delete-button";
 import { AppText } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
@@ -19,9 +18,9 @@ function NumberInput({ label, value, onChange, disabled }: {
       color: colors.foreground, fontFamily: fonts.regular, fontSize: 16, textAlign: "center" }} />;
 }
 
-export function ExerciseSetTable({ sets, rowLabel, busy, onChange, onRemove }: {
+export function ExerciseSetTable({ sets, rowLabel, busy, onChange }: {
   sets: ExerciseSet[]; rowLabel: string; busy: boolean;
-  onChange: (setId: string, build: (set: ExerciseSet) => ExerciseSet) => void; onRemove: (setId: string) => void;
+  onChange: (setId: string, build: (set: ExerciseSet) => ExerciseSet) => void;
 }) {
   return <View style={{ gap: spacing.sm }}>
     <View style={{ flexDirection: "row", gap: spacing.xs, alignItems: "center" }}>
@@ -49,8 +48,6 @@ export function ExerciseSetTable({ sets, rowLabel, busy, onChange, onRemove }: {
               onChange={weightKg => onChange(set.id, previous => previous.kind === "sides" ? { ...previous, [side]: { ...previous[side], weightKg } } : previous)} />
           </View>)}
         </>}
-        <DeleteButton label="Remove set" accessibilityLabel={`Remove ${prefix}`} confirmAccessibilityLabel="Confirm remove set"
-          disabled={busy} onDelete={() => onRemove(set.id)} />
       </View>;
     })}
   </View>;

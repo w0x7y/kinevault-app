@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
-import { View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { AppText } from "../components/ui";
-import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import { ExerciseButton } from "./controls";
 import type { SessionExercise } from "./model";
@@ -11,21 +10,22 @@ export function exerciseRowLabel(exercises: SessionExercise[], row: SessionExerc
     ? `${row.exercise.name} exercise ${index + 1}` : row.exercise.name;
 }
 
-export function WorkoutWorkspace({ exercises, selectedId, onSelect, onEnd, busy, children }: {
+export function WorkoutWorkspace({ name, date, exercises, selectedId, onSelect, onEnd, busy, children, footer }: {
+  name: string; date: string;
   exercises: SessionExercise[]; selectedId?: string; onSelect: (id: string) => void;
-  onEnd: () => void; busy: boolean; children: ReactNode;
+  onEnd: () => void; busy: boolean; children: ReactNode; footer: ReactNode;
 }) {
-  const { colors } = useTheme();
-  return <View testID="active-workout-workspace" style={{ flexDirection: "row", alignItems: "stretch", gap: spacing.sm, minWidth: 0 }}>
-    <View testID="exercise-sidebar" style={{ flex: 1, maxWidth: 180, minWidth: 72, gap: spacing.sm,
-      paddingRight: spacing.sm, borderRightWidth: 1, borderRightColor: colors.border }}>
-      <AppText variant="label">Exercises</AppText>
-      {exercises.map((row, index) => <ExerciseButton key={row.id} label={row.exercise.name}
+  return <View testID="active-workout-workspace" style={{ gap: spacing.layout, minWidth: 0 }}>
+    <AppText variant="heading" accessibilityRole="header">{name || "Active workout"}</AppText>
+    <AppText variant="caption" muted>{date} · In progress</AppText>
+    <ScrollView testID="exercise-topbar" horizontal showsHorizontalScrollIndicator keyboardShouldPersistTaps="handled"
+      style={{ minWidth: 0, flexGrow: 0 }} contentContainerStyle={{ gap: spacing.sm, alignItems: "stretch", paddingBottom: spacing.xs }}>
+      {exercises.map((row, index) => <View key={row.id} style={{ maxWidth: 180 }}><ExerciseButton label={row.exercise.name}
         accessibilityLabel={`Select exercise ${exerciseRowLabel(exercises, row, index)}`} selected={selectedId === row.id}
-        disabled={busy} onPress={() => onSelect(row.id)} />)}
-      <View style={{ flexGrow: 1, minHeight: spacing.layout }} />
-      <ExerciseButton label="End workout" primary disabled={busy} onPress={onEnd} />
-    </View>
-    <View testID="exercise-details" style={{ flex: 2.4, minWidth: 0, gap: spacing.layout }}>{children}</View>
+        disabled={busy} onPress={() => onSelect(row.id)} /></View>)}
+    </ScrollView>
+    <View testID="exercise-details" style={{ minWidth: 0, gap: spacing.layout }}>{children}</View>
+    {footer}
+    <ExerciseButton label="End workout" primary disabled={busy} onPress={onEnd} />
   </View>;
 }
