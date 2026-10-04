@@ -31,7 +31,7 @@ export function SearchActions(props: SearchActionsProps) {
   ];
   const searchBox = (
     <View testID={`${kind}-search-box`} style={{ flexDirection: "row", alignItems: "center",
-      gap: kind === "food" ? spacing.xs : spacing.layout, paddingHorizontal: kind === "food" ? spacing.sm : spacing.layout,
+      gap: spacing.xs, paddingHorizontal: spacing.sm,
       borderWidth: 1, borderRadius: radius.control, borderColor: focused ? colors.ring : colors.border,
       backgroundColor: colors.card }}>
       <Icon name="magnifying-glass" size={18} color={colors.mutedForeground} />

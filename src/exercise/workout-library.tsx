@@ -35,8 +35,7 @@ export function WorkoutLibrary({ date, onEdit, onClose, onAdded, onOpen }: {
     if (success) setDeleting(null); else setError("Couldn't delete this workout. Try again.");
   }
   return <Panel testID="workout-library"><AppText variant="heading" accessibilityRole="header">Saved workouts</AppText>
-    <AppText muted>Choose a workout for {date}, then start the timer or log it as completed.</AppText>
-    {workouts.length === 0 && <AppText>No saved workouts yet. Use Create Workouts to make one.</AppText>}
+    {workouts.length === 0 && <AppText>No workout found. Create a workout to get started.</AppText>}
     {workouts.map(workout => <View key={workout.id} style={{ gap: spacing.layout }}>
       <AppText variant="label">{workout.name}</AppText><AppText variant="caption" muted>{workout.exercises.map(item => item.name).join(" · ")}</AppText>
       <ActionRow><ExerciseButton label="Add to selected day" accessibilityLabel={`Add ${workout.name} to selected day`} onPress={() => void add(workout.id)} disabled={busy} />
