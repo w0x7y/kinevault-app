@@ -9,6 +9,7 @@ import { ExerciseForm, WorkoutForm } from "../../exercise/library-forms";
 import type { ExerciseDefinition, WorkoutTemplate } from "../../exercise/model";
 import { NewSession } from "../../exercise/new-session";
 import { useExercises } from "../../exercise/provider";
+import { createCompletedSessionDrafts } from "../../exercise/session-drafts";
 import { SessionEditor, type SessionEditorHandle } from "../../exercise/session-editor";
 import { SessionList } from "../../exercise/session-list";
 import { SessionPicker } from "../../exercise/session-picker";
@@ -23,6 +24,7 @@ type OpenPanel = { content: Content; token: number };
 
 export default function ExerciseScreen() {
   const activity = useDayActivity(), store = useExercises();
+  const [completedDrafts] = useState(createCompletedSessionDrafts);
   const [query, setQuery] = useState(""), [panel, setPanel] = useState<OpenPanel | null>(null);
   const editorRef = useRef<SessionEditorHandle | null>(null), request = useRef(0), sequence = useRef(0), panelRef = useRef(panel);
   const alive = useRef(true);
@@ -46,6 +48,7 @@ export default function ExerciseScreen() {
     return result;
   }
   const document = store.state.kind === "ready" ? store.state.document : null;
+  useEffect(() => { if (document) completedDrafts.prune(document.sessions.map(session => session.id)); }, [document, completedDrafts]);
   const active = document?.sessions.find(session => session.status === "active");
   const sessions = document?.sessions.filter(session => session.date === activity.date) ?? [];
   const normalized = query.trim().toLocaleLowerCase();
@@ -78,7 +81,7 @@ export default function ExerciseScreen() {
         onEdit={workout => void open({ kind: "workout", workout })} onAdded={id => created(panel.token, id)} />}
       {content?.kind === "picker" && <SessionPicker date={content.date} exercise={content.exercise} onClose={() => close(panel.token)} onAdded={(id, exercise) => created(panel.token, id, exercise)} />}
       {content?.kind === "new-session" && <NewSession date={content.date} onClose={() => close(panel.token)} onCreated={id => created(panel.token, id)} />}
-      {content?.kind === "session" && (editingSession ? <SessionEditor session={editingSession} addedExercise={content.addedExercise} editorRef={editorRef} onClose={() => close(panel.token)} />
+      {content?.kind === "session" && (editingSession ? <SessionEditor drafts={completedDrafts} session={editingSession} addedExercise={content.addedExercise} editorRef={editorRef} onClose={() => close(panel.token)} />
         : <Panel><AppText>This session is no longer available.</AppText><ExerciseButton label="Close session" onPress={() => close(panel.token)} /></Panel>)}
     </View>}
     {document && <SessionList sessions={sessions} onStart={start} onOpen={id => void open({ kind: "session", id })}

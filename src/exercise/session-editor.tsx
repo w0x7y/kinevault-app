@@ -3,29 +3,36 @@ import { View } from "react-native";
 import { AppText, Panel } from "../components/ui";
 import { spacing } from "../theme/tokens";
 import { durationFromMinutes, type ExerciseDefinition, type ExerciseSet, type SessionExercise, type WorkoutSession } from "./model";
+import type { CompletedSessionDrafts, SessionDraft } from "./session-drafts";
 import { useExercises } from "./provider";
 import { ActionRow, ConfirmAction, ExerciseButton, ExerciseError, ExerciseField } from "./controls";
 
 export type SessionEditorHandle = { flush: () => Promise<boolean> };
-type Draft = { name: string; exercises: SessionExercise[]; minutes: string };
 type Removal = { kind: "session" } | { kind: "exercise"; rowId: string } | { kind: "set"; rowId: string; setId: string };
 function localId() { return `set-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`; }
 
-export function SessionEditor({ session, addedExercise, editorRef, onClose }: {
-  session: WorkoutSession; addedExercise?: ExerciseDefinition; editorRef?: Ref<SessionEditorHandle>; onClose: () => void;
+export function SessionEditor({ session, drafts, addedExercise, editorRef, onClose }: {
+  session: WorkoutSession; drafts: CompletedSessionDrafts; addedExercise?: ExerciseDefinition; editorRef?: Ref<SessionEditorHandle>; onClose: () => void;
 }) {
   const store = useExercises(), storeRef = useRef(store);
   storeRef.current = store;
   const sessionRef = useRef(session); sessionRef.current = session;
-  const [draft, setDraft] = useState<Draft>(() => ({ name: session.name, exercises: addedExercise ? [...session.exercises, { id: localId(), exercise: { ...addedExercise }, sets: [] }] : session.exercises,
-    minutes: session.durationSeconds === null ? "" : String(session.durationSeconds / 60) }));
+  const [draft, setDraft] = useState<SessionDraft>(() => {
+    if (session.status === "completed") return drafts.open(session, localId, addedExercise);
+    return { name: session.name, exercises: session.exercises,
+      minutes: session.durationSeconds === null ? "" : String(session.durationSeconds / 60) };
+  });
   const draftRef = useRef(draft);
   const [busy, setBusy] = useState(false), busyRef = useRef(false);
   const [error, setError] = useState<string | null>(null), [confirmation, setConfirmation] = useState<Removal | null>(null);
   const alive = useRef(true), revision = useRef(0);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  useEffect(() => {
+    alive.current = true;
+    if (session.status === "completed") drafts.write(session.id, draftRef.current);
+    return () => { alive.current = false; };
+  }, [drafts, session.id, session.status]);
 
-  async function persist(value: Draft, currentRevision: number): Promise<boolean> {
+  async function persist(value: SessionDraft, currentRevision: number): Promise<boolean> {
     let durationSeconds: number | null | undefined;
     let invalidMinutes = false;
     if (sessionRef.current.status === "planned") {
@@ -36,13 +43,14 @@ export function SessionEditor({ session, addedExercise, editorRef, onClose }: {
       : invalidMinutes ? "Enter a nonnegative duration in minutes or leave it blank before closing. Your sets have been saved." : null);
     return result && !invalidMinutes;
   }
-  function change(build: (previous: Draft) => Draft) {
+  function change(build: (previous: SessionDraft) => SessionDraft) {
     if (busyRef.current) return;
     const next = build(draftRef.current);
     draftRef.current = next; setDraft(next);
     const currentRevision = ++revision.current;
     // Persist captured raw text immediately; provider publications never replace local fields.
-    if (sessionRef.current.status !== "completed") void persist(next, currentRevision);
+    if (sessionRef.current.status === "completed") drafts.write(session.id, next);
+    else void persist(next, currentRevision);
   }
   async function flush() {
     if (busyRef.current) return false;
@@ -54,7 +62,9 @@ export function SessionEditor({ session, addedExercise, editorRef, onClose }: {
     return result;
   }
   useImperativeHandle(editorRef, () => ({ flush }));
-  async function close() { if (await flush() && alive.current) onClose(); }
+  async function close() {
+    if (await flush() && alive.current) { drafts.discard(session.id); onClose(); }
+  }
   async function transition(kind: "start" | "complete" | "save" | "discard") {
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError(null);
@@ -75,7 +85,7 @@ export function SessionEditor({ session, addedExercise, editorRef, onClose }: {
     busyRef.current = false;
     if (!alive.current) return;
     setBusy(false);
-    if (success) { if (kind !== "start") onClose(); }
+    if (success) { if (kind !== "start") { drafts.discard(session.id); onClose(); } }
     else setError(previous => previous ?? (kind === "start" ? "Couldn't start. Another workout may already be active. Try again."
       : "Couldn't save. Enter a session name and positive whole reps for each set; weight and minutes must be nonnegative numbers. Your fields are still here. Try again."));
   }
