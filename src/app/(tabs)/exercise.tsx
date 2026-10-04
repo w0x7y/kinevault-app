@@ -69,7 +69,7 @@ export default function ExerciseScreen() {
     <WorkoutWidget workout={activity.workout} detailed showEmptyGuidance activeWorkoutName={activeOnDate?.name || (activeOnDate ? "Active workout" : undefined)}
       sourceState={activity.workoutState} onRetry={store.retryLoad} onAddWorkout={() => void open({ kind: "library", date: activity.date })} />
     {document && panel && <View key={panel.token} onLayout={event => {
-      if (content?.kind === "exercise" && scrolledPanel.current !== panel.token) {
+      if ((content?.kind === "exercise" || content?.kind === "library") && scrolledPanel.current !== panel.token) {
         scrolledPanel.current = panel.token;
         scrollRef.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: false });
       }
