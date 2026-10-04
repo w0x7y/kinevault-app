@@ -2,7 +2,7 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "reac
 import { View } from "react-native";
 import { AppText, Panel } from "../components/ui";
 import { spacing } from "../theme/tokens";
-import { durationFromMinutes, type ExerciseDefinition, type ExerciseSet, type SessionExercise, type WorkoutSession } from "./model";
+import { durationFromMinutes, type ExerciseSet, type SessionExercise, type WorkoutSession } from "./model";
 import type { CompletedSessionDrafts, SessionDraft } from "./session-drafts";
 import { useExercises } from "./provider";
 import { ActionRow, ConfirmAction, ExerciseButton, ExerciseError, ExerciseField } from "./controls";
@@ -11,14 +11,14 @@ export type SessionEditorHandle = { flush: () => Promise<boolean> };
 type Removal = { kind: "session" } | { kind: "exercise"; rowId: string } | { kind: "set"; rowId: string; setId: string };
 function localId() { return `set-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`; }
 
-export function SessionEditor({ session, drafts, addedExercise, editorRef, onClose }: {
-  session: WorkoutSession; drafts: CompletedSessionDrafts; addedExercise?: ExerciseDefinition; editorRef?: Ref<SessionEditorHandle>; onClose: () => void;
+export function SessionEditor({ session, drafts, editorRef, onClose }: {
+  session: WorkoutSession; drafts: CompletedSessionDrafts; editorRef?: Ref<SessionEditorHandle>; onClose: () => void;
 }) {
   const store = useExercises(), storeRef = useRef(store);
   storeRef.current = store;
   const sessionRef = useRef(session); sessionRef.current = session;
   const [draft, setDraft] = useState<SessionDraft>(() => {
-    if (session.status === "completed") return drafts.open(session, localId, addedExercise);
+    if (session.status === "completed") return drafts.open(session);
     return { name: session.name, exercises: session.exercises,
       minutes: session.durationSeconds === null ? "" : String(session.durationSeconds / 60) };
   });
@@ -87,7 +87,7 @@ export function SessionEditor({ session, drafts, addedExercise, editorRef, onClo
     setBusy(false);
     if (success) { if (kind !== "start") { drafts.discard(session.id); onClose(); } }
     else setError(previous => previous ?? (kind === "start" ? "Couldn't start. Another workout may already be active. Try again."
-      : "Couldn't save. Enter a session name and positive whole reps for each set; weight and minutes must be nonnegative numbers. Your fields are still here. Try again."));
+      : "Couldn't save. Enter a workout name and positive whole reps for each set; weight and minutes must be nonnegative numbers. Your fields are still here. Try again."));
   }
   function rowChange(rowId: string, build: (row: SessionExercise) => SessionExercise) {
     change(value => ({ ...value, exercises: value.exercises.map(row => row.id === rowId ? build(row) : row) }));
@@ -107,12 +107,12 @@ export function SessionEditor({ session, drafts, addedExercise, editorRef, onClo
     setConfirmation(null);
   }
   return <Panel testID="session-editor">
-    <AppText variant="heading" accessibilityRole="header">{session.status === "completed" ? "Edit completed workout" : session.status === "active" ? "Active workout" : "Workout session"}</AppText>
-    <AppText variant="caption" muted>{session.date} · {session.status}</AppText>
-    <ExerciseField label="Session name" value={draft.name} onChange={name => change(value => ({ ...value, name }))} disabled={busy} />
+    <AppText variant="heading" accessibilityRole="header">{session.status === "completed" ? "Edit completed workout" : session.status === "active" ? "Active workout" : "Planned workout"}</AppText>
+    <AppText variant="caption" muted>{session.date} · {session.status === "active" ? "In progress" : session.status === "planned" ? "Planned" : "Completed"}</AppText>
+    <ExerciseField label="Workout name" value={draft.name} onChange={name => change(value => ({ ...value, name }))} disabled={busy} />
     {session.status !== "active" && <ExerciseField label="Duration in minutes (optional)" value={draft.minutes}
       onChange={minutes => change(value => ({ ...value, minutes }))} numeric disabled={busy} />}
-    {draft.exercises.length === 0 && <AppText muted>Search your exercise library to add exercises to this session.</AppText>}
+    {draft.exercises.length === 0 && <AppText muted>This workout has no exercises. Create or edit a saved workout to choose its exercises.</AppText>}
     {draft.exercises.map((row, index) => {
       const rowLabel = draft.exercises.filter(item => item.exercise.name === row.exercise.name).length > 1
         ? `${row.exercise.name} exercise ${index + 1}` : row.exercise.name;
@@ -120,9 +120,9 @@ export function SessionEditor({ session, drafts, addedExercise, editorRef, onClo
       <AppText variant="heading">{row.exercise.name}</AppText>
       {Boolean(row.exercise.notes) && <AppText variant="caption" muted>{row.exercise.notes}</AppText>}
       <ActionRow>
-        <ExerciseButton label="Up" accessibilityLabel={`Move ${rowLabel} in session up`} disabled={busy || index === 0} onPress={() => move(index, -1)} />
-        <ExerciseButton label="Down" accessibilityLabel={`Move ${rowLabel} in session down`} disabled={busy || index === draft.exercises.length - 1} onPress={() => move(index, 1)} />
-        <ExerciseButton label="Remove exercise" accessibilityLabel={`Remove ${rowLabel} from session`} disabled={busy}
+        <ExerciseButton label="Up" accessibilityLabel={`Move ${rowLabel} in workout up`} disabled={busy || index === 0} onPress={() => move(index, -1)} />
+        <ExerciseButton label="Down" accessibilityLabel={`Move ${rowLabel} in workout down`} disabled={busy || index === draft.exercises.length - 1} onPress={() => move(index, 1)} />
+        <ExerciseButton label="Remove exercise" accessibilityLabel={`Remove ${rowLabel} from workout`} disabled={busy}
           onPress={() => setConfirmation({ kind: "exercise", rowId: row.id })} />
       </ActionRow>
       {row.sets.map((set, setIndex) => {
@@ -155,11 +155,11 @@ export function SessionEditor({ session, drafts, addedExercise, editorRef, onClo
       {session.status === "planned" && <ExerciseButton label="Start workout" onPress={() => void transition("start")} disabled={busy} />}
       <ExerciseButton label={session.status === "active" ? "Finish workout" : session.status === "completed" ? "Save changes" : "Log completed workout"}
         onPress={() => void transition(session.status === "completed" ? "save" : "complete")} primary disabled={busy} />
-      <ExerciseButton label="Close session" onPress={() => void close()} disabled={busy} />
-      {session.status !== "completed" && <ExerciseButton label="Discard session" onPress={() => setConfirmation({ kind: "session" })} disabled={busy} />}
+      <ExerciseButton label="Close workout" onPress={() => void close()} disabled={busy} />
+      {session.status !== "completed" && <ExerciseButton label="Discard workout" onPress={() => setConfirmation({ kind: "session" })} disabled={busy} />}
     </ActionRow>
-    {confirmation && <ConfirmAction question={confirmation.kind === "session" ? "Discard this session and all entered sets?" : confirmation.kind === "set" ? "Remove this set?" : "Remove this exercise and its sets?"}
-      label={confirmation.kind === "session" ? "Confirm discard session" : confirmation.kind === "set" ? "Confirm remove set" : "Confirm remove exercise"}
+    {confirmation && <ConfirmAction question={confirmation.kind === "session" ? "Discard this workout and all entered sets?" : confirmation.kind === "set" ? "Remove this set?" : "Remove this exercise and its sets?"}
+      label={confirmation.kind === "session" ? "Confirm discard workout" : confirmation.kind === "set" ? "Confirm remove set" : "Confirm remove exercise"}
       onConfirm={confirmRemoval} onCancel={() => setConfirmation(null)} disabled={busy} />}
   </Panel>;
 }

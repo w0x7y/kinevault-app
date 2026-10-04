@@ -35,12 +35,12 @@ export function ExerciseForm({ exercise, onClose }: { exercise?: ExerciseDefinit
     <ActionRow>{(["single", "sides"] as const).map(tracking => <ExerciseButton key={tracking}
       label={tracking === "single" ? "Single weight" : "Left and right"} selected={values.tracking === tracking}
       onPress={() => setValues(v => ({ ...v, tracking }))} disabled={busy} />)}</ActionRow>
-    <AppText variant="caption" muted>Leave weight blank for bodyweight. Changes apply to future sessions.</AppText>
+    <AppText variant="caption" muted>Leave weight blank for bodyweight. Changes apply to future workouts.</AppText>
     <ExerciseError message={error} />
     <ActionRow><ExerciseButton label="Save exercise" onPress={() => void save()} primary disabled={busy} />
       <ExerciseButton label="Cancel" onPress={onClose} disabled={busy} />
       {exercise && <ExerciseButton label="Delete exercise" onPress={() => setConfirm(true)} disabled={busy} />}</ActionRow>
-    {confirm && <ConfirmAction question="Delete this exercise? Saved workouts and past sessions keep their exercise details."
+    {confirm && <ConfirmAction question="Delete this exercise? Saved workouts and past workouts keep their exercise details."
       label="Confirm delete exercise" onConfirm={() => void save(true)} onCancel={() => setConfirm(false)} disabled={busy} />}
   </Panel>;
 }
@@ -68,7 +68,7 @@ export function WorkoutForm({ workout, onClose }: { workout?: WorkoutTemplate; o
     <AppText variant="heading" accessibilityRole="header">{workout ? "Edit workout" : "Create workout"}</AppText>
     <ExerciseField label="Workout name" value={name} onChange={setName} disabled={busy} />
     <AppText variant="label">Exercise order</AppText>
-    {selected.length === 0 && <AppText muted>Choose exercises below. Sets and weights are entered when you log a session.</AppText>}
+    {selected.length === 0 && <AppText muted>Choose exercises below. Sets and weights are entered when you log a workout.</AppText>}
     {selected.map((item, index) => <View key={item.id} style={{ gap: spacing.layout }}>
       <AppText variant="label">{index + 1}. {item.name}</AppText><ActionRow>
         <ExerciseButton label="Up" accessibilityLabel={`Move ${item.name} up`} onPress={() => move(index, -1)} disabled={busy || index === 0} />
@@ -78,7 +78,7 @@ export function WorkoutForm({ workout, onClose }: { workout?: WorkoutTemplate; o
     {removal && <ConfirmAction question={`Remove ${removal.name} from this workout?`} label="Confirm remove workout exercise"
       onConfirm={() => { setSelected(rows => rows.filter(row => row.id !== removal.id)); setRemoval(null); }}
       onCancel={() => setRemoval(null)} disabled={busy} />}
-    <AppText variant="label">Your exercises</AppText>
+    <AppText variant="label">Available exercises</AppText>
     {exercises.length === 0 && <AppText muted>Create an exercise first, then return to build your workout.</AppText>}
     {exercises.filter(item => !selected.some(row => row.id === item.id)).map(item => <ExerciseButton key={item.id}
       label={item.name} accessibilityLabel={`Add ${item.name} to workout`} onPress={() => setSelected(rows => rows.some(row => row.id === item.id) ? rows : [...rows, item])} disabled={busy} />)}
@@ -87,7 +87,7 @@ export function WorkoutForm({ workout, onClose }: { workout?: WorkoutTemplate; o
       <ExerciseButton label="Cancel" onPress={onClose} disabled={busy} />
       {workout && <ExerciseButton label="Delete workout" onPress={() => setConfirm(true)} disabled={busy} />}
     </ActionRow>
-    {confirm && <ConfirmAction question="Delete this saved workout? Logged and planned sessions remain."
+    {confirm && <ConfirmAction question="Delete this saved workout? Logged and planned workouts remain."
       label="Confirm delete workout" onConfirm={() => void save(true)} onCancel={() => setConfirm(false)} disabled={busy} />}
   </Panel>;
 }
