@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { parseExerciseDocument, elapsedSeconds, type ExerciseDefinition, type ExerciseDocument, type WorkoutSession } from "../src/exercise/model.ts";
+import { seedDevelopmentExamples } from "../src/exercise/commands.ts";
 import { summarizeSessions } from "../src/exercise/summary.ts";
 
 const exercise: ExerciseDefinition = { id: "curl", name: "Curl", muscleGroup: "Arms", equipment: "Dumbbells", notes: "", tracking: "sides" };
@@ -91,4 +92,18 @@ test("elapsed timer derives wall time, floors seconds and tolerates clock moving
   assert.equal(elapsedSeconds(active, 42500), 41); assert.equal(elapsedSeconds(active, 500), 0);
   assert.equal(elapsedSeconds({ ...session, durationSeconds: 120 }, 999999), 120);
   assert.equal(elapsedSeconds({ ...session, status: "planned" }, 999999), 0);
+});
+
+test("development example marker survives parsing without changing legacy session data", () => {
+  const legacy = document([session, { ...session, id: "legacy-empty", name: "", status: "planned", exercises: [] }]);
+  assert.deepEqual(parse(legacy), legacy);
+  assert.deepEqual(parse({ ...legacy, developmentExamplesSeeded: true }), { ...legacy, developmentExamplesSeeded: true });
+  for (const marker of [false, null, "true", 1]) {
+    assert.throws(() => parse({ ...legacy, developmentExamplesSeeded: marker }));
+  }
+});
+
+test("a completed development seed never recreates a removed example", () => {
+  const seeded: ExerciseDocument = { ...document([session]), developmentExamplesSeeded: true };
+  assert.deepEqual(seedDevelopmentExamples(seeded).document, seeded);
 });

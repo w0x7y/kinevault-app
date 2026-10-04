@@ -8,7 +8,7 @@ export type SessionExercise = { id: string; exercise: ExerciseDefinition; sets: 
 export type WorkoutTemplate = { id: string; name: string; exercises: ExerciseDefinition[] };
 export type WorkoutSession = { id: string; date: string; name: string; status: "planned" | "active" | "completed";
   startedAt: number | null; durationSeconds: number | null; exercises: SessionExercise[] };
-export type ExerciseDocument = { version: 1; exercises: ExerciseDefinition[]; workouts: WorkoutTemplate[]; sessions: WorkoutSession[] };
+export type ExerciseDocument = { version: 1; exercises: ExerciseDefinition[]; workouts: WorkoutTemplate[]; sessions: WorkoutSession[]; developmentExamplesSeeded?: true };
 
 function record(value: unknown): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error("Invalid exercise record");
@@ -88,7 +88,7 @@ export function durationFromMinutes(value: string | undefined): number | null {
 export function parseWorkoutSession(value: unknown): WorkoutSession {
   const item = record(value);
   const status = item.status;
-  if (status !== "planned" && status !== "active" && status !== "completed") throw new Error("Invalid session status");
+  if (status !== "planned" && status !== "active" && status !== "completed") throw new Error("Invalid workout status");
   const date = text(item.date, 10, true); parseDay(date);
   const startedAt = item.startedAt;
   if (startedAt !== null && (typeof startedAt !== "number" || !Number.isSafeInteger(startedAt) || startedAt < 0 || startedAt > 8640000000000000)) throw new Error("Invalid workout start time");
@@ -113,11 +113,12 @@ export function parseExerciseDocument(raw: string | null): ExerciseDocument {
   if (raw === null) return { version: 1, exercises: [], workouts: [], sessions: [] };
   const value = record(JSON.parse(raw));
   if (value.version !== 1) throw new Error("Unsupported exercise document");
+  if (value.developmentExamplesSeeded !== undefined && value.developmentExamplesSeeded !== true) throw new Error("Invalid development example marker");
   const exercises = unique(list(value.exercises, parseExerciseDefinition, 10000));
   const workouts = unique(list(value.workouts, template, 10000));
   const sessions = unique(list(value.sessions, parseWorkoutSession, 50000));
   if (sessions.filter(session => session.status === "active").length > 1) throw new Error("Only one workout may be active");
-  return { version: 1, exercises, workouts, sessions };
+  return { version: 1, exercises, workouts, sessions, ...(value.developmentExamplesSeeded === true ? { developmentExamplesSeeded: true as const } : {}) };
 }
 export function elapsedSeconds(session: WorkoutSession, now: number): number {
   if (session.status !== "active" || session.startedAt === null) return session.status === "completed" ? session.durationSeconds ?? 0 : 0;

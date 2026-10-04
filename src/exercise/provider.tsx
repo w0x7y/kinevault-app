@@ -3,18 +3,22 @@ import { createContext, useContext, useEffect, useState, useSyncExternalStore, t
 import { createExercisePersistence, type ExerciseSnapshot } from "./persistence";
 
 type ExerciseStore = ReturnType<typeof createExercisePersistence>;
-type ExerciseContextValue = ExerciseSnapshot & Omit<ExerciseStore, "getSnapshot" | "subscribe" | "start" | "stop">;
+type ExerciseContextValue = ExerciseSnapshot & Omit<ExerciseStore, "getSnapshot" | "subscribe" | "start" | "stop" | "seedDevelopmentExamples">;
 const ExerciseContext = createContext<ExerciseContextValue | null>(null);
 
 export function ExerciseProvider({ children }: PropsWithChildren) {
   const [store] = useState(() => {
     let sequence = 0;
-    return createExercisePersistence({ storage: AsyncStorage,
+    return createExercisePersistence({ storage: AsyncStorage, development: __DEV__,
       createId: () => `${Date.now().toString(36)}-${++sequence}-${Math.random().toString(36).slice(2)}`, now: Date.now });
   });
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   useEffect(() => { store.start(); return store.stop; }, [store]);
-  const { getSnapshot: _getSnapshot, subscribe: _subscribe, start: _start, stop: _stop, ...commands } = store;
+  const seedDocument = snapshot.state.kind === "ready" ? snapshot.state.document : null;
+  useEffect(() => {
+    if (__DEV__ && seedDocument && !seedDocument.developmentExamplesSeeded) void store.seedDevelopmentExamples();
+  }, [store, seedDocument]);
+  const { getSnapshot: _getSnapshot, subscribe: _subscribe, start: _start, stop: _stop, seedDevelopmentExamples: _seedDevelopmentExamples, ...commands } = store;
   return <ExerciseContext.Provider value={{ ...snapshot, ...commands }}>{children}</ExerciseContext.Provider>;
 }
 export function useExercises() {

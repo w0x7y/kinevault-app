@@ -4,15 +4,25 @@ import { durationFromMinutes, elapsedSeconds, parseExerciseDefinition, parseWork
 export type SaveExerciseInput = Omit<ExerciseDefinition, "id"> & { id?: string };
 export type SaveWorkoutInput = { id?: string; name: string; exerciseIds: string[] };
 export type PlanWorkoutInput = { date: string; workoutId: string };
-export type CreateSessionInput = { date: string; name: string };
-export type AddExerciseInput = { sessionId: string; exerciseId: string };
 export type UpdateSessionInput = { id: string; name: string; exercises: SessionExercise[]; durationSeconds?: number | null };
 export type CompleteSessionInput = { id: string; name: string; exercises: SessionExercise[]; durationMinutes?: string };
 export type ExerciseChange<Value> = { document: ExerciseDocument; value: Value };
 
+const developmentExamples: ExerciseDefinition[] = [
+  { id: "development-example-squat", name: "Squat", tracking: "single", equipment: "barbell", muscleGroup: "legs", notes: "" },
+  { id: "development-example-push-up", name: "Push-up", tracking: "single", equipment: "bodyweight", muscleGroup: "chest", notes: "" },
+  { id: "development-example-dumbbell-curl", name: "Dumbbell curl", tracking: "sides", equipment: "dumbbells", muscleGroup: "arms", notes: "" },
+];
+export function seedDevelopmentExamples(document: ExerciseDocument): ExerciseChange<true> {
+  if (document.developmentExamplesSeeded) return { document, value: true };
+  const existing = new Set(document.exercises.map(exercise => exercise.id));
+  return { document: { ...document, developmentExamplesSeeded: true,
+    exercises: [...document.exercises, ...developmentExamples.filter(exercise => !existing.has(exercise.id)).map(exercise => ({ ...exercise }))] }, value: true };
+}
+
 function requireSession(document: ExerciseDocument, id: string): WorkoutSession {
   const session = document.sessions.find(session => session.id === id);
-  if (!session) throw new Error("This session is no longer available.");
+  if (!session) throw new Error("This workout is no longer available.");
   return session;
 }
 function replaceSession(document: ExerciseDocument, value: WorkoutSession): ExerciseChange<true> {
@@ -31,10 +41,6 @@ function name(input: string): string {
 // All transformations are pure. The persistence boundary validates the complete
 // next document before writing it, including IDs and the single-active invariant.
 export function createExerciseCommands({ createId, now }: { createId: () => string; now: () => number }) {
-  function newSession(document: ExerciseDocument, input: CreateSessionInput, exercises: SessionExercise[]): ExerciseChange<string> {
-    const session = parseWorkoutSession({ id: createId(), date: input.date, name: input.name.trim(), status: "planned", startedAt: null, durationSeconds: null, exercises });
-    return { document: { ...document, sessions: [...document.sessions, session] }, value: session.id };
-  }
   return {
     saveExercise(document: ExerciseDocument, input: SaveExerciseInput): ExerciseChange<string> {
       if (input.id !== undefined && !document.exercises.some(exercise => exercise.id === input.id)) throw new Error("This exercise is no longer available.");
@@ -64,17 +70,8 @@ export function createExerciseCommands({ createId, now }: { createId: () => stri
       const workout = document.workouts.find(item => item.id === input.workoutId);
       if (!workout) throw new Error("This workout is no longer available.");
       const exercises = workout.exercises.map(retained => ({ id: createId(), exercise: { ...(document.exercises.find(item => item.id === retained.id) ?? retained) }, sets: [] }));
-      return newSession(document, { date: input.date, name: workout.name }, exercises);
-    },
-    createSession(document: ExerciseDocument, input: CreateSessionInput): ExerciseChange<string> {
-      return newSession(document, input, []);
-    },
-    addExercise(document: ExerciseDocument, input: AddExerciseInput): ExerciseChange<true> {
-      const session = requireSession(document, input.sessionId);
-      if (session.status === "completed") throw new Error("Edit the completed session to add an exercise.");
-      const exercise = document.exercises.find(item => item.id === input.exerciseId);
-      if (!exercise) throw new Error("This exercise is no longer available.");
-      return replaceSession(document, { ...session, exercises: [...session.exercises, { id: createId(), exercise: { ...exercise }, sets: [] }] });
+      const session = parseWorkoutSession({ id: createId(), date: input.date, name: workout.name.trim(), status: "planned", startedAt: null, durationSeconds: null, exercises });
+      return { document: { ...document, sessions: [...document.sessions, session] }, value: session.id };
     },
     updateSession(document: ExerciseDocument, input: UpdateSessionInput): ExerciseChange<true> {
       const session = requireSession(document, input.id);
@@ -83,7 +80,7 @@ export function createExerciseCommands({ createId, now }: { createId: () => stri
     },
     startSession(document: ExerciseDocument, id: string): ExerciseChange<true> {
       const session = requireSession(document, id);
-      if (session.status !== "planned" || document.sessions.some(item => item.status === "active")) throw new Error("A workout is already active or this session has finished.");
+      if (session.status !== "planned" || document.sessions.some(item => item.status === "active")) throw new Error("A workout is already active or this workout has finished.");
       return replaceSession(document, { ...session, status: "active", startedAt: now(), durationSeconds: null });
     },
     completeSession(document: ExerciseDocument, input: CompleteSessionInput): ExerciseChange<true> {
