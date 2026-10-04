@@ -12,7 +12,8 @@ type SearchActionsProps = {
   onQueryChange: (query: string) => void;
 } & ({ kind: "food"; onViewMacros: () => void; macrosDisabled: boolean;
   onCreateItem: () => void; createDisabled: boolean; searchDisabled: boolean;
-  onScanBarcode: () => void } | { kind: "exercise" });
+  onScanBarcode: () => void } | { kind: "exercise"; onCreateExercise: () => void; onCreateWorkout: () => void;
+  onSavedWorkouts: () => void; disabled: boolean });
 
 export function SearchActions(props: SearchActionsProps) {
   const { kind, query, onQueryChange } = props;
@@ -25,8 +26,8 @@ export function SearchActions(props: SearchActionsProps) {
     { label: "View macros for the day", icon: "chart-pie", onPress: props.onViewMacros, disabled: props.macrosDisabled,
       hint: "Shows nutrition totals for the selected day" },
   ] : [
-    { label: "Create Exercise", icon: "circle-plus" },
-    { label: "Create Workouts", icon: "clipboard-list" },
+    { label: "Create Exercise", icon: "circle-plus", onPress: props.onCreateExercise, disabled: props.disabled, hint: "Create an exercise in your local library" },
+    { label: "Create Workouts", icon: "clipboard-list", onPress: props.onCreateWorkout, disabled: props.disabled, hint: "Create an ordered reusable workout" },
   ];
   const searchBox = (
     <View testID={`${kind}-search-box`} style={{ flexDirection: "row", alignItems: "center",
@@ -37,12 +38,12 @@ export function SearchActions(props: SearchActionsProps) {
       <TextInput
         ref={props.inputRef}
         accessibilityLabel={label}
-        accessibilityHint={props.kind === "food" ? "Searches the offline food database and your saved foods and meals" : "Filters entries logged for the selected day"}
+        accessibilityHint={props.kind === "food" ? "Searches the offline food database and your saved foods and meals" : "Searches your saved exercise library"}
         placeholder={label}
         placeholderTextColor={colors.mutedForeground}
         selectionColor={colors.ring}
         value={query}
-        editable={props.kind !== "food" || !props.searchDisabled}
+        editable={props.kind === "food" ? !props.searchDisabled : !props.disabled}
         onChangeText={onQueryChange}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
@@ -54,7 +55,7 @@ export function SearchActions(props: SearchActionsProps) {
       />
       {query.length > 0 && (
         <Pressable accessibilityRole="button" accessibilityLabel="Clear search"
-          disabled={props.kind === "food" && props.searchDisabled}
+          disabled={props.kind === "food" ? props.searchDisabled : props.disabled}
           onPress={() => onQueryChange("")}
           style={({ pressed }) => ({ width: 44, minHeight: 44, alignItems: "center", justifyContent: "center",
             backgroundColor: pressed ? colors.accent : "transparent", borderRadius: 8 })}>
@@ -116,7 +117,20 @@ export function SearchActions(props: SearchActionsProps) {
             </Pressable>
           </View>
         </View>
-      ) : searchBox}
+      ) : (
+        <View style={{ flexDirection: "row", alignItems: "stretch", gap: spacing.layout }}>
+          <View style={{ flex: 3, minWidth: 0 }}>{searchBox}</View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Saved workouts"
+              accessibilityHint="Choose a saved workout to plan on the selected day" accessibilityState={{ disabled: props.disabled }}
+              disabled={props.disabled} onPress={props.onSavedWorkouts}
+              style={({ pressed }) => ({ flex: 1, minHeight: 52, alignItems: "center", justifyContent: "center", borderWidth: 1,
+                borderColor: colors.border, borderRadius: radius.control, backgroundColor: pressed ? colors.accent : colors.secondary })}>
+              <Icon name="clipboard-list" size={18} color={colors.secondaryForeground} />
+            </Pressable>
+          </View>
+        </View>
+      )}
     </View>
   );
 }

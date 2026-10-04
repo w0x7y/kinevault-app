@@ -1,0 +1,35 @@
+import { useEffect, useRef, useState } from "react";
+import { View } from "react-native";
+import { AppText, Panel } from "../components/ui";
+import { spacing } from "../theme/tokens";
+import type { WorkoutTemplate } from "./model";
+import { useExercises } from "./provider";
+import { ActionRow, ExerciseButton, ExerciseError } from "./controls";
+
+export function WorkoutLibrary({ date, onEdit, onClose, onAdded }: {
+  date: string; onEdit: (workout: WorkoutTemplate) => void; onClose: () => void; onAdded: (id: string) => void;
+}) {
+  const store = useExercises();
+  const workouts = store.state.kind === "ready" ? store.state.document.workouts : [];
+  const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
+  const alive = useRef(true), pending = useRef(false);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  async function add(id: string) {
+    if (pending.current) return;
+    pending.current = true; setBusy(true); setError(null);
+    const result = await store.planWorkout({ date, workoutId: id });
+    pending.current = false;
+    if (!alive.current) return;
+    setBusy(false);
+    if (result) onAdded(result); else setError("Couldn't add this workout. Try again.");
+  }
+  return <Panel testID="workout-library"><AppText variant="heading" accessibilityRole="header">Saved workouts</AppText>
+    <AppText muted>Add a planned session for {date}. The timer starts when you choose Start workout.</AppText>
+    {workouts.length === 0 && <AppText>No saved workouts yet. Use Create Workouts to make one.</AppText>}
+    {workouts.map(workout => <View key={workout.id} style={{ gap: spacing.layout }}>
+      <AppText variant="label">{workout.name}</AppText><AppText variant="caption" muted>{workout.exercises.map(item => item.name).join(" · ")}</AppText>
+      <ActionRow><ExerciseButton label="Add to selected day" accessibilityLabel={`Add ${workout.name} to selected day`} onPress={() => void add(workout.id)} disabled={busy} />
+        <ExerciseButton label="Edit" accessibilityLabel={`Edit workout ${workout.name}`} onPress={() => onEdit(workout)} disabled={busy} /></ActionRow>
+    </View>)}<ExerciseError message={error} /><ExerciseButton label="Close saved workouts" onPress={onClose} disabled={busy} />
+  </Panel>;
+}
