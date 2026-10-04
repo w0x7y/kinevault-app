@@ -52,6 +52,16 @@ Selected drafts display compact workout cards. Start expands a card into the
 scrolling exercise bar above the selected-exercise detail; manual logging remains available.
 Settings on a compact draft can change planned counts before Start.
 
+**Workout edit**: Unfinished changes to a workout log. Planned and active fields
+are saved as drafts; completed changes require explicit Save. Failed saves retain
+the entered fields. Leaving for another panel preserves completed changes, while
+Cancel discards them.
+
+**Workout template draft**: The name, ordered Exercise definitions and planned
+counts being prepared for a reusable workout. A newly selected exercise defaults
+to three sets; removing and re-adding it retains its entered count. Saving a
+template draft does not change existing workout logs.
+
 **Active workout**: The sole workout with a running wall-clock timer. Its saved
 start time and draft sets survive tab switches and app reopening. It remains on
 its original date across midnight. End workout requires a successful durable save.
