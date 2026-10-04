@@ -1,4 +1,5 @@
-import { Pressable, View, type ViewProps } from "react-native";
+import { View, type ViewProps } from "react-native";
+import { DeleteButton } from "../components/delete-button";
 import { AppText, Panel } from "../components/ui";
 import { Icon } from "../components/icon";
 import { useTheme } from "../theme/provider";
@@ -9,7 +10,7 @@ import { FoodButton } from "../food/food-button";
 export function MealsWidget({ day, query, onRemove, onEdit, onLayout, saving, error }: {
   day: Pick<DailyActivity, "foods">;
   query: string;
-  onRemove: (id: string) => void;
+  onRemove: (id: string) => Promise<boolean>;
   onEdit: (entry: FoodEntry) => void;
   onLayout?: ViewProps["onLayout"];
   saving: boolean;
@@ -44,12 +45,9 @@ export function MealsWidget({ day, query, onRemove, onEdit, onLayout, saving, er
                     ? `${food.drinkMl.toLocaleString()} ml`
                     : `${food.grams.toLocaleString(undefined, { maximumFractionDigits: 1 })} g`} · {Math.round(food.calories).toLocaleString()} kcal</AppText>
                 </View>
-                <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${food.name} from ${label}`}
-                  accessibilityState={{ disabled: saving }} disabled={saving} onPress={() => onRemove(food.id)}
-                  style={({ pressed }) => ({ width: 44, minHeight: 44, alignItems: "center", justifyContent: "center",
-                    borderRadius: 8, backgroundColor: pressed ? colors.accent : "transparent", opacity: saving ? 0.5 : 1 })}>
-                  <Icon name="xmark" size={16} color={colors.primary} />
-                </Pressable>
+                <DeleteButton label="Remove" accessibilityLabel={`Remove ${food.name} from ${label}`}
+                  confirmAccessibilityLabel={`Confirm remove ${food.name} from ${label}`}
+                  disabled={saving} onDelete={() => onRemove(food.id)} />
               </View>
             )) : allEntries.length === 0 ? (
               <AppText variant="caption" muted>No food has been logged yet</AppText>

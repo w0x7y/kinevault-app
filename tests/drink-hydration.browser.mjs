@@ -164,7 +164,11 @@ test("Drinks Add logs explicit ml, combines manual water, scales nutrition, remo
   await total(page, "0.2");
   await button(page, "Expand calendar").click(); await button(page, "Select today").click(); await button(page, "Collapse calendar").click();
   await total(page, "0.55");
-  await tab(page, "Food"); await button(page, "Remove Soft drink, cola from Drinks").click();
+  await tab(page, "Food");
+  if (await button(page, "Remove Soft drink, cola from Drinks").count()) {
+    await button(page, "Remove Soft drink, cola from Drinks").click();
+  }
+  await button(page, "Confirm remove Soft drink, cola from Drinks").click();
   await page.getByTestId("meal-drinks").getByText("No food has been logged yet", { exact: true }).waitFor();
   await total(page, "0.25");
   assert.deepEqual(await stored(page, waterKey), { version: 1, days: { [date]: 250 } });
@@ -267,10 +271,15 @@ test("drink failure and duplicate taps keep hydration unchanged until one durabl
   await saveEdit(page); await total(page, "0.4");
   await tab(page, "Food"); await failNextFoodWrite(page);
   await button(page, "Remove Soft drink, cola from Drinks").click();
+  await button(page, "Confirm remove Soft drink, cola from Drinks").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save your food log" }).waitFor();
   assert.equal((await entries(page)).length, 1);
   await total(page, "0.4");
-  await tab(page, "Food"); await button(page, "Remove Soft drink, cola from Drinks").click();
+  await tab(page, "Food");
+  if (await button(page, "Remove Soft drink, cola from Drinks").count()) {
+    await button(page, "Remove Soft drink, cola from Drinks").click();
+  }
+  await button(page, "Confirm remove Soft drink, cola from Drinks").click();
   await page.getByTestId("meal-drinks").getByText("No food has been logged yet", { exact: true }).waitFor();
   await total(page, "0");
   assert.equal(await stored(page, waterKey), null);

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
+import { DeleteButton } from "../components/delete-button";
 import { AppText, Panel } from "../components/ui";
 import { spacing } from "../theme/tokens";
 import type { WorkoutTemplate } from "./model";
 import { useExercises } from "./provider";
-import { ActionRow, ConfirmAction, ExerciseButton, ExerciseError } from "./controls";
+import { ActionRow, ExerciseButton, ExerciseError } from "./controls";
 
 export function WorkoutLibrary({ date, onEdit, onClose, onAdded, onOpen }: {
   date: string; onEdit: (workout: WorkoutTemplate) => void; onClose: () => void; onAdded: (id: string) => void; onOpen: (id: string) => void;
@@ -13,7 +14,6 @@ export function WorkoutLibrary({ date, onEdit, onClose, onAdded, onOpen }: {
   const workouts = store.state.kind === "ready" ? store.state.document.workouts : [];
   const records = store.state.kind === "ready" ? store.state.document.sessions.filter(workout => workout.date === date) : [];
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
   const alive = useRef(true), pending = useRef(false);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   async function add(id: string) {
@@ -32,7 +32,8 @@ export function WorkoutLibrary({ date, onEdit, onClose, onAdded, onOpen }: {
     pending.current = false;
     if (!alive.current) return;
     setBusy(false);
-    if (success) setDeleting(null); else setError("Couldn't delete this workout. Try again.");
+    if (!success) setError("Couldn't delete this workout. Try again.");
+    return success;
   }
   return <Panel testID="workout-library"><AppText variant="heading" accessibilityRole="header">Saved workouts</AppText>
     {workouts.length === 0 && <AppText>No workout found. Create a workout to get started.</AppText>}
@@ -48,14 +49,11 @@ export function WorkoutLibrary({ date, onEdit, onClose, onAdded, onOpen }: {
       <ActionRow><ExerciseButton label={workout.status === "completed" ? "Edit" : "Open"}
         accessibilityLabel={`${workout.status === "completed" ? "Edit logged workout" : "Open logged workout"} ${workout.name}`}
         onPress={() => onOpen(workout.id)} disabled={busy} />
-        <ExerciseButton label={workout.status === "active" ? "Discard" : "Delete"}
+        <DeleteButton label={workout.status === "active" ? "Discard" : "Delete"}
           accessibilityLabel={`${workout.status === "active" ? "Discard workout" : "Delete logged workout"} ${workout.name}`}
-          onPress={() => setDeleting(workout.id)} disabled={busy} />
+          confirmAccessibilityLabel={workout.status === "active" ? "Confirm discard workout" : "Confirm delete logged workout"}
+          onDelete={() => remove(workout.id)} disabled={busy} />
       </ActionRow>
-      {deleting === workout.id && <ConfirmAction
-        question={workout.status === "active" ? "Discard this workout and all entered sets?" : "Delete this workout and its sets?"}
-        label={workout.status === "active" ? "Confirm discard workout" : "Confirm delete logged workout"}
-        onConfirm={() => void remove(workout.id)} onCancel={() => setDeleting(null)} disabled={busy} />}
     </View>)}
     <ExerciseError message={error} /><ExerciseButton label="Close saved workouts" onPress={onClose} disabled={busy} />
   </Panel>;

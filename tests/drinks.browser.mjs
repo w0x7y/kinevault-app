@@ -187,7 +187,7 @@ test("deleting the last logging page clamps result labels and pager actions", as
   await results.getByText("Showing 41 to 41 of 41", { exact: true }).waitFor();
   await button(page, "View nutrition for Shrinkfixture food 40, custom food").click();
   await button(page, "Delete food").click();
-  await page.getByRole("dialog", { name: "Delete custom food?" }).getByRole("button", { name: "Delete food", exact: true }).click();
+  await button(page, "Confirm delete food").click();
   await results.getByText("Showing 21 to 40 of 40", { exact: true }).waitFor();
   assert.equal(await results.getByTestId("food-result").count(), 20);
   assert.equal(await button(page, "Previous food results").isEnabled(), true);

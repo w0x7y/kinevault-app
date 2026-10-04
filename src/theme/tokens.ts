@@ -15,6 +15,8 @@ export const lightColors = {
   border: "#ced6de",
   input: "#ced6de",
   ring: "#638ba6",
+  destructive: "#b42318",
+  destructiveForeground: "#ffffff",
   error: "#991b1b",
 };
 
@@ -37,6 +39,8 @@ export const darkColors: ThemeColors = {
   border: "#3b4a59",
   input: "#3b4a59",
   ring: "#94bdd7",
+  destructive: "#b42318",
+  destructiveForeground: "#ffffff",
   error: "#fca5a5",
 };
 

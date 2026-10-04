@@ -407,7 +407,9 @@ for (const kind of ["food", "meal"]) {
     await field(page, kind === "food" ? "Food name" : "Meal name").fill("Deleted editor draft");
     await openSavedItem(page, kind);
     await button(page, `Delete ${kind}`).click();
-    const confirmation = page.getByRole("dialog", { name: `Delete custom ${kind}?` });
+    const confirmation = button(page, `Confirm delete ${kind}`);
+    assert.equal(await confirmation.innerText(), "Are you sure?");
+    assert.equal(await page.getByRole("dialog").count(), 0);
     await page.evaluate(key => {
       const original = Storage.prototype.setItem;
       Storage.prototype.setItem = function(nextKey, value) {
@@ -415,9 +417,11 @@ for (const kind of ["food", "meal"]) {
         return original.call(this, nextKey, value);
       };
     }, storageKey);
-    await confirmation.getByRole("button", { name: `Delete ${kind}`, exact: true }).click();
-    await confirmation.getByRole("alert").waitFor();
-    await confirmation.getByRole("button", { name: "Cancel", exact: true }).click();
+    await confirmation.click();
+    await page.getByRole("alert").waitFor();
+    await confirmation.focus();
+    await button(page, `Edit ${kind}`).focus();
+    assert.equal(await button(page, `Delete ${kind}`).innerText(), `Delete ${kind}`);
     assert.equal(await button(page, "Resume draft: Deleted editor draft").count(), 1);
     assert.equal(await button(page, "Resume draft: Unrelated retained editor").count(), 1);
     assert.equal((await catalog(page))[kind === "food" ? "foods" : "meals"].length, 1);
@@ -425,7 +429,7 @@ for (const kind of ["food", "meal"]) {
     assert.equal(await field(page, kind === "food" ? "Food name" : "Meal name").inputValue(), "Deleted editor draft");
     await openSavedItem(page, kind);
     await button(page, `Delete ${kind}`).click();
-    await confirmation.getByRole("button", { name: `Delete ${kind}`, exact: true }).click();
+    await confirmation.click();
     await confirmation.waitFor({ state: "hidden" });
     assert.equal((await catalog(page))[kind === "food" ? "foods" : "meals"].length, 0);
     assert.equal(await button(page, "Resume draft: Deleted editor draft").count(), 0);

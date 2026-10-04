@@ -142,7 +142,7 @@ function FoodDay({ activity }: { activity: ReturnType<typeof useDayActivity> }) 
         <MealsWidget day={food.day} query="" saving={log.saving || custom.saving} error={log.error}
           onLayout={event => { resultsTop.current = event.nativeEvent.layout.y; }}
           onEdit={entry => { setView({ kind: "edit", entry }); scrollToContent(); }}
-          onRemove={id => { void log.remove({ date, id }); }} />
+          onRemove={id => log.remove({ date, id })} />
       ) : null}
     </Screen>
   );

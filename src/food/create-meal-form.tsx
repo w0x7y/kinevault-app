@@ -1,3 +1,4 @@
+import { DeleteButton } from "../components/delete-button";
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { AppText } from "../components/ui";
@@ -77,8 +78,9 @@ export function CreateMealForm({ onCancel, onSaved, session }: {
       <FoodField label={`Amount for ${ingredient.food.name} (g)`} value={ingredient.amount}
         error={errors.amounts?.[ingredient.id]} numeric disabled={foods.saving}
         onChange={amount => change({ ...draft, ingredients: draft.ingredients.map(item => item.id === ingredient.id ? { ...item, amount } : item) })} />
-      <FoodButton label="Remove ingredient" accessibilityLabel={`Remove ${ingredient.food.name} from meal`} disabled={foods.saving}
-        onPress={() => change({ ...draft, ingredients: draft.ingredients.filter(item => item.id !== ingredient.id) })} />
+      <DeleteButton label="Remove ingredient" accessibilityLabel={`Remove ${ingredient.food.name} from meal`} disabled={foods.saving}
+        confirmAccessibilityLabel={`Confirm remove ${ingredient.food.name} from meal`}
+        onDelete={() => change({ ...draft, ingredients: draft.ingredients.filter(item => item.id !== ingredient.id) })} />
     </View>)}
     {errors.ingredients && <AppText variant="caption" accessibilityRole="alert" style={{ color: colors.error }}>{errors.ingredients}</AppText>}
     <IngredientSearch onAdd={add} disabled={foods.saving} />
