@@ -5,7 +5,7 @@ export type SetSide = { reps: string; weightKg: string };
 export type ExerciseSet = { id: string; kind: "single"; reps: string; weightKg: string }
   | { id: string; kind: "sides"; left: SetSide; right: SetSide };
 export type SessionExercise = { id: string; exercise: ExerciseDefinition; sets: ExerciseSet[] };
-export type WorkoutTemplate = { id: string; name: string; exercises: ExerciseDefinition[] };
+export type WorkoutTemplate = { id: string; name: string; exercises: ExerciseDefinition[]; setCounts?: Record<string, number> };
 export type WorkoutSession = { id: string; date: string; name: string; status: "planned" | "active" | "completed";
   startedAt: number | null; durationSeconds: number | null; exercises: SessionExercise[] };
 export type ExerciseDocument = { version: 1; exercises: ExerciseDefinition[]; workouts: WorkoutTemplate[]; sessions: WorkoutSession[]; developmentExamplesSeeded?: true };
@@ -48,6 +48,14 @@ function parseSet(value: unknown): ExerciseSet {
   if (item.kind === "single") return { id: id(item.id), kind: "single", ...side(item) };
   if (item.kind === "sides") return { id: id(item.id), kind: "sides", left: side(item.left), right: side(item.right) };
   throw new Error("Invalid exercise set kind");
+}
+export function createEmptySet(tracking: ExerciseDefinition["tracking"], setId: string): ExerciseSet {
+  return parseSet(tracking === "single" ? { id: setId, kind: tracking, reps: "", weightKg: "" }
+    : { id: setId, kind: tracking, left: { reps: "", weightKg: "" }, right: { reps: "", weightKg: "" } });
+}
+export function isBlankSet(set: ExerciseSet): boolean {
+  const blankSide = (side: SetSide) => !side.reps.trim() && !side.weightKg.trim();
+  return set.kind === "single" ? blankSide(set) : blankSide(set.left) && blankSide(set.right);
 }
 export function parseSessionExercise(value: unknown): SessionExercise {
   const item = record(value);
@@ -103,11 +111,20 @@ export function parseWorkoutSession(value: unknown): WorkoutSession {
   }
   return { id: id(item.id), date, name, status, startedAt, durationSeconds, exercises };
 }
+export function parseSetCounts(value: unknown, exerciseIds: readonly string[]): Record<string, number> {
+  const counts = record(value);
+  const allowed = new Set(exerciseIds);
+  return Object.fromEntries(Object.entries(counts).map(([exerciseId, count]) => {
+    if (!allowed.has(exerciseId) || typeof count !== "number" || !Number.isSafeInteger(count) || count < 0 || count > 100) throw new Error("Set counts must be whole numbers from 0 to 100 for selected exercises.");
+    return [exerciseId, count];
+  }));
+}
 function template(value: unknown): WorkoutTemplate {
   const item = record(value);
   const exercises = unique(list(item.exercises, parseExerciseDefinition, 1000));
   if (!exercises.length) throw new Error("Select at least one exercise");
-  return { id: id(item.id), name: text(item.name, 400, true), exercises };
+  return { id: id(item.id), name: text(item.name, 400, true), exercises,
+    ...(item.setCounts === undefined ? {} : { setCounts: parseSetCounts(item.setCounts, exercises.map(exercise => exercise.id)) }) };
 }
 export function parseExerciseDocument(raw: string | null): ExerciseDocument {
   if (raw === null) return { version: 1, exercises: [], workouts: [], sessions: [] };

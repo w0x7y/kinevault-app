@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createExercisePersistence, exerciseStorageKey } from "../src/exercise/persistence.ts";
-import { parseExerciseDocument, type SessionExercise } from "../src/exercise/model.ts";
+import { parseExerciseDocument, type ExerciseSet, type SessionExercise } from "../src/exercise/model.ts";
+import { summarizeSessions } from "../src/exercise/summary.ts";
 import type { DurableStorage } from "../src/persistence/durable-write.ts";
 
 const flush = async () => { for (let n = 0; n < 12; n++) await Promise.resolve(); };
@@ -289,4 +290,90 @@ test("development seeding cannot overwrite corrupt or unreadable storage during 
     assert.equal(await f.store.seedDevelopmentExamples(), true);
     assert.deepEqual(doc(f.store).exercises, demoExercises);
   }
+});
+
+test("configured template set counts persist through restart and seed matching blank sets without totals", async () => {
+  const f = await ready(); const { exerciseId, workoutId } = await planned(f);
+  const sidesId = await f.store.saveExercise({ name: "Curl", muscleGroup: "", equipment: "", notes: "", tracking: "sides" }); assert.ok(sidesId);
+  assert.equal(await f.store.saveWorkout({ id: workoutId, name: "Configured", exerciseIds: [exerciseId, sidesId], setCounts: { [exerciseId]: 3, [sidesId]: 2 } }), workoutId);
+  const restored = await ready(f.raw()); const sessionId = await restored.store.planWorkout({ date: "2026-10-05", workoutId }); assert.ok(sessionId);
+  const rows = doc(restored.store).sessions.find(item => item.id === sessionId)!.exercises;
+  assert.deepEqual(rows.map(row => row.sets.length), [3, 2]);
+  assert.deepEqual(rows[0]!.sets.map(set => ({ ...set, id: "unique" })), Array.from({ length: 3 }, () => ({ id: "unique", kind: "single", reps: "", weightKg: "" })));
+  assert.deepEqual(rows[1]!.sets.map(set => ({ ...set, id: "unique" })), Array.from({ length: 2 }, () => ({ id: "unique", kind: "sides", left: { reps: "", weightKg: "" }, right: { reps: "", weightKg: "" } })));
+  assert.equal(new Set(rows.flatMap(row => row.sets.map(set => set.id))).size, 5);
+  const totals = summarizeSessions(doc(restored.store).sessions); assert.equal(totals.sets, 0); assert.equal(totals.reps, 0); assert.equal(totals.volume, 0);
+});
+test("editing without set counts preserves configured counts across reordering and trims removed exercises", async () => {
+  const f = await ready(); const { exerciseId, workoutId } = await planned(f);
+  const next = await f.store.saveExercise({ name: "Press", muscleGroup: "", equipment: "", notes: "", tracking: "single" }); assert.ok(next);
+  await f.store.saveWorkout({ id: workoutId, name: "Configured", exerciseIds: [exerciseId, next], setCounts: { [exerciseId]: 3, [next]: 0 } });
+  await f.store.saveWorkout({ id: workoutId, name: "Reordered", exerciseIds: [next, exerciseId] });
+  assert.deepEqual(doc(f.store).workouts[0]!.setCounts, { [exerciseId]: 3, [next]: 0 });
+  await f.store.saveWorkout({ id: workoutId, name: "Removed", exerciseIds: [next] });
+  assert.deepEqual(doc(f.store).workouts[0]!.setCounts, { [next]: 0 });
+  assert.equal((await f.store.planWorkout({ date: "2026-10-06", workoutId })) !== null, true);
+  assert.equal(doc(f.store).sessions.at(-1)!.exercises[0]!.sets.length, 0);
+});
+test("legacy omitted counts plan zero rows and explicit invalid counts never change storage", async () => {
+  const f = await ready(); const { exerciseId, sessionId, workoutId } = await planned(f);
+  assert.equal(doc(f.store).workouts[0]!.setCounts, undefined); assert.equal(doc(f.store).sessions[0]!.exercises[0]!.sets.length, 0);
+  const before = f.raw();
+  for (const setCounts of [{ missing: 3 }, { [exerciseId]: -1 }, { [exerciseId]: 101 }, { [exerciseId]: 1.5 }, { [exerciseId]: NaN }, { [exerciseId]: Infinity }, { [exerciseId]: "3" }, null, []]) {
+    assert.equal(await f.store.saveWorkout({ id: workoutId, name: "Invalid", exerciseIds: [exerciseId], setCounts } as never), null);
+  }
+  assert.equal(f.raw(), before); assert.equal(doc(f.store).sessions[0]!.id, sessionId);
+});
+test("single-load completion drops untouched placeholders and retains unlogged exercises with zero sets", async () => {
+  const f = await ready(); const { sessionId } = await planned(f); const rows = entered(f, sessionId);
+  rows[0]!.sets.push({ id: "untouched", kind: "single", reps: " ", weightKg: "" });
+  rows.push({ ...rows[0]!, id: "unlogged", sets: [{ id: "unlogged-set", kind: "single", reps: "", weightKg: "" }] });
+  assert.equal(await f.store.completeSession({ id: sessionId, name: "One set", exercises: rows }), true);
+  const saved = doc(f.store).sessions[0]!;
+  assert.deepEqual(saved.exercises.map(row => row.sets.length), [1, 0]);
+  assert.equal(saved.exercises[0]!.sets[0]!.id, "set-1");
+  const totals = summarizeSessions([saved]); assert.equal(totals.sets, 1); assert.equal(totals.reps, 8); assert.equal(totals.volume, 80); assert.equal(totals.exercises.length, 1);
+  assert.equal(parseExerciseDocument(f.raw()).sessions[0]!.exercises[1]!.sets.length, 0);
+});
+test("completed edits omit added blank sets but all-blank and partially entered sets remain invalid", async () => {
+  const f = await ready(); const { sessionId } = await planned(f); await f.store.completeSession({ id: sessionId, name: "Saved", exercises: entered(f, sessionId) });
+  const rows = entered(f, sessionId, "10"); rows[0]!.sets.push({ id: "blank", kind: "single", reps: "", weightKg: "" });
+  assert.equal(await f.store.updateSession({ id: sessionId, name: "Edited", exercises: rows }), true);
+  assert.equal(doc(f.store).sessions[0]!.exercises[0]!.sets.length, 1); const before = f.raw();
+  for (const invalid of [
+    [{ id: "blank", kind: "single", reps: "", weightKg: "" }],
+    [...rows[0]!.sets, { id: "partial", kind: "single", reps: "", weightKg: "10" }],
+    [...rows[0]!.sets, { id: "zero", kind: "single", reps: "0", weightKg: "" }],
+    [...rows[0]!.sets, { id: "bad", kind: "single", reps: "-", weightKg: "" }],
+  ]) {
+    assert.equal(await f.store.updateSession({ id: sessionId, name: "Invalid", exercises: [{ ...rows[0]!, sets: invalid as ExerciseSet[] }] }), false);
+    assert.equal(await f.store.completeSession({ id: sessionId, name: "Invalid", exercises: [{ ...rows[0]!, sets: invalid as ExerciseSet[] }] }), false);
+  }
+  assert.equal(f.raw(), before);
+});
+test("side completion skips only fully untouched pairs and retains valid unilateral logging", async () => {
+  const f = await ready(); const sideId = await f.store.saveExercise({ name: "Curl", muscleGroup: "", equipment: "", notes: "", tracking: "sides" }); assert.ok(sideId);
+  const workoutId = await f.store.saveWorkout({ name: "Arms", exerciseIds: [sideId], setCounts: { [sideId]: 3 } }); assert.ok(workoutId);
+  const sessionId = await f.store.planWorkout({ date: "2026-10-04", workoutId }); assert.ok(sessionId);
+  const rows = doc(f.store).sessions[0]!.exercises;
+  const blank: ExerciseSet = { id: "blank", kind: "sides", left: { reps: "", weightKg: " " }, right: { reps: "", weightKg: "" } };
+  const logged: ExerciseSet = { id: "logged", kind: "sides", left: { reps: "", weightKg: "" }, right: { reps: "6", weightKg: "12" } };
+  for (const bad of [
+    { ...blank, id: "bad", left: { reps: "", weightKg: "10" } },
+    { ...blank, id: "bad", left: { reps: "0", weightKg: "" } },
+  ]) assert.equal(await f.store.completeSession({ id: sessionId, name: "Arms", exercises: [{ ...rows[0]!, sets: [blank, logged, bad] }] }), false);
+  assert.equal(await f.store.completeSession({ id: sessionId, name: "Arms", exercises: [{ ...rows[0]!, sets: [blank, logged] }] }), true);
+  const result = summarizeSessions(doc(f.store).sessions); assert.equal(result.sets, 1); assert.equal(result.reps, 6); assert.equal(result.volume, 72);
+  assert.deepEqual(doc(f.store).sessions[0]!.exercises[0]!.sets, [logged]);
+});
+test("all untouched planned sets cannot create a completed workout with fake zero totals", async () => {
+  const f = await ready(); const { exerciseId, workoutId } = await planned(f);
+  await f.store.saveWorkout({ id: workoutId, name: "Planned", exerciseIds: [exerciseId], setCounts: { [exerciseId]: 3 } });
+  const sessionId = await f.store.planWorkout({ date: "2026-10-05", workoutId }); assert.ok(sessionId);
+  const rows = doc(f.store).sessions.at(-1)!.exercises, before = f.raw();
+  assert.equal(await f.store.updateSession({ id: sessionId, name: "Still planned", exercises: rows }), true);
+  const draft = f.raw(); assert.notEqual(draft, before);
+  assert.equal(await f.store.completeSession({ id: sessionId, name: "Empty", exercises: rows }), false);
+  assert.equal(f.raw(), draft); assert.equal(doc(f.store).sessions.at(-1)!.status, "planned");
+  assert.equal(summarizeSessions(doc(f.store).sessions).sets, 0);
 });
