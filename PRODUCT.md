@@ -38,10 +38,12 @@ editing drinks requires one whole amount from 1 to 10,000 ml for nutrition and
 hydration. Beverages log automatically to Drinks without gram or meal controls. Saved edits and removals update hydration
 with the same food-log write. Legacy snacks remain Snacks without guessed ml. Exercise
 shows totals for active or completed workouts, with sets, reps, and actual
-weight ranges. Exercise search opens library definitions for editing; results
-appear only during a search. The button beside search opens saved workouts and
-that day's drafts and logs. Logging starts only from a saved workout. Empty days
-show guidance to use this menu or create a workout. The sessions and exercise
+weight ranges. Exercise search opens library definitions for editing and matches
+Food's search and result styling, with at least two letters and 20 results per
+page. The button beside search opens saved workouts and that day's drafts and
+logs. Logging starts only from a saved workout. Empty days show an Add workout
+widget opening the same menu. Home opens it in Exercise for the selected day.
+An empty menu says “No workout found. Create a workout to get started.” The sessions and exercise
 library widgets are removed. Steps remain empty.
 Drink search includes existing named energy drinks and common aliases for generic
 cola and pepper-style soda. Generic alternatives are labelled rather than treated as

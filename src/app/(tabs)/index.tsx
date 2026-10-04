@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useRouter } from "expo-router";
 import { Screen } from "../../components/ui";
 import { KineSplitRow } from "../../components/kine-split-row";
 import { useProfile } from "../../profile/provider";
@@ -14,6 +15,7 @@ import { WaterEntryModal } from "../../water/entry-modal";
 import { useExercises } from "../../exercise/provider";
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { state } = useProfile();
   const activity = useDayActivity();
   const { state: exerciseState, retryLoad: retryWorkouts } = useExercises();
@@ -37,7 +39,8 @@ export default function HomeScreen() {
       </KineSplitRow>
       <CalorieWidget current={summary.calories} goal={calorieState(answers).target} macros={summary} /></> : <FoodLogStatus />}
       <WorkoutWidget workout={activity.workout} sourceState={activity.workoutState} onRetry={retryWorkouts}
-        showEmptyGuidance activeWorkoutName={activeWorkout?.name || (activeWorkout ? "Active workout" : undefined)} />
+        showEmptyGuidance activeWorkoutName={activeWorkout?.name || (activeWorkout ? "Active workout" : undefined)}
+        onAddWorkout={() => router.push({ pathname: "/exercise", params: { workoutMenu: activity.date } })} />
       <ActivityWidgets steps={activity.steps} water={activity.water}
         onAddWater={() => setWaterEntryDay(activity.date)} />
       {waterEntryDay === activity.date && <WaterEntryModal key={waterEntryDay} date={waterEntryDay}

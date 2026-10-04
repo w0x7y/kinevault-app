@@ -345,20 +345,21 @@ test("completed workout edits survive exercise editing and menu navigation witho
   assert.equal(document.sessions[0].durationSeconds, 900);
 });
 
-test("empty days show guidance instead of workout or exercise widgets and planned workouts stay in the menu", async t => {
+test("empty days show an Add workout widget and planned workouts stay in the menu", async t => {
   const planned = { id: "draft", date, name: "Ready workout", status: "planned", startedAt: null, durationSeconds: null, exercises: [] };
   const page = await open(t, { document: { ...empty(), sessions: [planned] } });
   await page.getByTestId("exercise-workout-empty").waitFor();
-  assert.match(await page.getByTestId("exercise-workout-empty").innerText(), /workout menu.*create a workout/);
+  assert.equal(await button(page.getByTestId("exercise-workout-empty"), "Add workout").isEnabled(), true);
   for (const id of ["exercise-workout", "exercise-library", "session-list", "session-picker"]) assert.equal(await page.getByTestId(id).count(), 0);
   assert.equal(await page.getByRole("heading", { name: "Your exercises", exact: true }).count(), 0);
   assert.doesNotMatch(await page.locator("body").innerText(), /session/i);
-  await button(page, "Saved workouts").click();
+  await button(page.getByTestId("exercise-workout-empty"), "Add workout").click();
   await button(page, "Open logged workout Ready workout").waitFor();
   await button(page, "Close saved workouts").click();
   await page.getByRole("tab", { name: /Home/ }).click();
   await page.getByTestId("home-workout-empty").waitFor();
   assert.equal(await page.getByTestId("home-workout").count(), 0);
+  assert.equal(await button(page.getByTestId("home-workout-empty"), "Add workout").isEnabled(), true);
 });
 
 test("development seeds exactly three demo exercises once and preserves a deliberate deletion after reload", async t => {
@@ -402,4 +403,96 @@ test("a workout menu keeps its captured date when the calendar changes before lo
   await page.getByRole("button", { name: "Sunday, October 4, 2026, today", exact: true }).click();
   await button(page, "Collapse calendar").click();
   await page.getByTestId("exercise-workout").getByText("200 kg", { exact: true }).waitFor();
+});
+
+test("Add workout and the workout icon open the same menu with the requested empty copy", async t => {
+  const page = await open(t);
+  const menu = page.getByTestId("workout-library");
+  for (const opener of [button(page.getByTestId("exercise-workout-empty"), "Add workout"), button(page, "Saved workouts")]) {
+    await opener.click();
+    await menu.waitFor();
+    assert.equal(await menu.getByText("No workout found. Create a workout to get started.", { exact: true }).count(), 1);
+    assert.doesNotMatch(await menu.innerText(), /Choose a workout for|No saved workouts yet/);
+    await button(menu, "Close saved workouts").click();
+  }
+});
+
+test("Home Add workout opens the saved menu once with the selected date", async t => {
+  const template = { id: "template", name: "Leg day", exercises: [single] };
+  const exercises = Array.from({ length: 21 }, (_, index) => ({ ...single, id: `squat-${index}`, name: `Squat ${index + 1}` }));
+  const page = await open(t, { path: "/", document: { ...empty(), exercises, workouts: [template] } });
+  await page.getByRole("tab", { name: /Exercise/ }).click();
+  await field(page, "Search exercises").fill("Squat");
+  await page.getByTestId("exercise-result").first().waitFor();
+  assert.equal(await page.getByTestId("exercise-result").count(), 20);
+  await page.getByRole("tab", { name: /Home/ }).click();
+  await button(page, "Expand calendar").click();
+  await page.getByRole("button", { name: "Saturday, October 3, 2026", exact: true }).click();
+  await button(page, "Collapse calendar").click();
+  await button(page.getByTestId("home-workout-empty"), "Add workout").click();
+  const menu = page.getByTestId("workout-library");
+  await menu.waitFor();
+  await page.waitForFunction(() => {
+    const menu = document.querySelector('[data-testid="workout-library"]')?.getBoundingClientRect();
+    return menu && menu.top >= 0 && menu.top < innerHeight - 100;
+  });
+  assert.match(page.url(), /\/exercise/);
+  await button(menu, "Close saved workouts").click();
+  await button(page, "Create Exercise").click();
+  await field(page, "Exercise name").fill("Bench press");
+  await button(page, "Save exercise").click();
+  await storedWhen(page, document => document.exercises.length === 22);
+  assert.equal(await menu.count(), 0, "the consumed menu intent must not reopen after a provider update");
+  await page.getByRole("tab", { name: /Home/ }).click();
+  await button(page.getByTestId("home-workout-empty"), "Add workout").click();
+  await button(menu, "Add Leg day to selected day").click();
+  const document = await storedWhen(page, document => document.sessions.length === 1);
+  assert.equal(document.sessions[0].date, "2026-10-03");
+});
+
+test("Exercise search matches Food field and result styling, pages results, and clears them", async t => {
+  const exercises = Array.from({ length: 21 }, (_, index) => ({ ...single, id: `squat-${index}`, name: `Squat ${index + 1}` }));
+  const page = await open(t, { document: { ...empty(), exercises } });
+  const styles = locator => locator.evaluate(element => {
+    const css = getComputedStyle(element);
+    return Object.fromEntries(["paddingLeft", "paddingRight", "paddingTop", "paddingBottom", "gap", "borderRadius", "borderColor", "backgroundColor", "minHeight"].map(key => [key, css[key]]));
+  });
+  for (const appearance of ["light", "dark"]) {
+    await page.evaluate(value => localStorage.setItem("kinevault-track.appearance", value), appearance);
+    await page.reload();
+    await page.getByTestId("exercise-search-actions").waitFor();
+    await page.getByRole("tab", { name: /Food/ }).click();
+    await field(page, "Search foods").fill("apple");
+    await page.getByTestId("food-result").first().waitFor();
+    await field(page, "Search foods").blur();
+    const foodFieldStyle = await styles(page.getByTestId("food-search-box"));
+    const foodResultStyle = await styles(page.getByTestId("food-result").first());
+    await page.getByRole("tab", { name: /Exercise/ }).click();
+    assert.deepEqual(await styles(page.getByTestId("exercise-search-box")), foodFieldStyle);
+    await field(page, "Search exercises").fill("S");
+    await page.getByText("Type at least two letters to search exercises.", { exact: true }).waitFor();
+    assert.equal(await page.getByTestId("exercise-result").count(), 0);
+    await field(page, "Search exercises").fill("Squat");
+    await page.getByTestId("exercise-result").first().waitFor();
+    assert.deepEqual(await styles(page.getByTestId("exercise-result").first()), foodResultStyle);
+    assert.equal(await page.getByTestId("exercise-result").count(), 20);
+    await button(page, "Next exercise results").click();
+    assert.equal(await page.getByTestId("exercise-result").count(), 1);
+    await button(page, "Previous exercise results").click();
+    await page.waitForFunction(() => {
+      const result = document.querySelector('[data-testid="exercise-result"]')?.getBoundingClientRect();
+      return result && result.top >= 0 && result.bottom < innerHeight - 60;
+    });
+    await button(page, "Edit exercise Squat 1").click();
+    await page.getByTestId("exercise-form").waitFor();
+    await page.waitForFunction(() => {
+      const name = document.querySelector('[aria-label="Exercise name"]')?.getBoundingClientRect();
+      return name && name.top >= 0 && name.bottom < innerHeight - 60;
+    });
+    await button(page.getByTestId("exercise-form"), "Cancel").click();
+    await button(page, "Clear search").click();
+    assert.equal(await page.getByTestId("exercise-library").count(), 0);
+    assert.equal(await field(page, "Search exercises").inputValue(), "");
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  }
 });

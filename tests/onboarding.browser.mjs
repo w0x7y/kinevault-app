@@ -859,7 +859,7 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
         else await page.getByTestId("exercise-workout-empty").waitFor();
         await page.evaluate(() => document.fonts.ready);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${tab} overflows at ${width}px`);
-        const text = title ? page.getByRole("heading", { name: title, exact: true }) : page.getByTestId("exercise-workout-empty");
+        const text = title ? page.getByRole("heading", { name: title, exact: true }) : page.getByTestId("exercise-workout-empty").getByRole("heading", { name: "Workout of the day", exact: true });
         const font = await text.evaluate((el) => getComputedStyle(el).fontFamily);
         assert.match(font, /Comfortaa/);
         if (tab !== "Settings") assert.equal(await page.getByRole("heading", { name: tab, exact: true }).count(), 0);
@@ -960,7 +960,7 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
             assert.equal(await page.getByTestId("exercise-workout").count(), 0);
             assert.equal(await page.getByTestId("session-list").count(), 0);
             assert.equal(await page.getByTestId("exercise-library").count(), 0);
-            assert.match(await page.getByTestId("exercise-workout-empty").innerText(), /workout menu.*create a workout/);
+            assert.equal(await button(page.getByTestId("exercise-workout-empty"), "Add workout").isEnabled(), true);
           } else {
             const foodLog = page.getByTestId("daily-food-log");
             assert.equal(await foodLog.getByText("No food has been logged yet", { exact: true }).count(), 5);

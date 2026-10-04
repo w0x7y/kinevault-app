@@ -2,11 +2,11 @@ import { View } from "react-native";
 import { AppText, Panel } from "../components/ui";
 import { Icon, type IconName } from "../components/icon";
 import { useTheme } from "../theme/provider";
-import { spacing } from "../theme/tokens";
+import { radius, spacing } from "../theme/tokens";
 import type { CompletedWorkout } from "./workout";
 import { Pressable } from "react-native";
 
-export function WorkoutWidget({ workout, detailed = false, query = "", sourceState = "ready", onRetry, showEmptyGuidance = false, activeWorkoutName }: {
+export function WorkoutWidget({ workout, detailed = false, query = "", sourceState = "ready", onRetry, showEmptyGuidance = false, activeWorkoutName, onAddWorkout }: {
   workout: CompletedWorkout;
   detailed?: boolean;
   query?: string;
@@ -14,6 +14,7 @@ export function WorkoutWidget({ workout, detailed = false, query = "", sourceSta
   onRetry?: () => void;
   showEmptyGuidance?: boolean;
   activeWorkoutName?: string;
+  onAddWorkout?: () => void;
 }) {
   const { colors } = useTheme();
   const stats: { label: string; value: string; icon: IconName }[] = [
@@ -43,9 +44,18 @@ export function WorkoutWidget({ workout, detailed = false, query = "", sourceSta
     </Panel>
   );
   if (showEmptyGuidance && workout.name === null && !activeWorkoutName) return (
-    <AppText testID={detailed ? "exercise-workout-empty" : "home-workout-empty"} muted>
-      Log a saved workout from the workout menu in Exercise, or create a workout to get started.
-    </AppText>
+    <Panel testID={detailed ? "exercise-workout-empty" : "home-workout-empty"}>
+      <AppText variant="heading" accessibilityRole="header">Workout of the day</AppText>
+      <AppText variant="caption" muted>No workout logged</AppText>
+      <Pressable accessibilityRole="button" accessibilityLabel="Add workout" accessibilityHint="Opens the saved workout menu"
+        disabled={!onAddWorkout} accessibilityState={{ disabled: !onAddWorkout }} onPress={onAddWorkout}
+        style={({ pressed }) => ({ minHeight: 44, padding: spacing.layout, borderWidth: 1, borderRadius: radius.control,
+          borderColor: colors.border, backgroundColor: pressed ? colors.accent : colors.secondary,
+          flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm })}>
+        <Icon name="circle-plus" size={14} color={colors.secondaryForeground} />
+        <AppText variant="label" style={{ color: colors.secondaryForeground }}>Add workout</AppText>
+      </Pressable>
+    </Panel>
   );
   return (
     <Panel testID={detailed ? "exercise-workout" : "home-workout"} style={{ padding: spacing.layout, gap: spacing.layout }}>
