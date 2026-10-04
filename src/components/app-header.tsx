@@ -141,6 +141,7 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
   const router = useRouter();
   const previousTab = useRef<Href>("/");
   useEffect(() => { if (!isProfile && ["/", "/food", "/exercise", "/settings"].includes(path)) previousTab.current = path as Href; }, [path, isProfile]);
+  const returnFromProfile = useCallback(() => router.replace(previousTab.current), [router]);
   const { height: windowHeight } = useWindowDimensions();
   const [popover, setPopover] = useState<"calendar" | "profile" | null>(null);
   const [destination, setDestination] = useState<ProfileDestination | null>(null);
@@ -159,9 +160,18 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
     setDestination(null);
   }, []);
   useEffect(() => {
-    setPopover(null);
+    setPopover(previous => previous === "profile" || isProfile ? null : previous);
     setDestination(null);
-  }, [path]);
+  }, [path, isProfile]);
+  useEffect(() => {
+    // The dropdown and native Modal dismiss themselves before leaving Profile.
+    if (!isProfile || popover || destination) return;
+    const back = BackHandler.addEventListener("hardwareBackPress", () => {
+      returnFromProfile();
+      return true;
+    });
+    return () => back.remove();
+  }, [isProfile, popover, destination, returnFromProfile]);
   useEffect(() => {
     if (!popover) return;
     const close = () => {
@@ -206,7 +216,7 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
       >
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <View style={styles.bar}>
-            {isProfile ? <HeaderButton label="Back from Profile" onPress={() => router.replace(previousTab.current)}><Icon name="chevron-left" size={16} color={colors.foreground} /></HeaderButton> : isSettings ? <View style={styles.button} /> : (
+            {isProfile ? <HeaderButton label="Back from Profile" onPress={returnFromProfile}><Icon name="chevron-left" size={16} color={colors.foreground} /></HeaderButton> : isSettings ? <View style={styles.button} /> : (
               <HeaderButton
                 label={expanded ? "Collapse calendar" : "Expand calendar"}
                 expanded={expanded}

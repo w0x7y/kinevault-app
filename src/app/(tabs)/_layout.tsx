@@ -29,6 +29,8 @@ export default function TabLayout() {
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <View style={{ flex: 1, paddingTop: headerHeight }}>
           <Tabs
+            initialRouteName="index"
+            backBehavior="initialRoute"
             screenOptions={{
               animation: reduced ? "none" : "fade",
               transitionSpec: { animation: "timing", config: { duration: 160 } },
@@ -45,7 +47,6 @@ export default function TabLayout() {
               sceneStyle: { backgroundColor: colors.background },
             }}
           >
-            <Tabs.Screen name="profile" options={{ href: null }} />
             <Tabs.Screen
               name="index"
               options={{
@@ -82,6 +83,7 @@ export default function TabLayout() {
                 ),
               }}
             />
+            <Tabs.Screen name="profile" options={{ href: null }} />
           </Tabs>
         </View>
         <AppHeader onHeightChange={setHeaderHeight} />

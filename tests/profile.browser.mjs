@@ -980,3 +980,112 @@ test("section controls stay responsive during pending water and profile saves", 
     );
   }
 });
+
+async function installHardwareBackBoundary(page) {
+  await page.evaluate(() => {
+    const definition = [...globalThis.__r.getModules().values()].find(
+      (module) =>
+        String(module.verboseName).includes(
+          "react-native-web/dist/exports/BackHandler/",
+        ),
+    );
+    if (!definition)
+      throw new Error("The installed native Back event boundary was not found");
+    const backHandler = definition.publicModule.exports.default;
+    const listeners = [];
+    // Web has no Android OS events. Replace only that boundary; actual AppHeader
+    // subscriptions, dismissal callbacks and Expo route changes remain in use.
+    backHandler.addEventListener = (event, listener) => {
+      if (event !== "hardwareBackPress")
+        throw new Error(`Unexpected Back event ${event}`);
+      listeners.push(listener);
+      return {
+        remove() {
+          const index = listeners.indexOf(listener);
+          if (index >= 0) listeners.splice(index, 1);
+        },
+      };
+    };
+    window.__pressHardwareBack = () =>
+      [...listeners].reverse().some((listener) => listener());
+  });
+}
+const hardwareBack = (page) =>
+  page.evaluate(() => window.__pressHardwareBack());
+
+test("Profile hardware Back boundary returns every source tab and retains its selected day", async (t) => {
+  for (const [tab, path] of [
+    ["Home", "/"],
+    ["Food", "/food"],
+    ["Exercise", "/exercise"],
+    ["Settings", "/settings"],
+  ]) {
+    const page = await open(t);
+    await installHardwareBackBoundary(page);
+    await button(page, "Expand calendar").click();
+    await button(page, "Select previous day").click();
+    if (tab !== "Home")
+      await page.getByRole("tab", { name: tab, exact: true }).click();
+    await profile(page);
+    assert.equal(await button(page, "Expand calendar").count(), 0);
+    assert.equal(await button(page, "Collapse calendar").count(), 0);
+    assert.equal(await hardwareBack(page), true);
+    await page.waitForURL(baseURL + path);
+    if (tab === "Settings")
+      await page.getByRole("tab", { name: "Home", exact: true }).click();
+    await page
+      .getByLabel("Saturday, October 3, 2026", { exact: true })
+      .waitFor();
+    await button(page, "Expand calendar").waitFor();
+  }
+});
+
+test("Profile Back dismisses dropdown and Modal before returning to its source tab", async (t) => {
+  const page = await open(t);
+  await installHardwareBackBoundary(page);
+  await page.getByRole("tab", { name: "Food", exact: true }).click();
+  await profile(page);
+  await button(page, "Profile menu").click();
+  assert.equal(await hardwareBack(page), true);
+  await page
+    .getByRole("menu", { name: "Profile menu", exact: true })
+    .waitFor({ state: "detached" });
+  assert.equal(new URL(page.url()).pathname, "/profile");
+  await button(page, "Profile menu").click();
+  await page.getByRole("menuitem", { name: "Friends", exact: true }).click();
+  const modal = page.getByRole("dialog", {
+    name: "Friends coming soon",
+    exact: true,
+  });
+  await modal.waitFor();
+  assert.equal(
+    await hardwareBack(page),
+    false,
+    "Profile return yields to the native Modal",
+  );
+  assert.equal(new URL(page.url()).pathname, "/profile");
+  // Web Escape runs Modal.onRequestClose, the callback native Modal invokes for Back.
+  await page.keyboard.press("Escape");
+  await modal.waitFor({ state: "detached" });
+  assert.equal(new URL(page.url()).pathname, "/profile");
+  assert.equal(await hardwareBack(page), true);
+  await page.waitForURL(baseURL + "/food");
+});
+
+test("direct Profile Back uses Home fallback after dismissing an open menu", async (t) => {
+  const page = await open(t);
+  await page.goto(baseURL + "/profile");
+  await button(page, "Overview").waitFor();
+  await installHardwareBackBoundary(page);
+  await button(page, "Profile menu").click();
+  assert.equal(await hardwareBack(page), true);
+  await page
+    .getByRole("menu", { name: "Profile menu", exact: true })
+    .waitFor({ state: "detached" });
+  assert.equal(new URL(page.url()).pathname, "/profile");
+  assert.equal(await hardwareBack(page), true);
+  await page.waitForURL(baseURL + "/");
+  await page
+    .getByLabel("Sunday, October 4, 2026, today", { exact: true })
+    .waitFor();
+});
