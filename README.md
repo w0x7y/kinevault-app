@@ -183,8 +183,8 @@ document directory or browser IndexedDB. Photo metadata uses the separate
 Native supports library and camera; the web preview offers file selection.
 
 Android emulator checks cover library/camera selection, cancellation, avatar
-cropping, saved-photo reopening, comparison, removal, and larger text in both
-themes. A physical iPhone check of the new photo flow remains in TODO.md.
+cropping, saved-photo reopening, comparison, removal, both themes, and larger
+text. A physical iPhone check of the new photo flow remains in TODO.md.
 
 The selected layout is version 3, Personal journal, in the standalone
 [layout reference](design/profile-prototype.html).
@@ -260,10 +260,10 @@ The barcode button on the right of Food search opens the camera and manual barco
 entry. It supports EAN/UPC product barcodes, including UPC-E camera expansion,
 and excludes QR codes. Camera permission is requested on opening the scanner;
 denied or unavailable cameras leave manual entry usable. The camera closes on
-tab blur, scanner close, or app background. The expo-camera plugin declares a
-food-barcode camera permission, disables Android audio recording, blocks its
-microphone permission, and omits the iOS microphone permission. Camera capture
-still needs real-device verification on iOS and Android.
+tab blur, scanner close, or app background. The camera permission covers barcode
+scanning and profile/progress photos. Android audio recording is disabled,
+microphone access is blocked, and no iOS microphone permission is declared.
+The new Profile photo flow still needs physical-iPhone verification.
 
 Food has two search-row controls: offline Search and barcode Scan, with a 75/25
 width split. Barcode lookup opens an unsaved food draft with editable name,
@@ -471,6 +471,15 @@ shared calendar selection, responsive widths, Profile recovery and failed resets
 nonempty workout rendering and exercise filtering,
 reduced motion, mascot prefetching, and retrying a failed save while editing the
 review screen.
+
+The Personal journal Profile passed all 558 direct tests, all 136 browser
+scenarios, TypeScript including unused-code checks, Expo Doctor's 21 checks,
+and web/iOS/Android exports. Independent task and final reviews passed after
+editor and navigation regressions were corrected. Android emulator photo,
+reopening, comparison, larger-text, and system-Back checks passed. Physical-iPhone
+Profile photo acceptance remains pending. See the
+[Profile verification report](docs/superpowers/reviews/2026-10-04-profile-personal-journal.md)
+for evidence and implementation decisions.
 
 The October 4, 2026 Exercise increment passed TypeScript with unused-code checks,
 463 unit tests, and all 100 browser scenarios. The full browser run passed 99;

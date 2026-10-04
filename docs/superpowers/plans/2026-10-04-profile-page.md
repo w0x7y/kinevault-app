@@ -155,9 +155,22 @@ assert.equal(editedProfileAnswers({...saved,weight:"81"},{...saved,name:"New nam
 
 **Files:** Update README.md, PRODUCT.md, CONTEXT.md, TODO.md, DESIGN.md, design/README.md, this plan and the approved spec as appropriate. Review all feature files.
 
-- [ ] Run `npm run check`, unused-code TypeScript, relevant browser tests, then the full browser suite once source/config is stable. Record exact failures and repair the responsible code/test assumptions.
-- [ ] Run Expo Doctor and web/iOS/Android bundle exports. Check generated camera/photo permission configuration does not introduce microphone access.
-- [ ] Independently review the whole feature for persistence races, owned-file cleanup, chart honesty, stale section edits, navigation, and accessibility. Fix material findings and recheck only affected behavior before final verification.
-- [ ] Check available native device/emulator support with Expo Go before attempting new binary builds. Verify camera/library/durable reopen where accessible; state any native checks that remain for hardware rather than treating web or export evidence as native interaction proof.
-- [ ] Record the selected Personal journal design and actual behavior in product/domain/readme/design docs. Mark implementation done separately from native photo acceptance.
-- [ ] Keep user-authorized prototype/reference artifacts outside production routes. Report the feature branch, verification evidence, preview URL, and any material remaining device limitation. No remote operations.
+- [x] Run `npm run check`, unused-code TypeScript, relevant browser tests, then the full browser suite once source/config is stable. Record exact failures and repair the responsible code/test assumptions.
+- [x] Run Expo Doctor and web/iOS/Android bundle exports. Check generated camera/photo permission configuration does not introduce microphone access.
+- [x] Independently review the whole feature for persistence races, owned-file cleanup, chart honesty, stale section edits, navigation, and accessibility. Fix material findings and recheck only affected behavior before final verification.
+- [x] Check available native device/emulator support with Expo Go before attempting new binary builds. Verify camera/library/durable reopen where accessible; state any native checks that remain for hardware rather than treating web or export evidence as native interaction proof.
+- [x] Record the selected Personal journal design and actual behavior in product/domain/readme/design docs. Mark implementation done separately from native photo acceptance.
+- [x] Keep user-authorized prototype/reference artifacts outside production routes. Report the feature branch, verification evidence, preview URL, and any material remaining device limitation. No remote operations.
+
+## Completion evidence
+
+Implemented on `feat/profile-personal-journal`, final source `d85ba65`. All 558
+direct tests and 136 browser scenarios passed, including the unchanged calendar
+regression and new Back coverage. Strict/unused-code TypeScript, Expo Doctor
+21/21, and web/iOS/Android exports passed. Independent final review and scoped
+fix review are clean. Android emulator photo and Back acceptance passed; the
+new physical-iPhone photo flow remains a separate TODO.
+
+See [the verification record](../reviews/2026-10-04-profile-personal-journal.md)
+for commands, native limits, review corrections, and every implementation ruling.
+The branch and checkout are kept locally; no remote operations were performed.
