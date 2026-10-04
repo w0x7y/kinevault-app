@@ -114,6 +114,34 @@ test("keyboard opens the menu, moves through entries, selects and dismisses with
   assert.equal(await focusedName(), "Profile menu");
 });
 
+test("pointer opening keeps Profile neutral on Home and marks it current only on Profile", async t => {
+  const page = await open(t);
+  await trigger(page).click();
+  const profile = menu(page).getByRole("menuitem", { name: "Profile", exact: true });
+  const friends = menu(page).getByRole("menuitem", { name: "Friends", exact: true });
+  assert.equal(await profile.getAttribute("aria-current"), null);
+  assert.equal(await profile.evaluate(node => node === document.activeElement), false);
+  assert.equal(await profile.evaluate(node => getComputedStyle(node).backgroundColor), await friends.evaluate(node => getComputedStyle(node).backgroundColor));
+  assert.equal(await profile.evaluate(node => getComputedStyle(node).borderTopColor), "rgba(0, 0, 0, 0)");
+  await page.keyboard.press("ArrowDown");
+  assert.equal(await profile.evaluate(node => node === document.activeElement), true);
+  assert.equal(await profile.getAttribute("aria-current"), null);
+  await page.keyboard.press("Escape");
+  await trigger(page).click();
+  await profile.click();
+  await page.waitForURL("**/profile");
+  await trigger(page).click();
+  await profile.waitFor();
+  assert.equal(await profile.getAttribute("aria-current"), "page");
+  assert.equal(await profile.evaluate(node => node === document.activeElement), false);
+  assert.notEqual(await profile.evaluate(node => getComputedStyle(node).backgroundColor), await friends.evaluate(node => getComputedStyle(node).backgroundColor));
+  await page.keyboard.press("Escape");
+  await button(page, "Back from Profile").click();
+  await trigger(page).click();
+  assert.equal(await profile.getAttribute("aria-current"), null);
+  assert.equal(await profile.evaluate(node => getComputedStyle(node).backgroundColor), await friends.evaluate(node => getComputedStyle(node).backgroundColor));
+});
+
 test("outside click, keyboard focus leaving, and route changes close the dropdown; it fits small and wide screens", async t => {
   const page = await open(t, { width: 320, height: 568 });
   for (const viewport of [{ width: 320, height: 568 }, { width: 1280, height: 800 }, { width: 320, height: 240 }]) {

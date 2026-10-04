@@ -62,6 +62,11 @@ const session = {
   ],
 };
 const button = (p, name) => p.getByRole("button", { name, exact: true });
+async function selectLatestWorkoutWeek(page) {
+  const graph = button(page, "Select workout graph point");
+  const bounds = await graph.boundingBox();
+  await graph.click({ position: { x: bounds.width - 12, y: 50 } });
+}
 const photoButton = (page, id, action = "Edit") =>
   page
     .getByTestId(`progress-photo-${id}`)
@@ -366,14 +371,16 @@ test("historical Home date survives Profile/back; calendar streak week and four 
       "2026-10-10",
     ],
   );
-  await button(page, "Show workout data").click();
-  await page.getByText("2026-10-04: 150 kg x reps", { exact: true }).waitFor();
+  await selectLatestWorkoutWeek(page);
+  await page.getByText("Week ending 2026-10-04: 150 kg x reps", { exact: true }).waitFor();
   await button(page, "Exercise weight").click();
+  await selectLatestWorkoutWeek(page);
   await page
-    .getByText("2026-10-04: Left 10 kg, Right 20 kg", { exact: true })
+    .getByText("Week ending 2026-10-04: Left 10 kg, Right 20 kg", { exact: true })
     .waitFor();
   await button(page, "Duration").click();
-  await page.getByText("2026-10-04: 30 min", { exact: true }).waitFor();
+  await selectLatestWorkoutWeek(page);
+  await page.getByText("Week ending 2026-10-04: 30 min", { exact: true }).waitFor();
   await button(page, "Today's nutrition").click();
   await page
     .getByLabel("Today & targets · 2026-10-04", { exact: true })
@@ -602,9 +609,9 @@ test("each source recovers independently while usable sections remain available"
         .waitFor();
       await button(page, "Overview").click();
       if (name !== "workouts") {
-        await button(page, "Show workout data").click();
+        await selectLatestWorkoutWeek(page);
         await page
-          .getByText("2026-10-04: 150 kg x reps", { exact: true })
+          .getByText("Week ending 2026-10-04: 150 kg x reps", { exact: true })
           .waitFor();
       }
     }
@@ -927,18 +934,24 @@ test("dated carousel scrolls oldest to newest and date edits and removal update 
   await page.getByText("Your photo journal starts here.", { exact: true }).waitFor();
 });
 
-test("workout graph supports point selection and accessible data without web responder warnings", async (t) => {
+test("workout graph icon stays decorative while point selection announces weekly values", async (t) => {
   const page = await open(t);
   await profile(page);
   await button(page, "Select workout graph point").click({
     position: { x: 40, y: 60 },
   });
   await page.getByText(/2026-07-\d+: No measurement recorded/).waitFor();
-  await button(page, "Show workout data").click();
-  await button(page, "2026-10-04: 150 kg x reps").click();
+  const icon = page.getByTestId("profile-workout-icon");
+  assert.equal(await icon.count(), 1);
+  assert.equal(await icon.getAttribute("role"), null);
+  assert.equal(await button(page, "Show workout data").count(), 0);
+  await icon.click();
+  assert.equal(await page.getByText("Gaps mean no measurement was recorded.", { exact: true }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: /^2026-\d\d-\d\d:/ }).count(), 0);
+  await selectLatestWorkoutWeek(page);
   assert.equal(
-    await page.getByText("2026-10-04: 150 kg x reps", { exact: true }).count(),
-    2,
+    await page.getByText("Week ending 2026-10-04: 150 kg x reps", { exact: true }).count(),
+    1,
   );
   assert.deepEqual(
     page.__profileWarnings.filter((text) =>
@@ -1576,11 +1589,9 @@ test("weekly chart selection matches the plotted total and range menu closes wit
   await page
     .getByText("Week ending 2026-10-04: 250 kg x reps", { exact: true })
     .waitFor();
-  await button(page, "Show workout data").click();
-  await button(page, "2026-10-04: 150 kg x reps").click();
   assert.equal(
-    await page.getByText("2026-10-04: 150 kg x reps", { exact: true }).count(),
-    2,
+    await page.getByText("Week ending 2026-10-04: 250 kg x reps", { exact: true }).count(),
+    1,
   );
   await button(page, "Workout range").click();
   await page.keyboard.press("Escape");

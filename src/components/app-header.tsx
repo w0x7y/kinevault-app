@@ -255,7 +255,7 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
       {popover === "profile" && (
         <SafeAreaView edges={["left", "right"]} pointerEvents="box-none"
           style={[styles.profileAnchor, { top: headerHeight }]}>
-          <ProfileMenu maxHeight={Math.max(0, windowHeight - headerHeight)}
+          <ProfileMenu currentProfile={isProfile} maxHeight={Math.max(0, windowHeight - headerHeight)}
             onDismiss={closePopover} onSelect={entry => { setPopover(null); if (entry === "Profile") router.navigate("/profile"); else setDestination(entry); }} />
         </SafeAreaView>
       )}

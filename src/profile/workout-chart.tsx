@@ -1,8 +1,7 @@
 import { useRef, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, View } from "react-native";
 import Svg, { Circle, Line, Path, Text as SvgText } from "react-native-svg";
 import { Icon } from "../components/icon";
-import { FoodButton } from "../food/food-button";
 import { useExercises } from "../exercise/provider";
 import { useTheme } from "../theme/provider";
 import { fonts } from "../theme/tokens";
@@ -26,9 +25,7 @@ export function WorkoutChart({ today }: { today: string }) {
     { colors } = useTheme();
   const [metric, setMetric] = useState<WorkoutMetric>("volume"),
     [weeks, setWeeks] = useState<WorkoutRange>(12);
-  const [key, setKey] = useState<string | undefined>(),
-    [date, setDate] = useState<string | null>(null),
-    [all, setAll] = useState(false);
+  const [key, setKey] = useState<string | undefined>();
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
   const [width, setWidth] = useState(320);
   const pressX = useRef<number | null>(null);
@@ -58,9 +55,7 @@ export function WorkoutChart({ today }: { today: string }) {
   const points = chartWeeks(graph.points, metric);
   const selected = selectedWeek
     ? points.find((point) => point.date === selectedWeek)
-    : date
-      ? graph.points.find((point) => point.date === date)
-      : null;
+    : null;
   const maximum = Math.max(
     1,
     ...points.flatMap((point) => [
@@ -96,12 +91,8 @@ export function WorkoutChart({ today }: { today: string }) {
   return (
     <JournalPanel testID="profile-workout-chart">
       <JournalHeading title="Workout progress">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={all ? "Hide workout data" : "Show workout data"}
-          accessibilityState={{ expanded: all }}
-          aria-expanded={all}
-          onPress={() => setAll((v) => !v)}
+        <View
+          testID="profile-workout-icon"
           style={{
             width: 44,
             height: 44,
@@ -112,7 +103,7 @@ export function WorkoutChart({ today }: { today: string }) {
           }}
         >
           <Icon name="chart-line" size={14} color={colors.mutedForeground} />
-        </Pressable>
+        </View>
       </JournalHeading>
       <ProfileChoices
         label="Workout metric"
@@ -124,7 +115,6 @@ export function WorkoutChart({ today }: { today: string }) {
         selected={metric}
         select={(value) => {
           setMetric(value);
-          setDate(null);
           setSelectedWeek(null);
         }}
       />
@@ -140,7 +130,6 @@ export function WorkoutChart({ today }: { today: string }) {
               value={selectedKey!}
               onChange={(value) => {
                 setKey(value);
-                setDate(null);
                 setSelectedWeek(null);
               }}
             />
@@ -179,7 +168,6 @@ export function WorkoutChart({ today }: { today: string }) {
           value={weeks}
           onChange={(value) => {
             setWeeks(value);
-            setDate(null);
             setSelectedWeek(null);
           }}
         />
@@ -199,7 +187,7 @@ export function WorkoutChart({ today }: { today: string }) {
           width="100%"
           height={(width * 149) / 320}
           viewBox="0 0 320 149"
-          accessibilityLabel={`Workout ${metric} in ${graph.unit}. Select a date below for values.`}
+          accessibilityLabel={`Workout ${metric} in ${graph.unit}. Tap the graph for weekly values.`}
         >
           {[top, top / 2, 0].map((value) => (
             <Line
@@ -286,7 +274,7 @@ export function WorkoutChart({ today }: { today: string }) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Select workout graph point"
-          accessibilityHint="Tap the graph, or use Show workout data for date and unit labels."
+          accessibilityHint="Tap the graph for the selected week's date and unit labels."
           style={{
             position: "absolute",
             top: 0,
@@ -312,7 +300,6 @@ export function WorkoutChart({ today }: { today: string }) {
                 Math.round(fraction * (points.length - 1)),
               ),
             );
-            setDate(null);
             setSelectedWeek(points[index].date);
           }}
         />
@@ -324,31 +311,8 @@ export function WorkoutChart({ today }: { today: string }) {
           accessibilityLiveRegion="polite"
           style={{ marginTop: 8 }}
         >
-          {selectedWeek ? "Week ending " : ""}
-          {label(selected)}
+          {`Week ending ${label(selected)}`}
         </JournalText>
-      )}
-      {all && (
-        <>
-          <JournalText size={10} muted style={{ marginTop: 8 }}>
-            Gaps mean no measurement was recorded.
-          </JournalText>
-          <ScrollView style={{ maxHeight: 240 }} nestedScrollEnabled>
-            <View style={{ gap: 8 }}>
-              {graph.points.map((point) => (
-                <FoodButton
-                  key={point.date}
-                  label={label(point)}
-                  selected={selected?.date === point.date}
-                  onPress={() => {
-                    setSelectedWeek(null);
-                    setDate(point.date);
-                  }}
-                />
-              ))}
-            </View>
-          </ScrollView>
-        </>
       )}
     </JournalPanel>
   );

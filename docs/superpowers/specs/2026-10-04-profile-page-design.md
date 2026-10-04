@@ -49,6 +49,9 @@ bottom tab destinations. Icons, labels, and tab bar dimensions stay consistent
 when entering Profile. The menu entry navigates to this page instead of its
 coming-soon panel. Return navigation restores the originating screen. Profile
 does not show a calendar picker or change the shared selected date.
+The Profile menu item is marked current only on the Profile route. Pointer
+opening does not focus or highlight its first item; keyboard opening and arrow
+navigation retain visible focus without representing a page selection.
 
 Preserve the existing Comfortaa typography, Font Awesome icons, semantic
 light/dark theme, macro colors, 12px layout spacing, and shared panels/buttons.
@@ -109,8 +112,8 @@ ranges. Plot weekly buckets with readable date ticks and units. Volume and known
 durations sum within each week; exercise weight uses the highest recorded
 weight, with independent maxima for left/right. Missing weeks remain gaps and
 partial duration stays marked. Tapping a plotted point reveals its week-ending
-date and weekly value; an accessible daily data list retains the original
-record values and independent day selection.
+date and weekly value, announced in a live region. The chart icon beside
+Workout progress is decorative and has no click action or expandable data list.
 
 Multiple workouts on a date add volume and known duration. If a date includes
 workouts with missing duration, identify its known duration as partial; if none

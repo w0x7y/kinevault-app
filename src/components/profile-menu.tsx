@@ -18,15 +18,16 @@ const destinations = [
 
 export type ProfileDestination = typeof destinations[number]["label"];
 
-function MenuEntry({ label, icon, onPress }: { label: ProfileDestination; icon: IconName; onPress: () => void }) {
+function MenuEntry({ label, icon, onPress, selected }: { label: ProfileDestination; icon: IconName; onPress: () => void; selected: boolean }) {
   const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
   return (
     <Pressable accessibilityRole="menuitem" accessibilityLabel={label} onPress={onPress}
-      onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+      aria-current={selected ? "page" : undefined}
+      onFocus={() => setFocused(Platform.OS !== "web" || document.activeElement?.matches(":focus-visible") === true)} onBlur={() => setFocused(false)}
       style={({ pressed }) => [styles.entry, {
         borderColor: focused ? colors.ring : "transparent",
-        backgroundColor: pressed || focused ? colors.accent : "transparent",
+        backgroundColor: pressed || selected ? colors.accent : "transparent",
       }]}>
       <Icon name={icon} size={16} color={colors.mutedForeground} />
       <AppText variant="label" style={{ flexShrink: 1 }}>{label}</AppText>
@@ -34,24 +35,26 @@ function MenuEntry({ label, icon, onPress }: { label: ProfileDestination; icon: 
   );
 }
 
-export function ProfileMenu({ onSelect, onDismiss, maxHeight }: {
+export function ProfileMenu({ onSelect, onDismiss, maxHeight, currentProfile = false }: {
   onSelect: (destination: ProfileDestination) => void;
   onDismiss: () => void;
   maxHeight: number;
+  currentProfile?: boolean;
 }) {
   const { colors } = useTheme();
   useEffect(() => {
     if (Platform.OS !== "web") return;
     const menu = document.getElementById("profile-menu");
     const entries = Array.from(menu?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
-    entries[0]?.focus();
+    const trigger = document.getElementById("profile-menu-button");
+    if (trigger?.matches(":focus-visible")) entries[0]?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       const index = entries.indexOf(document.activeElement as HTMLElement);
-      if (index < 0) return;
+      if (index < 0 && document.activeElement !== trigger) return;
       let next: number;
       switch (event.key) {
         case "ArrowDown": next = (index + 1) % entries.length; break;
-        case "ArrowUp": next = (index + entries.length - 1) % entries.length; break;
+        case "ArrowUp": next = index < 0 ? entries.length - 1 : (index + entries.length - 1) % entries.length; break;
         case "Home": next = 0; break;
         case "End": next = entries.length - 1; break;
         default: return;
@@ -77,7 +80,7 @@ export function ProfileMenu({ onSelect, onDismiss, maxHeight }: {
       {destinations.map(({ label, icon }, index) => (
         <View key={label}>
           {index === 4 && <View role="separator" style={[styles.divider, { backgroundColor: colors.border }]} />}
-          <MenuEntry label={label} icon={icon} onPress={() => onSelect(label)} />
+          <MenuEntry label={label} icon={icon} selected={currentProfile && label === "Profile"} onPress={() => onSelect(label)} />
         </View>
       ))}
     </ScrollView>
