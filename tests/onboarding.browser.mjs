@@ -947,7 +947,7 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
           const actions = tab === "Food" ? ["Create food/meal", "View macros for the day"] : ["Create Exercise", "Create Workouts"];
           for (const label of actions) {
             const action = button(page, label);
-            assert.equal(await action.isDisabled(), tab === "Exercise");
+            assert.equal(await action.isDisabled(), false);
             const box = await action.boundingBox();
             const text = await action.getByText(label, { exact: true }).boundingBox();
             assert.ok(Math.abs(text.x + text.width / 2 - box.x - box.width / 2) <= 1, `${label} centers horizontally`);

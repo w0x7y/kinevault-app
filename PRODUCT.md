@@ -37,9 +37,10 @@ Food groups meals into Breakfast, Lunch, Dinner, Snacks, and Drinks. Logging or
 editing drinks requires one whole amount from 1 to 10,000 ml for nutrition and
 hydration. Beverages log automatically to Drinks without gram or meal controls. Saved edits and removals update hydration
 with the same food-log write. Legacy snacks remain Snacks without guessed ml. Exercise
-shows session totals and completed exercises with sets, reps, and actual
-weight ranges. Workouts and steps use empty records until their logging
-is implemented. Exercise search filters the selected day's entries.
+shows daily totals and multiple named sessions with sets, reps, and actual
+weight ranges. Exercise search finds user-created library exercises; selecting
+one always opens a session picker. A button beside search opens saved workouts,
+and selecting one creates a planned session on the selected day. Steps remain empty.
 Drink search includes existing named energy drinks and common aliases for generic
 cola and pepper-style soda. Generic alternatives are labelled rather than treated as
 current branded nutrition. Food provides two search-row controls: offline Search and barcode Scan, using
@@ -71,7 +72,7 @@ with separate IDs and storage, and unknown detailed nutrients remain unavailable
 More nutrients expands optional per-serving fields using the existing g/mg/mcg
 units. Blank values are unknown; zero is known. Collapsing retains values.
 Failed saves retain the form for retry; unreadable custom storage blocks creation
-until a successful retry. Exercise creation buttons remain disabled.
+until a successful retry.
 Unified Food search finds USDA foods, custom foods and saved meals. Food and
 Meal buttons inside Create food/meal choose the creation form. A custom
 meal contains foods and gram amounts, with calories and macros calculated from
@@ -101,7 +102,16 @@ Custom macro grams are independent of the calorie target. Zero is a valid
 override; clearing a field returns that macro to its calculated target.
 The app is for ages 16 and up. Automatic estimates are adult-only; users aged
 16–17 can enter a target agreed with a qualified health professional or leave it unset.
-Exercise logging, accounts, and KineVault integration remain outside this increment.
+Exercise has a local library with name, optional muscle group, equipment, notes,
+and single-load or independent left/right tracking. Reusable workouts save only
+an ordered exercise list. Planned sessions start an explicit workout timer,
+restored from a saved timestamp after reopening. All entered sets become completed
+when Finish workout successfully saves. One timer may run at once. Planned and
+active sessions stay outside daily totals. Previously completed sessions can be
+entered manually on any date, with optional duration. A left/right set counts as
+one set, with both sides contributing reps and kg-times-reps volume. Blank weight
+means bodyweight. Historical snapshots survive library edits and deletions.
+Accounts, timed holds, cardio, and KineVault integration remain outside this increment.
 Food search needs no credentials or hosted service. API and shared-login
 requirements remain undecided.
 
@@ -129,8 +139,8 @@ Keep interface copy short and conversational; omit repeated introductions.
 
 ## Evidence on hand
 
-Food entries come from users logging catalog foods; no exercise records have
-been supplied. Food search uses USDA
+Food entries come from users logging catalog foods; exercises and workout
+records come only from the user's own local definitions and sessions. Food search uses USDA
 FoodData Central's FNDDS 2021-2023 release of October 31, 2024, with source
 attribution and provenance in the bundled catalog. Open Food Facts supplies
 product barcode lookup. Saved imports
