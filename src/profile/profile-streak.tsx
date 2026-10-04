@@ -158,9 +158,6 @@ export function ProfileStreak({ today }: { today: string }) {
               </View>
             ))}
           </View>
-          <JournalText size={10} muted>
-            Food, water, or a completed workout counts.
-          </JournalText>
         </>
       )}
     </JournalPanel>

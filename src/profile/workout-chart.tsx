@@ -169,11 +169,6 @@ export function WorkoutChart({ today }: { today: string }) {
                 ? "—"
                 : number(latest.total)}
           </JournalText>
-          <JournalText size={9} muted>
-            {metric === "volume" ? "kg × reps" : graph.unit} ·{" "}
-            {metric === "weight" ? "heaviest set · latest week" : "latest week"}
-            {latest.partialDuration ? " · incomplete" : ""}
-          </JournalText>
         </View>
         <JournalDisclosure
           label="Workout range"
@@ -322,15 +317,6 @@ export function WorkoutChart({ today }: { today: string }) {
           }}
         />
       </View>
-      <JournalText size={9} muted style={{ marginTop: 7 }}>
-        Completed workouts only
-        {points.every(
-          (point) =>
-            point.total === null && point.left === null && point.right === null,
-        )
-          ? " · No measurements in this range"
-          : ""}
-      </JournalText>
       {selected && (
         <JournalText
           size={10}

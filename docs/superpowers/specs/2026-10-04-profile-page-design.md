@@ -55,14 +55,20 @@ light/dark theme, macro colors, 12px layout spacing, and shared panels/buttons.
 The screen is scrollable with safe-area and keyboard support.
 
 The selected Personal journal composition has a centered profile photo, name,
-goal/activity summary, and edit action above three sections: Overview, Goals,
+and goal/activity summary above three sections: Overview, Goals,
 and Photos. These are sections within Profile, not additional app tabs.
+The name has a small pencil beside it. Pressing the pencil opens an underlined
+name field in place, with save/cancel actions, without switching sections. The
+former Edit profile action and its route to the Goals name editor are removed.
+The profile-photo camera glyph is centered within its circular badge.
 
 - Overview: current/longest streaks and the current Sunday-to-Saturday week,
   the workout progress graph, a compact link to today's nutrition under Goals,
   and Progress comparison. This section shows the earliest dated saved photo
   on the left and the latest on the right, with dates beneath. It has no Add
   or Compare button.
+  The streak explanation, chart latest-week/unit caption, and completed-workout
+  footer are omitted, as requested in the subsequent screenshot revision.
 - Goals: today's calories/carbs/protein/fat/water and their saved targets,
   followed by editable name, age, height, current weight, activity level,
   lose/maintain/gain direction, and calorie-estimation preference. Each logical

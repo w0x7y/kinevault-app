@@ -49,7 +49,7 @@ export function ProfileScreen() {
           : undefined
       }
     >
-      <ProfileIdentity edit={() => edit("name")} />
+      <ProfileIdentity />
       <ProfileControls section={section} select={select} />
       <View
         testID="profile-section"

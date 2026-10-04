@@ -15,7 +15,8 @@ import { ProfileDialog, SourceStatus } from "./profile-controls";
 import { useTheme } from "../theme/provider";
 
 import { Icon } from "../components/icon";
-import { JournalText, JournalAction } from "./journal-ui";
+import { JournalText } from "./journal-ui";
+import { ProfileName } from "./profile-name";
 
 export function ProfileAvatar({
   size = 28,
@@ -71,7 +72,7 @@ export function ProfileAvatar({
     </View>
   );
 }
-export function ProfileIdentity({ edit }: { edit: () => void }) {
+export function ProfileIdentity() {
   const profile = useProfile(),
     media = useProfileMedia();
   const { colors } = useTheme();
@@ -155,6 +156,7 @@ export function ProfileIdentity({ edit }: { edit: () => void }) {
       >
         <ProfileAvatar size={76} person />
         <View
+          testID="profile-camera-badge"
           style={{
             position: "absolute",
             right: -1,
@@ -169,17 +171,22 @@ export function ProfileIdentity({ edit }: { edit: () => void }) {
             justifyContent: "center",
           }}
         >
-          <Icon name="camera" size={10} color={colors.primaryForeground} />
+          <Icon
+            name="camera"
+            size={10}
+            color={colors.primaryForeground}
+            style={{
+              width: 14,
+              height: 14,
+              lineHeight: 14,
+              textAlign: "center",
+              textAlignVertical: "center",
+              includeFontPadding: false,
+            }}
+          />
         </View>
       </Pressable>
-      <JournalText
-        size={20}
-        variant="heading"
-        accessibilityRole="header"
-        style={{ textAlign: "center", marginBottom: 4 }}
-      >
-        {answers.name.trim() || "Your journal"}
-      </JournalText>
+      <ProfileName />
       <JournalText size={10} muted style={{ textAlign: "center" }}>
         {[
           goals.find((goal) => goal.value === answers.goal)?.label,
@@ -189,7 +196,6 @@ export function ProfileIdentity({ edit }: { edit: () => void }) {
           .filter(Boolean)
           .join(" · ") || "Your goals, at your pace"}
       </JournalText>
-      <JournalAction size={10} label="Edit profile" onPress={edit} />
       {media.state.kind !== "ready" && (
         <SourceStatus
           name="profile media"

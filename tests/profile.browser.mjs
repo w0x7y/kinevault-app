@@ -966,25 +966,71 @@ async function delayWrite(page, key) {
   }, key);
 }
 
-test("identity Edit profile opens a fresh Name editor after every Cancel or Save", async (t) => {
+test("inline name editing stays in place, cancels cleanly, saves, and persists", async (t) => {
   const page = await open(t);
   await profile(page);
-  const name = page.getByRole("textbox", {
-    name: "Your name (optional)",
-    exact: true,
+  assert.equal(await button(page, "Edit profile").count(), 0);
+  for (const caption of ["Food, water, or a completed workout counts.", "kg × reps · latest week", "Completed workouts only"]) {
+    assert.equal(await page.getByText(caption, { exact: true }).count(), 0);
+  }
+  const badge = await page.getByTestId("profile-camera-badge").evaluate((node) => {
+    const parent = node.getBoundingClientRect(), icon = node.firstElementChild.getBoundingClientRect();
+    return { x: Math.abs(parent.x + parent.width / 2 - icon.x - icon.width / 2),
+      y: Math.abs(parent.y + parent.height / 2 - icon.y - icon.height / 2) };
   });
-  await button(page, "Edit profile").click();
+  assert.ok(badge.x <= 0.5 && badge.y <= 0.5, "camera glyph box is centered in its badge");
+  const name = page.getByRole("textbox", { name: "Profile name", exact: true });
+  await button(page, "Edit profile name").click();
+  assert.equal(await button(page, "Overview").getAttribute("aria-pressed"), "true");
+  assert.equal(await page.getByTestId("profile-editor").count(), 0);
+  assert.equal(await name.evaluate(node => getComputedStyle(node).borderBottomWidth), "1px");
+  assert.equal(await name.evaluate(node => getComputedStyle(node).outlineWidth), "0px");
+  assert.equal(await name.evaluate(node => getComputedStyle(node).outlineStyle), "solid");
   await name.fill("Discarded");
-  await button(page, "Cancel").click();
-  await button(page, "Edit profile").click();
-  await name.waitFor();
+  await button(page, "Cancel name editing").click();
+  await button(page, "Edit profile name").click();
   assert.equal(await name.inputValue(), "Journal fixture");
+  await page.setViewportSize({ width: 320, height: 844 });
+  await name.fill("a".repeat(40));
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "inline editing fits a narrow phone");
   await name.fill("Saved name");
-  await button(page, "Save name").click();
+  await button(page, "Save profile name").click();
   await name.waitFor({ state: "detached" });
-  await button(page, "Edit profile").click();
-  await name.waitFor();
+  assert.equal((await stored(page)).answers.name, "Saved name");
+  await button(page, "Edit profile name").click();
   assert.equal(await name.inputValue(), "Saved name");
+  await button(page, "Cancel name editing").click();
+  await page.reload();
+  await page.getByRole("heading", { name: "Saved name", exact: true }).waitFor();
+});
+
+test("inline name validation and failed save retain the draft for retry", async (t) => {
+  const page = await open(t);
+  await profile(page);
+  await button(page, "Edit profile name").click();
+  const name = page.getByRole("textbox", { name: "Profile name", exact: true });
+  await name.fill("a".repeat(41));
+  await button(page, "Save profile name").click();
+  await page.getByText("Use 40 characters or fewer.", { exact: true }).waitFor();
+  assert.equal((await stored(page)).answers.name, "Journal fixture");
+  await name.fill("Retry name");
+  await page.evaluate((key) => {
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(k, value) {
+      if (k === key) {
+        Storage.prototype.setItem = set;
+        throw new Error("name write failure");
+      }
+      return set.call(this, k, value);
+    };
+  }, profileKey);
+  await button(page, "Save profile name").click();
+  await page.getByText("Couldn't save your name. Try again.", { exact: true }).waitFor();
+  assert.equal(await name.inputValue(), "Retry name");
+  assert.equal((await stored(page)).answers.name, "Journal fixture");
+  await button(page, "Save profile name").click();
+  await name.waitFor({ state: "detached" });
+  assert.deepEqual((await stored(page)).answers, { ...answers, name: "Retry name" });
 });
 
 test("delayed water save leaves replacement Name draft and section navigation intact", async (t) => {
@@ -1046,52 +1092,58 @@ test("delayed profile save closes only its original editor and preserves replace
   );
 });
 
-test("identity Edit profile requests during water or profile saves retain the new editor instance", async (t) => {
+test("inline name drafts survive pending water or profile section saves", async (t) => {
   for (const section of ["water", "name"]) {
     const page = await open(t);
     await profile(page);
-    await button(page, "Edit profile").click();
-    const name = page.getByRole("textbox", {
-      name: "Your name (optional)",
-      exact: true,
-    });
+    await button(page, "Goals").click();
     if (section === "water") {
       await button(page, "Edit water goal").click();
-      await page
-        .getByRole("textbox", { name: "Daily water goal (ml)", exact: true })
-        .fill("2000");
+      await page.getByRole("textbox", { name: "Daily water goal (ml)", exact: true }).fill("2000");
     } else {
-      await name.fill("Pending identity name");
+      await editDetail(page, "name");
+      await page.getByRole("textbox", { name: "Your name (optional)", exact: true }).fill("Pending section name");
     }
-    await delayWrite(
-      page,
-      section === "water" ? "kinevault-track.water-goal.v1" : profileKey,
-    );
-    await button(
-      page,
-      section === "water" ? "Save water goal" : "Save name",
-    ).click();
-    await button(
-      page,
-      section === "water" ? "Saving water goal…" : "Saving…",
-    ).waitFor();
-    await button(page, "Edit profile").click();
+    await delayWrite(page, section === "water" ? "kinevault-track.water-goal.v1" : profileKey);
+    await button(page, section === "water" ? "Save water goal" : "Save name").click();
+    await button(page, section === "water" ? "Saving water goal…" : "Saving…").waitFor();
+    await button(page, "Edit profile name").click();
+    const name = page.getByRole("textbox", { name: "Profile name", exact: true });
     await name.waitFor();
-    if (section === "water") await name.fill("Identity replacement draft");
+    if (section === "water") await name.fill("Inline draft");
     else assert.equal(await name.isEditable(), false);
     await page.evaluate(() => window.__releaseEditorWrite());
-    await button(page, "Save name").waitFor();
+    await button(page, "Save profile name").waitFor();
     assert.equal(await name.isEditable(), true);
-    assert.equal(
-      await name.inputValue(),
-      section === "water" ? "Identity replacement draft" : "Journal fixture",
-    );
-    await name.fill("Final identity name");
-    await button(page, "Save name").click();
+    assert.equal(await name.inputValue(), section === "water" ? "Inline draft" : "Journal fixture");
+    assert.equal(await button(page, "Goals").getAttribute("aria-pressed"), "true");
+    await name.fill("Final inline name");
+    await button(page, "Save profile name").click();
     await name.waitFor({ state: "detached" });
-    assert.equal((await stored(page)).answers.name, "Final identity name");
+    assert.equal((await stored(page)).answers.name, "Final inline name");
     assert.equal(await page.evaluate(() => window.__editorWriteCount), 1);
   }
+});
+
+test("pending inline name save blocks duplicates while section navigation stays available", async (t) => {
+  const page = await open(t);
+  await profile(page);
+  await button(page, "Edit profile name").click();
+  const name = page.getByRole("textbox", { name: "Profile name", exact: true });
+  await name.fill("Pending inline name");
+  await delayWrite(page, profileKey);
+  await name.press("Enter");
+  await button(page, "Saving profile name…").waitFor();
+  assert.equal(await name.isEditable(), false);
+  assert.equal(await button(page, "Saving profile name…").isDisabled(), true);
+  assert.equal(await button(page, "Cancel name editing").isDisabled(), true);
+  await button(page, "Photos").click();
+  await page.getByText("Your photo journal starts here.", { exact: true }).waitFor();
+  await page.evaluate(() => window.__releaseEditorWrite());
+  await name.waitFor({ state: "detached" });
+  assert.equal(await button(page, "Photos").getAttribute("aria-pressed"), "true");
+  assert.equal((await stored(page)).answers.name, "Pending inline name");
+  assert.equal(await page.evaluate(() => window.__editorWriteCount), 1);
 });
 
 test("section controls stay responsive during pending water and profile saves", async (t) => {
@@ -1437,6 +1489,10 @@ test(
     const dir = process.env.KINE_PROFILE_VISUAL_DIR;
     await mkdir(dir, { recursive: true });
     await page.screenshot({ path: path.join(dir, "overview.png") });
+    await button(page, "Edit profile name").click();
+    await page.getByRole("textbox", { name: "Profile name", exact: true }).waitFor();
+    await page.screenshot({ path: path.join(dir, "name-editing.png") });
+    await button(page, "Cancel name editing").click();
     await page.getByTestId("profile-workout-chart").evaluate((el) => {
       let parent = el.parentElement;
       while (
