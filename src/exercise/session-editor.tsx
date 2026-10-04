@@ -14,6 +14,14 @@ import { ActiveWorkoutTimer } from "./timer";
 
 export type SessionEditorHandle = { flush: () => Promise<boolean> };
 function localId() { return `set-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`; }
+function durationCaption(minutes: string) {
+  try {
+    const seconds = durationFromMinutes(minutes);
+    return seconds === null ? "Duration not set" : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  } catch {
+    return "Invalid duration";
+  }
+}
 
 export function SessionEditor({ session, drafts, editorRef, onClose, manual = false, onManual, initialSettings = false, onSettings }: {
   session: WorkoutSession; drafts: CompletedSessionDrafts; editorRef?: Ref<SessionEditorHandle>; onClose: () => void;
@@ -201,7 +209,7 @@ export function SessionEditor({ session, drafts, editorRef, onClose, manual = fa
       </View>}
       {feedback}
     </View> : <WorkoutWorkspace name={draft.name} testID={active ? "active-workout-workspace" : session.status === "completed" ? "completed-workout-workspace" : "manual-workout-workspace"}
-      headerRight={active ? <ActiveWorkoutTimer session={session} /> : <AppText variant="caption" muted accessibilityLabel="Workout duration">{draft.minutes.trim() ? `${draft.minutes} min` : "Duration not set"}</AppText>}
+      headerRight={active ? <ActiveWorkoutTimer session={session} /> : <AppText variant="caption" muted accessibilityLabel="Workout duration">{durationCaption(draft.minutes)}</AppText>}
       toolbar={toolbar} exercises={draft.exercises} selectedId={selected?.id} onSelect={setSelectedId}
       busy={busy} feedback={feedback} actions={actions}>
       {selected ? renderExercise(selected, draft.exercises.indexOf(selected))
