@@ -27,10 +27,10 @@
 
 **Produces:** One coherent owner for raw fields, status-aware durability/retention, planned count resizing, feedback and guarded replacement, with observable state and a thin React binding. Concrete interface design belongs to this task and must remove caller knowledge rather than move refs unchanged.
 
-- [ ] Write and run failing direct behavioral tests using real exercise persistence and controlled storage: completed retention/cancel, failed active fields across view replacement/retry, invalid duration, count safety, competing view requests, successful retirement and stale feedback.
-- [ ] Implement the owner and migrate editor/route callers. Remove obsolete imperative flush/cache lifetime machinery. Keep route parameter consumption and scrolling in the route.
-- [ ] Run new tests, existing exercise persistence tests and typecheck. Inspect the diff for duplicated lifetime ownership and lifecycle/re-entrancy defects.
-- [ ] Commit only task files, write the implementation report, then receive independent spec/quality review and address its findings.
+- [x] Write and run failing direct behavioral tests using real exercise persistence and controlled storage: completed retention/cancel, failed active fields across view replacement/retry, invalid duration, count safety, competing view requests, successful retirement and stale feedback.
+- [x] Implement the owner and migrate editor/route callers. Remove obsolete imperative flush/cache lifetime machinery. Keep route parameter consumption and scrolling in the route.
+- [x] Run new tests, existing exercise persistence tests and typecheck. Inspect the diff for duplicated lifetime ownership and lifecycle/re-entrancy defects.
+- [x] Commit only task files, write the implementation report, then receive independent spec/quality review and address its findings.
 
 ### Task 2: Own workout template drafts
 
@@ -40,13 +40,13 @@
 
 **Produces:** A coherent draft interface for template selection/order/name/raw counts/preparation, used in both template layouts.
 
-- [ ] Write and run failing direct tests: legacy zero/new-ID three, retained raw count after remove/re-add, invalid/blank/oversize counts, duplicate selection, reorder, removed source snapshots and selected-only numeric preparation.
-- [ ] Implement the draft owner and migrate both form layouts. Keep search/detail/notes and asynchronous durable save feedback in their existing presentation roles.
-- [ ] Run new tests, exercise persistence count tests and typecheck. Verify caller state no longer coordinates separate selected/count maps or repeats count defaults/preparation.
-- [ ] Commit only task files, write the implementation report, then receive independent spec/quality review and address its findings.
+- [x] Write and run failing direct tests: legacy zero/new-ID three, retained raw count after remove/re-add, invalid/blank/oversize counts, duplicate selection, reorder, removed source snapshots and selected-only numeric preparation.
+- [x] Implement the draft owner and migrate both form layouts. Keep search/detail/notes and asynchronous durable save feedback in their existing presentation roles.
+- [x] Run new tests, exercise persistence count tests and typecheck. Verify caller state no longer coordinates separate selected/count maps or repeats count defaults/preparation.
+- [x] Commit only task files, write the implementation report, then receive independent spec/quality review and address its findings.
 
 ### Task 3: Integration and final review
 
-- [ ] Run typecheck and the complete direct suite; run all Exercise browser regressions on the existing Expo server.
-- [ ] Independently review the combined diff from `c653e72` for requirements, lifetime races, Strict Mode behavior and remaining legacy paths. Fix supported findings and rerun affected checks.
-- [ ] Record verification and final module ownership in the review document. Confirm the user preview still runs and report changes and evidence.
+- [x] Run typecheck and the complete direct suite; run all Exercise browser regressions on the existing Expo server.
+- [x] Independently review the combined diff from `c653e72` for requirements, lifetime races, Strict Mode behavior and remaining legacy paths. Fix supported findings and rerun affected checks.
+- [x] Record verification and final module ownership in the review document. Confirm the user preview still runs and report changes and evidence.
