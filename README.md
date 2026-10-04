@@ -93,14 +93,23 @@ removing any entered measurements.
 Start workout runs the sole active timer. Its start time and entered sets are
 saved on the device, so switching tabs, backgrounding, or reopening keeps elapsed
 time. Starting expands the card into a horizontally scrolling exercise bar and a selected-exercise
-detail with a sets/reps/weight table, Add set, View notes, and video placeholder.
-The workout name appears inside the widget, with no active name field.
-End workout sits at the bottom of the widget and validates and saves the completed workout. Drafts and
+detail with a sets/reps/weight table and video placeholder. Add set and View
+notes sit beside the exercise name. Dividers frame the scrolling bar.
+The workout name and elapsed timer share the widget's title row, with no active
+name field, date/status line or separate Open active workout panel. Active
+workouts automatically expand when returning to Exercise's default view.
+Discard workout and End workout share equal halves of the bottom row. Ending
+validates and saves the completed workout. Drafts and
 active workouts do not contribute to daily totals. A saved workout can also be
 logged manually on any selected date, with optional duration in minutes.
 Logging has no remove-set or remove-exercise buttons. Entirely blank sets are
 skipped when saving completion, so unlogged exercises do not enter daily totals.
 Partially entered sets still require valid repetitions and weight.
+Saved workout editing and completed workout editing use the same exercise bar
+and selected detail. Settings contains template name/search/order controls or
+logged name/duration controls. Completed edits stay local until Save changes.
+Logged editor headers show compact minutes:seconds; unknown or invalid duration
+has a short caption, while Settings preserves the entered minute text.
 
 Home and Exercise show the workout summary only when that day has an active or
 completed workout. An empty day shows a button-only Add workout widget that opens the same

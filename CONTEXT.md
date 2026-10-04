@@ -56,11 +56,15 @@ Settings on a compact draft can change planned counts before Start.
 start time and draft sets survive tab switches and app reopening. It remains on
 its original date across midnight. End workout requires a successful durable save.
 The active editor retains local fields across searches and calendar changes.
+It automatically expands on the default Exercise view, with elapsed time beside
+the workout name. It has no separate timer/open panel or Close action.
 
 **Completed workout**: A finished or manually logged workout's valid sets and
 the exercises that have at least one logged set. Untouched blank sets are skipped
 on completion; partially entered sets require valid measurements. Drafts and active workouts do not
 contribute to daily totals. Editing a completed workout requires an explicit save.
+Template and completed editing share the active layout's exercise bar and detail;
+metadata changes are available under Settings.
 
 **Exercise snapshot**: The exercise definition retained in a template or log.
 Historical logs survive changes or deletion of their library sources.

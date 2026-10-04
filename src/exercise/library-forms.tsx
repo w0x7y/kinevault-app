@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { DeleteButton } from "../components/delete-button";
 import { AppText, Panel } from "../components/ui";
-import { spacing } from "../theme/tokens";
+import { radius, spacing } from "../theme/tokens";
+import { useTheme } from "../theme/provider";
 import type { ExerciseDefinition, WorkoutTemplate } from "./model";
 import { useExercises } from "./provider";
-import { ActionRow, ExerciseButton, ExerciseError, ExerciseField } from "./controls";
+import { ActionRow, ExerciseButton, ExerciseError, ExerciseField, ExerciseIconButton } from "./controls";
+import { exerciseRowLabel, WorkoutWorkspace } from "./workout-workspace";
 
 function useAlive() {
   const alive = useRef(true);
@@ -46,6 +48,7 @@ export function ExerciseForm({ exercise, onClose }: { exercise?: ExerciseDefinit
 }
 export function WorkoutForm({ workout, onClose }: { workout?: WorkoutTemplate; onClose: () => void }) {
   const store = useExercises();
+  const { colors } = useTheme();
   const exercises = store.state.kind === "ready" ? store.state.document.exercises : [];
   const [name, setName] = useState(workout?.name ?? ""), [selected, setSelected] = useState(workout?.exercises ?? []);
   const [setCounts, setSetCounts] = useState<Record<string, string>>(() => Object.fromEntries(
@@ -53,6 +56,8 @@ export function WorkoutForm({ workout, onClose }: { workout?: WorkoutTemplate; o
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const alive = useAlive(), pending = useRef(false);
   const [query, setQuery] = useState(""), [limit, setLimit] = useState(20);
+  const [settingsOpen, setSettingsOpen] = useState(false), [selectedId, setSelectedId] = useState(workout?.exercises[0]?.id);
+  const [notesId, setNotesId] = useState<string | null>(null);
   const search = query.trim().toLocaleLowerCase();
   const available = search ? exercises.filter(item => !selected.some(row => row.id === item.id)
     && [item.name, item.muscleGroup, item.equipment, item.notes].some(value => value.toLocaleLowerCase().includes(search))) : [];
@@ -81,8 +86,7 @@ export function WorkoutForm({ workout, onClose }: { workout?: WorkoutTemplate; o
     if (success) onClose(); else setError(remove ? "Couldn't delete this workout. Try again." : "Couldn't save. Enter a workout name, choose at least one exercise, and try again.");
     return success;
   }
-  return <Panel testID="workout-form">
-    <AppText variant="heading" accessibilityRole="header">{workout ? "Edit workout" : "Create workout"}</AppText>
+  const builder = <View testID="workout-template-settings" style={{ gap: spacing.layout }}>
     <ExerciseField label="Workout name" value={name} onChange={setName} disabled={busy} />
     <AppText variant="label">Available exercises</AppText>
     <ExerciseField label="Search workout exercises" value={query} onChange={value => { setQuery(value); setLimit(20); }} disabled={busy} />
@@ -90,24 +94,60 @@ export function WorkoutForm({ workout, onClose }: { workout?: WorkoutTemplate; o
       : !search ? <AppText muted>Search by name, muscle group, equipment, or notes to add exercises.</AppText>
       : available.length === 0 ? <AppText muted>No available exercises match your search.</AppText> : null}
     {available.slice(0, limit).map(item => <ExerciseButton key={item.id}
-      label={item.name} accessibilityLabel={`Add ${item.name} to workout`} onPress={() => setSelected(rows => rows.some(row => row.id === item.id) ? rows : [...rows, item])} disabled={busy} />)}
+      label={item.name} accessibilityLabel={`Add ${item.name} to workout`} onPress={() => {
+        setSelected(rows => rows.some(row => row.id === item.id) ? rows : [...rows, item]); setSelectedId(item.id);
+      }} disabled={busy} />)}
     {available.length > limit && <ExerciseButton label="Show more exercises" onPress={() => setLimit(value => value + 20)} disabled={busy} />}
     <AppText variant="label">Exercise order</AppText>
     {selected.length === 0 && <AppText muted>Search above to choose exercises, then set how many sets you plan to do.</AppText>}
     {selected.map((item, index) => <View key={item.id} style={{ gap: spacing.layout }}>
       <AppText variant="label">{index + 1}. {item.name}</AppText>
-      <ExerciseField label={`Planned sets for ${item.name}`} value={setCounts[item.id] ?? "3"}
-        onChange={value => setSetCounts(previous => ({ ...previous, [item.id]: value }))} numeric disabled={busy} />
+      {!workout && <ExerciseField label={`Planned sets for ${item.name}`} value={setCounts[item.id] ?? "3"}
+        onChange={value => setSetCounts(previous => ({ ...previous, [item.id]: value }))} numeric disabled={busy} />}
       <ActionRow>
         <ExerciseButton label="Up" accessibilityLabel={`Move ${item.name} up`} onPress={() => move(index, -1)} disabled={busy || index === 0} />
         <ExerciseButton label="Down" accessibilityLabel={`Move ${item.name} down`} onPress={() => move(index, 1)} disabled={busy || index === selected.length - 1} />
         <DeleteButton label="Remove" accessibilityLabel={`Remove ${item.name} from workout`} confirmAccessibilityLabel="Confirm remove workout exercise"
           onDelete={() => setSelected(rows => rows.filter(row => row.id !== item.id))} disabled={busy} />
       </ActionRow></View>)}
-    <ExerciseError message={error} /><ActionRow>
+  </View>;
+  const selectedExercise = selected.find(item => item.id === selectedId) ?? selected[0];
+  const rows = selected.map(exercise => ({ id: exercise.id, exercise }));
+  const selectedRow = rows.find(row => row.id === selectedExercise?.id);
+  const rowLabel = selectedRow ? exerciseRowLabel(rows, selectedRow, rows.indexOf(selectedRow)) : "";
+  return <Panel testID="workout-form">
+    {workout ? <WorkoutWorkspace name={name.trim() || "Edit workout"} testID="template-workout-workspace"
+      headerRight={<View style={{ flexDirection: "row", gap: spacing.sm }}>
+        <ExerciseIconButton label="Settings" icon="gear" onPress={() => setSettingsOpen(value => !value)} disabled={busy} />
+        <ExerciseIconButton label="Cancel" icon="xmark" onPress={onClose} disabled={busy} />
+      </View>} toolbar={settingsOpen ? builder : undefined} exercises={rows} selectedId={selectedExercise?.id}
+      onSelect={setSelectedId} busy={busy} feedback={<ExerciseError message={error} />}
+      actions={<View testID="workout-template-actions" style={{ flexDirection: "row", gap: spacing.sm }}>
+        <View style={{ flex: 1, minWidth: 0 }}><DeleteButton label="Delete workout" fill confirmAccessibilityLabel="Confirm delete workout"
+          onDelete={() => save(true)} disabled={busy} /></View>
+        <View style={{ flex: 1, minWidth: 0 }}><ExerciseButton label="Save workout" fill onPress={() => void save()} primary disabled={busy} /></View>
+      </View>}>
+      {selectedExercise ? <>
+        <View testID="exercise-heading-row" style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+          <AppText variant="heading" accessibilityRole="header" style={{ flex: 1, minWidth: 0 }}>{selectedExercise.name}</AppText>
+          <ExerciseIconButton label={`View notes for ${rowLabel}`} icon="note-sticky" onPress={() => setNotesId(previous => previous === selectedExercise.id ? null : selectedExercise.id)} disabled={busy} />
+        </View>
+        <ExerciseField label={`Planned sets for ${rowLabel}`} value={setCounts[selectedExercise.id] ?? "3"}
+          onChange={value => setSetCounts(previous => ({ ...previous, [selectedExercise.id]: value }))} numeric disabled={busy} />
+        {notesId === selectedExercise.id && <AppText variant="caption" muted>{selectedExercise.notes || "No notes for this exercise."}</AppText>}
+        <View testID="exercise-video-placeholder" accessibilityLabel="No exercise video available"
+          style={{ minHeight: 220, borderWidth: 1, borderColor: colors.border, borderRadius: radius.panel,
+            backgroundColor: colors.background, alignItems: "center", justifyContent: "center", padding: spacing.layout }}>
+          <AppText muted style={{ textAlign: "center" }}>No video available</AppText>
+        </View>
+      </> : <AppText muted>Open Settings to add exercises to this workout.</AppText>}
+    </WorkoutWorkspace> : <>
+      <AppText variant="heading" accessibilityRole="header">Create workout</AppText>
+      {builder}
+      <ExerciseError message={error} /><ActionRow>
       <ExerciseButton label="Save workout" onPress={() => void save()} primary disabled={busy} />
       <ExerciseButton label="Cancel" onPress={onClose} disabled={busy} />
-      {workout && <DeleteButton label="Delete workout" confirmAccessibilityLabel="Confirm delete workout" onDelete={() => save(true)} disabled={busy} />}
-    </ActionRow>
+      </ActionRow>
+    </>}
   </Panel>;
 }

@@ -1,0 +1,15 @@
+# Workout polish final review
+
+PASS. No unresolved actionable findings against b4bba91.
+
+Independent UI report is /tmp/kine-workout-polish-ui-review.md; parent template integration report is /tmp/kine-workout-polish-parent-review.md. Reviewed UI commit 78853a8, equal-height footer follow-up 82090a3, duration-caption follow-up 0b57163, parent library form and browser changes, and README/PRODUCT/CONTEXT/design-spec updates.
+
+Active shell integrates elapsed time at the title's right, removes active date/status/Close/explanatory footer and standalone Open panel, and automatically returns after another form/menu closes. Guarded flush, failed raw field retention, captured dates, session tokens, mount protection across search/calendar and elapsed restoration remain intact. Exercise heading icon actions are reachable 44px controls, theme dividers frame the bar, and Discard/End split the bottom row with matching heights. Shared button fill defaults preserve unrelated callers and inline confirmation/error behavior.
+
+Manual/completed and template editors share the divided exercise bar and selected detail shell. Metadata lives under Settings; completed edits retain cache across other panels and require explicit Save, while explicit Cancel discards them. Manual mode correctly bypasses planned-count validation after Add set. Template search/order/count validation and snapshot save/delete behavior remain intact. Duration captions now format validated seconds compactly and show bounded unknown/invalid labels while preserving raw minute input.
+
+Parent browser coverage checks active title/timer/absent captions, heading icon bounds, borders, 50/50 footer geometry at 320/390/1280 in both themes, confirmation without deletion, failed completion, automatic return, historical side/cache/save behavior, template failed-save fields and ordering/counts. The final duration edge checks 17 seconds, invalid 32-digit input, no overflow at 320/390 and durable/cache retention on failure. Documentation matches final behavior and cancellation semantics. Independently ran git diff --check successfully; no suites repeated.
+
+Parent-reported verification: full browser run passed 114/114 in 151.9 seconds before the last duration-caption change. After that change, the focused completed-layout/duration scenario passed 1/1 in /tmp/kine-workout-polish-duration-browser.log. No second full browser run is claimed. Fresh final npm run check passed TypeScript and 486 unit tests; strict unused TypeScript and Expo web/iOS/Android export passed after the caption fix. Cloudflare endpoint returned HTTP 200.
+
+Parent's T3 walkthrough verified template Settings/bar, integrated elapsed time, equal footer geometry, dividers and 44px header controls. Ending only Squat 5x40 produced 200kg; completed edit to six reps stayed at five durably until Save and then produced 240kg. Temporary template/log were removed through actual inline confirmation, leaving no active or temporary records and preserving three demo exercises. Snapshot capture failed; parent used the same T3 session's DOM/type bridge for inspection and actions. No alternate manual browser is claimed.

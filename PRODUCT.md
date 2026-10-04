@@ -53,9 +53,15 @@ a saved workout shows a compact card with Start workout, Settings and manual log
 Templates and pre-start Settings can set exercise counts from 0 to 100; new
 template exercises default to three. Start expands the card into a horizontally
 scrolling exercise bar above the selected-exercise sets table,
-with notes and a video placeholder. The workout name appears inside the active
-widget without an editable name field. End workout stays at the widget's bottom
-and saves completion before stopping the timer. Exercise selection, search and
+with notes and a video placeholder. Add set and View notes sit on the exercise
+title row; dividers sit above and below the exercise bar. The workout name and
+elapsed timer share the active widget's title row. Date/status text, the separate
+timer panel, Close workout and explanatory footer are removed. Active workouts
+automatically expand on the default Exercise view. Discard and End workout share
+equal halves of the bottom row. Ending saves completion before stopping the timer.
+Template and completed editing use the same bar and selected exercise detail,
+with name/search/order or name/duration under Settings. Completed edits require
+Save changes. Exercise selection, search and
 calendar changes preserve entered sets. Set counts cannot remove entered data.
 Workout logging has no remove-set or remove-exercise buttons. Entirely blank
 sets and unlogged exercises do not contribute to completion totals; partially
