@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from "react";
-import { usePathname } from "expo-router";
+import { usePathname, useRouter, type Href } from "expo-router";
 import { BackHandler, Platform, Pressable, StyleSheet, useWindowDimensions, View, type ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { addDays, calendarWeeks, parseDay } from "../calendar/dates";
@@ -8,6 +8,7 @@ import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import { Icon } from "./icon";
 import { AppText } from "./ui";
+import { ProfileAvatar } from "../profile/profile-identity";
 import { ComingSoonPanel, ProfileMenu, type ProfileDestination } from "./profile-menu";
 
 function fullDate(day: string): string {
@@ -136,6 +137,11 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
   const { selectedDay, today } = useSelectedDay();
   const path = usePathname();
   const isSettings = path === "/settings";
+  const isProfile = path === "/profile";
+  const router = useRouter();
+  const previousTab = useRef<Href>("/");
+  useEffect(() => { if (!isProfile && ["/", "/food", "/exercise", "/settings"].includes(path)) previousTab.current = path as Href; }, [path, isProfile]);
+  const returnFromProfile = useCallback(() => router.replace(previousTab.current), [router]);
   const { height: windowHeight } = useWindowDimensions();
   const [popover, setPopover] = useState<"calendar" | "profile" | null>(null);
   const [destination, setDestination] = useState<ProfileDestination | null>(null);
@@ -154,9 +160,18 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
     setDestination(null);
   }, []);
   useEffect(() => {
-    setPopover(previous => previous === "profile" ? null : previous);
+    setPopover(previous => previous === "profile" || isProfile ? null : previous);
     setDestination(null);
-  }, [path]);
+  }, [path, isProfile]);
+  useEffect(() => {
+    // The dropdown and native Modal dismiss themselves before leaving Profile.
+    if (!isProfile || popover || destination) return;
+    const back = BackHandler.addEventListener("hardwareBackPress", () => {
+      returnFromProfile();
+      return true;
+    });
+    return () => back.remove();
+  }, [isProfile, popover, destination, returnFromProfile]);
   useEffect(() => {
     if (!popover) return;
     const close = () => {
@@ -200,8 +215,8 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
         }}
       >
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <View style={styles.bar}>
-            {isSettings ? <View style={styles.button} /> : (
+          <View style={[styles.bar, isProfile && { minHeight: 52 }]}>
+            {isProfile ? <HeaderButton label="Back from Profile" onPress={returnFromProfile}><Icon name="chevron-left" size={16} color={colors.foreground} /></HeaderButton> : isSettings ? <View style={styles.button} /> : (
               <HeaderButton
                 label={expanded ? "Collapse calendar" : "Expand calendar"}
                 expanded={expanded}
@@ -212,11 +227,11 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
             )}
             <AppText
               variant="label"
-              accessibilityLabel={isSettings ? "Settings" : `${fullDate(selectedDay)}${selectedDay === today ? ", today" : ""}`}
+              accessibilityLabel={isProfile ? "Profile" : isSettings ? "Settings" : `${fullDate(selectedDay)}${selectedDay === today ? ", today" : ""}`}
               numberOfLines={1}
-              style={styles.selectedDate}
+              style={[styles.selectedDate, isProfile && { fontSize: 14, lineHeight: 22 }]}
             >
-              {isSettings ? "Settings" : dateLabel}
+              {isProfile ? "Profile" : isSettings ? "Settings" : dateLabel}
             </AppText>
             <HeaderButton
               nativeID="profile-menu-button"
@@ -224,14 +239,12 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
               expanded={popover === "profile"}
               onPress={() => setPopover(previous => previous === "profile" ? null : "profile")}
             >
-              <View style={[styles.avatar, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
-                <Icon name="user" size={15} color={colors.mutedForeground} />
-              </View>
+              <ProfileAvatar />
             </HeaderButton>
           </View>
         </View>
       </SafeAreaView>
-      {!isSettings && expanded && (
+      {!isProfile && !isSettings && expanded && (
         <SafeAreaView
           edges={["left", "right"]}
           style={[styles.calendarOverlay, { top: headerHeight, backgroundColor: colors.card, borderColor: colors.border }]}
@@ -242,8 +255,8 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
       {popover === "profile" && (
         <SafeAreaView edges={["left", "right"]} pointerEvents="box-none"
           style={[styles.profileAnchor, { top: headerHeight }]}>
-          <ProfileMenu maxHeight={Math.max(0, windowHeight - headerHeight)}
-            onDismiss={closePopover} onSelect={entry => { setPopover(null); setDestination(entry); }} />
+          <ProfileMenu currentProfile={isProfile} maxHeight={Math.max(0, windowHeight - headerHeight)}
+            onDismiss={closePopover} onSelect={entry => { setPopover(null); if (entry === "Profile") router.navigate("/profile"); else setDestination(entry); }} />
         </SafeAreaView>
       )}
       {destination && <ComingSoonPanel destination={destination} onDismiss={dismissDestination} />}

@@ -12,7 +12,36 @@ including returning to an edited question and resuming unfinished setup.
 and calorie and macro choices. A draft profile includes the last saved setup step.
 
 **Profile edit**: Changes to a completed profile that become permanent only
-when the user saves them. Cancel preserves the previously saved profile.
+when the user saves them. Each edit retains its own fields after failure, merges
+only its chosen section into the latest Profile on Save, and cannot close a newer
+edit when an earlier save finishes; Cancel preserves the saved Profile.
+
+**Personal journal**: The Profile page's Overview, Goals, and Photos sections.
+It opens from the avatar menu, uses Today, and preserves the Selected day when
+returning to the originating tab. A section edit merges only its owned fields
+into the current saved Profile.
+
+**Tracking streak**: Consecutive local dates with saved food/drinks, positive
+Manual water, or a Completed workout. A date counts once. The current streak
+ends today or yesterday; the longest includes all qualifying dates through
+today. Edits/deletions recalculate both and future records are excluded.
+
+**Workout graph**: Weekly completed volume, known duration, or a selected
+exercise's heaviest positive recorded load over 4, 12, or 52 weeks. Weeks without
+measurements remain gaps; unknown durations remain unknown or partial. Historical
+exercise identity and tracking mode keep separate left/right history intact.
+
+**Progress photo**: An optional local image with an editable date and note.
+It does not count toward a streak; the dated journal scrolls horizontally, and
+Progress comparison shows the earliest dated photo beside the latest.
+
+**Profile media**: The avatar and Progress photos, stored separately from
+Profile answers. Metadata publishes after durable image import. Replacement
+or deletion publishes metadata before removing the old owned image files.
+
+**Profile media edit**: Unsaved avatar or Progress photo choices, including a
+chosen image and the photo's date and note. Failed saves retain these choices for
+retry, Cancel discards them, and an earlier operation cannot change a newer edit.
 
 **Calorie mode**: Whether the profile uses the standard adult estimate or a
 manual target. Ages 16–17 always follow the teen manual path.

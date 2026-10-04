@@ -8,11 +8,12 @@ studio is maintained separately.
 
 - Home, Food, Exercise, and Settings tabs through Expo Router.
 - Compact header with a profile dropdown and shared five-week day picker.
-  The current week stays centered; Settings has no calendar.
+  The current week stays centered; Settings and Profile have no calendar.
   Dates use the device's local time zone. Selecting Today follows local day
   changes; a deliberately chosen other date stays selected until changed again.
   Profile, Friends, Messages, and KineVault appear above a separator, followed by
-  Support and Feedback. Each entry opens a coming-soon panel.
+  Support and Feedback. Profile opens the personal journal; the other entries
+  open coming-soon panels.
 - Daily layouts for nutrition, workouts, steps, water, and five meal sections.
   Kine uses the same even split and size beside Home macros, Food/Exercise
   action buttons, and the Settings title. Macro counts sit beside their labels.
@@ -145,12 +146,55 @@ Development builds seed Squat, Push-up, and Dumbbell curl once, preserving
 existing data. The marker is saved with the exercises so deleted examples do
 not return after reopening. Production builds do not inject these examples.
 
-The agreed strength/bodyweight Exercise v1 is implemented. The remaining
-acceptance step is a complete workout on a physical iPhone, including keyboard,
-scrolling, background/reopen, End, and completed editing. Timed exercises and
+The agreed strength/bodyweight Exercise v1 is implemented. The
+physical-iPhone workout acceptance is complete according to the user, including
+keyboard, scrolling, background/reopen, End, and completed editing. Timed exercises and
 cardio with duration/distance belong to a later phase. Previous reps/weights,
-progress/history charts, workout duplication, and a rest timer remain optional
+workout duplication and a rest timer remain optional
 ideas. See [TODO.md](TODO.md) for the current backlog.
+
+## Personal journal Profile
+
+Open Profile from the top-right avatar menu. Overview, Goals, and Photos are
+sections inside Profile; Home, Food, Exercise, and Settings remain the four
+bottom tabs. Back returns to the previous tab without changing its selected date.
+Profile always uses today in the device's local time zone.
+
+Overview shows current and longest streaks, the Sunday–Saturday week containing
+today, and workout progress. Saved food/drinks, positive manual water, and
+completed workouts count once per day. Current streak can end yesterday while today is still available
+to log. Deleted and future records do not count.
+
+Workout charts start with lifted volume over 12 weeks and offer 4, 12, or 52
+weeks. Switch to duration or an exercise's heaviest recorded set. Independent
+left/right weights remain separate. Missing duration stays unknown or partial;
+bodyweight sets do not invent kilograms. The chart groups daily records into
+seven-day periods; periods without measurements remain gaps. Selecting a point
+shows its values. The chart icon is decorative and opens no measurement list.
+
+Goals shows today's calorie, macro, and combined water intake against saved
+targets. Focused editors save personal details, calorie preferences, macro
+overrides, and the water goal. Cancel or a failed save preserves saved values.
+Editing one section keeps unrelated current answers. The pencil beside the
+centered name opens an underlined inline field, with Cancel on the left and Save
+on the right. Names are limited to 40 characters. The details chooser also has
+a Cancel action.
+
+Choose an avatar or optional progress photos from the library or camera.
+Progress photos have an editable date and optional note. Photos presents a
+horizontal carousel with dates and separators. Overview automatically shows the
+earliest dated photo on the left and the latest on the right, with dates below
+both; it has no Add or Compare controls or separate comparison picker. Images
+and thumbnails persist in the owned native document directory or browser IndexedDB. Photo metadata uses the separate
+`kinevault-track.profile-media.v1` key. No account or photo upload is involved.
+Native supports library and camera; the web preview offers file selection.
+
+Android emulator checks cover library/camera selection, cancellation, avatar
+cropping, saved-photo reopening, carousel scrolling, removal, both themes, and
+larger text. A physical iPhone check of the new photo flow remains in TODO.md.
+
+The selected layout is version 3, Personal journal, in the standalone
+[layout reference](design/profile-prototype.html).
 
 ## Food database
 
@@ -223,10 +267,10 @@ The barcode button on the right of Food search opens the camera and manual barco
 entry. It supports EAN/UPC product barcodes, including UPC-E camera expansion,
 and excludes QR codes. Camera permission is requested on opening the scanner;
 denied or unavailable cameras leave manual entry usable. The camera closes on
-tab blur, scanner close, or app background. The expo-camera plugin declares a
-food-barcode camera permission, disables Android audio recording, blocks its
-microphone permission, and omits the iOS microphone permission. Camera capture
-still needs real-device verification on iOS and Android.
+tab blur, scanner close, or app background. The camera permission covers barcode
+scanning and profile/progress photos. Android audio recording is disabled,
+microphone access is blocked, and no iOS microphone permission is declared.
+The new Profile photo flow still needs physical-iPhone verification.
 
 Food has two search-row controls: offline Search and barcode Scan, with a 75/25
 width split. Barcode lookup opens an unsaved food draft with editable name,
@@ -387,7 +431,7 @@ clear a field or leave a decimal separator while typing.
 npm run check
 npx expo-doctor
 npm run export:web
-npx expo export --platform ios --platform android --output-dir dist-native
+npx expo export --platform all --output-dir dist
 ```
 
 Tests cover appearance, profile record validation, draft resume, staged profile
@@ -434,6 +478,23 @@ shared calendar selection, responsive widths, Profile recovery and failed resets
 nonempty workout rendering and exercise filtering,
 reduced motion, mascot prefetching, and retrying a failed save while editing the
 review screen.
+
+The Personal journal Profile passed all 558 direct tests, all 136 browser
+scenarios, TypeScript including unused-code checks, Expo Doctor's 21 checks,
+and web/iOS/Android exports. Independent task and final reviews passed after
+editor and navigation regressions were corrected. Android emulator photo,
+reopening, comparison, larger-text, and system-Back checks passed. Physical-iPhone
+Profile photo acceptance remains pending. See the
+[Profile verification report](docs/superpowers/reviews/2026-10-04-profile-personal-journal.md)
+for evidence and implementation decisions.
+
+The latest Profile final check covers the complete feature since `211eb49` plus
+uncommitted media and focused-edit ownership refactors. All 599 direct tests,
+141 browser scenarios and the separate optional visual capture passed, alongside
+TypeScript/unused-code checks, Expo Doctor 21/21 and web/iOS/Android exports.
+It fixed padded-name validation and added visible Cancel in the details chooser.
+The [final-check report](docs/superpowers/reviews/2026-10-04-profile-final-check.md)
+records full coverage, dependency advisories and remaining native limits.
 
 The October 4, 2026 Exercise increment passed TypeScript with unused-code checks,
 463 unit tests, and all 100 browser scenarios. The full browser run passed 99;
@@ -545,6 +606,16 @@ launcher icons and splash screens. It runs independently of the Expo app.
 - `src/profile/answers.ts`: profile vocabulary and editable numeric strings.
 - `src/profile/calories.ts`: estimate/manual/teen policy, answer changes, and target source.
 - `src/profile/macros.ts`: calculated gram targets and custom overrides.
+- `src/profile/activity.ts`: local-date streaks and historical workout graph data.
+- `src/profile/media-persistence.ts`: durable avatar/photo metadata and owned-file lifecycle;
+  `media-files.ts` and `media-files.web.ts` own native files and browser IndexedDB blobs.
+- `src/profile/media-editing.ts`: selection, retained photo drafts, validation, Save,
+  removal and temporary-source retirement; `use-media-editing.ts` binds it to React.
+- `src/profile/focused-editing.ts`: independent name/section drafts, latest-answer
+  merging, validation and save lifecycle; `use-focused-edit.ts` binds it to React.
+- `src/profile/profile-screen.tsx`: Personal journal composition and editor requests;
+  focused goals, charts, photo editors, and automatic progress comparison reuse
+  the shared providers.
 - `src/calendar/selection.ts`: shared Selected day lifecycle with clock and wake adapters.
 - `src/calendar/`: local date arithmetic, centered week grid, and React/platform wiring.
 - `src/daily/workout.ts`: one interpretation of completed sets for totals and exercise rows.

@@ -1,0 +1,337 @@
+<!doctype html>
+<!-- Throwaway layout study: three Profile variants on one page, switchable with ?variant=A|B|C|all. All values are illustrative. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>KineVault Track | Three Profile layouts</title>
+  <link rel="icon" href="../assets/branding/favicon.png">
+  <style>
+    @font-face { font-family: Comfortaa; src: url('../node_modules/@expo-google-fonts/comfortaa/400Regular/Comfortaa_400Regular.ttf'); font-weight: 400; font-display: swap; }
+    @font-face { font-family: Comfortaa; src: url('../node_modules/@expo-google-fonts/comfortaa/500Medium/Comfortaa_500Medium.ttf'); font-weight: 500; font-display: swap; }
+    @font-face { font-family: Comfortaa; src: url('../node_modules/@expo-google-fonts/comfortaa/600SemiBold/Comfortaa_600SemiBold.ttf'); font-weight: 600; font-display: swap; }
+    @font-face { font-family: 'FA Solid'; src: url('../node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/FontAwesome6_Solid.ttf'); font-display: block; }
+    :root {
+      --background: #f6f7f9; --foreground: #192026; --card: #fff;
+      --primary: #314e65; --primary-foreground: #fff; --secondary: #e9edf1;
+      --muted: #52606d; --accent: #e3ebf1; --border: #ced6de; --ring: #638ba6;
+      --carbs: #96591b; --protein: #27689b; --fat: #7751a1;
+      --desk: #e9edf1; --frame: #26343e; --dock: #192f43; --dock-text: #fff;
+    }
+    [data-theme="dark"] {
+      --background: #12171d; --foreground: #e5eaf0; --card: #1a222b;
+      --primary: #94bdd7; --primary-foreground: #10181f; --secondary: #25313d;
+      --muted: #b0bdca; --accent: #253747; --border: #3b4a59; --ring: #94bdd7;
+      --carbs: #e5b365; --protein: #79b7e8; --fat: #b69adc;
+      --desk: #0d1218; --frame: #40505e; --dock: #e3ebf1; --dock-text: #192f43;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; background: var(--desk); color: var(--foreground); font-family: system-ui, sans-serif; padding: 0 0 118px; }
+    button, select { font: inherit; }
+    button { cursor: pointer; }
+    button, select, a { -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, select:focus-visible, a:focus-visible, .app-scroll:focus-visible { outline: 3px solid var(--ring); outline-offset: 3px; }
+    ::selection { background: var(--primary); color: var(--primary-foreground); }
+    .icon { font: 16px/1 'FA Solid'; display: inline-block; font-style: normal; width: 1.15em; text-align: center; }
+    .workbench { max-width: 1310px; margin: 0 auto; padding: 38px 30px 26px; }
+    .workbench-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+    h1 { font: 600 clamp(25px, 3vw, 36px)/1.3 Comfortaa, sans-serif; margin: 0 0 9px; letter-spacing: -.025em; }
+    .intro { color: var(--muted); line-height: 1.6; font-size: 14px; margin: 0; }
+    .theme-button { flex: 0 0 auto; min-height: 44px; padding: 0 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); color: var(--foreground); font-size: 13px; font-weight: 600; }
+    .theme-button:hover { background: var(--accent); }
+    .layouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 30px; align-items: start; }
+    .layouts.single { grid-template-columns: minmax(0, 390px); justify-content: center; }
+    .layout-title { display: flex; gap: 10px; align-items: baseline; margin: 0 0 8px; font-size: 19px; font-weight: 650; }
+    .version-number { color: var(--muted); font-size: 13px; font-weight: 500; }
+    .layout-description { color: var(--muted); line-height: 1.5; margin: 0 0 18px; font-size: 13px; min-height: 60px; max-width: 38ch; }
+    .phone { border: 5px solid var(--frame); border-radius: 32px; height: 820px; background: var(--background); overflow: hidden; display: flex; flex-direction: column; font: 400 13px/1.55 Comfortaa, sans-serif; position: relative; }
+    .status-bar { height: 30px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 4px 18px 0; font: 600 11px/1.2 system-ui, sans-serif; background: var(--card); }
+    .status-bar .signals { display: flex; align-items: center; gap: 6px; }
+    .status-bar .icon { font-size: 11px; }
+    .app-header { display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 0 12px; background: var(--card); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .app-header strong { font-size: 14px; font-weight: 600; }
+    .icon-button { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; border: 0; border-radius: 14px; background: transparent; color: var(--foreground); }
+    .icon-button:hover { background: var(--secondary); }
+    .mini-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--primary); display: grid; place-items: center; font-size: 11px; font-weight: 600; }
+    .app-scroll { overflow: auto; flex: 1; min-height: 0; padding: 12px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; overscroll-behavior: contain; }
+    .app-scroll::-webkit-scrollbar { width: 4px; }
+    .app-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    .stack { display: flex; flex-direction: column; gap: 12px; }
+    .panel { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 12px; }
+    .section-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; min-height: 38px; margin: -3px 0 8px; }
+    .section-top h3 { font-size: 14px; font-weight: 600; margin: 0; line-height: 1.5; }
+    .section-top .icon { color: var(--muted); font-size: 14px; }
+    .text-action { min-height: 38px; padding: 4px 3px 4px 8px; border: 0; background: transparent; color: var(--primary); font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+    .text-action:hover { text-decoration: underline; text-underline-offset: 4px; }
+    .muted { color: var(--muted); }
+    .small { font-size: 10px; }
+    .identity { display: flex; align-items: center; gap: 12px; }
+    .avatar { display: grid; place-items: center; position: relative; width: 64px; height: 64px; flex: 0 0 auto; border-radius: 50%; background: var(--accent); color: var(--primary); border: 0; }
+    .avatar .person { font-size: 25px; }
+    .avatar .camera-dot { position: absolute; right: -1px; bottom: -1px; width: 25px; height: 25px; border: 3px solid var(--card); background: var(--primary); border-radius: 50%; display: grid; place-items: center; color: var(--primary-foreground); }
+    .camera-dot .icon { font-size: 10px; }
+    .identity h2 { font-size: 19px; font-weight: 600; margin: 0 0 4px; }
+    .identity p { color: var(--muted); font-size: 11px; margin: 0; }
+    .identity-copy { flex: 1; min-width: 0; }
+    .identity-row { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+    .streak-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .streak { display: flex; align-items: center; gap: 9px; }
+    .streak + .streak { border-left: 1px solid var(--border); padding-left: 12px; }
+    .streak .icon { color: var(--primary); font-size: 18px; }
+    .streak strong { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .streak .unit { font-size: 10px; margin-left: 4px; }
+    .streak p { margin: 0; font-size: 10px; color: var(--muted); }
+    .calorie-line { display: flex; align-items: baseline; gap: 7px; }
+    .calorie-line strong { font-size: 23px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .calorie-line span { font-size: 10px; color: var(--muted); }
+    .bar { height: 5px; border-radius: 4px; background: var(--secondary); overflow: hidden; margin-top: 8px; }
+    .bar span { display: block; height: 100%; width: var(--fill); background: var(--color, var(--primary)); border-radius: inherit; }
+    .macro-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0 14px; }
+    .macro-name { color: var(--color); font-size: 11px; font-weight: 600; }
+    .macro-amount { font-size: 16px; font-weight: 600; margin-top: 3px; font-variant-numeric: tabular-nums; }
+    .macro-goal { color: var(--muted); font-size: 10px; }
+    .water-row { display: flex; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 11px; }
+    .water-row .icon { color: var(--primary); }
+    .water-row .water-value { margin-left: auto; font-weight: 600; }
+    .water-row .muted { font-size: 10px; font-weight: 400; }
+    .metric-picker { display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 3px; padding: 3px; background: var(--secondary); border-radius: 10px; }
+    .metric-picker button { min-height: 36px; padding: 4px 3px; font-size: 10px; font-weight: 500; color: var(--muted); background: transparent; border: 0; border-radius: 7px; white-space: nowrap; }
+    .metric-picker button[aria-pressed="true"] { background: var(--card); color: var(--primary); font-weight: 600; }
+    .chart-toolbar { display: flex; gap: 8px; align-items: center; justify-content: space-between; margin: 12px 0 5px; }
+    .chart-value { display: block; font-size: 22px; font-weight: 600; line-height: 1.4; font-variant-numeric: tabular-nums; }
+    .chart-unit { display: block; color: var(--muted); font-size: 9px; }
+    .range-select, .exercise-select { border: 1px solid var(--border); border-radius: 9px; background: var(--card); color: var(--foreground); min-height: 36px; padding: 4px 8px; font-size: 9px; max-width: 100%; }
+    .exercise-select { width: 100%; margin: 5px 0; }
+    .chart { display: block; width: 100%; height: auto; overflow: visible; }
+    .chart .gridline { stroke: var(--border); stroke-width: 1; }
+    .chart text { fill: var(--muted); font: 9px Comfortaa, sans-serif; }
+    .chart .area { fill: var(--accent); }
+    .chart .line { fill: none; stroke: var(--primary); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .chart .point { fill: var(--primary); stroke: var(--card); stroke-width: 2; }
+    .chart-footer { margin: 7px 0 0; font-size: 9px; color: var(--muted); line-height: 1.55; }
+    .details-list { margin: 0; }
+    .details-list > div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
+    .details-list > div:last-child { border: 0; padding-bottom: 0; }
+    .details-list dt { color: var(--muted); }
+    .details-list dd { margin: 0; font-weight: 500; text-align: right; }
+    .photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .photo-well { aspect-ratio: 4/5; background: var(--secondary); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--muted); }
+    .photo-well .icon { font-size: 23px; }
+    .photo-well span { font-size: 9px; }
+    figure { margin: 0; min-width: 0; }
+    .photo-grid figcaption { margin: 7px 0 0; font-size: 9px; }
+    .photo-grid figcaption span { display: block; color: var(--muted); font-size: 8px; margin-top: 2px; }
+    .button-row { display: flex; gap: 8px; margin-top: 12px; }
+    .app-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; flex: 1; padding: 8px; background: var(--secondary); color: var(--primary); border: 0; border-radius: 14px; font-size: 10px; font-weight: 600; }
+    .app-button.primary { background: var(--primary); color: var(--primary-foreground); }
+    .app-button .icon { font-size: 12px; }
+    .app-button:hover { filter: brightness(.95); }
+    .local-note { margin: 9px 0 0; font-size: 9px; text-align: center; color: var(--muted); }
+    .bottom-nav { flex-shrink: 0; display: grid; grid-template-columns: repeat(4, 1fr); background: var(--card); border-top: 1px solid var(--border); padding: 8px 3px 13px; }
+    .bottom-nav button { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; min-height: 43px; border: 0; background: transparent; color: var(--muted); font: 400 9px Comfortaa, sans-serif; }
+    .bottom-nav .icon { font-size: 17px; }
+    .flat-section { padding: 10px 3px; }
+    .flat-section .section-top { margin-bottom: 5px; }
+    .b-identity { padding: 4px 3px 8px; }
+    .b-identity .avatar { width: 48px; height: 48px; }
+    .b-identity .person { font-size: 20px; }
+    .b-identity h2 { font-size: 16px; }
+    .b-chart { padding: 16px 12px; }
+    .b-chart .chart-value { font-size: 30px; }
+    .b-chart .chart { margin-top: 10px; }
+    .b-streak { padding: 12px 2px 0; border-top: 1px solid var(--border); margin-top: 12px; }
+    .b-streak .streak strong { font-size: 16px; }
+    .photo-strip { display: grid; grid-template-columns: 1fr 1fr 62px; gap: 8px; }
+    .photo-strip .photo-well { aspect-ratio: 1; border-radius: 12px; }
+    .photo-strip .photo-well .icon { font-size: 19px; }
+    .photo-strip figcaption { font-size: 9px; margin-top: 6px; }
+    .add-photo-tile { aspect-ratio: 1; align-self: start; width: 100%; color: var(--primary); background: transparent; border: 1px dashed var(--border); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 9px; }
+    .target-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .target-table th { text-align: right; font-size: 8px; color: var(--muted); font-weight: 400; padding: 0 0 8px; }
+    .target-table th:first-child { text-align: left; }
+    .target-table td { padding: 10px 0; border-top: 1px solid var(--border); }
+    .target-table td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+    .target-table td:last-child { color: var(--muted); }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 12px; margin: 7px 0 0; }
+    .detail-grid dt { font-size: 9px; color: var(--muted); margin-bottom: 3px; }
+    .detail-grid dd { font-size: 12px; font-weight: 500; margin: 0; }
+    .c-identity { text-align: center; padding: 12px 0 4px; }
+    .c-identity .avatar { width: 76px; height: 76px; margin: 0 auto 12px; }
+    .c-identity .person { font-size: 29px; }
+    .c-identity h2 { font-size: 20px; margin: 0 0 4px; }
+    .c-identity p { font-size: 10px; margin: 0; color: var(--muted); }
+    .c-identity .text-action { font-size: 10px; }
+    .profile-sections { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--border); margin: 0 -12px 14px; padding: 0 12px; }
+    .profile-sections button { min-height: 43px; background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--muted); font-size: 11px; }
+    .profile-sections button[aria-selected="true"] { border-bottom-color: var(--primary); color: var(--primary); font-weight: 600; }
+    .week-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin: 15px 0 8px; }
+    .week-days div { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 9px; color: var(--muted); }
+    .week-days .day-dot { width: 27px; height: 27px; border-radius: 50%; background: var(--primary); color: var(--primary-foreground); display: grid; place-items: center; }
+    .week-days .day-dot .icon { font-size: 10px; }
+    .week-days .today { outline: 1px solid var(--primary); outline-offset: 3px; }
+    .journal-entry { display: grid; grid-template-columns: 48px 1fr; gap: 12px; margin: 4px 0 15px; }
+    .journal-date { color: var(--muted); font-size: 9px; text-align: center; padding-top: 8px; }
+    .journal-date strong { display: block; font-size: 21px; font-weight: 500; color: var(--foreground); }
+    .journal-body { min-width: 0; }
+    .journal-body .photo-well { aspect-ratio: 16/9; }
+    .journal-body p { margin: 7px 0 0; font-size: 10px; }
+    .journal-body .muted { font-size: 9px; margin-top: 3px; }
+    .overview-link { display: flex; align-items: center; justify-content: space-between; width: 100%; background: var(--card); color: var(--foreground); border: 1px solid var(--border); border-radius: 14px; padding: 12px; min-height: 50px; text-align: left; font-size: 11px; }
+    .overview-link .icon { color: var(--primary); font-size: 12px; }
+    .variant-footer { margin: 12px 4px 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+    .switcher { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; padding: 7px; max-width: calc(100vw - 24px); border-radius: 18px; background: var(--dock); color: var(--dock-text); box-shadow: 0 8px 28px #0002; z-index: 10; }
+    .switcher button { border: 0; background: transparent; color: inherit; min-height: 42px; padding: 0 13px; border-radius: 12px; font-size: 12px; white-space: nowrap; }
+    .switcher button:hover { background: #ffffff16; }
+    .switcher button[aria-pressed="true"] { background: var(--desk); color: var(--foreground); }
+    .switcher .arrow { padding: 0 7px; width: 34px; }
+    .switcher .icon { font-size: 12px; }
+    .divider { height: 22px; width: 1px; background: currentColor; opacity: .2; margin: 0 3px; }
+    .preview-notice { min-height: 24px; margin: 22px 0 0; text-align: center; font-size: 12px; color: var(--muted); }
+    dialog { background: var(--card); color: var(--foreground); border: 1px solid var(--border); border-radius: 18px; padding: 20px; width: min(620px, calc(100vw - 32px)); font: 400 13px/1.6 Comfortaa, sans-serif; }
+    dialog::backdrop { background: #0b1528a6; }
+    .dialog-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 15px; }
+    .dialog-top h2 { font-size: 17px; margin: 0; }
+    dialog .photo-well { min-height: 240px; }
+    dialog p { color: var(--muted); font-size: 11px; margin: 15px 0 0; }
+    @media (min-width: 1350px) { .workbench { padding-top: 42px; } }
+    @media (max-width: 1000px) { .workbench { padding: 28px 20px; } .layouts { gap: 18px; } .layout-title { font-size: 16px; } .phone { font-size: 12px; } .identity h2 { font-size: 16px; } .macro-columns { gap: 7px; } .streak { gap: 6px; } }
+    @media (max-width: 820px) { .layouts { grid-template-columns: minmax(0, 390px); justify-content: center; gap: 32px; } .layout-title { font-size: 19px; } .layout-description { min-height: auto; } .phone { height: 810px; } }
+    @media (max-width: 480px) { .workbench { padding: 22px 14px; } .workbench-header { align-items: start; gap: 10px; } h1 { font-size: 23px; } .intro { font-size: 12px; max-width: 24ch; } .theme-button { font-size: 11px; padding: 0 10px; } .phone { border-width: 3px; border-radius: 26px; } .switcher { bottom: 12px; gap: 0; padding: 5px; } .switcher button { padding: 0 9px; font-size: 11px; } .switcher .arrow { width: 26px; padding: 0 4px; } .switcher .divider { margin: 0 2px; } }
+    @media (max-width: 360px) { .switcher button[data-variant] { padding: 0 7px; font-size: 10px; } }
+    @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+  </style>
+</head>
+<body>
+  <main class="workbench">
+    <header class="workbench-header">
+      <div><h1>Profile, three ways.</h1><p class="intro">KineVault Track layout study. Illustrative data and photo placeholders.</p></div>
+      <button class="theme-button" id="theme-toggle" type="button">Dark preview</button>
+    </header>
+    <div class="layouts" id="layouts"></div>
+    <p class="preview-notice" id="preview-notice" role="status" aria-live="polite">Scroll inside each phone to see the full layout. Use the arrows to switch versions.</p>
+  </main>
+  <nav class="switcher" aria-label="Profile layout versions">
+    <button class="arrow" type="button" id="previous" aria-label="Previous layout"><i class="icon" aria-hidden="true">&#xf053;</i></button>
+    <button type="button" data-variant="all" aria-pressed="true">Compare</button>
+    <span class="divider" aria-hidden="true"></span>
+    <button type="button" data-variant="A" aria-pressed="false">1 Daily</button>
+    <button type="button" data-variant="B" aria-pressed="false">2 Progress</button>
+    <button type="button" data-variant="C" aria-pressed="false">3 Journal</button>
+    <button class="arrow" type="button" id="next" aria-label="Next layout"><i class="icon" aria-hidden="true">&#xf054;</i></button>
+  </nav>
+  <dialog id="comparison" aria-labelledby="comparison-title">
+    <div class="dialog-top"><h2 id="comparison-title">Progress comparison</h2><button class="icon-button" type="button" id="close-comparison" aria-label="Close comparison"><i class="icon" aria-hidden="true">&#xf00d;</i></button></div>
+    <div class="photo-grid"><figure><div class="photo-well" role="img" aria-label="August progress photo placeholder"><i class="icon" aria-hidden="true">&#xf03e;</i><span>Progress photo</span></div><figcaption>August 23, 2026<span>Front view</span></figcaption></figure><figure><div class="photo-well" role="img" aria-label="October progress photo placeholder"><i class="icon" aria-hidden="true">&#xf03e;</i><span>Progress photo</span></div><figcaption>October 4, 2026<span>Front view</span></figcaption></figure></div>
+    <p>Placeholder images show the comparison layout. This preview does not access your camera or save photos.</p>
+  </dialog>
+  <script>
+    const icons = { user: 'f007', fire: 'f06d', trophy: 'f091', back: 'f053', next: 'f054', house: 'f015', food: 'f2e7', dumbbell: 'f44b', gear: 'f013', camera: 'f030', pen: 'f304', image: 'f03e', chart: 'f201', droplet: 'f043', plus: '2b', check: 'f00c', wifi: 'f1eb', battery: 'f240' };
+    const icon = name => `<i class="icon" aria-hidden="true">&#x${icons[name]};</i>`;
+    const action = (label = 'Edit', preview = 'Edit details') => `<button class="text-action" type="button" data-preview="${preview}">${label === 'Edit' ? icon('pen') : ''}${label}</button>`;
+    const avatar = () => `<button class="avatar" type="button" data-preview="Change profile photo" aria-label="Change profile photo"><i class="icon person" aria-hidden="true">&#xf007;</i><span class="camera-dot">${icon('camera')}</span></button>`;
+    const sectionTop = (name, trailing = '') => `<div class="section-top"><h3>${name}</h3>${trailing}</div>`;
+    const identity = (className = '') => `<section class="identity ${className}" aria-label="Profile identity">${avatar()}<div class="identity-copy"><div class="identity-row"><h2>Alex Morgan</h2>${action('Edit', 'Edit name')}</div><p>Gain weight · Moderately active</p></div></section>`;
+    const streaks = (className = '') => `<div class="streak-pair ${className}"><div class="streak">${icon('fire')}<div><strong>12</strong><span class="unit">days</span><p>Current streak</p></div></div><div class="streak">${icon('trophy')}<div><strong>28</strong><span class="unit">days</span><p>Longest streak</p></div></div></div>`;
+    const nutrition = () => `<section class="panel">${sectionTop('Today & targets', action('Edit', 'Edit nutrition goals'))}<div class="calorie-line"><strong>1,746</strong><span>/ 2,400 kcal</span></div><div class="bar" style="--fill:73%"><span></span></div><div class="macro-columns">${[['Carbs', '214', '300', 'carbs', '71'], ['Protein', '128', '150', 'protein', '85'], ['Fat', '42', '67', 'fat', '63']].map(([name, value, goal, color, fill]) => `<div style="--color:var(--${color});--fill:${fill}%"><div class="macro-name">${name}</div><div class="macro-amount">${value} g</div><div class="macro-goal">of ${goal} g</div><div class="bar"><span></span></div></div>`).join('')}</div><div class="water-row">${icon('droplet')}<span>Water</span><span class="water-value">1.8 <span class="muted">/ 2.5 L</span></span></div></section>`;
+    const targetTable = () => `<section class="flat-section">${sectionTop('Today & targets', action('Edit', 'Edit nutrition goals'))}<table class="target-table"><thead><tr><th scope="col">Daily nutrition</th><th scope="col">Today</th><th scope="col">Goal</th></tr></thead><tbody><tr><td>Calories</td><td>1,746 kcal</td><td>2,400 kcal</td></tr><tr><td style="color:var(--carbs)">Carbs</td><td>214 g</td><td>300 g</td></tr><tr><td style="color:var(--protein)">Protein</td><td>128 g</td><td>150 g</td></tr><tr><td style="color:var(--fat)">Fat</td><td>42 g</td><td>67 g</td></tr><tr><td>Water</td><td>1.8 L</td><td>2.5 L</td></tr></tbody></table></section>`;
+    const details = (grid = false) => `<section class="${grid ? 'flat-section' : 'panel'}">${sectionTop('Details & goals', action('Edit', 'Edit personal details'))}<dl class="${grid ? 'detail-grid' : 'details-list'}">${[['Weight goal', 'Gain weight'], ['Current weight', '78 kg'], ['Height', '180 cm'], ['Age', '29 years'], ['Activity', 'Moderately active'], ['Calorie target', 'Estimated']].map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join('')}</dl></section>`;
+    const photo = (date, note = 'Front view') => `<figure><div class="photo-well" role="img" aria-label="${date} progress photo placeholder">${icon('image')}<span>Progress photo</span></div><figcaption>${date}<span>${note}</span></figcaption></figure>`;
+    const photos = () => `<section class="panel">${sectionTop('Progress photos', '<span class="muted small">Optional</span>')}<div class="photo-grid">${photo('Aug 23, 2026')}${photo('Oct 4, 2026')}</div><div class="button-row"><button class="app-button" type="button" data-preview="Add progress photo">${icon('plus')}Add photo</button><button class="app-button primary" type="button" data-compare>${icon('image')}Compare</button></div><p class="local-note">Stored on this device</p></section>`;
+    const photoStrip = () => `<section class="flat-section">${sectionTop('Progress photos', '<button class="text-action" type="button" data-compare>Compare</button>')}<div class="photo-strip"><figure><div class="photo-well" role="img" aria-label="August photo placeholder">${icon('image')}</div><figcaption>Aug 23</figcaption></figure><figure><div class="photo-well" role="img" aria-label="October photo placeholder">${icon('image')}</div><figcaption>Oct 4</figcaption></figure><button class="add-photo-tile" type="button" data-preview="Add progress photo">${icon('plus')}Add</button></div></section>`;
+    const graph = (extraClass = '', withStreak = false) => `<section class="panel graph-section ${extraClass}">${sectionTop('Workout progress', icon('chart'))}<div class="metric-picker" aria-label="Workout graph metric"><button type="button" data-metric="volume" aria-pressed="true">Volume</button><button type="button" data-metric="duration" aria-pressed="false">Duration</button><button type="button" data-metric="weight" aria-pressed="false">Exercise weight</button></div><select class="exercise-select" aria-label="Exercise to visualize" hidden><option>Barbell squat</option><option>Dumbbell curl</option><option>Bench press</option></select><div class="chart-toolbar"><div><strong class="chart-value">15,240</strong><span class="chart-unit">kg × reps · latest week</span></div><select class="range-select" aria-label="Graph time range"><option value="12">12 weeks</option><option value="4">4 weeks</option><option value="52">1 year</option></select></div><div class="chart-container"></div><p class="chart-footer">Completed workouts only</p>${withStreak ? streaks('b-streak') : ''}</section>`;
+    const week = () => `<div class="week-days">${['M','T','W','T','F','S','Today'].map((day, index) => `<div><span>${day}</span><span class="day-dot ${index === 6 ? 'today' : ''}">${icon('check')}</span></div>`).join('')}</div><p class="small muted" style="margin:0">Food, water, or a completed workout counts.</p>`;
+    const journalPhotos = () => `<section class="flat-section">${sectionTop('Photo journal', '<button class="text-action" type="button" data-compare>Compare two</button>')}<div class="journal-entry"><div class="journal-date">Oct<strong>4</strong>2026</div><div class="journal-body"><div class="photo-well" role="img" aria-label="October progress photo placeholder">${icon('image')}<span>Progress photo</span></div><p>Front view</p><p class="muted">Feeling consistent with training.</p></div></div><div class="journal-entry"><div class="journal-date">Aug<strong>23</strong>2026</div><div class="journal-body"><div class="photo-well" role="img" aria-label="August progress photo placeholder">${icon('image')}<span>Progress photo</span></div><p>Front view</p><p class="muted">Starting point.</p></div></div><button class="app-button" type="button" data-preview="Add progress photo" style="width:100%">${icon('plus')}Add progress photo</button><p class="local-note">Optional · Stored on this device</p></section>`;
+    function VariantA() {
+      return `<div class="stack"><section class="panel">${identity()}</section><section class="panel" aria-label="Tracking streaks">${streaks()}</section>${nutrition()}${graph()}${details()}${photos()}</div>`;
+    }
+    function VariantB() {
+      return `<div class="stack">${identity('b-identity')}${graph('b-chart', true)}${photoStrip()}${targetTable()}${details(true)}<p class="local-note">Progress photos are optional and stay on this device.</p></div>`;
+    }
+    function VariantC() {
+      return `<section class="c-identity">${avatar()}<h2>Alex Morgan</h2><p>Gain weight · Moderately active</p>${action('Edit profile', 'Edit personal details')}</section><div class="profile-sections" role="tablist" aria-label="Profile sections"><button type="button" role="tab" data-section="overview" aria-selected="true" aria-controls="journal-overview" id="overview-tab">Overview</button><button type="button" role="tab" data-section="goals" aria-selected="false" aria-controls="journal-goals" id="goals-tab" tabindex="-1">Goals</button><button type="button" role="tab" data-section="photos" aria-selected="false" aria-controls="journal-photos" id="photos-tab" tabindex="-1">Photos</button></div><div role="tabpanel" id="journal-overview" aria-labelledby="overview-tab" class="stack"><section class="panel" aria-label="Tracking streaks">${streaks()}${week()}</section>${graph()}<button class="overview-link" type="button" data-open-section="goals"><span>Today's nutrition<strong style="display:block;font-size:12px;margin-top:3px">1,746 / 2,400 kcal</strong></span>${icon('next')}</button>${photoStrip()}</div><div role="tabpanel" id="journal-goals" aria-labelledby="goals-tab" class="stack" hidden>${nutrition()}${details()}</div><div role="tabpanel" id="journal-photos" aria-labelledby="photos-tab" hidden>${journalPhotos()}</div>`;
+    }
+    const variants = [
+      { key: 'A', name: 'Daily overview', description: 'Today’s nutrition leads. Streaks, training, and personal goals share one scroll.', footer: 'Best for checking today’s targets and editing your details in one place.', render: VariantA },
+      { key: 'B', name: 'Progress first', description: 'A larger training graph leads, with a photo strip and a compact goals table.', footer: 'Best for seeing training progress first, with less space spent on cards.', render: VariantB },
+      { key: 'C', name: 'Personal journal', description: 'A centered profile with separate Overview, Goals, and Photos sections.', footer: 'Best for a shorter overview and a dedicated space for progress photos.', render: VariantC }
+    ];
+    const bottomNav = () => `<nav class="bottom-nav" aria-label="Illustrative app tabs">${[['house','Home'],['food','Food'],['dumbbell','Exercise'],['gear','Settings']].map(([symbol,label]) => `<button type="button" data-preview="${label} tab">${icon(symbol)}${label}</button>`).join('')}</nav>`;
+    document.querySelector('#layouts').innerHTML = variants.map((variant, index) => `<article class="layout" data-layout="${variant.key}" aria-labelledby="layout-${variant.key}"><h2 class="layout-title" id="layout-${variant.key}"><span class="version-number">${index + 1}</span>${variant.name}</h2><p class="layout-description">${variant.description}</p><div class="phone"><div class="status-bar" aria-hidden="true"><span>9:41</span><span class="signals">${icon('wifi')}${icon('battery')}</span></div><header class="app-header"><button class="icon-button" type="button" data-preview="Back to previous tab" aria-label="Back to previous tab">${icon('back')}</button><strong>Profile</strong><button class="icon-button" type="button" data-preview="Profile menu" aria-label="Profile menu"><span class="mini-avatar">AM</span></button></header><div class="app-scroll" tabindex="0" aria-label="${variant.name} profile preview">${variant.render()}</div>${bottomNav()}</div><p class="variant-footer">${variant.footer}</p></article>`).join('');
+    const chartData = {
+      volume: { values: [7900,8400,8100,9700,9200,10800,10300,12100,11700,13600,14200,15240], top: 16000, middle: '8k', maximum: '16k', unit: 'kg × reps · latest week', footer: 'Completed workouts only' },
+      duration: { values: [108,122,118,138,134,151,145,166,158,180,176,192], top: 240, middle: '120', maximum: '240', unit: 'minutes · latest week', footer: 'Recorded duration from completed workouts' },
+      weight: { values: [60,62.5,62.5,65,65,67.5,70,70,72.5,75,77.5,80], top: 100, middle: '50', maximum: '100', unit: 'kg · heaviest set', footer: 'Heaviest logged set for the selected exercise' }
+    };
+    function drawChart(section) {
+      const metric = section.dataset.currentMetric || 'volume';
+      const series = chartData[metric];
+      const exercise = section.querySelector('.exercise-select');
+      const factor = metric === 'weight' ? [1,.2,.75][exercise.selectedIndex] : 1;
+      const range = section.querySelector('.range-select').value;
+      const values = (range === '4' ? series.values.slice(-4) : series.values).map(value => value * factor);
+      const top = series.top * factor;
+      const points = values.map((value, index) => [42 + index * 264 / (values.length - 1), 121 - value / top * 98]);
+      const path = points.map(([x,y], index) => `${index ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+      const last = points[points.length - 1];
+      const labels = range === '4' ? ['Sep 13', 'Sep 27', 'Oct 4'] : range === '52' ? ['Oct 2025', 'Apr 2026', 'Oct 2026'] : ['Jul 19', 'Aug 30', 'Oct 4'];
+      section.querySelector('.chart-value').textContent = values[values.length-1].toLocaleString('en-US', {maximumFractionDigits: 1});
+      section.querySelector('.chart-unit').textContent = series.unit;
+      section.querySelector('.chart-footer').textContent = series.footer + (range === '52' ? ' · Illustrative yearly series' : '');
+      const maxLabel = metric === 'weight' ? String(top) : series.maximum;
+      const midLabel = metric === 'weight' ? String(top / 2) : series.middle;
+      section.querySelector('.chart-container').innerHTML = `<svg class="chart" viewBox="0 0 320 149" role="img" aria-label="Illustrative ${metric} progress over ${range} weeks"><line class="gridline" x1="42" x2="308" y1="23" y2="23"/><line class="gridline" x1="42" x2="308" y1="72" y2="72"/><line class="gridline" x1="42" x2="308" y1="121" y2="121"/><text x="2" y="26">${maxLabel}</text><text x="2" y="75">${midLabel}</text><text x="2" y="124">0</text><path class="area" d="${path} L306,121 L42,121 Z"/><path class="line" d="${path}"/><circle class="point" cx="${last[0]}" cy="${last[1]}" r="4.5"/><text x="42" y="144">${labels[0]}</text><text x="174" y="144" text-anchor="middle">${labels[1]}</text><text x="308" y="144" text-anchor="end">${labels[2]}</text></svg>`;
+      exercise.hidden = metric !== 'weight';
+    }
+    document.querySelectorAll('.graph-section').forEach(drawChart);
+    const allKeys = ['all', 'A', 'B', 'C'];
+    const notice = document.querySelector('#preview-notice');
+    let currentVariant = 'all';
+    function applyVariant(key, updateUrl = true) {
+      currentVariant = allKeys.includes(key) ? key : 'all';
+      document.querySelectorAll('[data-layout]').forEach(article => { article.hidden = currentVariant !== 'all' && article.dataset.layout !== currentVariant; });
+      document.querySelector('#layouts').classList.toggle('single', currentVariant !== 'all');
+      document.querySelectorAll('[data-variant]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.variant === currentVariant)));
+      notice.textContent = currentVariant === 'all' ? 'Showing all three layouts. Scroll inside each phone to see the full page.' : `Showing ${variants.find(variant => variant.key === currentVariant).name}. Use the arrows to compare the next version.`;
+      if (updateUrl) { const url = new URL(location.href); url.searchParams.set('variant', currentVariant); history.replaceState(null, '', url); }
+    }
+    function cycle(direction) { applyVariant(allKeys[(allKeys.indexOf(currentVariant) + direction + allKeys.length) % allKeys.length]); }
+    function setTheme(theme, updateUrl = true) {
+      document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
+      document.querySelector('#theme-toggle').textContent = theme === 'dark' ? 'Light preview' : 'Dark preview';
+      if (updateUrl) { const url = new URL(location.href); url.searchParams.set('theme', theme); history.replaceState(null, '', url); }
+    }
+    function readUrl() { const params = new URLSearchParams(location.search); applyVariant(params.get('variant') || 'C', false); setTheme(params.get('theme') || 'light', false); }
+    function setJournalTab(key) {
+      document.querySelectorAll('[data-section]').forEach(button => { const active = button.dataset.section === key; button.setAttribute('aria-selected', String(active)); button.tabIndex = active ? 0 : -1; });
+      ['overview', 'goals', 'photos'].forEach(section => { document.querySelector(`#journal-${section}`).hidden = section !== key; });
+    }
+    document.addEventListener('click', event => {
+      const button = event.target.closest('button');
+      if (!button) return;
+      if (button.dataset.variant) applyVariant(button.dataset.variant);
+      if (button.id === 'previous') cycle(-1);
+      if (button.id === 'next') cycle(1);
+      if (button.id === 'theme-toggle') setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+      if (button.dataset.metric) { const section = button.closest('.graph-section'); section.dataset.currentMetric = button.dataset.metric; section.querySelectorAll('[data-metric]').forEach(item => item.setAttribute('aria-pressed', String(item === button))); drawChart(section); }
+      if (button.dataset.section) setJournalTab(button.dataset.section);
+      if (button.dataset.openSection) { setJournalTab(button.dataset.openSection); document.querySelector(`[data-section="${button.dataset.openSection}"]`).focus(); }
+      if (button.hasAttribute('data-compare')) document.querySelector('#comparison').showModal();
+      if (button.id === 'close-comparison') document.querySelector('#comparison').close();
+      if (button.dataset.preview) notice.textContent = `${button.dataset.preview} is shown as a layout affordance. This prototype does not change your app data.`;
+    });
+    document.addEventListener('change', event => { if (event.target.matches('.range-select, .exercise-select')) drawChart(event.target.closest('.graph-section')); });
+    document.addEventListener('keydown', event => {
+      if (event.target.closest('input, textarea, select, [contenteditable="true"]') || document.querySelector('#comparison').open) return;
+      if (event.target.matches('[data-section]') && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+        event.preventDefault(); const keys = ['overview','goals','photos']; const index = keys.indexOf(event.target.dataset.section); const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? 2 : (index + (event.key === 'ArrowRight' ? 1 : -1) + 3) % 3; setJournalTab(keys[nextIndex]); document.querySelector(`[data-section="${keys[nextIndex]}"]`).focus(); return;
+      }
+      if (event.target.closest('.metric-picker, .app-scroll')) return;
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); cycle(event.key === 'ArrowRight' ? 1 : -1); }
+    });
+    window.addEventListener('popstate', readUrl);
+    readUrl();
+  </script>
+</body>
+</html>

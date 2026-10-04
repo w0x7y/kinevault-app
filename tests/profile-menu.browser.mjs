@@ -49,11 +49,11 @@ test("profile trigger is accessible, toggles the ordered dropdown, and is mutual
   await button(page, "Select today").waitFor();
 });
 
-test("every menu entry opens an honest coming-soon panel, closes the menu, and dismisses without changing routes or data", async t => {
+test("other menu entries open honest coming-soon panels, closes the menu, and dismisses without changing routes or data", async t => {
   const page = await open(t);
   const originalURL = page.url();
   const initialProfile = await page.evaluate(() => localStorage.getItem("kinevault-track.profile.v1"));
-  for (const name of names) {
+  for (const name of names.filter(name => name !== "Profile")) {
     await trigger(page).click();
     await menu(page).getByRole("menuitem", { name, exact: true }).click();
     await menu(page).waitFor({ state: "detached" });
@@ -114,6 +114,34 @@ test("keyboard opens the menu, moves through entries, selects and dismisses with
   assert.equal(await focusedName(), "Profile menu");
 });
 
+test("pointer opening keeps Profile neutral on Home and marks it current only on Profile", async t => {
+  const page = await open(t);
+  await trigger(page).click();
+  const profile = menu(page).getByRole("menuitem", { name: "Profile", exact: true });
+  const friends = menu(page).getByRole("menuitem", { name: "Friends", exact: true });
+  assert.equal(await profile.getAttribute("aria-current"), null);
+  assert.equal(await profile.evaluate(node => node === document.activeElement), false);
+  assert.equal(await profile.evaluate(node => getComputedStyle(node).backgroundColor), await friends.evaluate(node => getComputedStyle(node).backgroundColor));
+  assert.equal(await profile.evaluate(node => getComputedStyle(node).borderTopColor), "rgba(0, 0, 0, 0)");
+  await page.keyboard.press("ArrowDown");
+  assert.equal(await profile.evaluate(node => node === document.activeElement), true);
+  assert.equal(await profile.getAttribute("aria-current"), null);
+  await page.keyboard.press("Escape");
+  await trigger(page).click();
+  await profile.click();
+  await page.waitForURL("**/profile");
+  await trigger(page).click();
+  await profile.waitFor();
+  assert.equal(await profile.getAttribute("aria-current"), "page");
+  assert.equal(await profile.evaluate(node => node === document.activeElement), false);
+  assert.notEqual(await profile.evaluate(node => getComputedStyle(node).backgroundColor), await friends.evaluate(node => getComputedStyle(node).backgroundColor));
+  await page.keyboard.press("Escape");
+  await button(page, "Back from Profile").click();
+  await trigger(page).click();
+  assert.equal(await profile.getAttribute("aria-current"), null);
+  assert.equal(await profile.evaluate(node => getComputedStyle(node).backgroundColor), await friends.evaluate(node => getComputedStyle(node).backgroundColor));
+});
+
 test("outside click, keyboard focus leaving, and route changes close the dropdown; it fits small and wide screens", async t => {
   const page = await open(t, { width: 320, height: 568 });
   for (const viewport of [{ width: 320, height: 568 }, { width: 1280, height: 800 }, { width: 320, height: 240 }]) {
@@ -148,3 +176,16 @@ test("outside click, keyboard focus leaving, and route changes close the dropdow
   await page.mouse.click(3, 100);
   await page.getByRole("dialog").waitFor({ state: "detached" });
 });
+
+ test("Profile menu navigates to the journal and returns to the previous tab", async t => {
+  const page = await open(t);
+  await page.getByRole("tab", { name: "Food", exact: true }).click();
+  await trigger(page).click();
+  await menu(page).getByRole("menuitem", { name: "Profile", exact: true }).click();
+  await page.waitForURL("**/profile");
+  await button(page, "Overview").waitFor();
+  assert.equal(await page.getByRole("tab").count(), 4);
+  assert.equal(await button(page, "Expand calendar").count(), 0);
+  await button(page, "Back from Profile").click();
+  await page.waitForURL("**/food");
+ });

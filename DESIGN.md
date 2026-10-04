@@ -4,7 +4,7 @@ Design reference for KineVault Track, the Expo app in `Application/`, and its
 separate [KineVault studio](https://github.com/arielhagay10-ui/KineVault).
 The supplied studio reference below describes its working source on
 **30 September 2026**; its measurements assume a 16px root font size.
-The Application summary records the implementation on **2 October 2026**.
+The Application summary records the implementation on **4 October 2026**.
 Preserve scalable text in both products.
 
 Outside the Application summary and explicitly labeled companion notes,
@@ -25,9 +25,22 @@ reference patterns, not implemented companion features.
   including screen padding; touch targets remain at least 44px.
 - The compact top bar omits the app name. Its left chevron expands an inline
   seven-column, five-row calendar with the current week in the middle row.
-  Home, Food, and Exercise share the selected local date; Settings has no picker.
-  The right profile-picture slot is a placeholder. Bottom tabs retain names.
-- Every tab uses the same [KineSplitRow](src/components/kine-split-row.tsx): two
+  Home, Food, and Exercise share the selected local date; Settings and Profile
+  have no picker. The right slot uses the saved avatar or initials. Profile has
+  a back control and title. Bottom tabs retain their four names.
+- Profile uses version 3, Personal journal, in
+  [the layout reference](design/profile-prototype.html): centered avatar/name,
+  goal/activity summary, and Overview, Goals, and Photos section controls.
+  Overview groups the Sunday–Saturday streak week, workout graph, today's nutrition
+  link, and automatic earliest/latest Progress comparison with dates below each
+  image. Goals shows real intake/targets and focused editors. Photos is an optional
+  horizontal carousel with dates, separators and notes. Comparison contains images
+  without stretching or forcing matching crops. The name pencil opens a centered,
+  underlined field with Cancel on the left and Save on the right.
+  Charts use the existing theme, distinct labelled Left/Right series, honest
+  missing-data gaps, and equivalent readable values. Empty state has an optional
+  add action; it never fills the gallery or chart with illustrative records.
+- Home, Food, Exercise, and Settings use the same [KineSplitRow](src/components/kine-split-row.tsx): two
   equal columns separated by 12px, content left and Kine right. Kine has the same
   responsive size for a given content width. Home uses the internal `today` pose;
   Food, Exercise, and Settings use their matching poses.
@@ -57,7 +70,7 @@ reference patterns, not implemented companion features.
   Saved to your foods message. Custom foods join
   search results with a Custom food category and a small person-and-pen icon
   beside the name. Create Exercise and Create Workouts
-  remain disabled placeholders without visible “Coming soon” captions.
+  open working exercise and workout forms.
   View macros for the day opens calories and progress above the
   selected date's ordered nutrient list. The meal form adds foods through ingredient
   search, shows editable gram amounts and removal controls, and calculates whole-meal
@@ -343,9 +356,10 @@ Maximum width includes container padding. Use centered containers and
   generic modal system, or tab bar.
 
 **Companion app:** use a compact top bar with a calendar chevron, selected date,
-and profile-picture placeholder. Omit the app name. Expand a seven-column,
+and saved avatar or initials. Omit the app name. Expand a seven-column,
 five-week calendar with the current week centered; share the selected day across
-Home, Food, and Exercise. Settings omits the picker. Use labeled bottom tabs,
+Home, Food, and Exercise. Settings omits the picker; Profile shows a back control
+and title. Use the four labeled bottom tabs,
 Font Awesome icons, primary active color, muted inactive text, a card surface,
 and a 1px divider. Respect safe areas.
 

@@ -8,6 +8,8 @@ import {
   View,
   type TextProps,
   type ViewProps,
+  type StyleProp,
+  type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, type PropsWithChildren, type Ref } from "react";
@@ -61,6 +63,8 @@ export function Screen({
   scrollRef,
   adjustKeyboardInsets = false,
   fill = false,
+  contentContainerStyle,
+  scrollStyle,
 }: PropsWithChildren<{
   title: string;
   description?: string;
@@ -69,6 +73,8 @@ export function Screen({
   scrollRef?: Ref<ScrollView>;
   adjustKeyboardInsets?: boolean;
   fill?: boolean;
+  contentContainerStyle?: StyleProp<ViewStyle>;
+  scrollStyle?: StyleProp<ViewStyle>;
 }>) {
   const { colors } = useTheme();
   return (
@@ -81,9 +87,10 @@ export function Screen({
       </Head>
       <ScrollView
         ref={scrollRef}
+        style={scrollStyle}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets={adjustKeyboardInsets}
-        contentContainerStyle={[styles.screen, fill && { flexGrow: 1 }]}
+        contentContainerStyle={[styles.screen, fill && { flexGrow: 1 }, contentContainerStyle]}
       >
         {showTitle && (
           <View style={styles.intro}>

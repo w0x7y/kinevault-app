@@ -52,8 +52,16 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow KineVault to use the camera to scan food barcodes.",
+          "cameraPermission": "Allow KineVault to use the camera to scan food barcodes and take profile or progress photos.",
           "recordAudioAndroid": false,
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow KineVault to choose profile and progress photos from your photo library.",
+          "cameraPermission": "Allow KineVault to use the camera to scan food barcodes and take profile or progress photos.",
           "microphonePermission": false
         }
       ]

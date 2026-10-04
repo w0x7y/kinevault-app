@@ -12,21 +12,22 @@
 - [x] Restore the active workout, timer, and saved draft fields after reopening; retain failed edits for retry.
 - [x] Share completed-workout totals with Home and skip untouched blank sets.
 - [x] Complete workout-edit/template architecture refactors, independent reviews, and automated regression checks.
-- [ ] Verify a full workout on a physical iPhone: Start, set entry, exercise scrolling, keyboard, background/reopen, End, and completed editing.
+- [x] Verify a full workout on a physical iPhone: Start, set entry, exercise scrolling, keyboard, background/reopen, End, and completed editing.
 - [ ] Add timed exercises and cardio with duration/distance in a future phase.
 
 Optional ideas, not scheduled: previous reps/weights beside each exercise,
-progress/history charts, workout duplication, and a rest timer.
+workout duplication, and a rest timer. Workout history charts are now in Profile.
 
 ## Profile & integrations
 
-- [ ] Finish the profile screen and avatar flow.
+- [x] Build the Personal journal Profile with shared avatar, activity streaks, workout graphs, editable goals, and local progress-photo carousel.
+- [ ] Verify the new Profile camera/library, photo reopening, carousel scrolling, and accessibility on a physical iPhone. Android emulator photo flows and larger text are verified.
 - [ ] Decide account/sync requirements and KineVault/video integration.
 - [ ] Configure app identifiers and store builds when ready to release.
 
 ## Quality & security
 
-- [ ] Verify native keyboard, gestures, safe areas, text scaling, and screen readers.
+- [x] Verify native keyboard, gestures, safe areas, text scaling, and screen readers.
 - [ ] Adopt a compatible Expo/node-forge signature-verification fix when available.
 - [ ] Resolve the Router decoder advisory with a compatible update or validated patch.
 - [ ] Adopt a verified compatible Braces nested-pattern denial-of-service fix when available.
