@@ -69,13 +69,12 @@ export default function ExerciseScreen() {
   const showDailyWorkout = activity.workoutState !== "ready" || (!panel && !normalized && !defaultWorkspace
     && (planned.length === 0 || activity.workout.name !== null));
   const editingSession = content?.kind === "session" ? document?.sessions.find(session => session.id === content.id) : null;
-  const workspaceVisible = Boolean(defaultWorkspace || editingSession?.status === "active");
   function scrollToResults() { scrollRef.current?.scrollTo({ y: resultsTop.current, animated: false }); }
   return <Screen title="Exercise" showTitle={false} scrollRef={scrollRef} adjustKeyboardInsets>
     <SearchActions kind="exercise" query={query} onQueryChange={setQuery} disabled={!document}
       onCreateExercise={() => void open({ kind: "exercise" })} onCreateWorkout={() => void open({ kind: "workout" })}
       onSavedWorkouts={() => void open({ kind: "library", date: activity.date })} />
-    {active && <ActiveWorkoutTimer session={active} showName={!workspaceVisible} onOpen={() => void open({ kind: "session", id: active.id })} />}
+    {active && <ActiveWorkoutTimer session={active} onOpen={() => void open({ kind: "session", id: active.id })} />}
     {document && Boolean(normalized) && <ExerciseSearchResults key={normalized} query={query} exercises={document.exercises}
       onLayout={event => { resultsTop.current = event.nativeEvent.layout.y; }} onNavigate={scrollToResults}
       onSelect={exercise => void open({ kind: "exercise", exercise })} />}
