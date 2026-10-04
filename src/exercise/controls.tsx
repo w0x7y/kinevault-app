@@ -5,13 +5,13 @@ import { Icon, type IconName } from "../components/icon";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 
-export function ExerciseButton({ label, accessibilityLabel = label, onPress, disabled = false, selected, primary }: {
-  label: string; accessibilityLabel?: string; onPress: () => void; disabled?: boolean; selected?: boolean; primary?: boolean;
+export function ExerciseButton({ label, accessibilityLabel = label, onPress, disabled = false, selected, primary, fill = false }: {
+  label: string; accessibilityLabel?: string; onPress: () => void; disabled?: boolean; selected?: boolean; primary?: boolean; fill?: boolean;
 }) {
   const { colors } = useTheme();
   return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel}
     accessibilityState={{ disabled, selected }} aria-pressed={selected} disabled={disabled} onPress={onPress}
-    style={({ pressed }) => ({ minHeight: 44, padding: spacing.layout, borderWidth: 1, borderRadius: radius.control,
+    style={({ pressed }) => ({ minHeight: 44, flexGrow: fill ? 1 : undefined, padding: spacing.layout, borderWidth: 1, borderRadius: radius.control,
       borderColor: selected ? colors.ring : colors.border, backgroundColor: primary ? colors.primary : pressed || selected ? colors.accent : colors.secondary,
       justifyContent: "center", opacity: disabled ? 0.5 : 1 })}>
     <AppText variant="label" style={{ textAlign: "center", color: primary ? colors.primaryForeground : colors.secondaryForeground }}>{label}</AppText>

@@ -177,9 +177,9 @@ export function SessionEditor({ session, drafts, editorRef, onClose, manual = fa
   </>;
   const actions = <View testID="workout-log-actions" style={{ flexDirection: "row", gap: spacing.sm }}>
     {session.status !== "completed" && <View style={{ flex: 1, minWidth: 0 }}><DeleteButton label="Discard workout"
-      confirmAccessibilityLabel="Confirm discard workout" onDelete={() => transition("discard")} disabled={busy} /></View>}
+      confirmAccessibilityLabel="Confirm discard workout" onDelete={() => transition("discard")} disabled={busy} fill /></View>}
     <View style={{ flex: 1, minWidth: 0 }}><ExerciseButton label={active ? "End workout" : session.status === "completed" ? "Save changes" : "Log completed workout"}
-      onPress={() => void transition(active || session.status === "planned" ? "complete" : "save")} primary disabled={busy} /></View>
+      onPress={() => void transition(active || session.status === "planned" ? "complete" : "save")} primary disabled={busy} fill /></View>
   </View>;
   return <Panel testID="session-editor">
     {compact ? <View testID="planned-workout-card" style={{ gap: spacing.sm }}>
