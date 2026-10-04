@@ -81,14 +81,17 @@ group, equipment, and notes. Choose single-load or separate left/right tracking.
 Search finds exercises for editing. Results appear only while searching; there
 is no exercise-library widget on the daily screen.
 
-Create Workouts saves a named, ordered exercise list. Logging begins only from
-a saved workout in the menu beside search. Choosing one opens a workout draft
-on the captured selected date. The menu also provides access to that day's
+Create Workouts saves a named, ordered exercise list. Search for available
+exercises above the order list; matching rows load in groups of 20. Logging begins
+only from a saved workout in the menu beside search. Choosing one shows a compact
+workout card on the captured selected date. The menu also provides access to that day's
 workout drafts, active workout, and completed logs for editing or removal.
 
 Start workout runs the sole active timer. Its start time and entered sets are
 saved on the device, so switching tabs, backgrounding, or reopening keeps elapsed
-time. Finish workout validates and saves the completed workout. Drafts and
+time. Starting expands the card into an exercise sidebar and a selected-exercise
+detail with a sets/reps/weight table, Add set, View notes, and video placeholder.
+End workout sits at the bottom of the sidebar and validates and saves the completed workout. Drafts and
 active workouts do not contribute to daily totals. A saved workout can also be
 logged manually on any selected date, with optional duration in minutes.
 
@@ -100,6 +103,9 @@ get started.” There is no separate sessions widget or ad hoc logging flow.
 
 Exercise shows its daily widget only when no search, form, saved menu, or workout
 editor is open. Storage loading and recovery remain visible.
+Selected planned workouts appear as compact cards on their day. An active
+workspace retains unsaved fields across searches and calendar changes; opening
+another view requires a successful draft save.
 
 Exercise search shares Food's field and result-card styling. It searches from
 the first character, shows exercise metadata, and pages results in groups of 20.
@@ -113,6 +119,10 @@ not recorded. Library edits and deletions preserve historical exercise snapshots
 Workout changes stay on the captured date, including across midnight. All
 exercise data is local and available offline; timed holds and cardio remain
 future increments.
+
+Delete, remove, and discard buttons use red styling. Their first tap changes
+the same button to "Are you sure?"; the second performs the deletion. Leaving
+the button cancels confirmation. Failed deletes retain data and offer retry.
 
 Development builds seed Squat, Push-up, and Dumbbell curl once, preserving
 existing data. The marker is saved with the exercises so deleted examples do

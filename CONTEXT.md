@@ -47,10 +47,13 @@ are entered when logging the saved workout rather than prescribed by the templat
 Several logs may belong to a day. A workout draft becomes active through Start
 workout, or becomes completed through manual logging. The workout menu gives
 access to drafts and existing logs; there is no ad hoc session creation.
+Selected drafts display compact workout cards. Start expands a card into the
+exercise sidebar and selected-exercise detail; manual logging remains available.
 
 **Active workout**: The sole workout with a running wall-clock timer. Its saved
 start time and draft sets survive tab switches and app reopening. It remains on
-its original date across midnight. Finishing requires a successful durable save.
+its original date across midnight. End workout requires a successful durable save.
+The active editor retains local fields across searches and calendar changes.
 
 **Completed workout**: A finished or manually logged workout's valid sets and
 the exercises that have at least one set. Drafts and active workouts do not

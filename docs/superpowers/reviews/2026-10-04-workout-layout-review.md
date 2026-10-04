@@ -1,0 +1,13 @@
+# Workout layout final review
+
+PASS. No unresolved actionable findings in the combined source, tests and documentation tree against aa87592.
+
+Reviewed implementation commits 2d0c0b0 and 5f39828 plus scoped fixes de5a068 and ba5afb3. Independent reports are /tmp/kine-builder-delete-review.md and /tmp/kine-active-workspace-review.md. The rejected-callback finding is resolved by a catch with accessible retry feedback and latch cleanup. The captured-date selection finding is resolved by preserving the newly created session ID in a compact panel.
+
+Reviewed parent working-tree tests and README, PRODUCT, CONTEXT and design-spec updates. Documentation matches searchable workout construction, compact day cards, active sidebar/detail layout, raw independent side measurements, notes and placeholder, durable End workout, mounted draft recovery across query/date changes, and red inline destructive confirmation. Existing domain and storage APIs remain unchanged. No additional issues found in guarded navigation, completed draft caching, timer/date capture, durable transitions or retry flows.
+
+Browser coverage checks builder search order and batches, same-element red confirmation, compact selection, start/reload, selected exercise fields and notes, independent side restoration, completion totals, 320/390/1280 layouts in both themes, and failed raw draft recovery across search/calendar changes. Reviewed the resize correction: it waits for sidebar and End button DOMRects in the same evaluation before checking bottom alignment, preserving the assertion while avoiding an intermediate layout sample.
+
+Evidence available at independent review: npm run check passed TypeScript and all 476 tests; strict unused TypeScript passed; Expo web/iOS/Android export passed. Full browser run passed 110/111. The sole failure was the resize bounds sampling assertion; the corrected focused workspace scenario passed 1/1. Parent's live T3 walkthrough verified compact selection, sidebar, separate side inputs, 352kg/19reps/2sets completion and two-tap cleanup, leaving zero temporary records. T3 snapshot capture failed, but DOM/ARIA/rect inspection worked. The reviewer did not repeat these suites and independently ran git diff --check successfully.
+
+Final parent verification after independent review: reran the complete browser suite with the corrected resize check. All 111 scenarios passed, zero failures, in 143 seconds. Output: /tmp/kine-workout-layout-browser-final.log. No source changes were required after review. Cloudflare preview returned HTTP 200 and remains running. Temporary walkthrough workout and log were deleted without changing the demo exercise library.

@@ -48,6 +48,14 @@ search, a form, the saved menu, or a workout editor occupies the screen. Storage
 recovery stays visible. Home opens the menu in Exercise for the selected day.
 An empty menu says “No workout found. Create a workout to get started.” The sessions and exercise
 library widgets are removed. Steps remain empty.
+Workout creation searches available exercises above the ordered list. Selecting
+a saved workout shows a compact card with Start workout and manual logging.
+Start expands it into an exercise sidebar and selected-exercise sets table,
+with notes and a video placeholder. End workout stays at the sidebar's bottom
+and saves completion before stopping the timer. Exercise selection, search and
+calendar changes preserve entered sets. Delete, remove and discard actions
+are red and confirm by changing their own label to "Are you sure?" before a
+second tap. Failed deletion keeps the saved data and editable drafts.
 Drink search includes existing named energy drinks and common aliases for generic
 cola and pepper-style soda. Generic alternatives are labelled rather than treated as
 current branded nutrition. Food provides two search-row controls: offline Search and barcode Scan, using
