@@ -1,0 +1,11 @@
+Generated with the built-in image_gen tool on 2026-10-05.
+Final asset: 2d/source/kine-pointing-left.png
+Reference: user-provided kine-glasses-notepad.png
+
+Generation prompt:
+Use case: identity-preserve.
+Create ONE new full-body pointing pose of the exact Kine mascot in the reference, a sibling asset in a matching four-pose set.
+Image 1 role: primary identity and illustration-style reference. Match this SAME character faithfully: dusty slate-blue rounded creature with face directly on torso, exactly two asymmetric antenna-like head nubs with ivory caps, round navy eyeglasses, oval navy eyes with tiny white catchlights, friendly curved smile, flexible blue arms, warm cream mitten hands, two blue legs and large warm cream feet. Match the smooth bold dark navy outlines, restrained soft shading and original proportions. No separate head or neck, no new costume, no 3D.
+Keep the round glasses and the small warm cream spiral notepad with two short navy lines, carried below the face by the non-pointing hand. Remove the pencil so the other hand can make a clear pointing gesture with one rounded cream index finger extended and the other fingers curled. Exactly TWO arms and TWO hands.
+Requested pose: The arm on the viewer's LEFT extends naturally outward horizontally, and its cream hand has one rounded extended index finger pointing clearly toward the LEFT EDGE of the image. The other hand carries the notepad near the lower right torso. Both feet planted, torso front-facing with a slight natural lean, eyes glance left toward the pointing fingertip.
+Output: ONE full-body character centered on a square canvas, all head nubs, arms, pointing fingertip, notepad and feet fully visible with comfortable padding. Genuinely transparent alpha background. All cream areas remain opaque. No scenery, no cast shadow, no arrows, no text, no labels, no checkerboard pixels, no watermark. Preserve original character identity and 2D illustration style.
