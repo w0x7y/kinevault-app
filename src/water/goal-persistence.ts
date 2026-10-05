@@ -6,7 +6,7 @@ export type WaterGoalStorage = DurableStorage;
 export type WaterGoalSnapshot = DurableSnapshot<WaterGoalDocument>;
 
 export function createWaterGoalPersistence({ storage }: { storage: WaterGoalStorage }) {
-  const { update, ...lifecycle } = createDurableWrite({ storage, key: waterGoalStorageKey, parse: parseWaterGoal });
+  const { update, remove: _remove, ...lifecycle } = createDurableWrite({ storage, key: waterGoalStorageKey, parse: parseWaterGoal });
   return {
     ...lifecycle,
     async setGoal(dailyMl: number): Promise<boolean> {

@@ -10,6 +10,10 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      # Browser tests intercept this project's HTTP requests with synthetic fixtures.
+      EXPO_PUBLIC_SUPABASE_URL: https://kkywpvkckxniriatelta.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_browser_fixture_only
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,11 +26,17 @@ jobs:
       - run: npm run export:web
       - run: npx expo export --platform ios --platform android --output-dir dist-native
       - run: npx playwright install --with-deps chromium
-      - name: Verify onboarding in the browser
+      - name: Verify app in the browser
+        env:
+          KINE_PREVIEW_URL: http://localhost:8082
+          KINE_DEV_PREVIEW_URL: http://localhost:8081
         run: |
+          trap 'test_status=$?; if [ "$test_status" -ne 0 ]; then cat /tmp/kinevault-expo.log /tmp/kinevault-static.log; fi; exit "$test_status"' EXIT
+          # Browse the built app; Metro serves the widget and hardware-Back fixtures.
           npm run web -- --port 8081 > /tmp/kinevault-expo.log 2>&1 &
+          npx expo serve --port 8082 > /tmp/kinevault-static.log 2>&1 &
           for attempt in $(seq 1 60); do
-            if curl --fail --silent http://localhost:8081 > /dev/null; then
+            if curl --fail --silent http://localhost:8081 > /dev/null && curl --fail --silent http://localhost:8082 > /dev/null; then
               npm run test:browser
               exit $?
             fi

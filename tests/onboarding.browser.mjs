@@ -1,3 +1,4 @@
+import { installAccountFixture, signInFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { chromium } from "playwright";
@@ -26,21 +27,21 @@ test("custom food and meal edits and deletes persist, retry safely and preserve 
     const meal = { customId: "editable-bowl", name: "Saved bowl", category: "Custom meal", per100g: { calories: 400, carbs: 60, protein: 60, fat: 8 }, portions: [{ label: "1 meal", grams: 50 }], ingredients: [{ id: "ingredient-1", food, grams: 50 }], overrides: { protein: 30 } };
     const today = new Date();
     const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-    localStorage.setItem("kinevault-track.custom-foods.v1", JSON.stringify({ version: 1, foods: [food], meals: [meal] }));
-    localStorage.setItem("kinevault-track.food-log.v1", JSON.stringify({ version: 1, days: { [date]: [
+    window.accountFixture.setItem("kinevault-track.custom-foods.v1", JSON.stringify({ version: 1, foods: [food], meals: [meal] }));
+    window.accountFixture.setItem("kinevault-track.food-log.v1", JSON.stringify({ version: 1, days: { [date]: [
       { id: "logged-food", customId: food.customId, name: food.name, grams: 50, meal: "breakfast", calories: 200, carbs: 30, protein: 10, fat: 4 },
       { id: "logged-meal", customId: meal.customId, name: meal.name, grams: 50, meal: "lunch", calories: 200, carbs: 30, protein: 30, fat: 4 },
     ] } }));
   });
   await page.reload();
   await page.getByRole("tab", { name: "Food" }).click();
-  const readCatalog = () => page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.custom-foods.v1")));
-  const readLog = () => page.evaluate(() => localStorage.getItem("kinevault-track.food-log.v1"));
+  const readCatalog = () => page.evaluate(() => JSON.parse(window.accountFixture.getItem("kinevault-track.custom-foods.v1")));
+  const readLog = () => page.evaluate(() => window.accountFixture.getItem("kinevault-track.food-log.v1"));
   const originalLog = await readLog();
   const failCatalogWrite = () => page.evaluate(() => {
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
-      if (key === "kinevault-track.custom-foods.v1") {
+      if (key.endsWith("kinevault-track.custom-foods.v1")) {
         Storage.prototype.setItem = original;
         throw new Error("Simulated catalog change failure");
       }
@@ -106,7 +107,7 @@ test("custom food and meal edits and deletes persist, retry safely and preserve 
   assert.equal(await button(page, "View nutrition for Revised oats, custom food").count(), 0);
   assert.equal((await readCatalog()).meals[0].ingredients[0].food.name, "Saved oats");
   assert.equal(await readLog(), originalLog);
-  await page.evaluate(() => localStorage.setItem("kinevault-track.appearance", "dark"));
+  await page.evaluate(() => window.accountFixture.setItem("kinevault-track.appearance", "dark"));
   await page.reload();
   await search.fill("Saved bowl");
   await button(page, "View nutrition for Saved bowl, custom meal").click();
@@ -180,7 +181,7 @@ test("deleting the last item on a saved meal results page returns to the remaini
   await page.evaluate(() => {
     const food = { fdcId: 1, name: "Oats", category: "Grains", per100g: { calories: 100, carbs: 10, protein: 5, fat: 2 }, portions: [] };
     const meals = Array.from({ length: 21 }, (_, index) => ({ customId: `meal-${index + 1}`, name: `Saved meal ${index + 1}`, category: "Custom meal", per100g: food.per100g, portions: [{ label: "1 meal", grams: 100 }], ingredients: [{ id: "oats", food, grams: 100 }], overrides: {} }));
-    localStorage.setItem("kinevault-track.custom-foods.v1", JSON.stringify({ version: 1, foods: [], meals }));
+    window.accountFixture.setItem("kinevault-track.custom-foods.v1", JSON.stringify({ version: 1, foods: [], meals }));
   });
   await page.reload();
   await page.getByRole("tab", { name: "Food" }).click();
@@ -200,7 +201,7 @@ test("deleting the last item on a saved meal results page returns to the remaini
 
 test("meal creation calculates ingredients, preserves drafts across food/meal switches, retries and logs overridden macros", async (t) => {
   const page = await open(t, { version: 1, kind: "complete", answers: adult }, { viewport: { width: 320, height: 844 } });
-  await page.evaluate(() => localStorage.setItem("kinevault-track.custom-foods.v1", JSON.stringify({ version: 1, foods: [
+  await page.evaluate(() => window.accountFixture.setItem("kinevault-track.custom-foods.v1", JSON.stringify({ version: 1, foods: [
     { customId: "test-oats", name: "Test oats", category: "Custom food", per100g: { calories: 400, carbs: 60, protein: 20, fat: 8 }, portions: [{ label: "1 serving", grams: 100 }] },
     { customId: "test-yogurt", name: "Test yogurt", category: "Custom food", per100g: { calories: 100, carbs: 5, protein: 10, fat: 4 }, portions: [{ label: "1 serving", grams: 100 }] },
   ] })));
@@ -241,7 +242,7 @@ test("meal creation calculates ingredients, preserves drafts across food/meal sw
   await page.evaluate(() => {
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
-      if (key === "kinevault-track.custom-foods.v1") {
+      if (key.endsWith("kinevault-track.custom-foods.v1")) {
         Storage.prototype.setItem = original;
         throw new Error("Simulated meal save failure");
       }
@@ -263,7 +264,7 @@ test("meal creation calculates ingredients, preserves drafts across food/meal sw
   await button(page, "Dinner").click();
   await button(page, "Log meal").click();
   await page.getByTestId("food-nutrition-detail").waitFor({ state: "hidden" });
-  const document = await page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.food-log.v1")));
+  const document = await page.evaluate(() => JSON.parse(window.accountFixture.getItem("kinevault-track.food-log.v1")));
   const entries = Object.values(document.days).flat();
   assert.equal(entries.length, 1);
   assert.equal(entries[0].calories, 200);
@@ -288,7 +289,7 @@ test("meal ingredient validation, removal, calendar changes and logged edits wor
   const page = await open(t, { version: 1, kind: "complete", answers: adult });
   await page.getByRole("tab", { name: "Food" }).click();
   for (const theme of ["light", "dark"]) {
-    await page.evaluate(theme => localStorage.setItem("kinevault-track.appearance", theme), theme);
+    await page.evaluate(theme => window.accountFixture.setItem("kinevault-track.appearance", theme), theme);
     await page.reload();
     await button(page, "Create food/meal").click();
     await button(page, "Meal").click();
@@ -302,7 +303,7 @@ test("meal ingredient validation, removal, calendar changes and logged edits wor
     await ingredient.fill("0");
     await button(page, "Save meal").click();
     await page.getByRole("alert").filter({ hasText: "Enter a weight greater than 0" }).waitFor();
-    assert.equal(await page.evaluate(() => localStorage.getItem("kinevault-track.custom-foods.v1")), null);
+    assert.equal(await page.evaluate(() => window.accountFixture.getItem("kinevault-track.custom-foods.v1")), null);
     await ingredient.fill("150");
     assert.equal(await page.getByRole("textbox", { name: "Calories (kcal)", exact: true }).inputValue(), "145.5");
     await button(page, "Remove Banana, raw from meal").click();
@@ -337,7 +338,7 @@ test("meal ingredient validation, removal, calendar changes and logged edits wor
   await button(page, "Lunch").click();
   await button(page, "Save changes").click();
   await heading(page, "Daily food log");
-  const document = await page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.food-log.v1")));
+  const document = await page.evaluate(() => JSON.parse(window.accountFixture.getItem("kinevault-track.food-log.v1")));
   const entries = Object.values(document.days).flat();
   assert.equal(entries.length, 1);
   assert.equal(entries[0].grams, 75);
@@ -360,7 +361,7 @@ test("custom food creation validates, retries a failed save, logs and remains se
   await page.evaluate(() => {
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
-      if (key === "kinevault-track.custom-foods.v1") {
+      if (key.endsWith("kinevault-track.custom-foods.v1")) {
         Storage.prototype.setItem = original;
         throw new Error("Simulated failure");
       }
@@ -374,15 +375,15 @@ test("custom food creation validates, retries a failed save, logs and remains se
   await button(page, "Save food").click();
   await page.getByText("Saved to your foods", { exact: true }).waitFor();
   assert.equal(await page.getByRole("dialog").count(), 0);
-  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.custom-foods.v1")).foods.length), 1);
-  assert.equal(await page.evaluate(() => localStorage.getItem("kinevault-track.food-log.v1")), null);
+  assert.equal(await page.evaluate(() => JSON.parse(window.accountFixture.getItem("kinevault-track.custom-foods.v1")).foods.length), 1);
+  assert.equal(await page.evaluate(() => window.accountFixture.getItem("kinevault-track.food-log.v1")), null);
   await heading(page, "My oat bowl");
   assert.equal(await page.getByRole("textbox", { name: "Amount (g)", exact: true }).inputValue(), "250");
   await page.getByRole("textbox", { name: "Amount (g)", exact: true }).fill("125");
   await button(page, "Lunch").click();
   await button(page, "Log food").click();
   await page.getByTestId("food-nutrition-detail").waitFor({ state: "hidden" });
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.food-log.v1")));
+  const stored = await page.evaluate(() => JSON.parse(window.accountFixture.getItem("kinevault-track.food-log.v1")));
   const entry = Object.values(stored.days).flat().find(food => food.name === "My oat bowl");
   assert.equal(entry.calories, 150);
   assert.equal(entry.protein, 6.25);
@@ -410,15 +411,15 @@ test("canceling custom food preserves the catalog and corrupt storage recovers t
   await button(page, "Create food/meal").click({ timeout: 3000 });
   await page.getByRole("textbox", { name: "Food name", exact: true }).fill("Canceled bowl");
   await button(page, "Cancel").click();
-  assert.equal(await page.evaluate(() => localStorage.getItem("kinevault-track.custom-foods.v1")), null);
-  await page.evaluate(() => localStorage.setItem("kinevault-track.custom-foods.v1", "corrupt"));
+  assert.equal(await page.evaluate(() => window.accountFixture.getItem("kinevault-track.custom-foods.v1")), null);
+  await page.evaluate(() => window.accountFixture.setItem("kinevault-track.custom-foods.v1", "corrupt"));
   await page.reload();
   await heading(page, "Couldn't load your custom foods");
   assert.equal(await button(page, "Create food/meal").isDisabled(), true);
   await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("banana");
   await page.getByTestId("food-result").first().waitFor();
-  assert.equal(await page.evaluate(() => localStorage.getItem("kinevault-track.custom-foods.v1")), "corrupt");
-  await page.evaluate(() => localStorage.removeItem("kinevault-track.custom-foods.v1"));
+  assert.equal(await page.evaluate(() => window.accountFixture.getItem("kinevault-track.custom-foods.v1")), "corrupt");
+  await page.evaluate(() => window.accountFixture.removeItem("kinevault-track.custom-foods.v1"));
   await button(page, "Retry custom foods").click();
   await button(page, "Create food/meal").click();
   await heading(page, "Create food");
@@ -437,7 +438,7 @@ test("changing calendar day preserves a custom food draft and logs it to the new
   await page.evaluate(() => {
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
-      if (key === "kinevault-track.custom-foods.v1") {
+      if (key.endsWith("kinevault-track.custom-foods.v1")) {
         Storage.prototype.setItem = original;
         throw new Error("Simulated failure before changing the day");
       }
@@ -461,7 +462,7 @@ test("changing calendar day preserves a custom food draft and logs it to the new
   await heading(page, "שיבולת שועל");
   await button(page, "Log food").click();
   await page.getByTestId("food-nutrition-detail").waitFor({ state: "hidden" });
-  const document = await page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.food-log.v1")));
+  const document = await page.evaluate(() => JSON.parse(window.accountFixture.getItem("kinevault-track.food-log.v1")));
   const [[savedDate, entries]] = Object.entries(document.days);
   assert.ok(dateName.startsWith(new Date(`${savedDate}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })));
   assert.equal(entries[0].name, "שיבולת שועל");
@@ -485,7 +486,9 @@ async function open(t, seed, options = {}) {
       },
       { key, seed },
     );
+  const accountFixture = await installAccountFixture(context, { signedIn: options.accountSignedIn ?? seed?.kind === "complete", signupConfirmation: options.signupConfirmation });
   const page = await context.newPage();
+  page.accountFixture = accountFixture;
   await page.goto(baseURL);
   return page;
 }
@@ -496,16 +499,43 @@ const heading = (page, title) =>
 const button = (page, label) =>
   page.getByRole("button", { name: label === "Log food" || label === "Log meal" ? new RegExp(`^${label} to `) : label, exact: true });
 const record = (page) =>
-  page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+  page.evaluate((key) => JSON.parse(window.accountFixture.getItem(key)), key);
 async function continueTo(page, title) {
   await button(page, "Continue").click();
   await heading(page, title);
 }
+async function enterSetup(page) {
+  await button(page, "Let's go").click();
+  await heading(page, "What's your goal?");
+}
+async function openAccountAtReview(t, options = {}) {
+  const page = await open(t, { version: 1, kind: "draft", step: "review", answers: adult }, options);
+  await heading(page, "Ready when you are.");
+  await button(page, "Finish setup").click();
+  await heading(page, "Create your account");
+  return page;
+}
+async function finishSetupWithAccount(page) {
+  await button(page, "Finish setup").click();
+  await heading(page, "Create your account");
+  await signInFixture(page);
+  await heading(page, "Calories");
+}
+const accountModeButton = (page, label) =>
+  page.getByRole("tab", { name: label, exact: true });
+const accountSubmitButton = (page, label) =>
+  button(page, label);
+const accountField = (page, label) => page.getByLabel(label, { exact: true });
+const storedValues = (page) => page.evaluate(() =>
+  [localStorage, sessionStorage].flatMap(storage =>
+    Array.from({ length: storage.length }, (_, index) => storage.getItem(storage.key(index))),
+  ).join("\n"),
+);
 async function failNextSave(page) {
   await page.evaluate((key) => {
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function (nextKey, value) {
-      if (nextKey === key) {
+      if (nextKey.endsWith(key)) {
         Storage.prototype.setItem = original;
         throw new Error("Simulated storage failure");
       }
@@ -513,6 +543,314 @@ async function failNextSave(page) {
     };
   }, key);
 }
+
+test("account onboarding requires login after saving review, preserves Back and restores a real SDK session", async (t) => {
+  const page = await openAccountAtReview(t);
+  const saved = await record(page);
+  assert.equal(saved.kind, "complete");
+  assert.equal(await button(page, "Continue without an account").count(), 0);
+  assert.equal(await page.getByRole("tab", { name: "Home", exact: true }).count(), 0);
+  await button(page, "Back").click();
+  await heading(page, "Ready when you are.");
+  assert.deepEqual(await record(page), saved);
+  await button(page, "Finish setup").click();
+  await heading(page, "Create your account");
+  await signInFixture(page);
+  await heading(page, "Calories");
+  assert.deepEqual(await record(page), saved);
+  assert.ok(page.accountFixture.requests.some(request => request.path === "/auth/v1/token"));
+  await page.reload();
+  await heading(page, "Calories");
+  assert.deepEqual(await record(page), saved);
+});
+
+test("account onboarding lets a damaged local profile sign in without deleting it", async (t) => {
+  const page = await open(t, null, { accountSignedIn: false });
+  await button(page, "Let's go").waitFor();
+  await page.evaluate(key => localStorage.setItem(key, "{damaged-profile"), key);
+  const cloudProfile = { version: 1, kind: "complete", answers: { ...adult, customCarbs: "", customProtein: "", customFat: "" } };
+  page.accountFixture.documents.set(key, {
+    user_id: page.accountFixture.session.user.id,
+    document_key: key,
+    payload: JSON.stringify(cloudProfile),
+    revision: 1,
+    updated_at: new Date().toISOString(),
+  });
+  await page.goto(new URL("/account", baseURL).href);
+  await heading(page, "Welcome back");
+  assert.equal(await button(page, "Reset saved profile").count(), 0);
+  await signInFixture(page);
+  await heading(page, "Calories");
+  assert.deepEqual(await record(page), cloudProfile);
+  assert.equal(await page.evaluate(key => localStorage.getItem(key), key), "{damaged-profile");
+});
+
+test("account onboarding offers recovery and logout for a signed-in damaged profile", async (t) => {
+  const page = await open(t, { version: 1, kind: "complete", answers: adult });
+  await heading(page, "Calories");
+  await page.evaluate(key => window.accountFixture.setItem(key, "{damaged-account-profile"), key);
+  const ownerKey = `kinevault-track.account.${page.accountFixture.session.user.id}.${key}`;
+  const damaged = await page.evaluate(ownerKey => localStorage.getItem(ownerKey), ownerKey);
+  await page.goto(new URL("/account", baseURL).href);
+  await heading(page, "Couldn't load your profile");
+  assert.equal(await accountSubmitButton(page, "Log in").count(), 0);
+  await button(page, "Log out").click();
+  await heading(page, "Welcome back");
+  assert.equal(page.accountFixture.signedIn, false);
+  assert.equal(await page.evaluate(ownerKey => localStorage.getItem(ownerKey), ownerKey), damaged);
+});
+
+test("account onboarding keeps a failed final save on review until retry succeeds", async (t) => {
+  const page = await open(t, { version: 1, kind: "draft", step: "review", answers: adult });
+  await heading(page, "Ready when you are.");
+  const before = await record(page);
+  await failNextSave(page);
+  await button(page, "Finish setup").click();
+  await page.getByRole("alert").waitFor();
+  await heading(page, "Ready when you are.");
+  assert.deepEqual(await record(page), before);
+  await button(page, "Finish setup").click();
+  await heading(page, "Create your account");
+  assert.equal((await record(page)).kind, "complete");
+});
+
+test("account onboarding reload preserves review and clears credentials without admitting signed-out tracking", async (t) => {
+  const page = await openAccountAtReview(t);
+  const saved = await record(page);
+  await accountField(page, "Email").fill("reload-preview@example.com");
+  await accountField(page, "Password").fill("reload-preview-password-642");
+  await page.reload();
+  await heading(page, "Create your account");
+  assert.deepEqual(await record(page), saved);
+  assert.equal(await accountField(page, "Email").inputValue(), "");
+  assert.equal(await accountField(page, "Password").inputValue(), "");
+  await page.goto(baseURL);
+  await page.getByTestId("account-screen").waitFor();
+  assert.equal(await page.getByRole("tab", { name: "Home", exact: true }).count(), 0);
+  await button(page, "Back").click();
+  await heading(page, "Ready when you are.");
+  await page.reload();
+  await heading(page, "Ready when you are.");
+  assert.deepEqual(await record(page), saved);
+  assert.equal(await button(page, "Cancel").count(), 0);
+});
+
+test("account onboarding also gates age-skipped setup", async (t) => {
+  const page = await open(t);
+  await heading(page, "Hi, I'm Kine.");
+  await enterSetup(page);
+  await page.getByRole("radio", { name: "Maintain weight", exact: true }).click();
+  await continueTo(page, "Let's check your age");
+  await page.getByRole("textbox", { name: "Age (years)", exact: true }).fill("16");
+  await button(page, "Set up later").click();
+  await heading(page, "Create your account");
+  assert.equal((await record(page)).answers.age, "16");
+  assert.equal(await button(page, "Continue without an account").count(), 0);
+  await signInFixture(page);
+  await heading(page, "Calories");
+});
+
+test("account onboarding supports signup confirmation, login failure and password reset requests", async (t) => {
+  const page = await openAccountAtReview(t, { signupConfirmation: true });
+  await accountField(page, "Email").fill("account-preview@example.com");
+  await accountField(page, "Password").fill("preview-password-937");
+  assert.equal(await accountSubmitButton(page, "Create account").isDisabled(), false);
+  await accountSubmitButton(page, "Create account").click();
+  await heading(page, "Check your email");
+  const confirmation = page.getByTestId("signup-confirmation");
+  assert.equal(await confirmation.isVisible(), true);
+  assert.ok((await confirmation.innerText()).includes("account-preview@example.com"));
+  assert.ok((await confirmation.innerText()).includes("verification link on this device"));
+  assert.ok((await confirmation.innerText()).includes("spam or junk"));
+  assert.equal(await accountField(page, "Password").count(), 0);
+  assert.equal(await page.locator("#account-title").evaluate(control => control === document.activeElement), true);
+  assert.equal(await page.getByRole("tab", { name: "Home", exact: true }).count(), 0);
+  await button(page, "Back").click();
+  await heading(page, "Ready when you are.");
+  await button(page, "Finish setup").click();
+  await heading(page, "Check your email");
+  assert.ok((await page.getByTestId("signup-confirmation").innerText()).includes("account-preview@example.com"));
+  await button(page, "Use a different email").click();
+  await heading(page, "Create your account");
+  assert.equal(await accountField(page, "Password").inputValue(), "");
+  await accountField(page, "Email").fill("account-preview@example.com");
+  await accountField(page, "Password").fill("preview-password-937");
+  await accountSubmitButton(page, "Create account").click();
+  await heading(page, "Check your email");
+  await button(page, "Go to log in").click();
+  await heading(page, "Welcome back");
+  assert.equal(await accountField(page, "Email").inputValue(), "account-preview@example.com");
+  assert.equal(await accountField(page, "Password").inputValue(), "");
+  page.accountFixture.loginError = "Invalid login credentials";
+  await accountField(page, "Password").fill("wrong-password-284");
+  await accountSubmitButton(page, "Log in").click();
+  await page.getByRole("alert").waitFor();
+  await heading(page, "Welcome back");
+  assert.equal(await accountField(page, "Password").inputValue(), "");
+  await button(page, "Forgot password?").click();
+  await heading(page, "Reset your password");
+  assert.equal(await accountField(page, "Password").count(), 0);
+  await button(page, "Send reset link").click();
+  await page.getByText(/If an account exists for this email/).waitFor();
+  assert.ok(page.accountFixture.requests.some(request => request.path === "/auth/v1/recover"));
+  await button(page, "Back to log in").click();
+  page.accountFixture.loginError = null;
+  await signInFixture(page);
+  await heading(page, "Calories");
+  const storage = await storedValues(page);
+  for (const secret of ["preview-password-937", "wrong-password-284"])
+    assert.equal(storage.includes(secret), false, "Passwords are never stored in application documents");
+});
+
+test("account onboarding reveals passwords on request and clears credentials on Back", async (t) => {
+  const page = await openAccountAtReview(t);
+  await accountField(page, "Email").fill("transient-account@example.com");
+  await accountField(page, "Password").fill("transient-password-418");
+  assert.equal(await accountField(page, "Password").evaluate(field => field.type), "password");
+  await button(page, "Show password").click();
+  assert.equal(await accountField(page, "Password").evaluate(field => field.type), "text");
+  await accountModeButton(page, "Log in").click();
+  await heading(page, "Welcome back");
+  assert.equal(await accountField(page, "Password").evaluate(field => field.type), "password");
+  assert.equal(await accountField(page, "Password").inputValue(), "");
+  await button(page, "Back").click();
+  await heading(page, "Ready when you are.");
+  await button(page, "Finish setup").click();
+  await heading(page, "Create your account");
+  assert.equal(await accountField(page, "Email").inputValue(), "");
+  assert.equal(await accountField(page, "Password").inputValue(), "");
+  const storage = await storedValues(page);
+  assert.equal(storage.includes("transient-account@example.com"), false);
+  assert.equal(storage.includes("transient-password-418"), false);
+});
+
+test("account onboarding keeps compact forms and login keyboard accessible", async (t) => {
+  const page = await openAccountAtReview(t, { viewport: { width: 320, height: 568 } });
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 568 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  }
+  await accountModeButton(page, "Log in").click();
+  await heading(page, "Welcome back");
+  await accountField(page, "Email").focus();
+  await page.keyboard.press("Tab");
+  assert.equal(await accountField(page, "Password").evaluate(field => field === document.activeElement), true);
+  await page.keyboard.press("Tab");
+  assert.equal(await button(page, "Show password").evaluate(control => control === document.activeElement), true);
+  await page.keyboard.press("Enter");
+  assert.equal(await accountField(page, "Password").evaluate(field => field.type), "text");
+  await accountField(page, "Email").fill("track-fixture@example.com");
+  await accountField(page, "Password").fill("fixture-password-123");
+  await button(page, "Log in").focus();
+  await page.keyboard.press("Enter");
+  await heading(page, "Calories");
+  assert.deepEqual(errors, []);
+});
+
+test("account onboarding accepts signup with a confirmed session and imports setup into its account", async (t) => {
+  const page = await openAccountAtReview(t);
+  await accountField(page, "Email").fill("track-fixture@example.com");
+  await accountField(page, "Password").fill("fixture-password-123");
+  await button(page, "Create account").click();
+  await heading(page, "Calories");
+  assert.equal((await record(page)).kind, "complete");
+  assert.ok(page.accountFixture.requests.some(request => request.path === "/auth/v1/signup"));
+  assert.ok(page.accountFixture.documents.has("kinevault-track.profile.v1"));
+});
+
+test("account onboarding verifies a recovery email link before changing the password", async (t) => {
+  const page = await openAccountAtReview(t);
+  await page.goto(`${baseURL}/auth/reset-password`);
+  await page.getByRole("alert").filter({ hasText: "Open the password reset link" }).waitFor();
+  assert.equal(await button(page, "Save new password").count(), 0);
+  await page.goto(`${baseURL}/auth/callback?token_hash=fixture-recovery-token&type=recovery`);
+  await heading(page, "Choose a new password");
+  assert.equal(new URL(page.url()).searchParams.has("token_hash"), false, "email tokens are removed from history");
+  await page.getByLabel("New password", { exact: true }).fill("updated-password-123");
+  await page.getByLabel("Confirm new password", { exact: true }).fill("different-password-123");
+  await button(page, "Save new password").click();
+  await page.getByRole("alert").filter({ hasText: "The passwords don't match." }).waitFor();
+  await page.getByLabel("Confirm new password", { exact: true }).fill("updated-password-123");
+  await button(page, "Save new password").click();
+  await heading(page, "Password updated");
+  assert.ok(page.accountFixture.requests.some(request => request.path === "/auth/v1/user" && request.method === "PUT"));
+  await button(page, "Continue").click();
+  await heading(page, "Calories");
+  assert.equal((await storedValues(page)).includes("updated-password-123"), false);
+});
+
+test("account onboarding can cancel password recovery without entering a redirect loop", async (t) => {
+  const page = await openAccountAtReview(t);
+  await page.goto(`${baseURL}/auth/callback?token_hash=fixture-cancel-recovery&type=recovery`);
+  await heading(page, "Choose a new password");
+  await page.getByLabel("New password", { exact: true }).fill("discarded-password-123");
+  await page.getByLabel("Confirm new password", { exact: true }).fill("discarded-password-123");
+  await button(page, "Back to account").click();
+  await heading(page, "Welcome back");
+  assert.equal(page.accountFixture.signedIn, false);
+  assert.equal(await page.getByRole("tab", { name: "Home", exact: true }).count(), 0);
+  assert.equal(await accountField(page, "Password").inputValue(), "");
+  assert.equal(page.accountFixture.requests.some(request => request.path === "/auth/v1/user" && request.method === "PUT"), false);
+  assert.equal((await storedValues(page)).includes("discarded-password-123"), false);
+});
+
+test("account onboarding keeps recovery reachable when cloud sync fails and rejects expired links", async (t) => {
+  const page = await openAccountAtReview(t);
+  await page.goto(`${baseURL}/auth/callback?error=access_denied&error_code=otp_expired`);
+  await heading(page, "Check your email link");
+  await page.getByRole("alert").filter({ hasText: "expired or already been used" }).waitFor();
+  await page.waitForURL(url => url.search === "");
+  assert.equal(new URL(page.url()).search, "");
+  page.accountFixture.cloudError = true;
+  await page.goto(`${baseURL}/auth/callback?token_hash=fixture-recovery-after-failure&type=recovery`);
+  await heading(page, "Choose a new password");
+  await page.getByLabel("New password", { exact: true }).waitFor();
+  assert.equal(await button(page, "Save new password").isEnabled(), true);
+  assert.equal(new URL(page.url()).search, "");
+});
+
+test("account onboarding retains a typed recovery form when the first cloud download finishes", async (t) => {
+  const page = await openAccountAtReview(t);
+  const download = page.accountFixture.deferDocumentReads();
+  await page.goto(`${baseURL}/auth/callback?token_hash=fixture-delayed-recovery&type=recovery`);
+  await heading(page, "Choose a new password");
+  await download.started;
+  await page.getByLabel("New password", { exact: true }).fill("retained-password-123");
+  await page.getByLabel("Confirm new password", { exact: true }).fill("retained-password-123");
+  download.release();
+  await download.completed;
+  await page.waitForFunction(() => {
+    const auth = JSON.parse(localStorage.getItem("kinevault-track.auth.v1") || "null");
+    const raw = auth && localStorage.getItem(`kinevault-track.account.${auth.user.id}.kinevault-track.profile.v1`);
+    return raw && JSON.parse(raw).dirty === false;
+  });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assert.equal(await page.getByLabel("New password", { exact: true }).inputValue(), "retained-password-123");
+  assert.equal(await page.getByLabel("Confirm new password", { exact: true }).inputValue(), "retained-password-123");
+  await button(page, "Save new password").click();
+  await heading(page, "Password updated");
+  await button(page, "Continue").click();
+  await heading(page, "Calories");
+  assert.equal((await storedValues(page)).includes("retained-password-123"), false);
+});
+
+test("account onboarding can log out after the first cloud download fails and retry the saved setup", async (t) => {
+  const page = await openAccountAtReview(t);
+  page.accountFixture.cloudError = true;
+  await signInFixture(page);
+  await page.getByRole("alert").filter({ hasText: "Couldn't load this account's saved data." }).waitFor();
+  assert.equal(await page.getByRole("tab", { name: "Home", exact: true }).count(), 0);
+  await button(page, "Log out").click();
+  await page.getByTestId("account-screen").waitFor();
+  assert.equal(page.accountFixture.signedIn, false);
+  assert.equal(await page.getByRole("tab", { name: "Home", exact: true }).count(), 0);
+  page.accountFixture.cloudError = false;
+  await signInFixture(page);
+  await heading(page, "Calories");
+  assert.equal((await record(page)).answers.name, adult.name);
+});
 
 test("number fields reject letters and invalid pasted values while allowing decimal edits", async (t) => {
   const page = await open(t, {
@@ -590,8 +928,7 @@ test("Kine estimates calories, resumes drafts, and saves an editable custom targ
   page.on("pageerror", (error) => errors.push(error.message));
   await heading(page, "Hi, I'm Kine.");
   assert.equal(await page.getByRole("textbox").count(), 0);
-  await button(page, "Let's go").click();
-  await heading(page, "What's your goal?");
+  await enterSetup(page);
   await page.getByRole("radio", { name: "Lose weight", exact: true }).click();
   await continueTo(page, "Let's check your age");
   await page.getByRole("textbox", { name: "Age (years)", exact: true }).fill("30");
@@ -624,8 +961,7 @@ test("Kine estimates calories, resumes drafts, and saves an editable custom targ
     })
     .fill("2400");
   await continueTo(page, "Ready when you are.");
-  await button(page, "Finish setup").click();
-  await heading(page, "Calories");
+  await finishSetupWithAccount(page);
   await page.reload();
   await heading(page, "Calories");
   await page.getByRole("tab", { name: /Settings/ }).click();
@@ -651,8 +987,7 @@ test("age gate covers skip and setup; a 16-year-old can finish without an adult 
   const page = await open(t);
   await heading(page, "Hi, I'm Kine.");
   assert.equal(await page.getByRole("textbox").count(), 0);
-  await button(page, "Let's go").click();
-  await heading(page, "What's your goal?");
+  await enterSetup(page);
   await page.getByRole("radio", { name: "Lose weight", exact: true }).click();
   await continueTo(page, "Let's check your age");
   const age = page.getByRole("textbox", { name: "Age (years)", exact: true });
@@ -675,8 +1010,7 @@ test("age gate covers skip and setup; a 16-year-old can finish without an adult 
   await continueTo(page, "Your daily starting point");
   assert.equal(await button(page, "How was this calculated?").count(), 0);
   await continueTo(page, "Ready when you are.");
-  await button(page, "Finish setup").click();
-  await heading(page, "Calories");
+  await finishSetupWithAccount(page);
   const saved = await record(page);
   assert.equal(saved.kind, "complete");
   assert.equal(saved.answers.age, "16");
@@ -753,7 +1087,7 @@ test("onboarding poses load and onboarding fits phone and desktop widths", async
   for (const [step, title] of steps) {
     await page.evaluate(
       ({ key, step, adult }) =>
-        localStorage.setItem(
+        window.accountFixture.setItem(
           key,
           JSON.stringify({ version: 1, kind: "draft", step, answers: adult }),
         ),
@@ -767,16 +1101,7 @@ test("onboarding poses load and onboarding fits phone and desktop widths", async
       await inspect(step, 1280);
     }
   }
-  await page.evaluate(
-    ({ key, adult }) =>
-      localStorage.setItem(
-        key,
-        JSON.stringify({ version: 1, kind: "complete", answers: adult }),
-      ),
-    { key, adult },
-  );
-  await page.goto(baseURL);
-  await heading(page, "Calories");
+  await finishSetupWithAccount(page);
   await page.getByRole("tab", { name: /Settings/ }).click();
   await heading(page, "Settings");
   await inspect("settings", 390);
@@ -850,7 +1175,7 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
   if (screenshotDir) await mkdir(screenshotDir, { recursive: true });
   await heading(page, "Calories");
   for (const appearance of ["light", "dark"]) {
-    await page.evaluate((appearance) => localStorage.setItem("kinevault-track.appearance", appearance), appearance);
+    await page.evaluate((appearance) => window.accountFixture.setItem("kinevault-track.appearance", appearance), appearance);
     await page.reload();
     await heading(page, "Calories");
     assert.equal(await page.evaluate(() => document.documentElement.style.colorScheme), appearance);
@@ -980,8 +1305,10 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
           await button(page, "Clear search").click();
           assert.equal(await search.inputValue(), "");
         } else {
+          const accountBox = await page.getByRole("heading", { name: "Your account", exact: true }).locator("..").boundingBox();
           const profileBox = await page.getByRole("heading", { name: "Your profile", exact: true }).locator("..").boundingBox();
-          assert.ok(Math.abs(profileBox.y - firstBox.y - firstBox.height - 12) <= 1, "Settings intro-to-profile gap is 12px");
+          assert.ok(Math.abs(accountBox.y - firstBox.y - firstBox.height - 12) <= 1, "Settings intro-to-account gap is 12px");
+          assert.ok(Math.abs(profileBox.y - accountBox.y - accountBox.height - 12) <= 1, "Settings account-to-profile gap is 12px");
         }
         if (screenshotDir) await page.screenshot({ path: join(screenshotDir, `${tab.toLowerCase()}-${appearance}-${width}.png`) });
       }
@@ -1048,11 +1375,11 @@ test("food catalog searches offline, scales portions, pages results, and recover
 test("food logging saves to the selected date and meal, retries failures, updates Home, and survives reload", async (t) => {
   const page = await open(t, { version: 1, kind: "complete", answers: adult }, { viewport: { width: 320, height: 844 } });
   const foodKey = "kinevault-track.food-log.v1";
-  const savedFoods = () => page.evaluate(key => JSON.parse(localStorage.getItem(key)), foodKey);
+  const savedFoods = () => page.evaluate(key => JSON.parse(window.accountFixture.getItem(key)), foodKey);
   const failFoodWrite = () => page.evaluate(key => {
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function (nextKey, value) {
-      if (nextKey === key) {
+      if (nextKey.endsWith(key)) {
         Storage.prototype.setItem = original;
         throw new Error("Simulated food save failure");
       }
@@ -1129,11 +1456,11 @@ test("food logging saves to the selected date and meal, retries failures, update
 test("a corrupt food log offers recovery without showing an invented empty day", async (t) => {
   const page = await open(t, { version: 1, kind: "complete", answers: adult });
   await heading(page, "Calories");
-  await page.evaluate(() => localStorage.setItem("kinevault-track.food-log.v1", "corrupt"));
+  await page.evaluate(() => window.accountFixture.setItem("kinevault-track.food-log.v1", "corrupt"));
   await page.reload();
   await heading(page, "Couldn't load your food log");
   assert.equal(await page.getByRole("progressbar").count(), 0);
-  await page.evaluate(() => localStorage.setItem("kinevault-track.food-log.v1", JSON.stringify({ version: 1, days: {} })));
+  await page.evaluate(() => window.accountFixture.setItem("kinevault-track.food-log.v1", JSON.stringify({ version: 1, days: {} })));
   await button(page, "Retry food log").click();
   await heading(page, "Calories");
   await page.getByText("0 / 2,760 kcal", { exact: true }).waitFor();
@@ -1147,7 +1474,7 @@ test("logged food edits retain the draft on failure, move meals, update totals, 
   await button(page, "View nutrition for Banana, raw").click();
   await button(page, "Log food").click();
   await heading(page, "Daily food log");
-  const snapshot = () => page.evaluate(() => JSON.parse(localStorage.getItem("kinevault-track.food-log.v1")));
+  const snapshot = () => page.evaluate(() => JSON.parse(window.accountFixture.getItem("kinevault-track.food-log.v1")));
   const before = await snapshot();
   const [date] = Object.keys(before.days);
   assert.equal(await button(page, "Edit Banana, raw in Breakfast").count(), 1);
@@ -1167,7 +1494,7 @@ test("logged food edits retain the draft on failure, move meals, update totals, 
   await page.evaluate(() => {
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
-      if (key === "kinevault-track.food-log.v1") {
+      if (key.endsWith("kinevault-track.food-log.v1")) {
         Storage.prototype.setItem = original;
         throw new Error("Simulated food edit failure");
       }
@@ -1219,7 +1546,7 @@ test("daily macro view uses consistent category colors, reflects edits, and foll
   await view.getByTestId("daily-nutrient-protein").getByText("0.74", { exact: true }).waitFor();
   const color = locator => locator.evaluate(el => getComputedStyle(el).backgroundColor);
   for (const theme of ["light", "dark"]) {
-    await page.evaluate(theme => localStorage.setItem("kinevault-track.appearance", theme), theme);
+    await page.evaluate(theme => window.accountFixture.setItem("kinevault-track.appearance", theme), theme);
     await page.reload();
     await page.getByRole("tab", { name: /Home/ }).click();
     await heading(page, "Calories");
@@ -1293,16 +1620,16 @@ test("daily nutrition lists the requested units in order and supports old entrie
     await view.getByTestId(`daily-nutrient-${key}`).getByText(value, { exact: true }).waitFor();
   const foodKey = "kinevault-track.food-log.v1";
   await page.evaluate(key => {
-    const record = JSON.parse(localStorage.getItem(key));
+    const record = JSON.parse(window.accountFixture.getItem(key));
     for (const entries of Object.values(record.days)) for (const entry of entries) delete entry.details;
-    localStorage.setItem(key, JSON.stringify(record));
+    window.accountFixture.setItem(key, JSON.stringify(record));
   }, foodKey);
   await page.reload();
   await heading(page, "Daily food log");
   await button(page, "View macros for the day").click();
   await view.getByTestId("daily-nutrient-potassium").getByText("652", { exact: true }).waitFor();
   for (const theme of ["light", "dark"]) {
-    await page.evaluate(theme => localStorage.setItem("kinevault-track.appearance", theme), theme);
+    await page.evaluate(theme => window.accountFixture.setItem("kinevault-track.appearance", theme), theme);
     await page.reload();
     await heading(page, "Daily food log");
     await button(page, "View macros for the day").click();
@@ -1366,8 +1693,7 @@ test("editable macro grams persist and update the home targets", async (t) => {
   await continueTo(page, "Ready when you are.");
   assert.equal(await page.getByRole("progressbar", { name: "Setup progress" }).getAttribute("aria-valuemax"), "7");
   assert.equal(await page.getByRole("progressbar", { name: "Setup progress" }).getAttribute("aria-valuenow"), "7");
-  await button(page, "Finish setup").click();
-  await heading(page, "Calories");
+  await finishSetupWithAccount(page);
   await page.getByText("0 / 200 g", { exact: true }).waitFor();
   await page.getByText("0 / 160 g", { exact: true }).waitFor();
   await page.getByText("0 / 70 g", { exact: true }).waitFor();
@@ -1418,9 +1744,18 @@ test("completed workout widgets render coherent totals and filter only exercise 
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const fixturePath = "/tests/workout-fixture.bundle?platform=web&dev=true&hot=false&minify=false";
+  if (process.env.KINE_DEV_PREVIEW_URL) {
+    // The widget fixture is a separate Metro entry point, outside the app export.
+    // Fetch it through the test runner and fulfill the same-origin script request.
+    await page.route("**/tests/workout-fixture.bundle?*", async route => {
+      const response = await route.fetch({ url: new URL(fixturePath, process.env.KINE_DEV_PREVIEW_URL).href });
+      await route.fulfill({ response });
+    });
+  }
   await page.route("**/__test-workout", route => route.fulfill({
     contentType: "text/html",
-    body: '<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="margin:0"><div id="root"></div><script src="/tests/workout-fixture.bundle?platform=web&dev=true&hot=false&minify=false"></script></body></html>',
+    body: `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="margin:0"><div id="root"></div><script src="${fixturePath}"></script></body></html>`,
   }));
   await page.goto(`${baseURL}/__test-workout`);
   const home = page.getByTestId("home-workout");
@@ -1461,7 +1796,7 @@ test("Profile recovery retries a repaired record and retains it when reset fails
   const page = await open(t, corrupt);
   await heading(page, "Couldn't load your profile");
   await page.evaluate(({ key, adult }) => {
-    localStorage.setItem(key, JSON.stringify({ version: 1, kind: "complete", answers: adult }));
+    window.accountFixture.setItem(key, JSON.stringify({ version: 1, kind: "complete", answers: adult }));
   }, { key, adult });
   await button(page, "Try again").click();
   await heading(page, "Calories");
@@ -1472,13 +1807,13 @@ test("Profile recovery retries a repaired record and retains it when reset fails
   await heading(resetPage, "Couldn't load your profile");
   await button(resetPage, "Start fresh").click();
   await resetPage.evaluate(key => {
-    const original = Storage.prototype.removeItem;
-    Storage.prototype.removeItem = function (nextKey) {
-      if (nextKey === key) {
-        Storage.prototype.removeItem = original;
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (nextKey, value) {
+      if (nextKey.endsWith(key) && JSON.parse(value).payload === null && JSON.parse(value).dirty) {
+        Storage.prototype.setItem = original;
         throw new Error("Simulated reset failure");
       }
-      return original.call(this, nextKey);
+      return original.call(this, nextKey, value);
     };
   }, key);
   await button(resetPage, "Reset saved profile").click();

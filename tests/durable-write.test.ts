@@ -42,6 +42,124 @@ function documentOf(store: ReturnType<typeof fixture>["store"]) {
   return state.document;
 }
 
+function externalFixture(initial = encode(3)) {
+  const f = fixture(initial);
+  const listeners = new Map<string, Set<() => void>>();
+  f.storage.subscribeItem = (key, listener) => {
+    const set = listeners.get(key) ?? new Set<() => void>();
+    listeners.set(key, set); set.add(listener);
+    return () => { set.delete(listener); };
+  };
+  return { ...f,
+    emit: (key = "test-document") => { for (const listener of listeners.get(key) ?? []) listener(); },
+    subscriberCount: () => [...listeners.values()].reduce((count, set) => count + set.size, 0),
+  };
+}
+
+test("external durable changes refresh only this document and release the listener while stopped", async () => {
+  const f = externalFixture();
+  assert.equal(f.subscriberCount(), 0);
+  f.store.start(); f.store.start(); await flush();
+  assert.equal(f.subscriberCount(), 1);
+  await f.storage.setItem("test-document", encode(7));
+  f.emit("another-document"); await flush();
+  assert.deepEqual(documentOf(f.store), { count: 3 });
+  f.emit(); await flush();
+  assert.deepEqual(documentOf(f.store), { count: 7 });
+  f.store.stop(); f.store.stop();
+  assert.equal(f.subscriberCount(), 0);
+  const snapshot = f.store.getSnapshot();
+  await f.storage.setItem("test-document", encode(8)); f.emit(); await flush();
+  assert.equal(f.store.getSnapshot(), snapshot);
+  f.store.start(); await flush();
+  assert.equal(f.subscriberCount(), 1);
+  assert.deepEqual(documentOf(f.store), { count: 8 });
+});
+
+test("external refresh keeps ready owners mounted and excludes stale mutations until validation", async () => {
+  const f = externalFixture();
+  f.store.start(); await flush();
+  const read = deferred<string | null>();
+  f.storage.getItem = () => read.promise;
+  f.emit();
+  assert.deepEqual(documentOf(f.store), { count: 3 });
+  assert.equal(f.store.getSnapshot().saving, true);
+  assert.equal(await f.set(4), null);
+  read.resolve(encode(7)); await flush();
+  assert.deepEqual(documentOf(f.store), { count: 7 });
+  assert.equal(f.store.getSnapshot().saving, false);
+  assert.equal(await f.set(4), true);
+});
+
+test("failed external refresh retains owners but blocks writes until a validated retry", async () => {
+  const f = externalFixture();
+  f.store.start(); await flush();
+  f.storage.getItem = async () => { throw new Error("Unavailable"); };
+  f.emit(); await flush();
+  assert.deepEqual(documentOf(f.store), { count: 3 });
+  assert.equal(f.store.getSnapshot().saving, false);
+  assert.match(f.store.getSnapshot().error ?? "", /latest saved data/);
+  assert.equal(f.store.getSnapshot().refreshError, f.store.getSnapshot().error);
+  assert.equal(await f.set(4), null);
+  f.storage.getItem = async () => encode(7);
+  f.store.retryLoad();
+  assert.deepEqual(documentOf(f.store), { count: 3 });
+  await flush();
+  assert.deepEqual(documentOf(f.store), { count: 7 });
+  assert.equal(f.store.getSnapshot().error, null);
+  assert.equal(f.store.getSnapshot().refreshError, null);
+  assert.equal(await f.set(4), true);
+});
+
+test("external invalidation during saving feedback prevents a stale document build", async () => {
+  const f = externalFixture();
+  f.store.start(); await flush();
+  let invalidated = false;
+  f.store.subscribe(() => {
+    if (!invalidated && f.store.getSnapshot().saving) {
+      invalidated = true;
+      void f.storage.setItem("test-document", encode(7));
+      f.emit();
+    }
+  });
+  let builds = 0;
+  const result = await f.store.update(previous => {
+    ++builds;
+    return { document: { count: previous.count + 1 }, value: true };
+  }, "Save failed");
+  assert.equal(result, null);
+  assert.equal(builds, 0);
+  await flush();
+  assert.deepEqual(documentOf(f.store), { count: 7 });
+  assert.equal(f.raw(), encode(7));
+});
+
+for (const succeeds of [true, false]) {
+  test(`external changes during a pending ${succeeds ? "successful" : "failed"} write refresh after write exclusion clears`, async () => {
+    const f = externalFixture();
+    f.store.start(); await flush();
+    let leftReady = false;
+    f.store.subscribe(() => { if (f.store.getSnapshot().state.kind !== "ready") leftReady = true; });
+    const gate = deferred<void>();
+    const write = f.storage.setItem;
+    f.storage.setItem = async (key, value) => {
+      await gate.promise;
+      if (!succeeds) throw new Error("Disk full");
+      await write(key, value);
+    };
+    const pending = f.set(4);
+    await write("test-document", encode(8)); f.emit(); f.emit();
+    assert.deepEqual(documentOf(f.store), { count: 3 });
+    assert.equal(f.store.getSnapshot().saving, true);
+    assert.deepEqual(f.calls, ["read", "write"]);
+    gate.resolve(); assert.equal(await pending, succeeds ? true : null);
+    await flush();
+    assert.deepEqual(documentOf(f.store), { count: succeeds ? 4 : 8 });
+    assert.equal(f.calls.filter(call => call === "read").length, 2);
+    assert.equal(leftReady, false);
+  });
+}
+
 test("construction and subscription are inert; snapshots are stable until publication", async () => {
   const { store, calls, set } = fixture();
   const initial = store.getSnapshot();
@@ -133,6 +251,17 @@ test("domain rejections choose silent or visible feedback and successful values 
   assert.equal(store.getSnapshot().saving, false);
   assert.deepEqual(calls, ["read"]);
   assert.equal(await store.update(() => ({ document: { count: 1 }, value: false }), "Failed"), false);
+});
+
+test("a read/write-only adapter rejects removal without changing its durable record", async () => {
+  const { store, calls, raw, set } = await ready(encode(3));
+  assert.equal(await store.remove("Removal unavailable"), null);
+  assert.equal(store.getSnapshot().error, "Removal unavailable");
+  assert.equal(store.getSnapshot().saving, false);
+  assert.equal(raw(), encode(3));
+  assert.deepEqual(documentOf(store), { count: 3 });
+  assert.deepEqual(calls, ["read"]);
+  assert.equal(await set(4), true);
 });
 
 for (const outcome of ["success", "parse error", "read error"] as const) {

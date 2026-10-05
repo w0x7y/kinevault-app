@@ -8,6 +8,7 @@ import { useTheme } from "../../theme/provider";
 import type { AppearancePreference } from "../../theme/preferences";
 import { radius, spacing } from "../../theme/tokens";
 import { WaterGoalSettings } from "../../water/goal-settings";
+import { AccountSettingsPanel } from "../../account/settings-panel";
 
 const choices: {
   value: AppearancePreference;
@@ -26,6 +27,7 @@ export default function SettingsScreen() {
   const { state } = useProfile();
   return (
     <Screen title="Settings" pose="settings" adjustKeyboardInsets>
+      <AccountSettingsPanel />
       {state.kind === "ready" && state.document.kind === "complete" && (
         <>
           <Panel>

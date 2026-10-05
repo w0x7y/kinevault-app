@@ -7,7 +7,7 @@ export type FoodLogStorage = DurableStorage;
 export type FoodLogSnapshot = DurableSnapshot<FoodLogDocument>;
 
 export function createFoodLogPersistence({ storage, createId, findFood }: { storage: FoodLogStorage; createId: () => string; findFood?: FindFood }) {
-  const { update: persist, ...lifecycle } = createDurableWrite({ storage, key: foodLogStorageKey, parse: parseFoodLog });
+  const { update: persist, remove: _remove, ...lifecycle } = createDurableWrite({ storage, key: foodLogStorageKey, parse: parseFoodLog });
   async function update(build: (document: FoodLogDocument) => FoodLogDocument | null): Promise<boolean> {
     return await persist(document => {
       const next = build(document);

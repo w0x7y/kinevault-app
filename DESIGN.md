@@ -106,7 +106,8 @@ reference patterns, not implemented companion features.
   to nutrition totals; other activity remains empty until its logging exists.
 - Settings places its title to Kine's left and keeps profile and appearance controls.
   Onboarding begins with welcome and goals before age confirmation, then profile
-  questions and editable calorie/macro targets. Automatic macros use 50% carbs,
+  questions and editable calorie/macro targets. Required account screens follow
+  saving the final review. Automatic macros use 50% carbs,
   25% protein, and 25% fat, with editable gram overrides.
 - Brief page and Kine greeting motion respects reduced motion. The artwork and
   its responsive-resolution limits are documented in

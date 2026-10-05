@@ -1,3 +1,4 @@
+import { installAccountFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -29,6 +30,7 @@ async function open(t, foods = []) {
       sessionStorage.setItem("drinks-fixture-seeded", "true");
     }
   }, { answers, foods });
+  await installAccountFixture(context);
   const page = await context.newPage();
   page.setDefaultTimeout(10000);
   page.setDefaultNavigationTimeout(30000);
@@ -86,7 +88,7 @@ test("drink search labels generic cola and pepper aliases, keeps Monster exact, 
   assert.equal(await detail.getByText(`${Math.round(cola.per100g.calories * (31 / 29.5735295625) * 1.5)} kcal`, { exact: true }).count(), 1);
   await button(page, "Log drink to Drinks").click();
   await page.getByRole("heading", { name: "Daily food log", exact: true }).waitFor();
-  const entries = await page.evaluate(() => Object.values(JSON.parse(localStorage.getItem("kinevault-track.food-log.v1")).days).flat());
+  const entries = await page.evaluate(() => Object.values(JSON.parse(window.accountFixture.getItem("kinevault-track.food-log.v1")).days).flat());
   assert.equal(entries.length, 1);
   assert.equal(entries[0].fdcId, cola.fdcId);
   assert.equal(entries[0].name, cola.name);
@@ -123,7 +125,7 @@ test("food and meal ingredient rows label generic Pepsi matches without labeling
   await generic.click();
   await field(page, "Amount for Soft drink, cola (g)").fill("150");
   assert.equal(await field(page, "Calories (kcal)").inputValue(), String(cola.per100g.calories * 1.5));
-  assert.equal(await page.evaluate(() => localStorage.getItem("kinevault-track.food-log.v1")), null);
+  assert.equal(await page.evaluate(() => window.accountFixture.getItem("kinevault-track.food-log.v1")), null);
 });
 
 test("ingredient pages fill with eligible foods and explain matching volume-only drinks", async t => {
@@ -173,7 +175,7 @@ test("ingredient pages fill with eligible foods and explain matching volume-only
   await field(page, "Search ingredients").fill("Pagingfixture");
   await button(page, "Add Pagingfixture nourishing solid 00 to meal, custom food").click();
   assert.equal(await field(page, "Calories (kcal)").inputValue(), "40");
-  assert.equal(await page.evaluate(() => localStorage.getItem("kinevault-track.food-log.v1")), null);
+  assert.equal(await page.evaluate(() => window.accountFixture.getItem("kinevault-track.food-log.v1")), null);
 });
 
 test("deleting the last logging page clamps result labels and pager actions", async t => {
@@ -215,7 +217,7 @@ test("source concentrates and cooking ingredients keep gram Snacks controls and 
     await button(page, "Log food to Snacks").click();
     await page.getByRole("heading", { name: "Daily food log", exact: true }).waitFor();
   }
-  const entries = await page.evaluate(() => Object.values(JSON.parse(localStorage.getItem("kinevault-track.food-log.v1")).days).flat());
+  const entries = await page.evaluate(() => Object.values(JSON.parse(window.accountFixture.getItem("kinevault-track.food-log.v1")).days).flat());
   assert.equal(entries.length, ids.length);
   for (const entry of entries) {
     const food = data.foods.find(food => food.fdcId === entry.fdcId); assert.ok(food);
@@ -224,5 +226,5 @@ test("source concentrates and cooking ingredients keep gram Snacks controls and 
   }
   await page.getByRole("tab", { name: "Home", exact: true }).click();
   await page.getByTestId("home-water").getByText("0", { exact: true }).waitFor();
-  assert.equal(await page.evaluate(() => localStorage.getItem("kinevault-track.water-log.v1")), null);
+  assert.equal(await page.evaluate(() => window.accountFixture.getItem("kinevault-track.water-log.v1")), null);
 });

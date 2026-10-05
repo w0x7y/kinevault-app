@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
 import Head from "expo-router/head";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppText } from "../components/ui";
 import { Button } from "../onboarding/controls";
+import { AccountScreen } from "../onboarding/account-screen";
 import { Kine } from "../onboarding/kine";
 import { SetupTopBar } from "../onboarding/top-bar";
 import { PageTransition } from "../components/motion";
@@ -26,24 +27,52 @@ import { createOnboardingFlow } from "../onboarding/flow";
 import { useProfile } from "../profile/provider";
 import { useTheme } from "../theme/provider";
 import { radius, spacing } from "../theme/tokens";
+import { useAccount } from "../account/provider";
 
 export default function OnboardingScreen() {
+  const { setupStage } = useLocalSearchParams<{ setupStage?: string }>();
   const { state } = useProfile();
+  const { user, recovery } = useAccount();
+  if (recovery) return <Redirect href="/auth/reset-password" />;
   if (state.kind !== "ready") return null;
-  return <OnboardingFlow initial={state.document} />;
+  if (user && state.document.kind === "complete" && setupStage === "account") return <Redirect href="/(tabs)" />;
+  const resumeSavedReview =
+    state.document.kind === "complete" &&
+    (setupStage === "account" || setupStage === "review");
+  const initial: ProfileDocument = resumeSavedReview
+    ? { ...state.document, kind: "draft", step: "review" }
+    : state.document;
+  return (
+    <OnboardingFlow
+      initial={initial}
+      startWithAccount={resumeSavedReview && setupStage === "account"}
+    />
+  );
 }
 
-function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
+function OnboardingFlow({ initial, startWithAccount }: {
+  initial: ProfileDocument;
+  startWithAccount: boolean;
+}) {
+  const [showAccount, setShowAccount] = useState(startWithAccount);
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const { save } = useProfile();
-  const [flow] = useState(() =>
+  const { user } = useAccount();
+  const [flow] = useState<ReturnType<typeof createOnboardingFlow>>(() =>
     createOnboardingFlow(initial, {
       save,
-      exit: (destination) =>
+      exit: (destination) => {
+        // The flow exits only after saving. Account UI follows the final review.
+        if (destination === "today" && !user) {
+          router.setParams({ setupStage: "account" });
+          setShowAccount(true);
+          return;
+        }
         router.replace(
           destination === "settings" ? "/(tabs)/settings" : "/(tabs)",
-        ),
+        );
+      },
     }),
   );
   const {
@@ -69,6 +98,7 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
   };
 
   useEffect(() => {
+    if (showAccount) return;
     scroll.current?.scrollTo({ y: 0, animated: false });
     if (Platform.OS === "web") {
       document.title = `${editing ? "Edit profile" : "Meet Kine"} · KineVault Track`;
@@ -78,7 +108,7 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
         heading.focus();
       }
     } else AccessibilityInfo.announceForAccessibility(title);
-  }, [step, title, editing]);
+  }, [step, title, editing, showAccount]);
 
   useEffect(() => {
     if (Object.keys(errors).length)
@@ -88,7 +118,7 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
   }, [errors]);
 
   useEffect(() => {
-    if (Platform.OS !== "android") return;
+    if (Platform.OS !== "android" || showAccount) return;
     const subscription = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
@@ -99,7 +129,18 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
       },
     );
     return () => subscription.remove();
-  }, [flow, step]);
+  }, [flow, step, showAccount]);
+
+  if (showAccount) {
+    return (
+      <AccountScreen
+        onBack={() => {
+          router.setParams({ setupStage: "review" });
+          setShowAccount(false);
+        }}
+      />
+    );
+  }
 
   const welcome = step === "welcome";
   return (
@@ -229,8 +270,11 @@ function OnboardingFlow({ initial }: { initial: ProfileDocument }) {
               )}
             </View>
             {welcome && (
+              <Button label="I already have an account" secondary onPress={() => router.push("/account")} />
+            )}
+            {welcome && (
               <AppText variant="caption" muted style={{ textAlign: "center" }}>
-                Your answers stay on this device. You can edit them anytime.
+                Your answers are saved to your account after you sign in. You can edit them anytime.
               </AppText>
             )}
           </PageTransition>

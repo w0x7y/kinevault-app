@@ -1,3 +1,4 @@
+import { installAccountFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { chromium } from "playwright";
@@ -12,7 +13,7 @@ const product = { code: "3017620422003", product_name: "Fixture cereal", brands:
 const button = (page, name) => page.getByRole("button", { name: name === "Log food" || name === "Log meal" ? new RegExp(`^${name} to `) : name, exact: true });
 const field = (page, name) => page.getByRole("textbox", { name, exact: true });
 const heading = (page, name) => page.getByRole("heading", { name, exact: true }).waitFor();
-const catalog = page => page.evaluate(key => JSON.parse(localStorage.getItem(key)), storageKey);
+const catalog = page => page.evaluate(key => JSON.parse(window.accountFixture.getItem(key)), storageKey);
 async function open(t, { deferredCamera = false, cameraMountError = false, foods = [] } = {}) {
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());
@@ -50,6 +51,7 @@ async function open(t, { deferredCamera = false, cameraMountError = false, foods
     const original = navigator.permissions.query.bind(navigator.permissions);
     navigator.permissions.query = async descriptor => descriptor.name === "camera" ? { state: "prompt" } : original(descriptor);
   }, { cameraMountError });
+  await installAccountFixture(context);
   const page = await context.newPage();
   page.setDefaultTimeout(10000);
   page.setDefaultNavigationTimeout(30000);
@@ -174,7 +176,7 @@ test("manual barcode lookup opens an editable unsaved draft, retries save and pr
   await page.evaluate(key => {
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function(nextKey, value) {
-      if (nextKey === key) { Storage.prototype.setItem = original; throw new Error("Fixture save failure"); }
+      if (nextKey.endsWith(key)) { Storage.prototype.setItem = original; throw new Error("Fixture save failure"); }
       return original.call(this, nextKey, value);
     };
   }, storageKey);
@@ -183,7 +185,7 @@ test("manual barcode lookup opens an editable unsaved draft, retries save and pr
   assert.equal(await field(page, "Food name").inputValue(), "Renamed cereal");
   await button(page, "Save food").click();
   await dismissCreated(page);
-  assert.equal(await page.evaluate(() => localStorage.getItem("kinevault-track.food-log.v1")), null);
+  assert.equal(await page.evaluate(() => window.accountFixture.getItem("kinevault-track.food-log.v1")), null);
   await page.reload();
   await field(page, "Search foods").fill("EditedBrand");
   await button(page, "View nutrition for Renamed cereal, custom food, imported by barcode").waitFor();
@@ -429,7 +431,7 @@ test("Scan reopens from review and cancels the previous lookup", async t => {
   assert.equal(await page.getByTestId("food-import-draft").count(), 0);
   assert.equal(await field(page, "Product barcode").inputValue(), "");
   assert.equal((await catalog(page))?.foods?.length ?? 0, 0);
-  assert.equal(await page.evaluate(() => localStorage.getItem("kinevault-track.food-log.v1")), null);
+  assert.equal(await page.evaluate(() => window.accountFixture.getItem("kinevault-track.food-log.v1")), null);
 });
 
 test("Search and Scan use 75/25 widths and local results offer no online search actions", async t => {

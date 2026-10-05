@@ -18,17 +18,28 @@ function deferred() {
 async function ready() {
   let raw = JSON.stringify(complete);
   const calls: string[] = [];
+  const externalListeners = new Set<() => void>();
   const storage: ProfileStorage = {
     async getItem(key) { assert.equal(key, profileStorageKey); calls.push("read"); return raw; },
     async setItem(key, value) { assert.equal(key, profileStorageKey); calls.push("write"); raw = value; },
     async removeItem(key) { assert.equal(key, profileStorageKey); calls.push("remove"); raw = ""; },
+    subscribeItem(key, listener) {
+      assert.equal(key, profileStorageKey);
+      externalListeners.add(listener);
+      return () => { externalListeners.delete(listener); };
+    },
   };
   const profile = createProfilePersistence(storage);
   profile.start(); await flush();
   let closes = 0;
   const edit = createFocusedProfileEdit(profile, { onClose: () => { closes++; } });
   edit.start();
-  return { profile, edit, storage, calls, raw: () => JSON.parse(raw) as ProfileDocument, closes: () => closes };
+  return { profile, edit, storage, calls, raw: () => JSON.parse(raw) as ProfileDocument, closes: () => closes,
+    async replaceExternally(document: ProfileDocument) {
+      await storage.setItem(profileStorageKey, JSON.stringify(document));
+      for (const listener of externalListeners) listener();
+    },
+  };
 }
 function answersOf(profile: ReturnType<typeof createProfilePersistence>) {
   const saved = profile.getSnapshot().state;
@@ -68,6 +79,23 @@ test("focused Save merges only its fields into the latest durable Profile", asyn
   assert.equal(raw().answers.customProtein, "0");
   assert.equal(edit.getSnapshot().attempt, null);
   assert.equal(closes(), 1);
+});
+
+test("external Profile replacement preserves a focused draft and Save merges into the new durable answers", async () => {
+  const { profile, edit, replaceExternally, raw, closes } = await ready();
+  edit.begin("name");
+  edit.change({ kind: "fields", patch: { name: "My unfinished name" } });
+  const attempt = edit.getSnapshot().attempt;
+  await replaceExternally({ ...complete, answers: { ...complete.answers, name: "Another device", age: "35", weight: "82" } });
+  await flush();
+  assert.equal(edit.getSnapshot().attempt, attempt);
+  assert.equal(edit.getSnapshot().attempt?.draft.name, "My unfinished name");
+  assert.equal(answersOf(profile).name, "Another device");
+  assert.equal(closes(), 0);
+  assert.equal(await edit.save(), true);
+  assert.equal(raw().answers.name, "My unfinished name");
+  assert.equal(raw().answers.age, "35");
+  assert.equal(raw().answers.weight, "82");
 });
 
 test("draft changes own calorie policy and focused age Save preserves newer macros", async () => {

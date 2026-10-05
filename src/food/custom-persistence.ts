@@ -7,7 +7,7 @@ export const customFoodStorageKey = "kinevault-track.custom-foods.v1";
 export type CustomFoodSnapshot = DurableSnapshot<CustomFoodDocument>;
 
 export function createCustomFoodPersistence({ storage, createId }: { storage: FoodLogStorage; createId: () => string }) {
-  const { update, ...lifecycle } = createDurableWrite({ storage, key: customFoodStorageKey, parse: parseCustomFoods });
+  const { update, remove: _remove, ...lifecycle } = createDurableWrite({ storage, key: customFoodStorageKey, parse: parseCustomFoods });
   function save<T extends CustomFood | CustomMeal>(
     build: (document: CustomFoodDocument) => { document: CustomFoodDocument; item: T } | null,
     failureMessage: string,

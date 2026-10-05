@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAccountStorage } from "../account/storage-context";
 import {
   createContext,
   useContext,
@@ -22,7 +22,8 @@ const ProfileContext = createContext<ProfileContextValue | null>(null);
 const ProfilePersistenceContext = createContext<ReturnType<typeof createProfilePersistence> | null>(null);
 
 export function ProfileProvider({ children }: PropsWithChildren) {
-  const [profile] = useState(() => createProfilePersistence(AsyncStorage));
+  const storage = useAccountStorage();
+  const [profile] = useState(() => createProfilePersistence(storage));
   const snapshot = useSyncExternalStore(
     profile.subscribe, profile.getSnapshot, profile.getSnapshot,
   );

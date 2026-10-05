@@ -142,7 +142,7 @@ one set, with both sides contributing reps and kg-times-reps volume. Blank weigh
 means bodyweight. Historical snapshots survive library edits and deletions.
 Development builds seed Squat, Push-up, and Dumbbell curl once; production builds
 do not inject these examples.
-Accounts, timed holds, cardio, and KineVault integration remain outside this increment.
+Timed holds, cardio, and the broader KineVault program integration remain future work.
 
 The agreed strength/bodyweight Exercise v1 is implemented. The user confirmed
 physical-iPhone verification, including keyboard, exercise scrolling,
@@ -162,7 +162,7 @@ The avatar and optional dated progress photos support library/camera selection,
 replacement/removal and notes. Photos is a dated horizontal carousel with
 separators; Overview automatically compares the earliest and latest dated photos
 without a separate comparison picker. The streak week starts on Sunday. Files
-and thumbnails remain on the device, separately from profile answers. No account, target-weight
+and thumbnails remain on the device, separately from profile answers. No photo upload, target-weight
 history, weekly-workout target, or cloud backup is included in this version.
 Library and camera are native sources; web offers file selection. Android
 emulator checks cover the new photo flows, durable reopening, carousel scrolling,
@@ -184,7 +184,7 @@ Its calendar has seven columns and five rows, with the current week centered.
 Home, Food, and Exercise share the selected day; Settings and Profile have no calendar.
 Dates follow the device's local time zone. Selecting Today resumes automatic
 day advancement; deliberately selecting another date preserves that choice.
-Kine guides onboarding, which starts with a welcome and goals before asking age,
+Kine guides onboarding, which starts with welcome and goals before asking age,
 and stays on Home, Food, Exercise, and Settings. Home places him beside
 nutrition; Food and Exercise place their action buttons to his left, and
 Settings places its title to his left. Food and Exercise search fields follow
@@ -193,6 +193,18 @@ mascot size for a given content width. Full-body page poses are separate from
 the purpose-built Kine launcher icon and splash branding.
 Motion is brief and respects system reduced-motion preferences.
 Keep interface copy short and conversational; omit repeated introductions.
+
+After the final profile review is saved, users create an account or log in with
+Supabase email/password authentication. An account is required before entering Home.
+Confirmation and recovery email links have dedicated callback screens. Passwords
+never enter profile storage. Drafts resume at their saved question; signed-in profile
+editing bypasses the account screen.
+
+Goals, custom exercises, workout templates, full sessions, food and water logs sync
+to private account storage. Pending edits survive offline restarts; conflicting
+device edits require choosing a copy. Existing device data is imported once, and
+accounts have isolated local caches. Membership plans/status are server-managed,
+default to Free/active, and have no payment processing. Photos stay on the device.
 
 ## Evidence on hand
 
