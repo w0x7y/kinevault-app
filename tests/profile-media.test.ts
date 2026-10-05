@@ -71,6 +71,29 @@ function documentOf(store: ReturnType<typeof createProfileMediaPersistence>) {
   return state.document;
 }
 
+test("stopping during loading feedback prevents the abandoned media read", async () => {
+  const f = fixture(JSON.stringify(saved));
+  const unsubscribe = f.store.subscribe(() => {
+    if (f.store.getSnapshot().state.kind === "loading") f.store.stop();
+  });
+  f.store.start(); await flush();
+  assert.deepEqual(f.events, []);
+  unsubscribe(); f.store.start(); await flush();
+  assert.deepEqual(documentOf(f.store), saved);
+});
+
+test("stopping during saving feedback prevents abandoned image import and metadata writes", async () => {
+  const f = await ready();
+  const unsubscribe = f.store.subscribe(() => {
+    if (f.store.getSnapshot().saving) f.store.stop();
+  });
+  assert.equal(await f.store.saveAvatar(source), false);
+  assert.deepEqual(f.events, ["read"]);
+  assert.deepEqual(parseProfileMedia(f.raw()), saved);
+  unsubscribe(); f.store.start(); await flush();
+  assert.equal(await f.store.saveAvatar(source), true);
+});
+
 test("construction is inert, start loads once, and subscribers see durable publication order", async () => {
   const f = fixture(JSON.stringify(saved));
   assert.deepEqual(f.events, []);

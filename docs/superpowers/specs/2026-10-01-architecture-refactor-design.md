@@ -1,5 +1,9 @@
 # Architecture contract
 
+This is the historical October 1 contract. Later account ownership and cloud
+tracking supersede its local-only scope; see [current architecture](../../architecture.md)
+and [shared account setup](../../supabase-setup.md).
+
 Updated October 1, 2026 after both accepted architecture reviews and the final
 check. This contract covers the implemented onboarding, calorie policy, Expo
 connection checks, Selected day lifecycle, completed-workout interpretation,

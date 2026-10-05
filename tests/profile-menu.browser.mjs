@@ -1,3 +1,4 @@
+import { installAccountFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { chromium } from "playwright";
@@ -18,6 +19,7 @@ async function open(t, viewport = { width: 390, height: 844 }) {
       sex: "male", estimateEnabled: true, eligible: true, customCalories: "",
     } }));
   });
+  await installAccountFixture(context);
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
   await page.goto(baseURL);
@@ -52,7 +54,7 @@ test("profile trigger is accessible, toggles the ordered dropdown, and is mutual
 test("other menu entries open honest coming-soon panels, closes the menu, and dismisses without changing routes or data", async t => {
   const page = await open(t);
   const originalURL = page.url();
-  const initialProfile = await page.evaluate(() => localStorage.getItem("kinevault-track.profile.v1"));
+  const initialProfile = await page.evaluate(() => window.accountFixture.getItem("kinevault-track.profile.v1"));
   for (const name of names.filter(name => name !== "Profile")) {
     await trigger(page).click();
     await menu(page).getByRole("menuitem", { name, exact: true }).click();
@@ -77,7 +79,7 @@ test("other menu entries open honest coming-soon panels, closes the menu, and di
     await panel.waitFor({ state: "detached" });
     assert.equal(await trigger(page).getAttribute("aria-expanded"), "false");
   }
-  assert.equal(await page.evaluate(() => localStorage.getItem("kinevault-track.profile.v1")), initialProfile);
+  assert.equal(await page.evaluate(() => window.accountFixture.getItem("kinevault-track.profile.v1")), initialProfile);
 });
 
 test("keyboard opens the menu, moves through entries, selects and dismisses with Escape, and restores trigger focus", async t => {

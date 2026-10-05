@@ -4,6 +4,11 @@ The React Native and Expo companion to KineVault, for iOS and Android with a web
 preview. This repository lives inside `Application/`; the sibling `KineVault/`
 studio is maintained separately.
 
+See [module ownership](docs/architecture.md) for the current architecture and
+[domain language](CONTEXT.md) for tracking terms.
+The latest [final review](docs/final-check.md) records verification and remaining
+security findings.
+
 ## Current foundation
 
 - Home, Food, Exercise, and Settings tabs through Expo Router.
@@ -58,7 +63,10 @@ studio is maintained separately.
 - View macros for the day shows calories, carbs, protein, and fat first, then an ordered nutrient list
   for the selected date with gram, milligram, and microgram units.
 - First-run onboarding with Kine, resumable local answers, and profile editing.
-  Welcome and goals precede the age confirmation.
+  Welcome and goals precede the age confirmation. Account screens appear after
+  saving the final review. Supabase email/password sign-up, login, confirmation, and
+  password recovery are connected. An account is required before entering Home.
+  Native sessions use encrypted storage; passwords never enter tracking documents.
 - Editable calorie estimates for losing, maintaining, or gaining weight.
   Users can skip estimation or set a target manually.
 - Editable carb, protein, and fat targets in grams. Automatic targets use
@@ -72,12 +80,15 @@ studio is maintained separately.
 - Small transparent WebP mascot assets, native memory/disk caching, and
   background prefetching of upcoming poses.
 
-Accounts, video playback,
-and KineVault integration are not implemented in this phase.
+Accounts share Supabase identities with KineVault. Goals, custom exercises, workout
+history, food and water logs sync to private account storage. Membership defaults
+to Free and has no payment processing. See [Supabase setup](docs/supabase-setup.md)
+for email delivery, callback URLs, and future integration details. Video playback
+and the friend's broader program features remain future work.
 
 ## Exercise tracking
 
-Create Exercise saves a reusable local definition with a name, optional muscle
+Create Exercise saves a reusable account definition with a name, optional muscle
 group, equipment, and notes. Choose single-load or separate left/right tracking.
 Search finds exercises for editing. Results appear only while searching; there
 is no exercise-library widget on the daily screen.
@@ -144,7 +155,7 @@ the button cancels confirmation. Failed deletes retain data and offer retry.
 
 Development builds seed Squat, Push-up, and Dumbbell curl once, preserving
 existing data. The marker is saved with the exercises so deleted examples do
-not return after reopening. Production builds do not inject these examples.
+not return after reopening. Signed-in accounts and production builds do not inject these examples.
 
 The agreed strength/bodyweight Exercise v1 is implemented. The
 physical-iPhone workout acceptance is complete according to the user, including
@@ -186,7 +197,7 @@ horizontal carousel with dates and separators. Overview automatically shows the
 earliest dated photo on the left and the latest on the right, with dates below
 both; it has no Add or Compare controls or separate comparison picker. Images
 and thumbnails persist in the owned native document directory or browser IndexedDB. Photo metadata uses the separate
-`kinevault-track.profile-media.v1` key. No account or photo upload is involved.
+`kinevault-track.profile-media.v1` key. Photo metadata is isolated per account on this device; images are not uploaded.
 Native supports library and camera; the web preview offers file selection.
 
 Android emulator checks cover library/camera selection, cancellation, avatar
@@ -299,7 +310,7 @@ day. The meal list and Home totals update after saving succeeds. Removing an
 entry updates the same totals. Tap Edit beside a logged food to change its
 gram amount or meal. Cancel preserves the saved entry; Save changes replaces
 that entry after durable success. Entries persist locally across app restarts;
-there is no account or cross-device sync.
+signed-in accounts also sync these records across devices.
 
 Failed saves and edits retain the amount and meal for retry, and failed removals retain
 the entry. A failed or corrupt load shows recovery instead of invented empty

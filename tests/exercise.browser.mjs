@@ -1,3 +1,5 @@
+import { installAccountFixture } from "./helpers/account-fixture.mjs";
+import { seedDevelopmentExamples } from "../src/exercise/commands.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { chromium } from "playwright";
@@ -13,10 +15,10 @@ const sides = { id: "curl", name: "Curl", muscleGroup: "Arms", equipment: "Dumbb
 const empty = () => ({ version: 1, exercises: [], workouts: [], sessions: [] });
 const button = (page, name) => page.getByRole("button", { name, exact: true });
 const field = (page, name) => page.getByRole("textbox", { name, exact: true });
-const documentFrom = page => page.evaluate(key => JSON.parse(localStorage.getItem(key)), storageKey);
+const documentFrom = page => page.evaluate(key => JSON.parse(window.accountFixture.getItem(key)), storageKey);
 async function storedWhen(page, predicate, argument) {
   await page.waitForFunction(({ key, predicate, argument }) => {
-    const raw = localStorage.getItem(key);
+    const raw = window.accountFixture.getItem(key);
     return raw !== null && new Function("document", "argument", `return (${predicate})(document, argument)`)(JSON.parse(raw), argument);
   }, { key: storageKey, predicate: predicate.toString(), argument });
   return documentFrom(page);
@@ -30,7 +32,7 @@ async function openLoggedWorkout(page, name, completed = false, settings = true)
   if (settings) await button(page.getByTestId("session-editor"), "Settings").click();
 }
 
-async function open(t, { document = empty(), raw, foodRaw, failure = false, freeze = false, developmentExamples = false, path = "/exercise" } = {}) {
+async function open(t, { document = empty(), raw, foodRaw, failure = false, freeze = false, developmentExamples = false, path = "/exercise", onAccountFixture } = {}) {
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "Asia/Jerusalem" });
@@ -44,15 +46,19 @@ async function open(t, { document = empty(), raw, foodRaw, failure = false, free
     window.__exerciseWriteFailure = failure;
     const setItem = Storage.prototype.setItem;
     Storage.prototype.setItem = function(keyToSet, value) {
-      if (keyToSet === key && window.__exerciseWriteFailure) throw new Error("Fixture exercise write failure");
+      if (keyToSet.endsWith(key) && window.accountFixture?.domainReady && window.__exerciseWriteFailure) throw new Error("Fixture exercise write failure");
       return setItem.call(this, keyToSet, value);
     };
-  }, { answers, key: storageKey, raw: raw ?? JSON.stringify(developmentExamples ? document : { ...document, developmentExamplesSeeded: true }), foodRaw, failure });
+  }, { answers, key: storageKey, raw: raw ?? JSON.stringify(developmentExamples ? seedDevelopmentExamples(document).document : { ...document, developmentExamplesSeeded: true }), foodRaw, failure });
+  const accountFixture = await installAccountFixture(context);
+  onAccountFixture?.(accountFixture);
   const page = await context.newPage();
   const runtimeErrors = [];
   page.on("pageerror", error => runtimeErrors.push(error.message));
   page.on("console", message => {
-    if (message.type() === "error") runtimeErrors.push(message.text());
+    // Invalid local JSON deliberately produces a rejected cloud write. A
+    // resource status is an expected transport failure, not an uncaught error.
+    if (message.type() === "error" && !(message.location().url.includes("kkywpvkckxniriatelta.supabase.co") && message.text().startsWith("Failed to load resource:"))) runtimeErrors.push(message.text());
   });
   t.after(() => assert.deepEqual(runtimeErrors, [], "Exercise flows should not emit runtime errors"));
   page.setDefaultTimeout(15000);
@@ -83,7 +89,7 @@ test("unreadable exercise data shows recovery without hiding known food totals",
   await button(page, "Retry workouts").waitFor();
   assert.match(await page.getByTestId("home-workout").innerText(), /Couldn't load your workouts/);
   assert.equal(await page.getByTestId("home-workout").getByText("0 kg", { exact: true }).count(), 0);
-  await page.evaluate(({ key, document }) => localStorage.setItem(key, JSON.stringify(document)), { key: storageKey, document: empty() });
+  await page.evaluate(({ key, document }) => window.accountFixture.setItem(key, JSON.stringify(document)), { key: storageKey, document: empty() });
   await button(page, "Retry workouts").click();
   await page.getByTestId("home-workout-empty").waitFor();
 });
@@ -94,7 +100,7 @@ test("Home keeps workout totals and independent recovery visible when Food stora
   const page = await open(t, { path: "/", foodRaw: "{broken", document: { ...empty(), exercises: [single], sessions: [session] } });
   await page.getByTestId("home-workout").getByText("200 kg", { exact: true }).waitFor();
   assert.equal(await page.getByTestId("home-workout").getByText("Not recorded", { exact: true }).count(), 1);
-  await page.evaluate(key => localStorage.setItem(key, "{broken"), storageKey);
+  await page.evaluate(key => window.accountFixture.setItem(key, "{broken"), storageKey);
   await page.reload();
   await button(page, "Retry workouts").waitFor();
 });
@@ -414,7 +420,7 @@ test("selected workouts stay compact on the day and Home retains its Add workout
   assert.equal(await button(page.getByTestId("home-workout-empty"), "Add workout").isEnabled(), true);
 });
 
-test("development seeds exactly three demo exercises once and preserves a deliberate deletion after reload", async t => {
+test("signed-in accounts retain exactly the supplied demo fixtures and preserve deliberate deletion after reload", async t => {
   const page = await open(t, { developmentExamples: true });
   const seeded = await storedWhen(page, document => document.developmentExamplesSeeded === true);
   assert.deepEqual(seeded.exercises.map(exercise => exercise.name), ["Squat", "Push-up", "Dumbbell curl"]);
@@ -514,7 +520,7 @@ test("Exercise search matches Food styling, finds from the first letter, pages r
     return Object.fromEntries(["paddingLeft", "paddingRight", "paddingTop", "paddingBottom", "gap", "borderRadius", "borderColor", "backgroundColor", "minHeight"].map(key => [key, css[key]]));
   });
   for (const appearance of ["light", "dark"]) {
-    await page.evaluate(value => localStorage.setItem("kinevault-track.appearance", value), appearance);
+    await page.evaluate(value => window.accountFixture.setItem("kinevault-track.appearance", value), appearance);
     await page.reload();
     await page.getByTestId("exercise-search-actions").waitFor();
     await page.getByRole("tab", { name: /Food/ }).click();
@@ -611,7 +617,7 @@ test("exercise results reserve a responsive video preview without hiding long na
   const longExercise = { ...sides, id: "long", name: longName, muscleGroup: "Legs with a long muscle group description", equipment: "Dumbbells and additional equipment details" };
   const page = await open(t, { document: { ...empty(), exercises: [single, longExercise] } });
   for (const appearance of ["light", "dark"]) {
-    await page.evaluate(value => localStorage.setItem("kinevault-track.appearance", value), appearance);
+    await page.evaluate(value => window.accountFixture.setItem("kinevault-track.appearance", value), appearance);
     await page.reload();
     await page.getByTestId("exercise-search-actions").waitFor();
     await field(page, "Search exercises").fill(" S ");
@@ -737,7 +743,7 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
   assert.equal(await field(details, "Curl set 1 right reps").inputValue(), "6");
   assert.equal(await field(details, "Curl set 1 left weight (kg)").inputValue(), "10");
   for (const appearance of ["light", "dark"]) {
-    await page.evaluate(value => localStorage.setItem("kinevault-track.appearance", value), appearance);
+    await page.evaluate(value => window.accountFixture.setItem("kinevault-track.appearance", value), appearance);
     await page.reload();
     await workspace.waitFor();
     await button(topbar, `Select exercise ${long.name}`).click();
@@ -941,6 +947,50 @@ test("completed workout editing shares the layout and keeps side edits local unt
   assert.equal(document.sessions[0].exercises[1].sets.length, 1);
   assert.equal(document.sessions[0].durationSeconds, 660);
   await page.getByTestId("exercise-workout").getByText("468 kg", { exact: true }).waitFor();
+});
+
+test("cloud sync preserves an unfinished workout across failure, unchanged success, and unrelated cloud changes", async t => {
+  const complete = { id: "done", date, name: "Historical workout", status: "completed", startedAt: null, durationSeconds: 17,
+    exercises: [{ id: "squat-row", exercise: single, sets: [{ id: "one", kind: "single", reps: "5", weightKg: "40" }] }] };
+  let accountFixture;
+  const page = await open(t, { document: { ...empty(), exercises: [single], sessions: [complete] }, onAccountFixture: value => { accountFixture = value; } });
+  await openLoggedWorkout(page, "Historical workout", true, false);
+  const editor = page.getByTestId("session-editor");
+  await field(editor, "Squat set 1 reps").fill("7");
+  const tab = name => page.getByRole("tab", { name, exact: true });
+  const verifyDraft = async () => {
+    await tab("Exercise").click();
+    await editor.waitFor();
+    assert.equal(await field(editor, "Squat set 1 reps").inputValue(), "7");
+    assert.deepEqual((await documentFrom(page)).sessions[0], complete);
+  };
+  await tab("Settings").click();
+  await verifyDraft(); // Ordinary tab switches already preserve this draft.
+  await tab("Settings").click();
+  accountFixture.cloudError = true;
+  await button(page, "Sync now").click();
+  await page.getByText(/Cloud sync couldn't finish/).waitFor();
+  await verifyDraft();
+  await tab("Settings").click();
+  accountFixture.cloudError = false;
+  await button(page, "Sync now").click();
+  await page.getByText("All changes saved to your account.", { exact: true }).waitFor();
+  await verifyDraft();
+  await tab("Settings").click();
+  const key = "kinevault-track.water-goal.v1";
+  accountFixture.documents.set(key, { user_id: accountFixture.session.user.id, document_key: key,
+    payload: JSON.stringify({ version: 1, dailyMl: 2800 }), revision: 1, updated_at: new Date().toISOString() });
+  await button(page, "Sync now").click();
+  await page.getByText("Current goal: 2,800 ml per day.", { exact: true }).waitFor();
+  await verifyDraft();
+  await tab("Settings").click();
+  const profileKey = "kinevault-track.profile.v1", previous = accountFixture.documents.get(profileKey);
+  const updated = JSON.parse(previous.payload);
+  updated.answers.age = "31";
+  accountFixture.documents.set(profileKey, { ...previous, payload: JSON.stringify(updated), revision: previous.revision + 1 });
+  await button(page, "Sync now").click();
+  await page.getByText("31 years", { exact: true }).waitFor();
+  await verifyDraft();
 });
 
 test("failed active draft edits survive search and calendar changes before a guarded retry", async t => {

@@ -41,6 +41,7 @@ export function createProfileMediaPersistence({ storage, files, createId }: {
     if (!active || pending) return;
     const generation = ++readGeneration;
     publish({ state: { kind: "loading" }, saving: false, error: null });
+    if (!active || generation !== readGeneration) return;
     try {
       const document = parseProfileMedia(await storage.getItem(profileMediaStorageKey));
       if (active && generation === readGeneration) publish({ state: { kind: "ready", document } });
@@ -82,6 +83,7 @@ export function createProfileMediaPersistence({ storage, files, createId }: {
     let imported: StoredPhoto | undefined;
     let committed = false;
     try {
+      if (!current(ticket)) return false;
       let image: StoredPhoto | undefined;
       if (mutation.source && mutation.imageId) {
         image = await files.importPhoto(mutation.source, mutation.imageId);

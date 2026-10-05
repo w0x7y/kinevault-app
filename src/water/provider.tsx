@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAccountStorage } from "../account/storage-context";
 import { createContext, useContext, useEffect, useState, useSyncExternalStore, type PropsWithChildren } from "react";
 import { createWaterLogPersistence, type WaterLogSnapshot } from "./persistence";
 
@@ -7,7 +7,8 @@ type WaterLogContextValue = WaterLogSnapshot & Pick<WaterLogStore, "set" | "retr
 const WaterLogContext = createContext<WaterLogContextValue | null>(null);
 
 export function WaterLogProvider({ children }: PropsWithChildren) {
-  const [log] = useState(() => createWaterLogPersistence({ storage: AsyncStorage }));
+  const storage = useAccountStorage();
+  const [log] = useState(() => createWaterLogPersistence({ storage }));
   const snapshot = useSyncExternalStore(log.subscribe, log.getSnapshot, log.getSnapshot);
   useEffect(() => { log.start(); return log.stop; }, [log]);
   return <WaterLogContext.Provider value={{ ...snapshot, set: log.set, retryLoad: log.retryLoad }}>{children}</WaterLogContext.Provider>;

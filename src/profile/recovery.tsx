@@ -6,10 +6,13 @@ import { Button } from "../onboarding/controls";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import { useProfile } from "./provider";
+import { useAccount } from "../account/provider";
 
 export function ProfileRecovery() {
   const { colors } = useTheme();
   const { retryLoad, reset, saving, error } = useProfile();
+  const account = useAccount();
+  const { user } = account;
   const [confirmReset, setConfirmReset] = useState(false);
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -39,8 +42,7 @@ export function ProfileRecovery() {
         {confirmReset ? (
           <View style={{ gap: spacing.layout }}>
             <AppText accessibilityRole="alert">
-              Starting fresh removes this device's saved profile and opens setup
-              again.
+              {user ? "Starting fresh removes this account's saved profile and goals from this device and cloud storage, then opens setup again." : "Starting fresh removes this device's saved profile and opens setup again."}
             </AppText>
             <Button
               label={saving ? "Resetting…" : "Reset saved profile"}
@@ -69,6 +71,13 @@ export function ProfileRecovery() {
             {error}
           </AppText>
         )}
+        {user && <Button
+          label={account.busy ? "Signing out…" : "Log out"}
+          secondary
+          disabled={saving || account.busy}
+          onPress={() => void account.signOut()}
+        />}
+        {account.error && <AppText accessibilityRole="alert" style={{ color: colors.error }}>{account.error}</AppText>}
       </ScrollView>
     </SafeAreaView>
   );

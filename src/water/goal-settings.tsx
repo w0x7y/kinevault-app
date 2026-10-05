@@ -12,12 +12,13 @@ export function WaterGoalSettings() {
   const goal = useWaterGoal();
   const { colors } = useTheme();
   const [draft, setDraft] = useState("");
+  const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [focused, setFocused] = useState(false);
   const submitting = useRef(false);
   const savedMl = goal.state.kind === "ready" ? goal.state.document.dailyMl : undefined;
-  useEffect(() => { if (savedMl !== undefined) setDraft(String(savedMl)); }, [savedMl]);
+  useEffect(() => { if (savedMl !== undefined && !dirty) setDraft(String(savedMl)); }, [savedMl, dirty]);
 
   async function save() {
     if (submitting.current || goal.saving || goal.state.kind !== "ready") return;
@@ -29,7 +30,11 @@ export function WaterGoalSettings() {
     }
     submitting.current = true;
     setError(null);
-    try { setSaved(await goal.setGoal(ml)); } finally { submitting.current = false; }
+    try {
+      const success = await goal.setGoal(ml);
+      setSaved(success);
+      if (success) setDirty(false);
+    } finally { submitting.current = false; }
   }
 
   return (
@@ -49,7 +54,7 @@ export function WaterGoalSettings() {
           <AppText variant="label">Daily water goal (ml)</AppText>
           <TextInput testID="water-goal-input" accessibilityLabel="Daily water goal (ml)" value={draft}
             keyboardType="number-pad" returnKeyType="done" editable={!goal.saving}
-            onChangeText={text => { setDraft(text); setError(null); setSaved(false); }}
+            onChangeText={text => { setDraft(text); setDirty(true); setError(null); setSaved(false); }}
             onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} onSubmitEditing={() => void save()}
             style={{ minHeight: 48, padding: spacing.layout, borderWidth: 1, borderRadius: radius.control,
               borderColor: focused ? colors.ring : colors.input, color: colors.foreground,

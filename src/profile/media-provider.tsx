@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAccountStorage } from "../account/storage-context";
 import { createContext, useContext, useEffect, useState, useSyncExternalStore, type PropsWithChildren } from "react";
 import { mediaFiles } from "./media-files";
 import { createProfileMediaPersistence, type ProfileMediaSnapshot } from "./media-persistence";
@@ -10,10 +10,11 @@ const ProfileMediaContext = createContext<ProfileMediaContextValue | null>(null)
 const MediaPersistenceContext = createContext<MediaStore | null>(null);
 
 export function ProfileMediaProvider({ children }: PropsWithChildren) {
+  const storage = useAccountStorage();
   const [store] = useState(() => {
     let sequence = 0;
     return createProfileMediaPersistence({
-      storage: AsyncStorage,
+      storage,
       files: mediaFiles,
       createId: () => `${Date.now().toString(36)}-${++sequence}-${Math.random().toString(36).slice(2)}`,
     });

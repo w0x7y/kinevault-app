@@ -5,6 +5,28 @@ KineVault workout creation studio.
 
 ## Language
 
+**Account**: The shared KineVault identity used to enter Track and own its saved
+tracking. Each application keeps its own sign-in session. Signing out hides that
+account's local tracking while retaining unfinished cloud saves for its next login.
+
+**Email verification**: Confirming the email address after creating an Account.
+Until verification or a confirmed sign-in succeeds, onboarding answers remain on
+the device and the user cannot enter tracking. The next step is presented with
+the submitted email address and instructions to verify it and log in.
+
+**Membership**: An Account's plan and current status. New Accounts start with an
+active Free membership. Track shows the assigned membership; users cannot change
+their membership through client-side tracking edits. Payments are outside this version.
+
+**Account tracking**: The Account's Profile and goals, Exercise definitions,
+Workout templates and logs, Custom foods and meals, Logged food, Manual water,
+and Water goal. Completed-workout summaries and journal stats derive from these
+saved records. Profile media remains private to the device.
+
+**Cloud conflict**: Different saved tracking changes on two devices that cannot
+be applied without replacing one copy. The user chooses the device or cloud copy
+for the affected tracking category; both copies are retained until that choice.
+
 **Onboarding flow**: The setup journey through profile questions and review,
 including returning to an edited question and resuming unfinished setup.
 
@@ -66,7 +88,7 @@ date later becomes Today; selecting Today resumes daily advancement.
 
 **Today**: The current date in the device’s local time zone.
 
-**Exercise definition**: A reusable, locally saved exercise with a name, optional
+**Exercise definition**: A reusable, account-owned exercise with a name, optional
 muscle group, equipment, notes, and single-load or separate left/right tracking.
 
 **Workout template**: A named, ordered exercise list with optional planned set
@@ -110,8 +132,9 @@ metadata changes are available under Settings.
 Historical logs survive changes or deletion of their library sources.
 
 **Development exercises**: Squat, Push-up, and Dumbbell curl seeded once in a
-development build. A saved marker prevents examples from returning after deletion.
-Production builds leave the exercise library untouched.
+development preview without an Account. A saved marker prevents examples from
+returning after deletion. Signed-in Accounts and production builds leave the
+exercise library untouched.
 
 **Side set**: One set with independently entered left/right reps and kilograms.
 It contributes one set and the sum of both sides' reps and lifted volume.
@@ -142,7 +165,8 @@ clears it without changing Drinks or other days.
 
 **Water goal**: The user's daily hydration target, initially 1,500 ml and always
 set. Manual water and saved Drinks contribute together, and reaching or exceeding
-the target means completed goal progress.
+the target means completed goal progress. An entered replacement remains a draft
+until Save; another device's goal update does not overwrite that entered amount.
 
 **Food catalog**: Foods and prepared dishes with calories, macros, and known
 serving weights, available to search when choosing what to log.

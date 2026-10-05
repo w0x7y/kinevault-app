@@ -64,7 +64,8 @@
           "cameraPermission": "Allow KineVault to use the camera to scan food barcodes and take profile or progress photos.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

@@ -10,6 +10,10 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      # Browser tests intercept this project's HTTP requests with synthetic fixtures.
+      EXPO_PUBLIC_SUPABASE_URL: https://kkywpvkckxniriatelta.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_browser_fixture_only
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

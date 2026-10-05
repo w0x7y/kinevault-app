@@ -1,3 +1,4 @@
+import { installAccountFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdir } from "node:fs/promises";
@@ -122,7 +123,7 @@ async function open(t, options = {}) {
         window.__profileFailureKey = options.failureKey;
         const get = Storage.prototype.getItem;
         Storage.prototype.getItem = function (key) {
-          if (key === window.__profileFailureKey)
+          if (key.endsWith(window.__profileFailureKey) && window.accountFixture?.domainReady)
             throw new Error("source read failure");
           return get.call(this, key);
         };
@@ -130,6 +131,7 @@ async function open(t, options = {}) {
     },
     { answers: options.answers || answers, food, session, options },
   );
+  await installAccountFixture(context);
   const page = await context.newPage();
   page.on("filechooser", () => {});
   page.setDefaultTimeout(15000);
@@ -144,7 +146,8 @@ async function open(t, options = {}) {
     assert.deepEqual(runtimeErrors, [], "no uncaught browser errors"),
   );
   await page.clock.install({ time: new Date("2026-10-04T12:00:00+03:00") });
-  await page.goto(baseURL);
+  const previewURL = options.developmentRuntime ? process.env.KINE_DEV_PREVIEW_URL || baseURL : baseURL;
+  await page.goto(previewURL);
   await button(page, "Profile menu").waitFor();
   return page;
 }
@@ -186,7 +189,7 @@ async function upload(page, name = "fixture.png") {
 }
 async function stored(page, key = profileKey) {
   return JSON.parse(
-    await page.evaluate((key) => localStorage.getItem(key), key),
+    await page.evaluate((key) => window.accountFixture.getItem(key), key),
   );
 }
 async function bottomTabGeometry(page) {
@@ -426,7 +429,7 @@ test("focused editing validates, retains failed saves, merges latest values and 
   await page.evaluate((key) => {
     const set = Storage.prototype.setItem;
     Storage.prototype.setItem = function (k, v) {
-      if (k === key) {
+      if (k.endsWith(key)) {
         Storage.prototype.setItem = set;
         throw new Error("write failure");
       }
@@ -576,7 +579,7 @@ test("Profile water goal has focused cancel, validation, failed draft retry and 
   await page.evaluate(() => {
     const set = Storage.prototype.setItem;
     Storage.prototype.setItem = function (k, v) {
-      if (k === "kinevault-track.water-goal.v1") {
+      if (k.endsWith("kinevault-track.water-goal.v1")) {
         Storage.prototype.setItem = set;
         throw new Error("goal failure");
       }
@@ -671,7 +674,7 @@ test("avatar retains failed draft, prevents pending duplicate writes, replaces a
   await page.evaluate((key) => {
     const set = Storage.prototype.setItem;
     Storage.prototype.setItem = function (k, v) {
-      if (k === key) {
+      if (k.endsWith(key)) {
         Storage.prototype.setItem = set;
         throw new Error("media failure");
       }
@@ -694,7 +697,7 @@ test("avatar retains failed draft, prevents pending duplicate writes, replaces a
     const set = Storage.prototype.setItem;
     window.__profileWrites = 0;
     Storage.prototype.setItem = function (k, v) {
-      if (k !== key) return set.call(this, k, v);
+      if (!k.endsWith(key)) return set.call(this, k, v);
       window.__profileWrites++;
       return new Promise((resolve) => {
         window.__releaseProfileWrite = () => {
@@ -758,7 +761,7 @@ test("photo save and remove failures preserve date, note, image and saved metada
   await page.evaluate((key) => {
     const set = Storage.prototype.setItem;
     Storage.prototype.setItem = function (k, v) {
-      if (k === key) {
+      if (k.endsWith(key)) {
         Storage.prototype.setItem = set;
         throw new Error("photo write failure");
       }
@@ -808,7 +811,7 @@ test("photo save and remove failures preserve date, note, image and saved metada
   await page.evaluate((key) => {
     const set = Storage.prototype.setItem;
     Storage.prototype.setItem = function (k, v) {
-      if (k === key) {
+      if (k.endsWith(key)) {
         Storage.prototype.setItem = set;
         throw new Error("remove failure");
       }
@@ -989,7 +992,7 @@ async function delayWrite(page, key) {
     const set = Storage.prototype.setItem;
     window.__editorWriteCount = 0;
     Storage.prototype.setItem = function (k, value) {
-      if (k !== key) return set.call(this, k, value);
+      if (!k.endsWith(key)) return set.call(this, k, value);
       window.__editorWriteCount++;
       return new Promise((resolve) => {
         window.__releaseEditorWrite = () => {
@@ -1068,7 +1071,7 @@ test("inline name input limit and failed save retain the draft for retry", async
   await page.evaluate((key) => {
     const set = Storage.prototype.setItem;
     Storage.prototype.setItem = function(k, value) {
-      if (k === key) {
+      if (k.endsWith(key)) {
         Storage.prototype.setItem = set;
         throw new Error("name write failure");
       }
@@ -1300,7 +1303,7 @@ test("Profile hardware Back boundary returns every source tab and retains its se
     ["Exercise", "/exercise"],
     ["Settings", "/settings"],
   ]) {
-    const page = await open(t);
+    const page = await open(t, { developmentRuntime: true });
     await installHardwareBackBoundary(page);
     await button(page, "Expand calendar").click();
     await button(page, "Select previous day").click();
@@ -1310,7 +1313,7 @@ test("Profile hardware Back boundary returns every source tab and retains its se
     assert.equal(await button(page, "Expand calendar").count(), 0);
     assert.equal(await button(page, "Collapse calendar").count(), 0);
     assert.equal(await hardwareBack(page), true);
-    await page.waitForURL(baseURL + path);
+    await page.waitForURL(new URL(path, page.url()).href);
     if (tab === "Settings")
       await page.getByRole("tab", { name: "Home", exact: true }).click();
     await page
@@ -1321,7 +1324,7 @@ test("Profile hardware Back boundary returns every source tab and retains its se
 });
 
 test("Profile Back dismisses dropdown and Modal before returning to its source tab", async (t) => {
-  const page = await open(t);
+  const page = await open(t, { developmentRuntime: true });
   await installHardwareBackBoundary(page);
   await page.getByRole("tab", { name: "Food", exact: true }).click();
   await profile(page);
@@ -1349,12 +1352,12 @@ test("Profile Back dismisses dropdown and Modal before returning to its source t
   await modal.waitFor({ state: "detached" });
   assert.equal(new URL(page.url()).pathname, "/profile");
   assert.equal(await hardwareBack(page), true);
-  await page.waitForURL(baseURL + "/food");
+  await page.waitForURL(new URL("/food", page.url()).href);
 });
 
 test("direct Profile Back uses Home fallback after dismissing an open menu", async (t) => {
-  const page = await open(t);
-  await page.goto(baseURL + "/profile");
+  const page = await open(t, { developmentRuntime: true });
+  await page.goto(new URL("/profile", page.url()).href);
   await button(page, "Overview").waitFor();
   await installHardwareBackBoundary(page);
   await button(page, "Profile menu").click();
@@ -1364,7 +1367,7 @@ test("direct Profile Back uses Home fallback after dismissing an open menu", asy
     .waitFor({ state: "detached" });
   assert.equal(new URL(page.url()).pathname, "/profile");
   assert.equal(await hardwareBack(page), true);
-  await page.waitForURL(baseURL + "/");
+  await page.waitForURL(new URL("/", page.url()).href);
   await page
     .getByLabel("Sunday, October 4, 2026, today", { exact: true })
     .waitFor();
@@ -1403,15 +1406,15 @@ test(
       const days = {};
       for (let i = 0; i < 12; i++) days[date(-i)] = i ? 250 : 1800;
       for (let i = 45; i < 73; i++) days[date(-i)] = 250;
-      localStorage.setItem(
+      window.accountFixture.setItem(
         "kinevault-track.water-log.v1",
         JSON.stringify({ version: 1, days }),
       );
-      localStorage.setItem(
+      window.accountFixture.setItem(
         "kinevault-track.water-goal.v1",
         JSON.stringify({ version: 1, dailyMl: 2500 }),
       );
-      localStorage.setItem(
+      window.accountFixture.setItem(
         "kinevault-track.food-log.v1",
         JSON.stringify({
           version: 1,
@@ -1464,7 +1467,7 @@ test(
           },
         ],
       }));
-      localStorage.setItem(
+      window.accountFixture.setItem(
         "kinevault-track.exercise.v1",
         JSON.stringify({
           version: 1,
@@ -1504,7 +1507,7 @@ test(
         tx.onabort = () => reject(tx.error);
       });
       db.close();
-      localStorage.setItem(
+      window.accountFixture.setItem(
         "kinevault-track.profile-media.v1",
         JSON.stringify({
           version: 1,
@@ -1578,7 +1581,7 @@ test("weekly chart selection matches the plotted total and range menu closes wit
   await profile(page);
   await page.evaluate(() => {
     const key = "kinevault-track.exercise.v1",
-      doc = JSON.parse(localStorage.getItem(key));
+      doc = JSON.parse(window.accountFixture.getItem(key));
     doc.sessions.push({
       ...doc.sessions[0],
       id: "earlier",
@@ -1597,7 +1600,7 @@ test("weekly chart selection matches the plotted total and range menu closes wit
         },
       ],
     });
-    localStorage.setItem(key, JSON.stringify(doc));
+    window.accountFixture.setItem(key, JSON.stringify(doc));
   });
   await page.reload();
   await button(page, "Workout range").click();

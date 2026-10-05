@@ -221,3 +221,48 @@ test("a write spanning stop/restart cannot publish or allow a competing write; r
   assert.equal(parseProfile(raw()).answers.name, "Persisted");
   assert.equal(profile.getSnapshot().saving, false);
 });
+
+test("stopping during loading feedback prevents the abandoned profile read", async () => {
+  const { storage, calls } = memory();
+  const profile = createProfilePersistence(storage);
+  const unsubscribe = profile.subscribe(() => {
+    if (profile.getSnapshot().state.kind === "loading") profile.stop();
+  });
+  profile.start(); await flush();
+  assert.deepEqual(calls, []);
+  unsubscribe(); profile.start(); await flush();
+  assert.equal(documentOf(profile).kind, "draft");
+});
+
+for (const command of ["save", "reset"] as const) {
+  test(`stopping during ${command} feedback prevents a stale profile mutation`, async () => {
+    const { profile, calls, raw } = await ready(JSON.stringify(draft("Original")));
+    const unsubscribe = profile.subscribe(() => {
+      if (profile.getSnapshot().saving) profile.stop();
+    });
+    if (command === "save") assert.equal(await profile.save(draft("Abandoned")), false);
+    else await profile.reset();
+    assert.deepEqual(calls, ["read"]);
+    assert.equal(parseProfile(raw()).answers.name, "Original");
+    unsubscribe(); profile.start(); await flush();
+    assert.equal(await profile.save(draft("New lifecycle")), true);
+  });
+}
+
+test("reset spanning stop/restart excludes new writes and reloads its durable removal", async () => {
+  const { profile, storage, calls, raw } = await ready(JSON.stringify(draft("Original")));
+  const gate = deferred<void>();
+  const remove = storage.removeItem;
+  storage.removeItem = async key => { await gate.promise; await remove(key); };
+  const resetting = profile.reset();
+  profile.stop(); profile.start();
+  assert.equal(await profile.save(draft("Competing")), false);
+  profile.retryLoad();
+  assert.deepEqual(calls, ["read"]);
+  gate.resolve(); await resetting; await flush();
+  assert.equal(raw(), null);
+  assert.deepEqual(documentOf(profile), parseProfile(null));
+  assert.deepEqual(calls, ["read", "remove", "read"]);
+  assert.equal(profile.getSnapshot().saving, false);
+  assert.equal(await profile.save(draft("New lifecycle")), true);
+});

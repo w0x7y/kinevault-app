@@ -1,3 +1,4 @@
+import { installAccountFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { join } from "node:path";
@@ -17,7 +18,7 @@ function projectedProduct(route, product) {
   const fields = new URL(route.request().url()).searchParams.get("fields")?.split(",") ?? [];
   return Object.fromEntries(Object.entries(product).filter(([key]) => fields.includes(key)));
 }
-const stored = (page, key) => page.evaluate(key => JSON.parse(localStorage.getItem(key)), key);
+const stored = (page, key) => page.evaluate(key => JSON.parse(window.accountFixture.getItem(key)), key);
 const entries = async page => (await stored(page, foodKey))?.days[date] ?? [];
 async function open(t, { food = null, water = null, waterState = "ready", custom = [] } = {}) {
   const browser = await chromium.launch({ headless: true });
@@ -35,14 +36,15 @@ async function open(t, { food = null, water = null, waterState = "ready", custom
     window.__waterFailure = waterState === "error";
     let delayed = waterState === "loading";
     Storage.prototype.getItem = function(key) {
-      if (key === waterKey && window.__waterFailure) throw new Error("Fixture read error");
-      if (key === waterKey && delayed) {
+      if (key.endsWith(waterKey) && window.accountFixture?.domainReady && window.__waterFailure) throw new Error("Fixture read error");
+      if (key.endsWith(waterKey) && window.accountFixture?.domainReady && delayed) {
         delayed = false;
         return new Promise(resolve => { window.__releaseWaterRead = () => resolve(get.call(this, key)); });
       }
       return get.call(this, key);
     };
   }, { answers, foodKey, waterKey, food, water, waterState, custom });
+  await installAccountFixture(context);
   const page = await context.newPage();
   page.setDefaultTimeout(10000);
   page.setDefaultNavigationTimeout(30000);
@@ -69,7 +71,7 @@ async function failNextFoodWrite(page) {
   await page.evaluate(key => {
     const set = Storage.prototype.setItem;
     Storage.prototype.setItem = function(k, value) {
-      if (k === key) { Storage.prototype.setItem = set; throw new Error("Fixture write failure"); }
+      if (k.endsWith(key)) { Storage.prototype.setItem = set; throw new Error("Fixture write failure"); }
       return set.call(this, k, value);
     };
   }, foodKey);
@@ -248,7 +250,7 @@ test("drink failure and duplicate taps keep hydration unchanged until one durabl
     const set = Storage.prototype.setItem;
     window.__drinkWrites = 0;
     Storage.prototype.setItem = function(k, value) {
-      if (k !== key) return set.call(this, k, value);
+      if (!k.endsWith(key)) return set.call(this, k, value);
       window.__drinkWrites++;
       return new Promise(resolve => { window.__releaseDrinkWrite = () => { Storage.prototype.setItem = set; set.call(this, k, value); resolve(); }; });
     };

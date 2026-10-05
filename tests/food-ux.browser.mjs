@@ -1,3 +1,4 @@
+import { installAccountFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { chromium } from "playwright";
@@ -12,7 +13,7 @@ const product = { code: "3017620422003", product_name: "Fixture cereal", brands:
 const button = (page, name) => page.getByRole("button", { name: name === "Log food" || name === "Log meal" ? new RegExp(`^${name} to `) : name, exact: true });
 const field = (page, name) => page.getByRole("textbox", { name, exact: true });
 const heading = (page, name) => page.getByRole("heading", { name, exact: true }).waitFor();
-const catalog = page => page.evaluate(key => JSON.parse(localStorage.getItem(key)), storageKey);
+const catalog = page => page.evaluate(key => JSON.parse(window.accountFixture.getItem(key)), storageKey);
 async function open(t) {
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());
@@ -20,6 +21,7 @@ async function open(t) {
   await context.addInitScript(({ answers }) => {
     localStorage.setItem("kinevault-track.profile.v1", JSON.stringify({ version: 1, kind: "complete", answers }));
   }, { answers });
+  await installAccountFixture(context);
   const page = await context.newPage();
   page.setDefaultTimeout(10000);
   page.setDefaultNavigationTimeout(30000);
@@ -105,7 +107,7 @@ test("import review resumes without another request and preserves provenance thr
   await page.evaluate(key => {
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function(nextKey, value) {
-      if (nextKey === key) { Storage.prototype.setItem = original; throw new Error("Fixture save failure"); }
+      if (nextKey.endsWith(key)) { Storage.prototype.setItem = original; throw new Error("Fixture save failure"); }
       return original.call(this, nextKey, value);
     };
   }, storageKey);
@@ -124,7 +126,7 @@ test("import review resumes without another request and preserves provenance thr
 });
 
 const intake = page => page.evaluate(() => {
-  const document = JSON.parse(localStorage.getItem("kinevault-track.food-log.v1") || "null");
+  const document = JSON.parse(window.accountFixture.getItem("kinevault-track.food-log.v1") || "null");
   return document ? Object.values(document.days).flat() : [];
 });
 
@@ -348,7 +350,7 @@ async function seedEditableCatalog(page) {
     const meal = { customId: "review-bowl", name: "Review bowl", category: "Custom meal",
       per100g: food.per100g, portions: [{ label: "1 meal", grams: 100 }],
       ingredients: [{ id: "oats", food, grams: 100 }], overrides: {} };
-    localStorage.setItem(key, JSON.stringify({ version: 1, foods: [food], meals: [meal] }));
+    window.accountFixture.setItem(key, JSON.stringify({ version: 1, foods: [food], meals: [meal] }));
   }, storageKey);
   await page.reload();
   await page.getByRole("tab", { name: "Food", exact: true }).click();
@@ -413,7 +415,7 @@ for (const kind of ["food", "meal"]) {
     await page.evaluate(key => {
       const original = Storage.prototype.setItem;
       Storage.prototype.setItem = function(nextKey, value) {
-        if (nextKey === key) { Storage.prototype.setItem = original; throw new Error("Fixture delete failure"); }
+        if (nextKey.endsWith(key)) { Storage.prototype.setItem = original; throw new Error("Fixture delete failure"); }
         return original.call(this, nextKey, value);
       };
     }, storageKey);

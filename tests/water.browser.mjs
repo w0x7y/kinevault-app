@@ -1,3 +1,4 @@
+import { installAccountFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { chromium } from "playwright";
@@ -9,7 +10,7 @@ const answers = { name: "Water fixture", goal: "maintain", activity: "moderate",
 const button = (page, name) => page.getByRole("button", { name, exact: true });
 const dialog = page => page.getByRole("dialog", { name: "Edit water", exact: true });
 const field = page => dialog(page).getByRole("textbox", { name: "Manual water (ml)", exact: true });
-const stored = page => page.evaluate(key => localStorage.getItem(key), storageKey);
+const stored = page => page.evaluate(key => window.accountFixture.getItem(key), storageKey);
 
 async function open(t, { water = null, readFailure = false, delayedRead = false } = {}) {
   const browser = await chromium.launch({ headless: true });
@@ -26,14 +27,15 @@ async function open(t, { water = null, readFailure = false, delayedRead = false 
     let delayRead = delayedRead;
     const getItem = Storage.prototype.getItem;
     Storage.prototype.getItem = function(key) {
-      if (key === storageKey && window.__waterReadFailure) throw new Error("Fixture read failure");
-      if (key === storageKey && delayRead) {
+      if (key.endsWith(storageKey) && window.accountFixture?.domainReady && window.__waterReadFailure) throw new Error("Fixture read failure");
+      if (key.endsWith(storageKey) && window.accountFixture?.domainReady && delayRead) {
         delayRead = false;
         return new Promise(resolve => { window.__releaseWaterRead = () => resolve(getItem.call(this, key)); });
       }
       return getItem.call(this, key);
     };
   }, { answers, storageKey, water, readFailure, delayedRead });
+  await installAccountFixture(context);
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
   await page.clock.install({ time: new Date("2026-10-01T12:00:00+03:00") });
@@ -154,7 +156,7 @@ test("the entire water widget opens direct entry, cancel/invalid values never wr
   await button(page, "Select today").click();
   await button(page, "Collapse calendar").click();
   assert.match(await water.innerText(), /0\.75/);
-  assert.equal(await page.evaluate(() => localStorage.getItem("kinevault-track.food-log.v1")), null);
+  assert.equal(await page.evaluate(() => window.accountFixture.getItem("kinevault-track.food-log.v1")), null);
 });
 
 test("failed water save preserves the amount and previous total for one successful retry", async t => {
@@ -164,7 +166,7 @@ test("failed water save preserves the amount and previous total for one successf
   await page.evaluate(key => {
     const setItem = Storage.prototype.setItem;
     Storage.prototype.setItem = function(nextKey, value) {
-      if (nextKey === key) { Storage.prototype.setItem = setItem; throw new Error("Fixture write failure"); }
+      if (nextKey.endsWith(key)) { Storage.prototype.setItem = setItem; throw new Error("Fixture write failure"); }
       return setItem.call(this, nextKey, value);
     };
   }, storageKey);
@@ -191,8 +193,8 @@ test("water read errors and corruption keep Home available and never replace sav
     await page.evaluate(({ key, readFailure }) => {
       window.__waterReadFailure = false;
       if (!readFailure) {
-        if (localStorage.getItem(key) !== "corrupt") throw new Error("Corrupt log was overwritten");
-        localStorage.setItem(key, JSON.stringify({ version: 1, days: { "2026-10-01": 500 } }));
+        if (window.accountFixture.getItem(key) !== "corrupt") throw new Error("Corrupt log was overwritten");
+        window.accountFixture.setItem(key, JSON.stringify({ version: 1, days: { "2026-10-01": 500 } }));
       }
     }, { key: storageKey, readFailure });
     assert.equal(JSON.parse(await stored(page)).days["2026-10-01"], 500);
@@ -254,7 +256,7 @@ test("duplicate save taps stay blocked and a pending save targets its original d
     const setItem = Storage.prototype.setItem;
     window.__waterWriteCalls = 0;
     Storage.prototype.setItem = function(nextKey, value) {
-      if (nextKey !== key) return setItem.call(this, nextKey, value);
+      if (!nextKey.endsWith(key)) return setItem.call(this, nextKey, value);
       window.__waterWriteCalls++;
       return new Promise(resolve => {
         window.__releaseWaterWrite = () => {

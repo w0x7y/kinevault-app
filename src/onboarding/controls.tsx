@@ -1,5 +1,5 @@
 import { Icon, type IconName } from "../components/icon";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -83,43 +83,63 @@ export function Field({
   error,
   inputMode,
   onChangeText,
+  trailing,
   ...props
-}: TextInputProps & { label: string; error?: string }) {
+}: TextInputProps & { label: string; error?: string; trailing?: ReactNode }) {
   const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
+  const borderColor = error
+    ? colors.error
+    : focused
+      ? colors.ring
+      : colors.input;
+  const input = (
+    <TextInput
+      {...props}
+      inputMode={inputMode}
+      onChangeText={(text) => {
+        // Keyboard hints do not restrict hardware typing or pasted text.
+        if (inputMode === "numeric" && !/^\d*$/.test(text)) return;
+        if (inputMode === "decimal" && !/^\d*(?:[.,]\d*)?$/.test(text)) return;
+        onChangeText?.(text);
+      }}
+      accessibilityLabel={label}
+      aria-invalid={Boolean(error)}
+      placeholderTextColor={colors.mutedForeground}
+      selectionColor={colors.ring}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={[
+        styles.input,
+        {
+          color: colors.foreground,
+          backgroundColor: colors.card,
+          borderColor,
+          borderWidth: focused ? 2 : 1,
+        },
+        trailing
+          ? { flex: 1, minWidth: 0, borderWidth: 0, backgroundColor: "transparent" }
+          : undefined,
+      ]}
+    />
+  );
   return (
     <View style={{ gap: 8 }}>
       <AppText variant="label">{label}</AppText>
-      <TextInput
-        {...props}
-        inputMode={inputMode}
-        onChangeText={(text) => {
-          // Keyboard hints do not restrict hardware typing or pasted text.
-          if (inputMode === "numeric" && !/^\d*$/.test(text)) return;
-          if (inputMode === "decimal" && !/^\d*(?:[.,]\d*)?$/.test(text))
-            return;
-          onChangeText?.(text);
-        }}
-        accessibilityLabel={label}
-        aria-invalid={Boolean(error)}
-        placeholderTextColor={colors.mutedForeground}
-        selectionColor={colors.ring}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        style={[
-          styles.input,
-          {
-            color: colors.foreground,
-            backgroundColor: colors.card,
-            borderColor: error
-              ? colors.error
-              : focused
-                ? colors.ring
-                : colors.input,
-            borderWidth: focused ? 2 : 1,
-          },
-        ]}
-      />
+      {trailing ? (
+        <View style={{
+          flexDirection: "row",
+          alignItems: "center",
+          borderRadius: radius.control,
+          borderColor,
+          borderWidth: focused ? 2 : 1,
+          backgroundColor: colors.card,
+          paddingRight: spacing.sm,
+        }}>
+          {input}
+          {trailing}
+        </View>
+      ) : input}
       {error && (
         <AppText
           variant="caption"

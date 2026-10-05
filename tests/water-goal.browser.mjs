@@ -1,3 +1,4 @@
+import { installAccountFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { chromium } from "playwright";
@@ -11,7 +12,7 @@ const answers = { name: "Goal fixture", goal: "maintain", activity: "moderate", 
 const button = (page, name) => page.getByRole("button", { name, exact: true });
 const tab = (page, name) => page.getByRole("tab", { name, exact: true }).click();
 const input = page => page.getByRole("textbox", { name: "Daily water goal (ml)", exact: true });
-const stored = (page, key = goalKey) => page.evaluate(key => localStorage.getItem(key), key);
+const stored = (page, key = goalKey) => page.evaluate(key => window.accountFixture.getItem(key), key);
 const encode = dailyMl => JSON.stringify({ version: 1, dailyMl });
 
 async function open(t, { goal = null, water = null, food = null, goalError = false, goalState = "ready", waterState = "ready", appearance = "light" } = {}) {
@@ -33,20 +34,22 @@ async function open(t, { goal = null, water = null, food = null, goalError = fal
     let delayedWater = waterState === "loading";
     let delayedGoal = goalState === "loading";
     Storage.prototype.getItem = function(key) {
-      if (key === goalKey && delayedGoal) {
+      if (key.endsWith(goalKey) && window.accountFixture?.domainReady && delayedGoal) {
         delayedGoal = false;
         return new Promise(resolve => { window.__releaseGoalRead = () => resolve(get.call(this, key)); });
       }
-      if (key === goalKey && window.__goalError) throw new Error("Goal fixture read failure");
-      if (key === waterKey && window.__goalWaterError) throw new Error("Water fixture read failure");
-      if (key === waterKey && delayedWater) {
+      if (key.endsWith(goalKey) && window.accountFixture?.domainReady && window.__goalError) throw new Error("Goal fixture read failure");
+      if (key.endsWith(waterKey) && window.accountFixture?.domainReady && window.__goalWaterError) throw new Error("Water fixture read failure");
+      if (key.endsWith(waterKey) && window.accountFixture?.domainReady && delayedWater) {
         delayedWater = false;
         return new Promise(resolve => { window.__releaseGoalWater = () => resolve(get.call(this, key)); });
       }
       return get.call(this, key);
     };
   }, { answers, goalKey, waterKey, foodKey, goal, water, food, goalError, goalState, waterState, appearance });
+  const accountFixture = await installAccountFixture(context);
   const page = await context.newPage();
+  page.accountFixture = accountFixture;
   page.setDefaultTimeout(15000);
   await page.clock.install({ time: new Date("2026-10-01T12:00:00+03:00") });
   await page.goto(baseURL);
@@ -63,6 +66,38 @@ async function progress(page, percent, consumedMl = percent * 20, goalMl = 2000)
   assert.equal(await cup.getAttribute("aria-valuenow"), String(percent));
   assert.equal(await page.getByTestId("water-cup-fill").evaluate(element => element.style.height), `${percent}%`);
 }
+
+test("cloud goal refresh retains an entered goal and offers retry after a failed document read", async (t) => {
+  const page = await open(t, { goal: encode(1500) });
+  await tab(page, "Settings");
+  await page.getByText("Current goal: 1,500 ml per day.", { exact: true }).waitFor();
+  await page.getByText("All changes saved to your account.", { exact: true }).waitFor();
+  await input(page).fill("1800");
+  const previous = page.accountFixture.documents.get(goalKey);
+  page.accountFixture.documents.set(goalKey, { ...previous, payload: encode(2500), revision: previous.revision + 1 });
+  await page.evaluate(goalKey => {
+    const original = Storage.prototype.getItem;
+    let failed = false;
+    Storage.prototype.getItem = function (key) {
+      const raw = original.call(this, key);
+      if (!failed && key.endsWith(goalKey) && raw && JSON.parse(JSON.parse(raw).payload).dailyMl === 2500) {
+        failed = true;
+        throw new Error("Simulated refreshed document read failure");
+      }
+      return raw;
+    };
+  }, goalKey);
+  await button(page, "Sync now").click();
+  await button(page, "Retry water goal").waitFor();
+  assert.equal(await input(page).inputValue(), "1800");
+  await button(page, "Retry water goal").click();
+  await page.getByText("Current goal: 2,500 ml per day.", { exact: true }).waitFor();
+  await button(page, "Retry water goal").waitFor({ state: "hidden" });
+  assert.equal(await input(page).inputValue(), "1800");
+  await button(page, "Save water goal").click();
+  await page.getByTestId("water-goal-saved").waitFor();
+  assert.equal(JSON.parse(await stored(page)).dailyMl, 1800);
+});
 
 async function compactLayout(page, { unavailable = false, longAmount = false } = {}) {
   for (const width of [320, 390, 768]) {
@@ -181,7 +216,7 @@ test("cup follows selected-day water and Drinks totals, caps fill and preserves 
   await progress(page, 100, 2500);
   await page.getByTestId("home-water").getByText("2.5", { exact: true }).waitFor();
   for (const appearance of ["light", "dark"]) {
-    await page.evaluate(appearance => localStorage.setItem("kinevault-track.appearance", appearance), appearance);
+    await page.evaluate(appearance => window.accountFixture.setItem("kinevault-track.appearance", appearance), appearance);
     await page.reload(); await progress(page, 50);
     await compactLayout(page);
     const long = await open(t, { appearance, goal: encode(10000), water: { version: 1, days: { "2026-10-01": 999999 } } });
@@ -206,7 +241,7 @@ test("goal save failure preserves the draft and saved goal, and duplicate pendin
   await page.evaluate(key => {
     const set = Storage.prototype.setItem;
     Storage.prototype.setItem = function(k, value) {
-      if (k === key) { Storage.prototype.setItem = set; throw new Error("Goal fixture write failure"); }
+      if (k.endsWith(key) && JSON.parse(value).dirty) { Storage.prototype.setItem = set; throw new Error("Goal fixture write failure"); }
       return set.call(this, k, value);
     };
   }, goalKey);
@@ -218,7 +253,7 @@ test("goal save failure preserves the draft and saved goal, and duplicate pendin
   await page.evaluate(key => {
     const set = Storage.prototype.setItem; window.__goalWrites = 0;
     Storage.prototype.setItem = function(k, value) {
-      if (k !== key) return set.call(this, k, value);
+      if (!k.endsWith(key) || !JSON.parse(value).dirty) return set.call(this, k, value);
       window.__goalWrites++;
       return new Promise(resolve => { window.__releaseGoal = () => { Storage.prototype.setItem = set; set.call(this, k, value); resolve(); }; });
     };
@@ -255,10 +290,11 @@ test("loading and corrupt goals remain unknown until a successful load", async t
     } else {
       await page.getByRole("alert").filter({ hasText: "Couldn't load your water goal" }).waitFor();
       assert.equal(await stored(page), "broken");
-      await page.evaluate(({ key, value }) => localStorage.setItem(key, value), { key: goalKey, value: encode(2000) });
+      await page.evaluate(({ key, value }) => window.accountFixture.setItem(key, value), { key: goalKey, value: encode(2000) });
       await button(page, "Retry water goal").click();
     }
     await input(page).waitFor();
+    await page.waitForFunction(() => document.querySelector('input[aria-label="Daily water goal (ml)"]')?.value === "2000");
     assert.equal(await input(page).inputValue(), "2000");
     await tab(page, "Home"); await progress(page, 0);
   }
@@ -272,6 +308,7 @@ test("unreadable goal retries safely and unknown water totals never show an empt
   await page.evaluate(() => { window.__goalError = false; });
   assert.equal(await stored(page), encode(2000));
   await button(page, "Retry water goal").click(); await input(page).waitFor();
+  await page.waitForFunction(() => document.querySelector('input[aria-label="Daily water goal (ml)"]')?.value === "2000");
   assert.equal(await input(page).inputValue(), "2000");
   for (const appearance of ["light", "dark"]) {
     for (const waterState of ["loading", "error"]) {

@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAccountStorage } from "../account/storage-context";
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore, type PropsWithChildren } from "react";
 import data from "../../assets/food/usda-fndds.json";
 import { createFoodSelection } from "./catalog-selection.ts";
@@ -11,9 +11,10 @@ type Value = CustomFoodSnapshot & Pick<Store, "add" | "addMeal" | "updateFood" |
 const CustomFoodContext = createContext<Value | null>(null);
 
 export function CustomFoodProvider({ children }: PropsWithChildren) {
+  const storage = useAccountStorage();
   const [store] = useState(() => {
     let sequence = 0;
-    return createCustomFoodPersistence({ storage: AsyncStorage,
+    return createCustomFoodPersistence({ storage,
       createId: () => `${Date.now().toString(36)}-${++sequence}-${Math.random().toString(36).slice(2)}` });
   });
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);

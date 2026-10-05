@@ -15,6 +15,8 @@ import { WaterLogProvider } from "../../water/provider";
 import { WaterGoalProvider } from "../../water/goal-provider";
 import { ProfileMediaProvider } from "../../profile/media-provider";
 import { ExerciseProvider } from "../../exercise/provider";
+import { useAccount } from "../../account/provider";
+import { TrackingRefreshNotices } from "../../account/refresh-notices";
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
@@ -22,12 +24,16 @@ export default function TabLayout() {
   const reduced = useReducedMotion();
   const { colors } = useTheme();
   const { state } = useProfile();
+  const { user, recovery } = useAccount();
+  if (recovery) return <Redirect href="/auth/reset-password" />;
   if (state.kind !== "ready") return null;
+  if (!user) return <Redirect href={state.document.kind === "draft" ? "/onboarding" : "/account"} />;
   if (state.document.kind === "draft") return <Redirect href="/onboarding" />;
   return (
     <ProfileMediaProvider><CustomFoodProvider><FoodLogProvider><WaterLogProvider><WaterGoalProvider><ExerciseProvider><DayProvider>
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <View style={{ flex: 1, paddingTop: headerHeight }}>
+          <TrackingRefreshNotices />
           <Tabs
             initialRouteName="index"
             backBehavior="initialRoute"

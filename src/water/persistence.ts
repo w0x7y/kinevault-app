@@ -6,7 +6,7 @@ export type WaterLogStorage = DurableStorage;
 export type WaterLogSnapshot = DurableSnapshot<WaterLogDocument>;
 
 export function createWaterLogPersistence({ storage }: { storage: WaterLogStorage }) {
-  const { update, ...lifecycle } = createDurableWrite({ storage, key: waterLogStorageKey, parse: parseWaterLog });
+  const { update, remove: _remove, ...lifecycle } = createDurableWrite({ storage, key: waterLogStorageKey, parse: parseWaterLog });
   return {
     ...lifecycle,
     async set(input: SetWaterInput): Promise<boolean> {
