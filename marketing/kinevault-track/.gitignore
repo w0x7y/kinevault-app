@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+**/__pycache__/
+*.log
+stills/
+stills-vertical/
+check/
+check-vertical/
+silent*.mp4
+kinevault-track-ad.mp4
+kinevault-track-elevenlabs-ad.mp4

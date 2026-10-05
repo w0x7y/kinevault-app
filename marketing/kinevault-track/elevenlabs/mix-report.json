@@ -1,0 +1,14 @@
+{
+  "provider": "elevenlabs",
+  "voice": "Jessica - Playful, Bright, Warm",
+  "continuous_take": true,
+  "inserted_internal_gaps": 0,
+  "post_generation_tempo": 1.0,
+  "start": 0.15,
+  "end": 9.91,
+  "take_duration": 9.76,
+  "video_duration": 11.0,
+  "peak": 0.7053802490234374,
+  "rms": 0.08738986768246164,
+  "audio_auditioned": false
+}

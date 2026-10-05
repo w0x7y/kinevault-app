@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KineVault Track — motion ad</title>
+<style>
+@font-face{font-family:Comfortaa;src:url(assets/fonts/caption.ttf)}
+*{box-sizing:border-box}body{margin:0;background:#121e30;color:#eef4fb;font-family:Comfortaa,sans-serif}
+main{max-width:1400px;margin:auto;padding:36px 28px}header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:28px}
+h1{font-size:20px;margin:0}header span{color:#79b7e8;background:#121e30;font-size:14px}video{display:block;width:min(420px,100%);margin:auto;aspect-ratio:9/16;background:#121e30;border-radius:12px}video.landscape{width:100%;aspect-ratio:16/9}
+.formats{display:flex;justify-content:center;gap:12px;margin-bottom:24px}button{padding:12px 18px;min-height:44px;border:1px solid #79b7e8;border-radius:8px;background:#121e30;color:#eef4fb;font:inherit;font-size:14px;cursor:pointer}button[aria-pressed=true]{background:#79b7e8;color:#121e30;border-color:#79b7e8}button:focus-visible{outline:2px solid #eef4fb;outline-offset:4px}
+footer{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-top:22px;font-size:14px;line-height:1.8;color:#79b7e8;background:#121e30}
+a{color:#eef4fb;background:#121e30;text-underline-offset:5px}nav{display:flex;gap:24px}p{margin:0}.note{margin-top:20px;font-size:14px;color:#a1adbc;background:#121e30}
+@media(max-width:600px){main{padding:22px 14px}header{align-items:start;flex-direction:column}h1{font-size:18px}}
+</style>
+<main>
+<header><h1>KineVault Track</h1><span>small steps, visible progress</span></header>
+<div class="formats" role="group" aria-label="Video format"><button type="button" aria-pressed="true" data-format="vertical">Vertical · 9:16</button><button type="button" aria-pressed="false" data-format="landscape">Landscape · 16:9</button></div>
+<video controls loop playsinline preload="auto" poster="poster-vertical.png" aria-label="Eleven-second vertical KineVault Track motion ad with ElevenLabs Jessica narration">
+<source src="kinevault-track-vertical.mp4" type="video/mp4">
+<a href="kinevault-track-vertical.mp4">Download the ad</a>
+</video>
+<footer><p id="spec">11 seconds · 1080 × 1920 · 60 fps · sound</p><nav><a href="kinevault-track-vertical.mp4" download>Vertical MP4</a><a href="kinevault-track-landscape.mp4" download>Landscape MP4</a><a href="kinevault-track-source.zip" download>Editable source</a></nav></footer>
+<p class="note">Illustrative app panels with sample data. Original Kine artwork. ElevenLabs Jessica narration with a synthesized score. Audio not auditioned.</p>
+</main>
+<script>
+const player=document.querySelector('video');
+document.querySelectorAll('[data-format]').forEach(button=>button.addEventListener('click',()=>{
+ const vertical=button.dataset.format==='vertical';
+ player.pause();
+ player.classList.toggle('landscape',!vertical);
+ player.poster=vertical?'poster-vertical.png':'poster.png';
+ player.querySelector('source').src=vertical?'kinevault-track-vertical.mp4':'kinevault-track-landscape.mp4';
+ player.setAttribute('aria-label',`Eleven-second ${vertical?'vertical':'landscape'} KineVault Track motion ad with ElevenLabs Jessica narration`);
+ document.querySelector('#spec').textContent=`11 seconds · ${vertical?'1080 × 1920':'1920 × 1080'} · 60 fps · sound`;
+ document.querySelectorAll('[data-format]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));
+ player.load();
+}));
+</script>
+</html>
