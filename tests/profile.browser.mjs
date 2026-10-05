@@ -135,6 +135,8 @@ async function open(t, options = {}) {
   const page = await context.newPage();
   page.on("filechooser", () => {});
   page.setDefaultTimeout(15000);
+  // Cold Metro bundles need the standard navigation allowance on CI runners.
+  if (options.developmentRuntime) page.setDefaultNavigationTimeout(30000);
   const runtimeErrors = [];
   page.__profileWarnings = [];
   page.on("console", (message) => {

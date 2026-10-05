@@ -36,9 +36,13 @@ were not included in that source scan.
 - Integration CI exposed a development-preview server shutdown after 51 passing
   tests. Server logs confirmed JavaScript heap exhaustion; a local run with a
   1.5 GB heap reproduced it.
-  Browser CI now serves the built web export and uses Metro only for the isolated
-  widget fixture, retaining the complete suite. All 158 browser tests passed with
-  this arrangement and the smaller Metro heap. Server logs are printed on failure.
+  Browser CI now serves the built web export and uses Metro for the widget and
+  hardware-Back fixtures, retaining the complete suite. All 158 browser tests
+  passed locally with this arrangement and the smaller Metro heap, and a full
+  GitHub CI run also passed. A second run hit a cold development-navigation
+  timeout; those fixture navigations now receive the standard 30-second allowance
+  while interaction deadlines and assertions remain unchanged. Server logs are
+  printed on failure.
 - Ignored Supabase CLI `.temp` metadata. No maintained feature code was deleted.
 
 ## Remaining security findings
