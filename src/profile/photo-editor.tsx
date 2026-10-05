@@ -5,19 +5,17 @@ import { DeleteButton } from "../components/delete-button";
 import { FoodButton } from "../food/food-button";
 import { Field, ErrorText } from "../onboarding/controls";
 import type { MediaEditing, MediaEditSnapshot } from "./media-editing";
-import { useProfileMedia } from "./media-provider";
 import { PhotoImage } from "./photo-image";
 import { ProfileDialog } from "./profile-controls";
 export function PhotoEditor({ editing, snapshot }: {
   editing: MediaEditing;
   snapshot: MediaEditSnapshot;
 }) {
-  const media = useProfileMedia();
-  const { attempt, phase, error } = snapshot;
+  const { attempt, phase, error, busy, ready } = snapshot;
   if (attempt.kind !== "photo") return null;
   const { photo, source, date, note } = attempt;
   const picking = phase === "picking";
-  const busy = phase !== "idle" || media.saving;
+  const disabled = busy || !ready;
   const pick = editing.pick;
   const dismiss = () => { editing.cancel(); };
   return (
@@ -46,7 +44,7 @@ export function PhotoEditor({ editing, snapshot }: {
         label="Photo date (YYYY-MM-DD)"
         value={date}
         onChangeText={(date) => { editing.change({ date }); }}
-        editable={!busy}
+        editable={!disabled}
         maxLength={10}
         placeholder="YYYY-MM-DD"
       />
@@ -54,25 +52,23 @@ export function PhotoEditor({ editing, snapshot }: {
         label="Photo note (optional)"
         value={note}
         onChangeText={(note) => { editing.change({ note }); }}
-        editable={!busy}
+        editable={!disabled}
         multiline
         maxLength={2000}
       />
       <FoodButton
         label="Replace from library"
-        disabled={busy}
+        disabled={disabled}
         onPress={() => void pick("library")}
       />
       {Platform.OS !== "web" && (
         <FoodButton
           label="Replace from camera"
-          disabled={busy}
+          disabled={disabled}
           onPress={() => void pick("camera")}
         />
       )}
-      {(error || media.error) && (
-        <ErrorText message={error || media.error || ""} />
-      )}
+      {error && <ErrorText message={error} />}
       {busy && (
         <AppText accessibilityLiveRegion="polite">
           {picking ? "Opening photo picker…" : "Saving photo changes…"}
@@ -80,15 +76,15 @@ export function PhotoEditor({ editing, snapshot }: {
       )}
       <FoodButton
         primary
-        label={media.saving ? "Saving photo…" : "Save photo"}
-        disabled={busy}
+        label={busy && !picking ? "Saving photo…" : "Save photo"}
+        disabled={disabled}
         onPress={() => void editing.save()}
       />
       {photo && (
         <DeleteButton
           label="Remove photo"
           confirmAccessibilityLabel="Confirm remove photo"
-          disabled={busy}
+          disabled={disabled}
           onDelete={editing.remove}
         />
       )}

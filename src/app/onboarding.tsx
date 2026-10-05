@@ -1,6 +1,6 @@
-import { Redirect, router, useLocalSearchParams } from "expo-router";
+import { Redirect, router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import Head from "expo-router/head";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   AccessibilityInfo,
   BackHandler,
@@ -75,6 +75,10 @@ function OnboardingFlow({ initial, startWithAccount }: {
       },
     }),
   );
+  useFocusEffect(useCallback(() => {
+    flow.start();
+    return flow.stop;
+  }, [flow]));
   const {
     answers,
     step,

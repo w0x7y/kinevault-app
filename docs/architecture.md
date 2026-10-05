@@ -40,6 +40,26 @@ data. An unchanged sync emits no document refresh. Settings does not remount
 tracking to reload it, so a Water goal update cannot erase an unrelated Workout
 edit. Account replacement still remounts the owner scope for privacy.
 
+## Editing and summaries
+
+The Onboarding flow owns validation, staged answers, navigation and save ordering.
+Route focus starts and stops its lifecycle. A started durable save can finish after
+blur, but its result cannot advance the abandoned flow or navigate. Restarting
+keeps staged answers and excludes another save until the pending write settles.
+
+Catalog drafts own save validation, attempt feedback, write exclusion and retirement
+through the existing Custom food persistence interface. Food and meal forms submit
+intentions and render the session snapshot. Retained drafts keep their own failure
+message across unrelated storage operations. A completed save cannot discard fields
+changed while it was pending, close a replacement editor or deliver its result to
+that editor. Save completion is delivered before retirement notifications can
+detach the submitting form. Successful deletion retires only the deleted item's
+retained edit; callers cannot bypass durability to retire an edit themselves.
+
+Completed Workout totals derive from persisted Workout sessions and their valid
+sets. Daily activity and test fixtures use the same Exercise summary interface;
+there is no separate workout interpreter or fixture-only measurement model.
+
 ## Durable domain documents
 
 Profile, Exercise, Food log, Custom foods, Manual water and Water goal persistence
@@ -64,18 +84,25 @@ privacy but does not synchronize image files. Cancellation is checked before
 starting adapter work, and committed metadata keeps its owned image after a
 lifecycle change.
 
+The Profile media edit owns picker state, shared persistence readiness and busy
+state, and feedback for its current save attempt. Avatar and Progress photo
+callers render that snapshot. Canceling or replacing an edit does not carry an
+earlier durable failure into the new editor.
+
 This ownership gives locality to lifecycle fixes and leverage to all document
 callers without adding another public abstraction layer.
 
 ## Verification
 
-The October 5, 2026 architecture follow-up passed TypeScript, all 705 unit tests,
-and 158 browser tests. One optional screenshot export case was skipped. The two
-authentication configuration script tests also passed. Web, iOS and Android
-exports succeeded; native exports verify bundling, not installed-device behavior.
+The October 5, 2026 architecture follow-up passed TypeScript, all 739 automated
+unit and script tests, and 159 browser tests. One optional screenshot export case
+was skipped. Expo Doctor passed all 21 checks. Web, iOS and Android exports
+succeeded; native exports verify bundling, not installed-device behavior.
 
 Regressions cover stopped and reentrant lifecycles, stale account and recovery
 results, email confirmation after a screen remount, damaged Profile access and
 reset, partial sync failure, external refresh retries, and retained Workout,
-Profile and Water goal drafts. Browser tests use the real screens with injected
-account transport fixtures. This follow-up did not change the remote schema.
+Profile and Water goal drafts. New regressions cover abandoned Onboarding saves,
+media error isolation, Catalog validation and save ownership, and persisted
+Workout summaries. Browser tests use the real screens with injected account
+transport fixtures. This follow-up did not change the remote schema.

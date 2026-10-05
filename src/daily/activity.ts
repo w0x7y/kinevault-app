@@ -2,13 +2,11 @@ import type { FoodLogSnapshot } from "../food/log-persistence.ts";
 import type { WaterLogSnapshot } from "../water/persistence.ts";
 import type { WaterGoalSnapshot } from "../water/goal-persistence.ts";
 import { waterGoalProgress } from "../water/goal-model.ts";
-import { summarizeDay, type DailyActivity } from "./model.ts";
-import { interpretWorkout } from "./workout.ts";
+import { summarizeDay, type FoodDay } from "./model.ts";
 import type { ExerciseSnapshot } from "../exercise/persistence.ts";
 import { summarizeSessions } from "../exercise/summary.ts";
 
 type Unavailable = { kind: "loading" } | { kind: "error" };
-type FoodDay = Pick<DailyActivity, "date" | "foods" | "workout">;
 type FoodActivity = Unavailable | { kind: "ready"; day: FoodDay; summary: ReturnType<typeof summarizeDay> };
 type WaterTotal = Unavailable | { kind: "ready"; manualMl: number; drinkMl: number; ml: number };
 type WaterGoal = Unavailable | { kind: "ready"; ml: number };
@@ -22,7 +20,7 @@ export function interpretDayActivity({ selectedDay, food, water, goal, exercise 
 }) {
   let foodActivity: FoodActivity;
   if (food.kind === "ready") {
-    const day: FoodDay = { date: selectedDay, foods: food.document.days[selectedDay] ?? [], workout: null };
+    const day: FoodDay = { date: selectedDay, foods: food.document.days[selectedDay] ?? [] };
     foodActivity = { kind: "ready", day, summary: summarizeDay(day) };
   } else {
     foodActivity = { kind: food.kind };
@@ -46,7 +44,7 @@ export function interpretDayActivity({ selectedDay, food, water, goal, exercise 
   const workoutState = exercise?.kind ?? "ready";
   const workout = exercise?.kind === "ready"
     ? summarizeSessions(exercise.document.sessions.filter(session => session.date === selectedDay))
-    : interpretWorkout(null);
+    : summarizeSessions([]);
   return { date: selectedDay, food: foodActivity, steps: 0, workout, workoutState,
     water: { total, goal: waterGoal, progress } };
 }

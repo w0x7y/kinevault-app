@@ -1,7 +1,7 @@
 import type { CompletedWorkout } from "../daily/workout.ts";
 import { setMeasurements, type WorkoutSession } from "./model.ts";
 
-export function summarizeSessions(sessions: readonly WorkoutSession[]): CompletedWorkout & { durationKnown: boolean } {
+export function summarizeSessions(sessions: readonly WorkoutSession[]): CompletedWorkout {
   const completed = sessions.filter(session => session.status === "completed");
   const exercises: CompletedWorkout["exercises"][number][] = [];
   let volume = 0, sets = 0, reps = 0;

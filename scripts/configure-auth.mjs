@@ -25,23 +25,34 @@ export function buildAuthConfig(current, environment) {
   };
 }
 
-async function main() {
-  const accessToken = process.env.SUPABASE_ACCESS_TOKEN?.trim();
+export async function configureAuth({ environment = process.env, args = process.argv.slice(2), fetchImpl = fetch, log = console.log } = {}) {
+  const accessToken = environment.SUPABASE_ACCESS_TOKEN?.trim();
   if (!accessToken) throw new Error("Set SUPABASE_ACCESS_TOKEN to an account Management API token. The MCP connection does not expose Auth settings.");
+  if (/^sb_(secret|publishable)_/.test(accessToken)) throw new Error("Use a Supabase personal access token for SUPABASE_ACCESS_TOKEN. Project API keys cannot configure Auth settings.");
   const endpoint = `https://api.supabase.com/v1/projects/${projectRef}/config/auth`;
   const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
-  const response = await fetch(endpoint, { headers, signal: AbortSignal.timeout(20000) });
+  const response = await fetchImpl(endpoint, { headers, signal: AbortSignal.timeout(20000) });
   if (!response.ok) throw new Error(`Could not read Auth settings (HTTP ${response.status}).`);
-  const patch = buildAuthConfig(await response.json(), process.env);
+  const current = await response.json();
+  const securityOnly = args.includes("--security-only");
+  const patch = securityOnly ? { password_hibp_enabled: true } : buildAuthConfig(current, environment);
   // Print a reviewable diff without any credentials or unrelated Auth settings.
   const { smtp_pass, ...review } = patch;
-  console.log(JSON.stringify({ projectRef, changes: review, smtpCredential: "supplied", preserveSiteUrl: true }, null, 2));
-  if (!process.argv.includes("--apply")) { console.log("Preview only. Add --apply to configure SMTP and append these callback URLs."); return; }
-  const result = await fetch(endpoint, { method: "PATCH", headers, body: JSON.stringify(patch), signal: AbortSignal.timeout(20000) });
+  log(JSON.stringify({ projectRef, changes: review, ...(securityOnly ? { currentlyEnabled: current.password_hibp_enabled === true } : { smtpCredential: "supplied" }), preserveSiteUrl: true }, null, 2));
+  if (!args.includes("--apply")) { log("Preview only. Add --apply to apply these settings."); return; }
+  const result = await fetchImpl(endpoint, { method: "PATCH", headers, body: JSON.stringify(patch), signal: AbortSignal.timeout(20000) });
+  if (securityOnly && result.status === 402) throw new Error("Leaked-password protection requires Supabase Pro or above (HTTP 402). Upgrade the project's organization plan before retrying.");
   if (!result.ok) throw new Error(`Could not update Auth settings (HTTP ${result.status}).`);
-  console.log("Resend SMTP configured and Track callbacks appended. Verify real confirmation and reset emails before release.");
+  if (securityOnly) {
+    const verification = await fetchImpl(endpoint, { headers, signal: AbortSignal.timeout(20000) });
+    if (!verification.ok) throw new Error(`Could not verify Auth settings (HTTP ${verification.status}).`);
+    if ((await verification.json()).password_hibp_enabled !== true) throw new Error("Leaked-password protection is not enabled after the update. Check the project's plan and Auth settings.");
+    log("Leaked-password protection enabled and verified.");
+  } else {
+    log("Resend SMTP configured and Track callbacks appended. Verify real confirmation and reset emails before release.");
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().catch(error => { console.error(error.message); process.exitCode = 1; });
+  configureAuth().catch(error => { console.error(error.message); process.exitCode = 1; });
 }

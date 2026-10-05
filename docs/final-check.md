@@ -1,11 +1,85 @@
 # Final review — October 5, 2026
 
+## Current follow-up against `d30de03`
+
+Reviewed all session changes against the current HEAD, `d30de03`: 34 changed
+tracked files and six relevant new files, including the architecture refactors,
+dependency patches, Auth configuration script and their tests. The index remains
+unchanged. Unrelated mascot images and prompts were preserved and excluded.
+
+| Changed subsystem | Coverage |
+| --- | --- |
+| Catalog (6 files) | Draft owner, food/meal forms, delete actions, persistence provider and owner tests; validation, current readiness, duplicate exclusion, failure isolation, completion delivery and durable retirement |
+| Onboarding (3 files) | Flow, route focus integration and tests; inactive/reentrant actions, abandoned writes, restart, retry and late navigation |
+| Profile (7 files) | Media owner, photo/identity/gallery callers, TodayNutrition and unit/browser regressions; shared busy/readiness, attempt feedback, source cleanup and replacement ownership |
+| Daily and Exercise (10 files) | Canonical FoodDay/Workout interfaces, activity/widgets/macros, Exercise summary and fixtures/tests; all former interpreter consumers migrated to persisted sessions |
+| Dependency fixes (7 files) | Package/lockfile, patch applicator, both patches, patch README and actual-dependency tests; clean installation, pinned versions, query API compatibility and cache restrictions |
+| Auth configuration (3 files) | Configuration script/tests and setup guide; preview versus apply, project-key rejection, credential redaction, narrow PATCH and verified read-back |
+| Documentation (4 files) | Domain glossary, module ownership, this review and security remediation; current behavior and historical verification counts distinguished |
+
+No additional actionable code defects or proven dead code were found. No source
+repair or removal was warranted; this follow-up updates the review record.
+
+The repository security pass inspected account entry/callback/recovery routes,
+client configuration, native encrypted and browser session storage, account-owned
+providers, guest import, synchronization and remote row validation, both SQL
+migrations and their RLS/grants/RPC authorization, product/barcode inputs, local
+photo paths and browser file handling, command arguments, CI, static deployment
+and environment configuration. Authorization belongs to the database owner
+policies and RPC's `auth.uid()` check, rather than client route visibility or
+user-editable metadata.
+
+A redacted privileged-credential pattern scan covered 367 maintained text files
+and found no candidates. Ignored Auth credentials remain outside Git with mode
+0600. A scan of 112 web/native export files found one raw Android bytecode match;
+Hermes decoding confirmed it was Supabase's standalone `sb_secret_` format-check
+constant followed by unrelated string-pool bytes, not a credential. No locally
+configured private credential was present in that bundle.
+
+### Remaining findings
+
+1. **High — upstream dependencies:** A fresh audit still reports 19 high findings
+   propagated from `braces@3.0.3` and `node-forge@1.4.0`. Current npm registry
+   versions and the [braces](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) and
+   [node-forge](https://github.com/advisories/GHSA-86w9-cpqp-85rv) advisories still
+   provide no patched releases. These affect Expo/Metro and certificate tooling;
+   no deployed application exploit was established. Install compatible upstream
+   fixes when published; forced SDK downgrades are not a remediation.
+2. **Auth configuration — leaked-password protection:** A read-only
+   `configure-auth.mjs --security-only` request confirmed the shared project's
+   setting remains false. The earlier apply attempt returned HTTP 402, and
+   [Supabase documents](https://supabase.com/docs/guides/auth/password-security)
+   that protection requires Pro or above. After a plan upgrade, rerun the narrow
+   apply command and verify its read-back. This review changed no remote settings
+   or billing.
+
+### Final verification and limits
+
+- Clean `npm ci` succeeded and reapplied both dependency patches.
+- TypeScript, including an additional unused-local/parameter check, passed.
+- All **739 unit and script tests** passed after the clean installation.
+- All **159 browser tests** passed; one optional visual export case was skipped.
+- Expo Doctor passed **21/21** checks; fresh web, iOS and Android exports succeeded
+  with dotenv disabled and synthetic public fixture settings.
+- Tracked, staged and all six relevant untracked text whitespace checks passed.
+- `npm audit` exits nonzero for the 19 high findings listed above.
+
+Browser verification covers responsive and accessible real screens with synthetic
+account transports. Native exports verify bundling, not installed-device behavior.
+Live database RLS/SQL mutation tests, production email delivery, installed-device
+session storage and native email links were not rerun. SQL migrations were
+reviewed locally; the existing live verification remains recorded below and in
+[Supabase setup](supabase-setup.md). Marketing/design artifacts received only the
+credential-pattern scan, and the sibling KineVault studio was not audited.
+
+## Earlier review against `15af756`
+
 Compared the complete Track working tree with `15af756` (before shared accounts),
 including relevant untracked sources. The Git index was left unchanged. Unrelated
 mascot images and prompt files were preserved and excluded from feature review.
 The sibling KineVault studio was not audited.
 
-## Coverage
+### Coverage
 
 | Area | Reviewed |
 | --- | --- |
@@ -24,7 +98,7 @@ A local signature-pattern scan covered 361 maintained text files without exposin
 matching values and found no credential candidates. Ignored local environments
 were not included in that source scan.
 
-## Changes from this review
+### Changes from this review
 
 - CI now provides synthetic public Supabase settings. A clean export with dotenv
   disabled and absent settings reproduced the login test failure; a fresh export
@@ -45,7 +119,10 @@ were not included in that source scan.
   printed on failure.
 - Ignored Supabase CLI `.temp` metadata. No maintained feature code was deleted.
 
-## Remaining security findings
+### Remaining security findings
+
+The follow-up [security remediation](security-remediation.md) records changes made
+after this review. The findings and counts below describe the original audit.
 
 1. **High dependency advisories:** Installed `braces` 3.0.3 and `node-forge` 1.4.0
    remain affected. The current advisories and npm registry list no fixed releases.
@@ -83,7 +160,7 @@ from three direct advisory records with downstream dependency propagation. These
 are not 22 separate demonstrated application exploits. The HTTP-cache behavior
 above is additional to the final scanner result.
 
-## Final checks and limits
+### Final checks and limits
 
 - TypeScript and all **705 unit tests** passed.
 - Both auth configuration script tests passed.

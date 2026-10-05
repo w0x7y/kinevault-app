@@ -64,6 +64,8 @@ export function createOnboardingFlow(
   const editing = initial.kind === "complete";
   let returnToReview = false;
   let acting = false;
+  let active = false;
+  let generation = 0;
   const listeners = new Set<() => void>();
   let snapshot: Snapshot = present({
     answers: { ...initial.answers },
@@ -100,27 +102,33 @@ export function createOnboardingFlow(
     snapshot = present({ ...snapshot, ...patch });
     for (const listener of listeners) listener();
   }
-  async function persist(document: ProfileDocument) {
+  function current(ticket: number) {
+    return active && generation === ticket;
+  }
+  async function persist(document: ProfileDocument, ticket: number) {
+    if (!current(ticket)) return false;
     publish({ saving: true, error: null });
+    if (!current(ticket)) return false;
     try {
-      if (await effects.save(document)) return true;
+      if (await effects.save(document)) return current(ticket);
     } catch {
       // The same retry behavior applies to thrown errors and rejected writes.
     }
-    publish({ error: "Couldn't save your answers. Try again." });
+    if (current(ticket))
+      publish({ error: "Couldn't save your answers. Try again." });
     return false;
   }
-  async function goTo(next: Step, reviewEdit = false) {
+  async function goTo(next: Step, ticket: number, reviewEdit = false) {
+    if (!current(ticket)) return;
     if (
       !editing &&
-      !(await persist({
-        version: 1,
-        kind: "draft",
-        step: next,
-        answers: snapshot.answers,
-      }))
+      !(await persist(
+        { version: 1, kind: "draft", step: next, answers: snapshot.answers },
+        ticket,
+      ))
     )
       return;
+    if (!current(ticket)) return;
     const direction =
       steps.indexOf(next) >= steps.indexOf(snapshot.step) ? 1 : -1;
     returnToReview = reviewEdit;
@@ -136,14 +144,24 @@ export function createOnboardingFlow(
     publish({ errors });
     return Object.keys(errors).length > 0;
   }
-  async function complete(answers: Answers) {
-    if (await persist({ version: 1, kind: "complete", answers })) {
+  async function complete(answers: Answers, ticket: number) {
+    if (await persist({ version: 1, kind: "complete", answers }, ticket)) {
       publish({ answers });
-      effects.exit(editing ? "settings" : "today");
+      if (current(ticket)) effects.exit(editing ? "settings" : "today");
     }
   }
 
   return {
+    start() {
+      if (active) return;
+      active = true;
+      generation += 1;
+      publish({ saving: acting, error: null });
+    },
+    stop() {
+      active = false;
+      generation += 1;
+    },
     getSnapshot: () => snapshot,
     subscribe(listener: () => void) {
       listeners.add(listener);
@@ -152,52 +170,52 @@ export function createOnboardingFlow(
       };
     },
     update(change: AnswerChange) {
-      if (!acting)
+      if (active && !acting)
         publish({
           answers: changeAnswers(snapshot.answers, change),
           errors: {},
         });
     },
     async act(action: Action) {
-      if (acting) return;
+      if (!active || acting) return;
       acting = true;
+      const ticket = generation;
       try {
         switch (action.kind) {
           case "cancel":
-            if (editing) effects.exit("settings");
+            if (editing && current(ticket)) effects.exit("settings");
             return;
           case "edit":
-            if (snapshot.step === "review") await goTo(action.step, true);
+            if (snapshot.step === "review") await goTo(action.step, ticket, true);
             return;
           case "skip":
             if (!snapshot.showSkip || relevantErrors("skip")) return;
-            await complete({
-              ...emptyAnswers,
-              age: snapshot.answers.age,
-              estimateEnabled: false,
-            });
+            await complete(
+              { ...emptyAnswers, age: snapshot.answers.age, estimateEnabled: false },
+              ticket,
+            );
             return;
           case "next": {
             if (relevantErrors("next")) return;
             if (snapshot.step === "review") {
-              await complete({
-                ...snapshot.answers,
-                name: snapshot.answers.name.trim(),
-              });
+              await complete(
+                { ...snapshot.answers, name: snapshot.answers.name.trim() },
+                ticket,
+              );
             } else {
               const next = returnToReview
                 ? "review"
                 : steps[steps.indexOf(snapshot.step) + 1];
-              if (next) await goTo(next);
+              if (next) await goTo(next, ticket);
             }
             return;
           }
           case "back": {
-            if (returnToReview) await goTo("review");
+            if (returnToReview) await goTo("review", ticket);
             else if (steps.indexOf(snapshot.step) > (editing ? 1 : 0)) {
               const previous = steps[steps.indexOf(snapshot.step) - 1];
-              if (previous) await goTo(previous);
-            } else if (editing) effects.exit("settings");
+              if (previous) await goTo(previous, ticket);
+            } else if (editing && current(ticket)) effects.exit("settings");
             return;
           }
           default: {
@@ -207,7 +225,7 @@ export function createOnboardingFlow(
         }
       } finally {
         acting = false;
-        if (snapshot.saving) publish({ saving: false });
+        if (active && snapshot.saving) publish({ saving: false });
       }
     },
   };

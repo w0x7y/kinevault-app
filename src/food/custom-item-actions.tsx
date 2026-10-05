@@ -27,8 +27,7 @@ export function CustomItemActions({ item, disabled, onEdit, onDeleted }: {
     pending.current = true;
     setFailed(false);
     try {
-      const removed = await custom.remove(item.customId);
-      if (removed) drafts.retireDeletedItem(item);
+      const removed = await drafts.removeSaved(item, custom);
       if (!mounted.current) return;
       if (removed) onDeleted();
       else setFailed(true);

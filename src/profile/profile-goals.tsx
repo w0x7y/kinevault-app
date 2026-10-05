@@ -74,7 +74,6 @@ export function TodayNutrition({
     food.state.kind === "ready"
       ? summarizeDay({
           foods: food.state.document.days[today] ?? [],
-          workout: null,
         }).calories
       : null;
   const target =
