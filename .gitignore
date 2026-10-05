@@ -49,3 +49,6 @@ dist-native/
 
 # Local visual verification artifacts
 .impeccable/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
