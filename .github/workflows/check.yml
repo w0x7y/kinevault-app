@@ -28,6 +28,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Verify onboarding in the browser
         run: |
+          trap 'test_status=$?; if [ "$test_status" -ne 0 ]; then cat /tmp/kinevault-expo.log; fi; exit "$test_status"' EXIT
           npm run web -- --port 8081 > /tmp/kinevault-expo.log 2>&1 &
           for attempt in $(seq 1 60); do
             if curl --fail --silent http://localhost:8081 > /dev/null; then
