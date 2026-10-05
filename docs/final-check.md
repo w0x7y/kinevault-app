@@ -33,6 +33,12 @@ were not included in that source scan.
 - Updated transitive `http-cache-semantics` from 4.2.0 to 4.3.0 through npm and
   regenerated the lockfile. This removes its reported affected-version audit
   entry, but does not establish that all unsafe cache behavior is fixed; see below.
+- Integration CI exposed a development-preview server shutdown after 51 passing
+  tests. Server logs confirmed JavaScript heap exhaustion; a local run with a
+  1.5 GB heap reproduced it.
+  Browser CI now serves the built web export and uses Metro only for the isolated
+  widget fixture, retaining the complete suite. All 158 browser tests passed with
+  this arrangement and the smaller Metro heap. Server logs are printed on failure.
 - Ignored Supabase CLI `.temp` metadata. No maintained feature code was deleted.
 
 ## Remaining security findings
