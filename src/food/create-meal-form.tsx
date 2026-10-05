@@ -1,11 +1,11 @@
 import { DeleteButton } from "../components/delete-button";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { View } from "react-native";
 import { AppText } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import type { CatalogFood, Nutrition } from "./catalog.ts";
-import { mealFromDraft, previewMeal, type CustomMeal, type MealDraft, type MealErrors } from "./meal-model.ts";
+import { previewMeal, type CustomMeal, type MealDraft } from "./meal-model.ts";
 import { nutritionAmountText } from "./number-input.ts";
 import { useCustomFoods } from "./custom-provider";
 import { FoodField, NutritionFields } from "./form-fields";
@@ -25,12 +25,9 @@ export function CreateMealForm({ onCancel, onSaved, session }: {
   const foods = useCustomFoods();
   const { colors } = useTheme();
   const drafts = useFoodDrafts();
-  const { draft, existing, handle } = session;
-  const [errors, setErrors] = useState<MealErrors>({});
-  const [attempted, setAttempted] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const { draft, existing, handle, errors, error } = session;
   const sequence = useRef(0);
-  const pending = useRef(false);
+  const busy = foods.saving || session.saving;
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const calculated = previewMeal(draft.ingredients);
@@ -39,10 +36,6 @@ export function CreateMealForm({ onCancel, onSaved, session }: {
     values[key] = draft.overrides[key] ?? numberText(calculated?.nutrition[key] ?? 0);
   function change(next: MealDraft) {
     drafts.changeMeal(handle, next);
-    if (attempted) {
-      const result = mealFromDraft(next, "validation");
-      setErrors(result.ok ? {} : result.errors);
-    }
   }
   function add(food: CatalogFood) {
     let id: string;
@@ -52,57 +45,46 @@ export function CreateMealForm({ onCancel, onSaved, session }: {
     }] });
   }
   async function save() {
-    if (pending.current || foods.saving || foods.state.kind !== "ready") return;
-    setAttempted(true);
-    setFailed(false);
-    const result = mealFromDraft(draft, "validation");
-    setErrors(result.ok ? {} : result.errors);
-    if (!result.ok) return;
-    pending.current = true;
-    try {
-      const meal = await (existing ? foods.updateMeal(existing.customId, draft) : foods.addMeal(draft));
-      if (meal) drafts.retire(handle);
-      if (!mounted.current) return;
-      if (meal) onSaved(meal);
-      else setFailed(true);
-    } finally { pending.current = false; }
+    await drafts.save(handle, foods, item => {
+      if (mounted.current && "ingredients" in item) onSaved(item);
+    });
   }
   return <View testID="create-meal-form" style={{ gap: spacing.layout }}>
     <AppText variant="heading" accessibilityRole="header">{existing ? "Edit custom meal" : "Create meal"}</AppText>
     <AppText muted>Combine foods into a meal you can log again. The ingredient amounts make one complete meal.</AppText>
-    <FoodField label="Meal name" value={draft.name} error={errors.name} disabled={foods.saving}
+    <FoodField label="Meal name" value={draft.name} error={errors.name} disabled={busy}
       onChange={name => change({ ...draft, name })} />
     <AppText variant="label" accessibilityRole="header">Ingredients</AppText>
     {draft.ingredients.length === 0 && <AppText muted>No foods added yet. Search below to add your first ingredient.</AppText>}
     {draft.ingredients.map(ingredient => <View key={ingredient.id} style={{ gap: spacing.sm }}>
       <FoodField label={`Amount for ${ingredient.food.name} (g)`} value={ingredient.amount}
-        error={errors.amounts?.[ingredient.id]} numeric disabled={foods.saving}
+        error={errors.amounts?.[ingredient.id]} numeric disabled={busy}
         onChange={amount => change({ ...draft, ingredients: draft.ingredients.map(item => item.id === ingredient.id ? { ...item, amount } : item) })} />
-      <DeleteButton label="Remove ingredient" accessibilityLabel={`Remove ${ingredient.food.name} from meal`} disabled={foods.saving}
+      <DeleteButton label="Remove ingredient" accessibilityLabel={`Remove ${ingredient.food.name} from meal`} disabled={busy}
         confirmAccessibilityLabel={`Confirm remove ${ingredient.food.name} from meal`}
         onDelete={() => change({ ...draft, ingredients: draft.ingredients.filter(item => item.id !== ingredient.id) })} />
     </View>)}
     {errors.ingredients && <AppText variant="caption" accessibilityRole="alert" style={{ color: colors.error }}>{errors.ingredients}</AppText>}
-    <IngredientSearch onAdd={add} disabled={foods.saving} />
+    <IngredientSearch onAdd={add} disabled={busy} />
     <AppText variant="label" accessibilityRole="header">Nutrition for the whole meal</AppText>
     <AppText variant="caption" muted>
       {calculated ? `${numberText(calculated.grams)} g in total. ` : ""}Calculated from ingredients. Edit any value to override it.
     </AppText>
-    <NutritionFields values={values} errors={errors} disabled={foods.saving || draft.ingredients.length === 0}
+    <NutritionFields values={values} errors={errors} disabled={busy || draft.ingredients.length === 0}
       onChange={(key, value) => change({ ...draft, overrides: { ...draft.overrides, [key]: value } })} />
-    {Object.keys(draft.overrides).length > 0 && <FoodButton label="Use calculated nutrition" disabled={foods.saving}
+    {Object.keys(draft.overrides).length > 0 && <FoodButton label="Use calculated nutrition" disabled={busy}
       onPress={() => change({ ...draft, overrides: {} })} />}
     <DetailedNutrientFields values={draft.detailOverrides} errors={errors.detailOverrides}
-      disabled={foods.saving || draft.ingredients.length === 0} calculated={calculated?.nutrition.details ?? unknownNutrients}
+      disabled={busy || draft.ingredients.length === 0} calculated={calculated?.nutrition.details ?? unknownNutrients}
       onChange={(key, value) => change({ ...draft, detailOverrides: { ...draft.detailOverrides, [key]: value } })}
       onReset={() => change({ ...draft, detailOverrides: {} })} />
     <AppText variant="caption" muted>{existing ? "Changes apply to future logging. Existing log entries keep their original nutrition." :
       "Saved on this device and available in meal search. Saving won't add it to your daily log."}</AppText>
-    {failed && <AppText accessibilityRole="alert" style={{ color: colors.error }}>
-      {foods.error ?? "Couldn't save your meal. Your ingredients and values are still here. Try again."}
+    {error && <AppText accessibilityRole="alert" style={{ color: colors.error }}>
+      {error}
     </AppText>}
-    <FoodButton primary label={foods.saving ? "Saving meal..." : existing ? "Save meal changes" : "Save meal"}
-      disabled={foods.saving || foods.state.kind !== "ready"} onPress={() => { void save(); }} />
-    <FoodButton label="Cancel" disabled={foods.saving} onPress={() => { drafts.discard(handle); onCancel(); }} />
+    <FoodButton primary label={busy ? "Saving meal..." : existing ? "Save meal changes" : "Save meal"}
+      disabled={busy || foods.state.kind !== "ready"} onPress={() => { void save(); }} />
+    <FoodButton label="Cancel" disabled={busy} onPress={() => { drafts.discard(handle); onCancel(); }} />
   </View>;
 }

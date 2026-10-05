@@ -1,4 +1,3 @@
-import { interpretWorkout } from "./workout.ts";
 import type { DetailedNutrients } from "../food/nutrients.ts";
 import type { FoodIdentity } from "../food/catalog.ts";
 
@@ -23,27 +22,9 @@ export type FoodEntry = FoodIdentity & {
   | { measurement?: "grams"; grams: number; drinkMl?: number }
   | { measurement: "volume"; drinkMl: number; meal: "drinks"; grams?: never }
 );
-type WorkoutSet = { weightKg: number; reps: number; completed: boolean };
-type WorkoutExercise = { id: string; name: string; sets: WorkoutSet[] };
-export type Workout = {
-  name: string;
-  durationSeconds: number;
-  exercises: WorkoutExercise[];
-};
-export type DailyActivity = {
-  date: string;
-  foods: FoodEntry[];
-  workout: Workout | null;
-  steps: number;
-  waterMl: number;
-};
+export type FoodDay = { date: string; foods: FoodEntry[] };
 
-// Workouts and steps have no logging source yet. Food and water logs fill their daily values.
-export function emptyDay(date: string): DailyActivity {
-  return { date, foods: [], workout: null, steps: 0, waterMl: 0 };
-}
-
-export function summarizeDay(day: Pick<DailyActivity, "foods" | "workout">) {
+export function summarizeDay(day: Pick<FoodDay, "foods">) {
   const nutrition = day.foods.reduce(
     (sum, food) => ({
       calories: sum.calories + food.calories,
@@ -53,7 +34,7 @@ export function summarizeDay(day: Pick<DailyActivity, "foods" | "workout">) {
     }),
     { calories: 0, carbs: 0, protein: 0, fat: 0 },
   );
-  return { ...nutrition, workout: interpretWorkout(day.workout) };
+  return nutrition;
 }
 
 export function progressFraction(value: number, target: number | null) {

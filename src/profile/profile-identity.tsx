@@ -75,7 +75,7 @@ export function ProfileIdentity() {
   const profile = useProfile(),
     media = useProfileMedia();
   const { colors } = useTheme();
-  const { editing, attempt, phase, error } = useMediaEditing("avatar");
+  const { editing, attempt, phase, error, busy } = useMediaEditing("avatar");
   const open = attempt.kind === "avatar";
   const draft = attempt.kind === "avatar" ? attempt.source : undefined;
   const picking = phase === "picking";
@@ -85,7 +85,6 @@ export function ProfileIdentity() {
   const answers = profile.state.document.answers;
   const hasAvatar =
     media.state.kind === "ready" && media.state.document.avatar !== null;
-  const busy = phase !== "idle" || media.saving;
   return (
     <View style={{ alignItems: "center", paddingTop: 12, paddingBottom: 4 }}>
       <Pressable
@@ -179,7 +178,7 @@ export function ProfileIdentity() {
                 <FoodButton
                   primary
                   label={
-                    media.saving
+                    busy && !picking
                       ? "Saving profile photo…"
                       : "Save profile photo"
                   }
@@ -200,9 +199,7 @@ export function ProfileIdentity() {
                   {picking ? "Opening photo picker…" : "Saving photo changes…"}
                 </AppText>
               )}
-              {(error || media.error) && (
-                <ErrorText message={error || media.error || ""} />
-              )}
+              {error && <ErrorText message={error} />}
             </>
           )}
           <FoodButton label="Cancel" disabled={busy} onPress={close} />

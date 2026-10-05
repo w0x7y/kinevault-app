@@ -2,7 +2,7 @@ import { View, type ViewProps } from "react-native";
 import { parseDay } from "../calendar/dates.ts";
 import { AppText, Panel } from "../components/ui";
 import { CalorieWidget } from "../daily/calorie-widget";
-import { summarizeDay, type DailyActivity } from "../daily/model.ts";
+import { summarizeDay, type FoodDay } from "../daily/model.ts";
 import { sumDetailedNutrients } from "../daily/detailed-nutrition.ts";
 import { calorieState } from "../profile/calories.ts";
 import { useProfile } from "../profile/provider";
@@ -26,7 +26,7 @@ function formatNutrient(value: number | null): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-export function DailyMacros({ day, onBack, onLayout }: { day: Pick<DailyActivity, "date" | "foods" | "workout">; onBack: () => void; onLayout: ViewProps["onLayout"] }) {
+export function DailyMacros({ day, onBack, onLayout }: { day: FoodDay; onBack: () => void; onLayout: ViewProps["onLayout"] }) {
   const { state } = useProfile();
   const { colors } = useTheme();
   if (state.kind !== "ready") return null;

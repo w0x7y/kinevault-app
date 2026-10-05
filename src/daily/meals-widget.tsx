@@ -4,11 +4,11 @@ import { AppText, Panel } from "../components/ui";
 import { Icon } from "../components/icon";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
-import { meals, type DailyActivity, type FoodEntry } from "./model";
+import { meals, type FoodDay, type FoodEntry } from "./model";
 import { FoodButton } from "../food/food-button";
 
 export function MealsWidget({ day, query, onRemove, onEdit, onLayout, saving, error }: {
-  day: Pick<DailyActivity, "foods">;
+  day: Pick<FoodDay, "foods">;
   query: string;
   onRemove: (id: string) => Promise<boolean>;
   onEdit: (entry: FoodEntry) => void;

@@ -1,31 +1,24 @@
-// Isolated Metro test entry. It supplies data directly to the real widget;
-// the app's selected days intentionally remain empty until logging exists.
+// Isolated Metro test entry using the same persisted-session interpretation as the app.
 import { registerRootComponent } from "expo";
 import { useState } from "react";
 import { ScrollView, TextInput } from "react-native";
 import { ThemeProvider } from "../src/theme/provider";
 import { WorkoutWidget } from "../src/daily/workout-widget";
-import { interpretWorkout } from "../src/daily/workout";
+import { parseWorkoutSession, type SessionExercise } from "../src/exercise/model";
+import { summarizeSessions } from "../src/exercise/summary";
 
-const workout = interpretWorkout({
+function row(id: string, name: string, values: [number, number][]): SessionExercise {
+  return { id, exercise: { id, name, muscleGroup: "", equipment: "", notes: "", tracking: "single" },
+    sets: values.map(([weightKg, reps], index) => ({ id: `set-${index}`, kind: "single", weightKg: String(weightKg), reps: String(reps) })) };
+}
+const completed = parseWorkoutSession({ id: "completed", date: "2026-10-02", status: "completed", startedAt: null,
   name: "Strength fixture", durationSeconds: 1800, exercises: [
-    { id: "squat", name: "Squat", sets: [
-      { weightKg: 40, reps: 10, completed: true },
-      { weightKg: 60, reps: 8, completed: true },
-      { weightKg: 100, reps: 5, completed: false },
-    ] },
-    { id: "press", name: "Press", sets: [{ weightKg: 30, reps: 12, completed: true }] },
-    { id: "pushup", name: "Push-up", sets: [
-      { weightKg: 0, reps: 15, completed: true },
-      { weightKg: 0, reps: 10, completed: true },
-    ] },
-    { id: "pullup", name: "Pull-up", sets: [
-      { weightKg: 0, reps: 8, completed: true },
-      { weightKg: 10, reps: 6, completed: true },
-    ] },
-    { id: "planned", name: "Planned row", sets: [{ weightKg: 40, reps: 12, completed: false }] },
+    row("squat", "Squat", [[40, 10], [60, 8]]), row("press", "Press", [[30, 12]]),
+    row("pushup", "Push-up", [[0, 15], [0, 10]]), row("pullup", "Pull-up", [[0, 8], [10, 6]]),
   ],
 });
+const planned = parseWorkoutSession({ ...completed, id: "planned", status: "planned", exercises: [row("planned", "Planned row", [[100, 5]])] });
+const workout = summarizeSessions([completed, planned]);
 
 function WorkoutFixture() {
   const [query, setQuery] = useState("");

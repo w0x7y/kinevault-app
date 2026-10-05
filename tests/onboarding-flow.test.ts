@@ -24,8 +24,88 @@ function setup(
     save,
     exit: (destination) => destinations.push(destination),
   });
+  flow.start();
   return { flow, destinations };
 }
+
+test("an inactive onboarding flow cannot change answers or start a save", async () => {
+  let saves = 0;
+  const flow = createOnboardingFlow({ version: 1, kind: "draft", step: "review", answers: adult }, {
+    save: async () => { saves++; return true; },
+    exit: () => assert.fail("inactive flow navigated"),
+  });
+  const initial = flow.getSnapshot();
+  flow.update({ kind: "fields", patch: { name: "Other" } });
+  await flow.act({ kind: "next" });
+  assert.equal(flow.getSnapshot(), initial);
+  assert.equal(saves, 0);
+});
+
+test("leaving during a draft save preserves the visible step without late feedback", async () => {
+  let finish!: (saved: boolean) => void;
+  const { flow, destinations } = setup(
+    { version: 1, kind: "draft", step: "goal", answers: adult },
+    () => new Promise<boolean>(resolve => { finish = resolve; }),
+  );
+  const pending = flow.act({ kind: "next" });
+  flow.stop();
+  const stopped = flow.getSnapshot();
+  finish(true);
+  await pending;
+  assert.equal(flow.getSnapshot(), stopped);
+  assert.equal(flow.getSnapshot().step, "goal");
+  assert.deepEqual(destinations, []);
+  flow.start();
+  assert.equal(flow.getSnapshot().saving, false);
+});
+
+test("leaving onboarding during a final save prevents late navigation and feedback", async () => {
+  let finish: (saved: boolean) => void = () => assert.fail("Save did not begin");
+  const { flow, destinations } = setup(
+    { version: 1, kind: "draft", step: "review", answers: adult },
+    () => new Promise(resolve => { finish = resolve; }),
+  );
+  const pending = flow.act({ kind: "next" });
+  flow.stop();
+  const stopped = flow.getSnapshot();
+  finish(true);
+  await pending;
+  assert.deepEqual(destinations, []);
+  assert.equal(flow.getSnapshot(), stopped);
+});
+
+test("a reentrant stop during saving feedback prevents adapter work", async () => {
+  const saved: ProfileDocument[] = [];
+  const { flow, destinations } = setup(
+    { version: 1, kind: "draft", step: "review", answers: adult },
+    async document => { saved.push(document); return true; },
+  );
+  flow.subscribe(() => { if (flow.getSnapshot().saving) flow.stop(); });
+  await flow.act({ kind: "next" });
+  assert.deepEqual(saved, []);
+  assert.deepEqual(destinations, []);
+});
+
+test("restarting onboarding excludes its old pending save and ignores its failure", async () => {
+  let finish: (saved: boolean) => void = () => assert.fail("Save did not begin");
+  let calls = 0;
+  const { flow, destinations } = setup(
+    { version: 1, kind: "draft", step: "review", answers: adult },
+    () => ++calls === 1 ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(true),
+  );
+  const pending = flow.act({ kind: "next" });
+  flow.stop();
+  flow.start();
+  await flow.act({ kind: "next" });
+  assert.equal(calls, 1);
+  finish(false);
+  await pending;
+  assert.equal(flow.getSnapshot().error, null);
+  assert.equal(flow.getSnapshot().saving, false);
+  assert.deepEqual(destinations, []);
+  await flow.act({ kind: "next" });
+  assert.deepEqual(destinations, ["today"]);
+});
 
 test("a failed draft save preserves review editing and supports retry", async () => {
   let fail = false;

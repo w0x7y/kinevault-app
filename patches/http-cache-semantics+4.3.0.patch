@@ -1,0 +1,29 @@
+diff --git a/node_modules/http-cache-semantics/index.js b/node_modules/http-cache-semantics/index.js
+--- a/node_modules/http-cache-semantics/index.js
++++ b/node_modules/http-cache-semantics/index.js
+@@ -395,6 +395,14 @@
+     evaluateRequest(req) {
+         this._assertRequestHasHeaders(req);
+ 
++        // max-stale must never override storage restrictions or required validation.
++        // Keep the shared-cookie restriction consistent with maxAge().
++        if (!this.storable() || this._rescc['no-cache'] ||
++            (this._isShared && this._resHeaders['set-cookie'] &&
++                !this._rescc.public && !this._rescc.immutable)) {
++            return this._evaluateRequestMissResult(req);
++        }
++
+         // In all circumstances, a cache MUST NOT ignore the must-revalidate directive
+         if (this._rescc['must-revalidate']) {
+             return this._evaluateRequestMissResult(req);
+@@ -424,6 +432,10 @@
+         // the stored response is either:
+         // fresh, or allowed to be served stale
+         if (this.stale()) {
++            if (this._isShared && (this._rescc['proxy-revalidate'] ||
++                's-maxage' in this._rescc)) {
++                return this._evaluateRequestMissResult(req);
++            }
+             // If a value is present, then the client is willing to accept a response that has
+             // exceeded its freshness lifetime by no more than the specified number of seconds
+             const allowsStaleWithoutRevalidation = 'max-stale' in requestCC &&

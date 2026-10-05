@@ -5,7 +5,7 @@ import { createFoodSelection } from "./catalog-selection.ts";
 import { createCustomFoodPersistence, type CustomFoodSnapshot } from "./custom-persistence.ts";
 
 type Store = ReturnType<typeof createCustomFoodPersistence>;
-type Value = CustomFoodSnapshot & Pick<Store, "add" | "addMeal" | "updateFood" | "updateMeal" | "remove" | "retryLoad"> & {
+type Value = CustomFoodSnapshot & Pick<Store, "add" | "addMeal" | "updateFood" | "updateMeal" | "remove" | "retryLoad" | "getSnapshot"> & {
   selection: ReturnType<typeof createFoodSelection>;
 };
 const CustomFoodContext = createContext<Value | null>(null);
@@ -25,7 +25,7 @@ export function CustomFoodProvider({ children }: PropsWithChildren) {
   }), [snapshot.state]);
   useEffect(() => { store.start(); return store.stop; }, [store]);
   return <CustomFoodContext.Provider value={{ ...snapshot, selection, add: store.add, addMeal: store.addMeal,
-    updateFood: store.updateFood, updateMeal: store.updateMeal, remove: store.remove, retryLoad: store.retryLoad }}>{children}</CustomFoodContext.Provider>;
+    updateFood: store.updateFood, updateMeal: store.updateMeal, remove: store.remove, retryLoad: store.retryLoad, getSnapshot: store.getSnapshot }}>{children}</CustomFoodContext.Provider>;
 }
 export function useCustomFoods() {
   const value = useContext(CustomFoodContext);

@@ -9,25 +9,36 @@ export type MediaEditAttempt =
 export type MediaEditSnapshot = Readonly<{
   attempt: MediaEditAttempt;
   phase: "idle" | "picking" | "saving";
+  busy: boolean;
+  ready: boolean;
   error: string | null;
 }>;
 type Ticket = { lifecycle: number; attempt: MediaEditAttempt; source?: PhotoSource };
 
 export function createMediaEditing({ mode, media, files, pick, today }: {
   mode: "avatar" | "photos";
-  media: Pick<MediaStore, "getSnapshot" | "saveAvatar" | "addPhoto" | "updatePhoto" | "removePhoto">;
+  media: Pick<MediaStore, "getSnapshot" | "subscribe" | "saveAvatar" | "addPhoto" | "updatePhoto" | "removePhoto">;
   files: Pick<MediaFiles, "releaseUri">;
   pick: (origin: "library" | "camera", avatar: boolean) => Promise<PhotoSource | null>;
   today: () => string;
 }) {
-  let snapshot: MediaEditSnapshot = { attempt: { kind: "closed" }, phase: "idle", error: null };
+  let snapshot: MediaEditSnapshot = { attempt: { kind: "closed" }, phase: "idle", error: null,
+    busy: media.getSnapshot().saving, ready: media.getSnapshot().state.kind === "ready" };
   const listeners = new Set<() => void>();
   const released = new WeakSet<PhotoSource>();
   let active = false, lifecycle = 0, sequence = 0, notifying = false;
   let pending: Ticket | null = null;
+  let unsubscribe: (() => void) | null = null;
 
   function publish(patch: Partial<MediaEditSnapshot>) {
-    snapshot = Object.freeze({ ...snapshot, ...patch,
+    const durable = media.getSnapshot();
+    const next = { ...snapshot, ...patch,
+      busy: (patch.phase ?? snapshot.phase) !== "idle" || durable.saving,
+      ready: durable.state.kind === "ready",
+    };
+    if (next.attempt === snapshot.attempt && next.phase === snapshot.phase
+      && next.error === snapshot.error && next.busy === snapshot.busy && next.ready === snapshot.ready) return;
+    snapshot = Object.freeze({ ...next,
       attempt: patch.attempt ? Object.freeze(patch.attempt) : snapshot.attempt });
     const previous = notifying;
     notifying = true;
@@ -99,7 +110,10 @@ export function createMediaEditing({ mode, media, files, pick, today }: {
             : media.addPhoto({ source: attempt.source!, date: attempt.date, note: attempt.note });
       if (current(ticket)) publish({ phase: "saving", error: null });
       const saved = await writing;
-      if (saved && current(ticket)) close();
+      if (current(ticket)) {
+        if (saved) close();
+        else publish({ error: media.getSnapshot().error || "Couldn't save your photo changes. Try again." });
+      }
       return saved;
     } catch {
       if (current(ticket)) publish({ error: "Couldn't save your photo changes. Try again." });
@@ -110,11 +124,18 @@ export function createMediaEditing({ mode, media, files, pick, today }: {
   return {
     getSnapshot: () => snapshot,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
-    start() { if (!active) { active = true; ++lifecycle; } },
+    start() {
+      if (active) return;
+      active = true; ++lifecycle;
+      unsubscribe = media.subscribe(() => publish({}));
+      publish({});
+    },
     stop() {
       if (!active) return;
       active = false;
       const stopped = ++lifecycle;
+      unsubscribe?.();
+      unsubscribe = null;
       // React rehearses effect cleanup/setup synchronously in StrictMode. A real
       // detach retires after that rehearsal window, preserving the same draft.
       void Promise.resolve().then(() => {

@@ -58,10 +58,81 @@ test("first gallery pick remains the same editable attempt through failed save a
     assert.equal(failed.attempt.note, "Retain my edit");
   }
   assert.equal(f.document().photos.length, 1); assert.deepEqual(f.released, []);
+  assert.match(failed.error!, /Couldn't save your photo changes/);
   f.fail(false); assert.equal(await f.editing.save(), true);
   assert.equal(f.document().photos[1].note, "Retain my edit");
   assert.equal(f.editing.getSnapshot().attempt.kind, "closed");
   assert.deepEqual(f.released, ["draft"]);
+});
+
+test("media failure belongs to its attempt and does not follow a replacement editor", async () => {
+  const f = await fixture();
+  f.editing.open(saved.photos[0]);
+  f.editing.change({ note: "Failed draft" });
+  f.fail(true);
+  assert.equal(await f.editing.save(), false);
+  assert.match(f.editing.getSnapshot().error!, /Couldn't save your photo changes/);
+  f.editing.cancel();
+  f.editing.open(saved.photos[0]);
+  assert.equal(f.editing.getSnapshot().error, null);
+  // The durable failure is still available to its own callers, but this edit
+  // renders only its attempt's feedback.
+  assert.ok(f.media.getSnapshot().error);
+});
+
+test("editing snapshot follows shared media writes and reload readiness", async () => {
+  const f = await fixture();
+  f.editing.open(saved.photos[0]);
+  f.editing.change({ note: "Retained draft" });
+  const observed: { busy: boolean; ready: boolean }[] = [];
+  f.editing.subscribe(() => {
+    const { busy, ready } = f.editing.getSnapshot();
+    observed.push({ busy, ready });
+  });
+  f.delay();
+  const writing = f.media.saveAvatar(source("another editor"));
+  assert.equal(f.editing.getSnapshot().busy, true);
+  f.finish(); await writing;
+  assert.equal(f.editing.getSnapshot().busy, false);
+  f.media.retryLoad();
+  assert.equal(f.editing.getSnapshot().ready, false);
+  await flush();
+  assert.equal(f.editing.getSnapshot().ready, true);
+  assert.deepEqual(observed, [
+    { busy: true, ready: true }, { busy: false, ready: true },
+    { busy: false, ready: false }, { busy: false, ready: true },
+  ]);
+  const attempt = f.editing.getSnapshot().attempt;
+  assert.equal(attempt.kind, "photo");
+  if (attempt.kind === "photo") assert.equal(attempt.note, "Retained draft");
+});
+
+test("failure of an earlier media save cannot add feedback to its replacement edit", async () => {
+  const f = await fixture();
+  f.editing.open(saved.photos[0]);
+  f.editing.change({ note: "Old save" });
+  f.delay(); f.fail(true);
+  const saving = f.editing.save();
+  f.editing.open(saved.photos[0]);
+  f.finish(); assert.equal(await saving, false);
+  assert.equal(f.editing.getSnapshot().error, null);
+  const attempt = f.editing.getSnapshot().attempt;
+  assert.equal(attempt.kind, "photo");
+  if (attempt.kind === "photo") assert.equal(attempt.note, "Saved note");
+});
+
+test("detached media edit unsubscribes and reattachment reads current readiness", async () => {
+  const f = await fixture();
+  let updates = 0;
+  f.editing.subscribe(() => { updates++; });
+  f.editing.stop(); await flush();
+  const stoppedUpdates = updates;
+  f.media.retryLoad();
+  assert.equal(updates, stoppedUpdates);
+  f.editing.start();
+  assert.equal(f.editing.getSnapshot().ready, false);
+  await flush();
+  assert.equal(f.editing.getSnapshot().ready, true);
 });
 
 test("avatar selection uses cropping and replacement retires only replaced sources", async () => {

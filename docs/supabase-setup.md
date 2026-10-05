@@ -56,14 +56,30 @@ account isolation, anonymous denial, subscription/role write denial, signup defa
 revision conflicts and the account-switch guard. Live password login and document
 REST calls also passed, and temporary test users were removed. Database security
 checks found no RLS or privilege problems. Supabase Auth's optional leaked-password
-protection remains at its project default; review it in the Auth dashboard before
-public release. The latest [final review](final-check.md) confirms it is disabled
-and records the remaining dependency findings. Grants and RLS must be reviewed together, because
+protection was disabled during the original review. Use the security-only command
+below to enable and verify it before public release. The follow-up
+[security remediation](security-remediation.md) records dependency fixes and
+remaining findings. Grants and RLS must be reviewed together, because
 new public tables no longer receive consistent default API access. See
 [Supabase's Data API grant change](https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically)
 and [row-level security documentation](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
 ## Email delivery and redirects
+
+Leaked-password protection can be configured independently of email delivery.
+Put only `SUPABASE_ACCESS_TOKEN` in ignored `.env.auth.local`, then run:
+
+```bash
+node --env-file=.env.auth.local scripts/configure-auth.mjs --security-only
+node --env-file=.env.auth.local scripts/configure-auth.mjs --security-only --apply
+```
+
+The first command previews the change. The second enables protection and reads it
+back to verify. It changes only `password_hibp_enabled`, so shared website and SMTP
+settings are preserved. Supabase requires a Pro plan or above for this feature.
+The follow-up attempt was rejected with HTTP 402 because the current plan does
+not include it; a read-back confirmed protection is still disabled. The local
+Management API token is ready for a retry after upgrading the organization.
 
 Use Resend SMTP for account emails and Vercel for the exported Track web app.
 `vercel.json` defines the static build and clean routes. Create the Vercel project

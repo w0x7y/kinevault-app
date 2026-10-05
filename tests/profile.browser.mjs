@@ -660,6 +660,38 @@ test("each source recovers independently while usable sections remain available"
     if (section === "Goals") await button(page, "Edit water goal").waitFor();
   }
 });
+test("canceled photo failure does not appear on a newly opened media edit", async (t) => {
+  const page = await open(t);
+  await profile(page);
+  await button(page, "Change profile photo").click();
+  await button(page, "Choose profile photo from library").click();
+  await upload(page, "failed-avatar.png");
+  await page.evaluate((key) => {
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) {
+      if (k.endsWith(key)) {
+        Storage.prototype.setItem = set;
+        throw new Error("media failure");
+      }
+      return set.call(this, k, v);
+    };
+  }, mediaKey);
+  await button(page, "Save profile photo").click();
+  await page.getByRole("alert").filter({ hasText: "Couldn't save your photo changes" }).waitFor();
+  await button(page, "Cancel").click();
+  await button(page, "Change profile photo").click();
+  const avatar = page.getByRole("dialog", { name: "Profile photo", exact: true });
+  await avatar.waitFor();
+  assert.equal(await avatar.getByRole("alert").count(), 0);
+  await button(page, "Cancel").click();
+  await button(page, "Photos").click();
+  await button(page, "Add from library").click();
+  await upload(page, "new-progress-photo.png");
+  const photo = page.getByRole("dialog", { name: "Add progress photo", exact: true });
+  await photo.waitFor();
+  assert.equal(await photo.getByRole("alert").count(), 0);
+});
+
 test("avatar retains failed draft, prevents pending duplicate writes, replaces and removes with confirmation", async (t) => {
   const page = await open(t);
   await profile(page);

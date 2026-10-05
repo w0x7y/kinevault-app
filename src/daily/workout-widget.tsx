@@ -19,7 +19,7 @@ export function WorkoutWidget({ workout, detailed = false, query = "", sourceSta
   const { colors } = useTheme();
   const stats: { label: string; value: string; icon: IconName }[] = [
     { label: "Total lifted", value: `${workout.volume.toLocaleString()} kg`, icon: "weight-hanging" },
-    { label: workout.durationKnown === undefined ? "Duration" : "Recorded duration", value: activeWorkoutName && workout.name === null ? "In progress" : workout.durationKnown === false ? "Not recorded" : `${Math.floor(workout.durationSeconds / 60)} min`, icon: "stopwatch" },
+    { label: "Recorded duration", value: activeWorkoutName && workout.name === null ? "In progress" : workout.durationKnown === false ? "Not recorded" : `${Math.floor(workout.durationSeconds / 60)} min`, icon: "stopwatch" },
     { label: "Sets", value: String(workout.sets), icon: "layer-group" },
     { label: "Reps", value: String(workout.reps), icon: "repeat" },
     ...(detailed ? [

@@ -28,7 +28,8 @@ be applied without replacing one copy. The user chooses the device or cloud copy
 for the affected tracking category; both copies are retained until that choice.
 
 **Onboarding flow**: The setup journey through profile questions and review,
-including returning to an edited question and resuming unfinished setup.
+including returning to an edited question and resuming unfinished setup. Leaving
+the route during a save cannot trigger late navigation or feedback on return.
 
 **Profile**: The user's saved name, age, body details, activity, weight goal,
 and calorie and macro choices. A draft profile includes the last saved setup step.
@@ -64,6 +65,7 @@ or deletion publishes metadata before removing the old owned image files.
 **Profile media edit**: Unsaved avatar or Progress photo choices, including a
 chosen image and the photo's date and note. Failed saves retain these choices for
 retry, Cancel discards them, and an earlier operation cannot change a newer edit.
+Save feedback belongs to that edit; a new edit does not inherit an older failure.
 
 **Calorie mode**: Whether the profile uses the standard adult estimate or a
 manual target. Ages 16–17 always follow the teen manual path.
@@ -210,6 +212,8 @@ remain independent. Cancel discards that session; only confirmed saves retire it
 Session handles keep an older save from retiring a replacement draft. Successful
 catalog deletion retires only the affected item's editor. Day changes preserve
 these reusable drafts. Untouched editors are not offered as resumable drafts.
+The draft owner handles validation, save feedback and retirement together. Changes
+made during a pending save stay available even when the earlier version succeeds.
 
 **Custom meal**: A reusable collection of foods and their amounts. Its calories
 and macros begin as ingredient totals and can be overridden for the whole meal.

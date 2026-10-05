@@ -39,7 +39,7 @@ export function ProgressPhotos({
     if (Platform.OS === "web") void pick("library");
     else setSources(true);
   }
-  const unavailable = picking || media.saving || media.state.kind !== "ready";
+  const unavailable = edit.busy || !edit.ready;
   const dateLabel = (date: string) =>
     parseDay(date).toLocaleDateString("en-US", {
       month: "short",
@@ -175,8 +175,8 @@ export function ProgressPhotos({
                           <Pressable
                             accessibilityRole="button"
                             accessibilityLabel={`Edit photo ${index + 1} from ${photo.date}`}
-                            accessibilityState={{ disabled: media.saving }}
-                            disabled={media.saving}
+                            accessibilityState={{ disabled: edit.busy && !picking }}
+                            disabled={edit.busy && !picking}
                             onPress={() => editing.open(photo)}
                           >
                             {photoWell(photo, true)}

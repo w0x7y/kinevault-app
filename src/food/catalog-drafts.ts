@@ -1,8 +1,9 @@
 import type { Meal } from "../daily/model.ts";
 import type { FoodImportSource } from "./import-metadata.ts";
 import type { CatalogFood } from "./catalog.ts";
-import { customFoodToDraft, type CustomFood, type CustomFoodDraft } from "./custom-model.ts";
-import { mealToDraft, type CatalogKind, type CustomMeal, type MealDraft } from "./meal-model.ts";
+import { customFoodFromDraft, customFoodToDraft, type CustomFood, type CustomFoodDraft, type CustomFoodErrors } from "./custom-model.ts";
+import { mealFromDraft, mealToDraft, type CatalogKind, type CustomMeal, type MealDraft, type MealErrors } from "./meal-model.ts";
+import type { createCustomFoodPersistence } from "./custom-persistence.ts";
 
 const sessionIdentity = Symbol("catalog draft session");
 export type CatalogDraftHandle = { readonly [sessionIdentity]: true };
@@ -10,16 +11,33 @@ export type CatalogDraftTarget =
   | { kind: "new-food" } | { kind: "new-meal" }
   | { kind: "edit-food"; item: CustomFood } | { kind: "edit-meal"; item: CustomMeal }
   | { kind: "import"; draft: CustomFoodDraft & { importSource: FoodImportSource }; volumeBased: boolean };
-type Session = { handle: CatalogDraftHandle; mealIntent: Meal };
-export type FoodDraftSession = Session & { kind: "food"; draft: CustomFoodDraft; existing?: CustomFood; volumeBased: boolean };
-export type MealDraftSession = Session & { kind: "meal"; draft: MealDraft; existing?: CustomMeal };
+type Session = { handle: CatalogDraftHandle; mealIntent: Meal; attempted: boolean; error: string | null; saving: boolean };
+export type FoodDraftSession = Session & { kind: "food"; draft: CustomFoodDraft; existing?: CustomFood; volumeBased: boolean; errors: CustomFoodErrors };
+export type MealDraftSession = Session & { kind: "meal"; draft: MealDraft; existing?: CustomMeal; errors: MealErrors };
 export type CatalogDraftSession = FoodDraftSession | MealDraftSession;
 export type CatalogDraftSummary = { key: number; handle: CatalogDraftHandle; name: string; kind: CatalogKind; imported: boolean };
 export type CatalogDraftSnapshot = {
   mealIntent: Meal; creationKind: CatalogKind; session: CatalogDraftSession | null; resumable: CatalogDraftSummary[];
 };
 type FoodBasis = Pick<CustomFoodDraft, "calories" | "carbs" | "protein" | "fat" | "details">;
-type Entry = { key: number; target: CatalogDraftTarget; session: CatalogDraftSession; retained: boolean; bases: Partial<Record<"food" | "drink", FoodBasis>> };
+type Entry = { key: number; target: CatalogDraftTarget; session: CatalogDraftSession; retained: boolean; revision: number; bases: Partial<Record<"food" | "drink", FoodBasis>> };
+type CatalogStore = Pick<ReturnType<typeof createCustomFoodPersistence>, "add" | "addMeal" | "updateFood" | "updateMeal" | "remove" | "getSnapshot">;
+
+function saveFailure(session: CatalogDraftSession): string {
+  return session.kind === "food"
+    ? "Couldn't save your custom food. Your values are still here. Try again."
+    : "Couldn't save your meal. Your ingredients and values are still here. Try again.";
+}
+
+function validated(session: CatalogDraftSession): CatalogDraftSession {
+  if (!session.attempted) return session;
+  if (session.kind === "food") {
+    const result = customFoodFromDraft(session.draft, "validation");
+    return { ...session, errors: result.ok ? {} : result.errors };
+  }
+  const result = mealFromDraft(session.draft, "validation");
+  return { ...session, errors: result.ok ? {} : result.errors };
+}
 
 function copyFood<T extends CatalogFood>(food: T): T {
   return { ...food, per100g: food.per100g && { ...food.per100g }, details: food.details && { ...food.details },
@@ -52,11 +70,13 @@ function sameTarget(left: CatalogDraftTarget, right: CatalogDraftTarget): boolea
 export function createCatalogDrafts() {
   let entries: Entry[] = [];
   let sequence = 0;
+  let pending = false;
   let snapshot: CatalogDraftSnapshot = { mealIntent: "breakfast", creationKind: "food", session: null, resumable: [] };
   const listeners = new Set<() => void>();
-  function publish(session = snapshot.session) {
+  function publish(session = snapshot.session, beforeNotify?: () => void) {
     snapshot = { ...snapshot, session, resumable: entries.filter(entry => entry.retained && entry.target.kind !== "new-food" && entry.target.kind !== "new-meal")
       .map(entry => ({ key: entry.key, handle: entry.session.handle, name: entry.session.draft.name || "Imported food", kind: entry.session.kind, imported: entry.target.kind === "import" })) };
+    beforeNotify?.();
     listeners.forEach(listener => listener());
   }
   function activate(entry: Entry) {
@@ -69,7 +89,7 @@ export function createCatalogDrafts() {
     const retained = entries.find(entry => entry.retained && sameTarget(entry.target, target));
     if (retained) return activate(retained);
     const handle: CatalogDraftHandle = { [sessionIdentity]: true };
-    const base = { handle, mealIntent: snapshot.mealIntent };
+    const base = { handle, mealIntent: snapshot.mealIntent, attempted: false, error: null, saving: false, errors: {} };
     let session: CatalogDraftSession;
     switch (target.kind) {
       case "new-food": session = { ...base, kind: "food", volumeBased: false, draft: { name: "", servingGrams: "100", calories: "", carbs: "", protein: "", fat: "" } }; break;
@@ -82,20 +102,63 @@ export function createCatalogDrafts() {
       default: { const exhaustive: never = target; return exhaustive; }
     }
     const entry: Entry = { key: ++sequence, target: target.kind === "import" ? { ...target, draft: copyFoodDraft(target.draft) } : target,
-      session, retained: target.kind === "import", bases: {} };
+      session, retained: target.kind === "import", revision: 0, bases: {} };
     entries = [...entries.filter(previous => previous.retained && !sameTarget(previous.target, target)), entry];
     return activate(entry);
   }
   function update(entry: Entry, session: CatalogDraftSession) {
-    entry.session = session;
+    entry.session = validated(session);
+    entry.revision++;
     entry.retained = true;
-    publish(snapshot.session?.handle === session.handle ? session : snapshot.session);
+    publish(snapshot.session?.handle === session.handle ? entry.session : snapshot.session);
   }
-  function retire(handle: CatalogDraftHandle) {
+  function retire(handle: CatalogDraftHandle, beforeNotify?: () => void) {
     if (!entries.some(entry => entry.session.handle === handle)) return false;
     entries = entries.filter(entry => entry.session.handle !== handle);
-    publish(snapshot.session?.handle === handle ? null : snapshot.session);
+    publish(snapshot.session?.handle === handle ? null : snapshot.session, beforeNotify);
     return true;
+  }
+  function retireDeletedItem(item: CustomFood | CustomMeal) {
+    const target: CatalogDraftTarget = "ingredients" in item ? { kind: "edit-meal", item } : { kind: "edit-food", item };
+    const entry = entries.find(entry => sameTarget(entry.target, target));
+    return entry ? retire(entry.session.handle) : false;
+  }
+  async function save(handle: CatalogDraftHandle, store: CatalogStore, onSaved?: (item: CustomFood | CustomMeal) => void): Promise<CustomFood | CustomMeal | null> {
+    const entry = entries.find(entry => entry.session.handle === handle);
+    const current = store.getSnapshot();
+    if (!entry || pending || current.saving || current.state.kind !== "ready") return null;
+    // Reserve before feedback publication: a subscriber can immediately submit again.
+    pending = true;
+    const revision = entry.revision;
+    try {
+      const session = validated({ ...entry.session, attempted: true, error: null });
+      const valid = Object.keys(session.errors).length === 0;
+      entry.session = { ...session, saving: valid };
+      publish(snapshot.session?.handle === handle ? entry.session : snapshot.session);
+      if (!valid || !entries.includes(entry) || entry.revision !== revision) return null;
+      const item = await (session.kind === "food"
+        ? session.existing ? store.updateFood(session.existing.customId, copyFoodDraft(session.draft)) : store.add(copyFoodDraft(session.draft))
+        : session.existing ? store.updateMeal(session.existing.customId, copyMealDraft(session.draft)) : store.addMeal(copyMealDraft(session.draft)));
+      if (!entries.includes(entry) || entry.revision !== revision) return null;
+      if (!item) {
+        entry.session = { ...entry.session, error: store.getSnapshot().error ?? saveFailure(entry.session) };
+        return null;
+      }
+      const active = snapshot.session?.handle === handle;
+      // Deliver while the submitting form is still attached. Retirement listeners
+      // can unmount it before an awaiting caller gets its next continuation.
+      retire(handle, active ? () => onSaved?.(item) : undefined);
+      return active && snapshot.session === null ? item : null;
+    } catch {
+      if (entries.includes(entry) && entry.revision === revision) entry.session = { ...entry.session, error: saveFailure(entry.session) };
+      return null;
+    } finally {
+      pending = false;
+      if (entries.includes(entry)) {
+        entry.session = { ...entry.session, saving: false };
+        publish(snapshot.session?.handle === handle ? entry.session : snapshot.session);
+      }
+    }
   }
   return {
     getSnapshot: () => snapshot,
@@ -127,12 +190,17 @@ export function createCatalogDrafts() {
       update(entry, session);
       return session;
     },
-    discard: retire,
-    retire,
-    retireDeletedItem(item: CustomFood | CustomMeal) {
-      const target: CatalogDraftTarget = "ingredients" in item ? { kind: "edit-meal", item } : { kind: "edit-food", item };
-      const entry = entries.find(entry => sameTarget(entry.target, target));
-      return entry ? retire(entry.session.handle) : false;
+    discard: (handle: CatalogDraftHandle) => retire(handle),
+    save,
+    async removeSaved(item: CustomFood | CustomMeal, store: CatalogStore): Promise<boolean> {
+      const current = store.getSnapshot();
+      if (pending || current.saving || current.state.kind !== "ready") return false;
+      pending = true;
+      try {
+        const removed = await store.remove(item.customId);
+        if (removed) retireDeletedItem(item);
+        return removed;
+      } finally { pending = false; }
     },
   };
 }
