@@ -1,9 +1,0 @@
-wrote check/sheet.png (1952, 1480)
-video h264 1920x1080 60fps pix_fmt=yuv420p frames=660 duration=11.000s audio=yes
-first frame: mean luma 31, contrast sd 20.9
-last frame: mean luma 51, contrast sd 45.3
-pixel (40,500)@0.5s got (18, 30, 48) want (18, 30, 48) ok
-pixel (40,500)@3.6s got (237, 243, 251) want (238, 244, 251) ok
-pixel (40,500)@5.15s got (52, 123, 243) want (54, 124, 246) ok
-pixel (40,500)@10.95s got (18, 30, 48) want (18, 30, 48) ok
-review check/sheet.png
