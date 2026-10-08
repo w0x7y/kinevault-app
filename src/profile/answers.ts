@@ -91,9 +91,7 @@ export const macroInputs = [
 
 export function macroInputValue(value: string, max: number): number | null {
   const grams = numericValue(value);
-  return grams !== null && Number.isInteger(grams) && grams >= 0 && grams <= max
-    ? grams
-    : null;
+  return grams !== null && Number.isInteger(grams) && grams >= 0 && grams <= max ? grams : null;
 }
 export type FieldErrors = Partial<Record<keyof Answers, string>>;
 

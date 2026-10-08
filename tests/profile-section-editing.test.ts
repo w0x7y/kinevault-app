@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { emptyAnswers } from "../src/profile/answers.ts";
-import {
-  changeAnswers,
-  calorieState,
-  validateAnswers,
-} from "../src/profile/calories.ts";
+import { changeAnswers, calorieState, validateAnswers } from "../src/profile/calories.ts";
 import { editedProfileAnswers } from "../src/profile/section-editing.ts";
 const saved = {
   ...emptyAnswers,
@@ -20,10 +16,10 @@ const saved = {
 };
 test("name save keeps the latest unrelated weight and targets", () => {
   const current = { ...saved, weight: "81", customProtein: "0" };
-  assert.deepEqual(
-    editedProfileAnswers(current, { ...saved, name: "New name" }, "name"),
-    { ...current, name: "New name" },
-  );
+  assert.deepEqual(editedProfileAnswers(current, { ...saved, name: "New name" }, "name"), {
+    ...current,
+    name: "New name",
+  });
 });
 test("each focused section owns only its fields", () => {
   const draft = {
@@ -43,14 +39,10 @@ test("each focused section owns only its fields", () => {
     ["age", ["age"]],
     ["goal", ["goal"]],
     ["activity", ["activity"]],
-    [
-      "calories",
-      ["customCalories", "customCarbs", "customProtein", "customFat"],
-    ],
+    ["calories", ["customCalories", "customCarbs", "customProtein", "customFat"]],
   ] as const) {
     const expected = { ...saved };
-    for (const field of fields)
-      Object.assign(expected, { [field]: draft[field] });
+    for (const field of fields) Object.assign(expected, { [field]: draft[field] });
     assert.deepEqual(editedProfileAnswers(saved, draft, section), expected);
   }
 });
@@ -75,11 +67,7 @@ test("adult age change never silently re-enables the estimator", () => {
 test("body save uses estimator policy without overwriting latest targets and age", () => {
   const current = { ...saved, age: "31", customCalories: "2300" };
   const draft = changeAnswers(saved, { kind: "estimate", enabled: false });
-  const next = editedProfileAnswers(
-    current,
-    { ...draft, height: "177", weight: "77" },
-    "body",
-  );
+  const next = editedProfileAnswers(current, { ...draft, height: "177", weight: "77" }, "body");
   assert.equal(next.age, "31");
   assert.equal(next.customCalories, "2300");
   assert.equal(next.height, "177");

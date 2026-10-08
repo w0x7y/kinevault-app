@@ -16,9 +16,7 @@
         "monochromeImage": "./assets/branding/adaptive-monochrome.png",
         "backgroundColor": "#f8f2e3"
       },
-      "blockedPermissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "blockedPermissions": ["android.permission.RECORD_AUDIO"]
     },
     "web": {
       "output": "static",
@@ -65,7 +63,8 @@
           "microphonePermission": false
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true

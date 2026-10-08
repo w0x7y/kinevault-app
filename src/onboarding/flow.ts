@@ -6,16 +6,10 @@ import {
   type FieldErrors,
   type Step,
 } from "../profile/answers.ts";
-import {
-  changeAnswers,
-  validateAnswers,
-  type AnswerChange,
-} from "../profile/calories.ts";
+import { changeAnswers, validateAnswers, type AnswerChange } from "../profile/calories.ts";
 import type { ProfileDocument } from "../profile/model.ts";
 
-type Action =
-  | { kind: "next" | "back" | "skip" | "cancel" }
-  | { kind: "edit"; step: EditableStep };
+type Action = { kind: "next" | "back" | "skip" | "cancel" } | { kind: "edit"; step: EditableStep };
 type Effects = {
   save: (document: ProfileDocument) => Promise<boolean>;
   exit: (destination: "today" | "settings") => void;
@@ -57,10 +51,7 @@ const fieldsByStep: Record<Step, (keyof Answers)[]> = {
 };
 
 // Callers submit intentions. This module owns validation, staged edits, and save ordering.
-export function createOnboardingFlow(
-  initial: ProfileDocument,
-  effects: Effects,
-) {
+export function createOnboardingFlow(initial: ProfileDocument, effects: Effects) {
   const editing = initial.kind === "complete";
   let returnToReview = false;
   let acting = false;
@@ -77,9 +68,7 @@ export function createOnboardingFlow(
     error: null,
   });
 
-  function present(
-    state: Omit<Snapshot, "primaryLabel" | "showBack" | "showSkip">,
-  ): Snapshot {
+  function present(state: Omit<Snapshot, "primaryLabel" | "showBack" | "showSkip">): Snapshot {
     const welcome = state.step === "welcome";
     return {
       ...state,
@@ -114,32 +103,25 @@ export function createOnboardingFlow(
     } catch {
       // The same retry behavior applies to thrown errors and rejected writes.
     }
-    if (current(ticket))
-      publish({ error: "Couldn't save your answers. Try again." });
+    if (current(ticket)) publish({ error: "Couldn't save your answers. Try again." });
     return false;
   }
   async function goTo(next: Step, ticket: number, reviewEdit = false) {
     if (!current(ticket)) return;
     if (
       !editing &&
-      !(await persist(
-        { version: 1, kind: "draft", step: next, answers: snapshot.answers },
-        ticket,
-      ))
+      !(await persist({ version: 1, kind: "draft", step: next, answers: snapshot.answers }, ticket))
     )
       return;
     if (!current(ticket)) return;
-    const direction =
-      steps.indexOf(next) >= steps.indexOf(snapshot.step) ? 1 : -1;
+    const direction = steps.indexOf(next) >= steps.indexOf(snapshot.step) ? 1 : -1;
     returnToReview = reviewEdit;
     publish({ step: next, direction, errors: {} });
   }
   function relevantErrors(action: "next" | "skip") {
     const all = validateAnswers(snapshot.answers);
     const errors: FieldErrors = {};
-    for (const field of action === "skip"
-      ? (["age"] as const)
-      : fieldsByStep[snapshot.step])
+    for (const field of action === "skip" ? (["age"] as const) : fieldsByStep[snapshot.step])
       if (all[field]) errors[field] = all[field];
     publish({ errors });
     return Object.keys(errors).length > 0;
@@ -198,14 +180,9 @@ export function createOnboardingFlow(
           case "next": {
             if (relevantErrors("next")) return;
             if (snapshot.step === "review") {
-              await complete(
-                { ...snapshot.answers, name: snapshot.answers.name.trim() },
-                ticket,
-              );
+              await complete({ ...snapshot.answers, name: snapshot.answers.name.trim() }, ticket);
             } else {
-              const next = returnToReview
-                ? "review"
-                : steps[steps.indexOf(snapshot.step) + 1];
+              const next = returnToReview ? "review" : steps[steps.indexOf(snapshot.step) + 1];
               if (next) await goTo(next, ticket);
             }
             return;

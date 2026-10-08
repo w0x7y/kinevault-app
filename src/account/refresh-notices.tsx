@@ -11,11 +11,13 @@ export function TrackingRefreshNotices() {
   const foodLog = useFoodLog();
   const water = useWaterLog();
   const goal = useWaterGoal();
-  return <>
-    <RefreshNotice label="Exercises" document={exercise} />
-    <RefreshNotice label="Custom foods" document={foods} />
-    <RefreshNotice label="Food log" document={foodLog} />
-    <RefreshNotice label="Water log" document={water} />
-    <RefreshNotice label="Water goal" document={goal} />
-  </>;
+  return (
+    <>
+      <RefreshNotice label="Exercises" document={exercise} />
+      <RefreshNotice label="Custom foods" document={foods} />
+      <RefreshNotice label="Food log" document={foodLog} />
+      <RefreshNotice label="Water log" document={water} />
+      <RefreshNotice label="Water goal" document={goal} />
+    </>
+  );
 }

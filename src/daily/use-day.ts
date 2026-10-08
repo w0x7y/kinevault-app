@@ -12,6 +12,15 @@ export function useDayActivity() {
   const { state: waterState } = useWaterLog();
   const { state: goalState } = useWaterGoal();
   const { state: exerciseState } = useExercises();
-  return useMemo(() => interpretDayActivity({ selectedDay, food: state, water: waterState, goal: goalState, exercise: exerciseState }),
-    [selectedDay, state, waterState, goalState, exerciseState]);
+  return useMemo(
+    () =>
+      interpretDayActivity({
+        selectedDay,
+        food: state,
+        water: waterState,
+        goal: goalState,
+        exercise: exerciseState,
+      }),
+    [selectedDay, state, waterState, goalState, exerciseState],
+  );
 }

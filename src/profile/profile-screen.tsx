@@ -8,11 +8,8 @@ import { ProfileIdentity } from "./profile-identity";
 import { ProfileControls, type ProfileSection } from "./profile-controls";
 import { ProfileStreak } from "./profile-streak";
 import { WorkoutChart } from "./workout-chart";
-import {
-  ProfileGoals,
-  TodayNutrition,
-  type ProfileEditorInstance,
-} from "./profile-goals";
+import { WeightJournal } from "./weight-journal";
+import { ProfileGoals, TodayNutrition, type ProfileEditorInstance } from "./profile-goals";
 import { ProgressPhotos } from "./progress-photos";
 import type { ProfileEditSection } from "./section-editing";
 export function ProfileScreen() {
@@ -60,21 +57,13 @@ export function ProfileScreen() {
           <>
             <ProfileStreak today={today} />
             <WorkoutChart today={today} />
+            <WeightJournal />
             <TodayNutrition today={today} onPress={() => select("Goals")} />
-            <ProgressPhotos
-              today={today}
-              recent
-              openPhotos={() => select("Photos")}
-            />
+            <ProgressPhotos today={today} recent openPhotos={() => select("Photos")} />
           </>
         )}
         {section === "Goals" && (
-          <ProfileGoals
-            today={today}
-            editor={editor}
-            edit={edit}
-            close={closeEditor}
-          />
+          <ProfileGoals today={today} editor={editor} edit={edit} close={closeEditor} />
         )}
         {section === "Photos" && <ProgressPhotos today={today} />}
       </View>

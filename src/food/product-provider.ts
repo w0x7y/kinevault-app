@@ -2,11 +2,28 @@ import { parseBrandedProduct, type BrandedProduct } from "./product-model.ts";
 import { normalizeProductBarcode } from "./barcode.ts";
 import { isRecord } from "./catalog-record.ts";
 
-type ClientOptions = { fetch?: (url: string, init?: RequestInit) => Promise<Response>; now?: () => number; timeoutMs?: number };
+type ClientOptions = {
+  fetch?: (url: string, init?: RequestInit) => Promise<Response>;
+  now?: () => number;
+  timeoutMs?: number;
+};
 type ProviderResponse = { status: number; body: unknown };
 const origin = "https://world.openfoodfacts.org";
-const fields = ["code", "product_name", "product_name_en", "product_name_he", "brands", "categories_tags", "nutriments",
-  "serving_size", "serving_quantity", "serving_quantity_unit", "product_quantity_unit", "quantity", "no_nutrition_data"].join(",");
+const fields = [
+  "code",
+  "product_name",
+  "product_name_en",
+  "product_name_he",
+  "brands",
+  "categories_tags",
+  "nutriments",
+  "serving_size",
+  "serving_quantity",
+  "serving_quantity_unit",
+  "product_quantity_unit",
+  "quantity",
+  "no_nutrition_data",
+].join(",");
 const cacheDurationMs = 5 * 60_000;
 const cacheLimit = 50;
 
@@ -37,10 +54,17 @@ export class OpenFoodFactsClient {
     this.#fetch = options.fetch ?? ((url, init) => globalThis.fetch(url, init));
     this.#now = options.now ?? Date.now;
     this.#timeoutMs = options.timeoutMs ?? 15_000;
-    if (!Number.isFinite(this.#timeoutMs) || this.#timeoutMs <= 0) throw new Error("Invalid product request timeout.");
+    if (!Number.isFinite(this.#timeoutMs) || this.#timeoutMs <= 0)
+      throw new Error("Invalid product request timeout.");
   }
 
-  async lookupProduct({ barcode: input, signal }: { barcode: string; signal?: AbortSignal }): Promise<BrandedProduct | null> {
+  async lookupProduct({
+    barcode: input,
+    signal,
+  }: {
+    barcode: string;
+    signal?: AbortSignal;
+  }): Promise<BrandedProduct | null> {
     checkAborted(signal);
     const barcode = normalizeProductBarcode(input);
     if (!barcode) throw new Error("Enter a valid product barcode with its check digit.");
@@ -54,7 +78,8 @@ export class OpenFoodFactsClient {
     }
     if (response.status === 404 || response.body.status !== 1) throw invalidResponse();
     const product = parseBrandedProduct(response.body.product);
-    if (!product || product.barcode.replace(/^0+/, "") !== barcode.replace(/^0+/, "")) throw invalidResponse();
+    if (!product || product.barcode.replace(/^0+/, "") !== barcode.replace(/^0+/, ""))
+      throw invalidResponse();
     checkAborted(signal);
     this.#remember(url, response);
     return product;
@@ -76,11 +101,13 @@ export class OpenFoodFactsClient {
 
   #consumeBudget(): void {
     const now = this.#now();
-    const recent = this.#requests.filter(time => now - time < 60_000);
+    const recent = this.#requests.filter((time) => now - time < 60_000);
     this.#requests = recent;
     if (recent.length >= 15) {
       const seconds = Math.max(1, Math.ceil((60_000 - (now - recent[0])) / 1000));
-      throw new Error(`Open Food Facts request limit reached. Wait ${seconds} seconds before trying again.`);
+      throw new Error(
+        `Open Food Facts request limit reached. Wait ${seconds} seconds before trying again.`,
+      );
     }
     recent.push(now);
   }
@@ -93,7 +120,9 @@ export class OpenFoodFactsClient {
     this.#consumeBudget();
     const controller = new AbortController();
     let rejectCancelled: (error: Error) => void = () => {};
-    const cancellation = new Promise<never>((_resolve, reject) => { rejectCancelled = reject; });
+    const cancellation = new Promise<never>((_resolve, reject) => {
+      rejectCancelled = reject;
+    });
     const cancel = () => {
       controller.abort();
       rejectCancelled(abortError());
@@ -109,19 +138,30 @@ export class OpenFoodFactsClient {
         try {
           response = await this.#fetch(url, {
             signal: controller.signal,
-            headers: { Accept: "application/json", "X-User-Agent": "KineVaultTrack/1.0 (https://github.com/w0x7y/kinevault-app)" },
+            headers: {
+              Accept: "application/json",
+              "X-User-Agent": "KineVaultTrack/1.0 (https://github.com/w0x7y/kinevault-app)",
+            },
           });
         } catch (error) {
           if (error instanceof TypeError && !controller.signal.aborted) {
-            throw new Error("Could not reach Open Food Facts. Check your connection or try again later.");
+            throw new Error(
+              "Could not reach Open Food Facts. Check your connection or try again later.",
+            );
           }
           throw error;
         }
         if (!response.ok && response.status !== 404) {
-          throw new Error(`Open Food Facts is unavailable (HTTP ${response.status}). Please try again later.`);
+          throw new Error(
+            `Open Food Facts is unavailable (HTTP ${response.status}). Please try again later.`,
+          );
         }
         let body: unknown;
-        try { body = await response.json(); } catch { throw invalidResponse(); }
+        try {
+          body = await response.json();
+        } catch {
+          throw invalidResponse();
+        }
         checkAborted(controller.signal);
         return { status: response.status, body };
       };

@@ -10,8 +10,15 @@ function parseManifest(raw: string | null): Manifest | null {
   const value: unknown = JSON.parse(raw);
   if (!value || typeof value !== "object") throw new Error("Invalid encrypted session manifest.");
   const record = value as Record<string, unknown>;
-  if (record.version !== 1 || typeof record.id !== "string" || !/^[\w-]{1,80}$/.test(record.id)
-    || typeof record.chunks !== "number" || !Number.isInteger(record.chunks) || record.chunks < 1 || record.chunks > 128)
+  if (
+    record.version !== 1 ||
+    typeof record.id !== "string" ||
+    !/^[\w-]{1,80}$/.test(record.id) ||
+    typeof record.chunks !== "number" ||
+    !Number.isInteger(record.chunks) ||
+    record.chunks < 1 ||
+    record.chunks > 128
+  )
     throw new Error("Invalid encrypted session manifest.");
   return { version: 1, id: record.id, chunks: record.chunks };
 }
@@ -24,8 +31,13 @@ function chunksOf(value: string): string[] {
   for (const character of value) {
     const point = character.codePointAt(0)!;
     const size = point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
-    if (bytes + size > 1600) { chunks.push(chunk); chunk = ""; bytes = 0; }
-    chunk += character; bytes += size;
+    if (bytes + size > 1600) {
+      chunks.push(chunk);
+      chunk = "";
+      bytes = 0;
+    }
+    chunk += character;
+    bytes += size;
   }
   chunks.push(chunk);
   if (chunks.length > 128) throw new Error("The account session is too large to store securely.");
@@ -39,16 +51,25 @@ export function createSecureSessionStorage(storage: EncryptedStore): EncryptedSt
   function serial<T>(key: string, work: () => Promise<T>): Promise<T> {
     const result = (queues.get(key) ?? Promise.resolve()).catch(() => {}).then(work);
     queues.set(key, result);
-    void result.finally(() => { if (queues.get(key) === result) queues.delete(key); }).catch(() => {});
+    void result
+      .finally(() => {
+        if (queues.get(key) === result) queues.delete(key);
+      })
+      .catch(() => {});
     return result;
   }
   const manifestKey = (key: string) => `${key}.manifest.v1`;
-  const partKey = (key: string, manifest: Manifest, index: number) => `${key}.part.${manifest.id}.${index}`;
+  const partKey = (key: string, manifest: Manifest, index: number) =>
+    `${key}.part.${manifest.id}.${index}`;
   async function cleanupManifest(key: string): Promise<Manifest | null> {
     const raw = await storage.getItem(manifestKey(key));
     // Corrupt metadata remains unreadable until a replacement or logout commits.
     // Native read failures still propagate, protecting values on a locked device.
-    try { return parseManifest(raw); } catch { return null; }
+    try {
+      return parseManifest(raw);
+    } catch {
+      return null;
+    }
   }
   async function removeParts(key: string, manifest: Manifest) {
     for (let i = 0; i < manifest.chunks; i++) await storage.removeItem(partKey(key, manifest, i));
@@ -61,7 +82,8 @@ export function createSecureSessionStorage(storage: EncryptedStore): EncryptedSt
         const chunks: string[] = [];
         for (let i = 0; i < manifest.chunks; i++) {
           const chunk = await storage.getItem(partKey(key, manifest, i));
-          if (chunk === null) throw new Error("The encrypted account session is incomplete. Log in again.");
+          if (chunk === null)
+            throw new Error("The encrypted account session is incomplete. Log in again.");
           chunks.push(chunk);
         }
         return chunks.join("");
@@ -71,9 +93,14 @@ export function createSecureSessionStorage(storage: EncryptedStore): EncryptedSt
       return serial(key, async () => {
         const previous = await cleanupManifest(key);
         const chunks = chunksOf(value);
-        const next: Manifest = { version: 1, id: `${Date.now().toString(36)}-${(++sequence).toString(36)}-${Math.random().toString(36).slice(2)}`, chunks: chunks.length };
+        const next: Manifest = {
+          version: 1,
+          id: `${Date.now().toString(36)}-${(++sequence).toString(36)}-${Math.random().toString(36).slice(2)}`,
+          chunks: chunks.length,
+        };
         try {
-          for (let i = 0; i < chunks.length; i++) await storage.setItem(partKey(key, next, i), chunks[i]);
+          for (let i = 0; i < chunks.length; i++)
+            await storage.setItem(partKey(key, next, i), chunks[i]);
           await storage.setItem(manifestKey(key), JSON.stringify(next));
         } catch (error) {
           await removeParts(key, next).catch(() => {});

@@ -11,8 +11,17 @@ type Refreshable = {
 
 export function RefreshNotice({ label, document }: { label: string; document: Refreshable }) {
   if (!document.refreshError) return null;
-  return <View style={{ padding: spacing.layout, gap: spacing.sm }}>
-    <AppText accessibilityRole="alert">{label}: {document.refreshError}</AppText>
-    <Button label={`Retry ${label.toLowerCase()}`} secondary disabled={document.saving} onPress={document.retryLoad} />
-  </View>;
+  return (
+    <View style={{ padding: spacing.layout, gap: spacing.sm }}>
+      <AppText accessibilityRole="alert">
+        {label}: {document.refreshError}
+      </AppText>
+      <Button
+        label={`Retry ${label.toLowerCase()}`}
+        secondary
+        disabled={document.saving}
+        onPress={document.retryLoad}
+      />
+    </View>
+  );
 }

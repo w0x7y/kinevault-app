@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type PropsWithChildren,
-} from "react";
+import { createContext, useContext, useEffect, useState, type PropsWithChildren } from "react";
 import { AccessibilityInfo, Platform, type ViewStyle } from "react-native";
 import Animated, {
   Easing,
@@ -37,18 +31,13 @@ export function MotionProvider({ children }: PropsWithChildren) {
         if (active) setReduced(value);
       })
       .catch(() => {});
-    const subscription = AccessibilityInfo.addEventListener(
-      "reduceMotionChanged",
-      setReduced,
-    );
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduced);
     return () => {
       active = false;
       subscription.remove();
     };
   }, []);
-  return (
-    <MotionContext.Provider value={reduced}>{children}</MotionContext.Provider>
-  );
+  return <MotionContext.Provider value={reduced}>{children}</MotionContext.Provider>;
 }
 
 export function useReducedMotion() {
@@ -78,11 +67,11 @@ export function PageTransition({
   }, [progress, reduced]);
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: 0.65 + progress.get() * 0.35,
-    transform: [
-      { translateX: reduced ? 0 : direction * 16 * (1 - progress.get()) },
-    ],
+    transform: [{ translateX: reduced ? 0 : direction * 16 * (1 - progress.get()) }],
   }));
   return (
-    <Animated.View testID={testID} style={[style, animatedStyle]}>{children}</Animated.View>
+    <Animated.View testID={testID} style={[style, animatedStyle]}>
+      {children}
+    </Animated.View>
   );
 }

@@ -23,6 +23,10 @@ Workout templates and logs, Custom foods and meals, Logged food, Manual water,
 and Water goal. Completed-workout summaries and journal stats derive from these
 saved records. Profile media remains private to the device.
 
+**Account management attempt**: An Account’s request to export tracking or
+confirm permanent deletion, with feedback belonging to the Settings view that
+started it. Confirmed deletion belongs to the Account even after that view leaves.
+
 **Cloud conflict**: Different saved tracking changes on two devices that cannot
 be applied without replacing one copy. The user chooses the device or cloud copy
 for the affected tracking category; both copies are retained until that choice.
@@ -66,6 +70,14 @@ or deletion publishes metadata before removing the old owned image files.
 chosen image and the photo's date and note. Failed saves retain these choices for
 retry, Cancel discards them, and an earlier operation cannot change a newer edit.
 Save feedback belongs to that edit; a new edit does not inherit an older failure.
+
+**Body-weight measurement**: A dated kilogram value in the Personal journal,
+independent of the body weight used for calorie estimates. Each date has at most
+one measurement; saving to an occupied date replaces that measurement.
+
+**Body-weight edit**: Unsaved changes to a Body-weight measurement, or a pending
+confirmation to delete it. Failed saves retain entered values for retry; leaving
+the journal discards the edit without undoing a completed measurement save.
 
 **Calorie mode**: Whether the profile uses the standard adult estimate or a
 manual target. Ages 16–17 always follow the teen manual path.

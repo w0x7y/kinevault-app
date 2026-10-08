@@ -21,7 +21,10 @@ type ActiveRun = {
 };
 
 /** Construction reads the local day; only start acquires timers and wake listeners. */
-export function createSelectedDay({ clock, wakeEvents }: {
+export function createSelectedDay({
+  clock,
+  wakeEvents,
+}: {
   clock: SelectedDayClock;
   wakeEvents: SelectedDayWakeEvents;
 }) {
@@ -49,9 +52,12 @@ export function createSelectedDay({ clock, wakeEvents }: {
     if (activeRun !== run) return;
     const timer = {};
     run.timer = timer;
-    run.cancelTimer = clock.schedule(() => {
-      if (activeRun === run && run.timer === timer) refresh(run);
-    }, millisecondsUntilTomorrow(now) + 100);
+    run.cancelTimer = clock.schedule(
+      () => {
+        if (activeRun === run && run.timer === timer) refresh(run);
+      },
+      millisecondsUntilTomorrow(now) + 100,
+    );
   }
 
   return {
@@ -63,13 +69,17 @@ export function createSelectedDay({ clock, wakeEvents }: {
     },
     subscribe(listener: () => void) {
       listeners.add(listener);
-      return () => { listeners.delete(listener); };
+      return () => {
+        listeners.delete(listener);
+      };
     },
     start() {
       if (activeRun !== null) return;
       const run: ActiveRun = { cancelTimer: () => {}, cancelWake: () => {}, timer: null };
       activeRun = run;
-      run.cancelWake = wakeEvents.subscribe(() => { refresh(run); });
+      run.cancelWake = wakeEvents.subscribe(() => {
+        refresh(run);
+      });
       refresh(run);
     },
     stop() {

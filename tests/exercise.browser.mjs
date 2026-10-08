@@ -8,75 +8,206 @@ const baseURL = process.env.KINE_PREVIEW_URL || "http://localhost:8081";
 const storageKey = "kinevault-track.exercise.v1";
 const date = "2026-10-04";
 const time = new Date("2026-10-04T12:00:00+03:00");
-const answers = { name: "Exercise fixture", goal: "maintain", activity: "moderate", age: "30", height: "180", weight: "80",
-  sex: "male", estimateEnabled: true, eligible: true, customCalories: "" };
-const single = { id: "squat", name: "Squat", muscleGroup: "Legs", equipment: "Barbell", notes: "", tracking: "single" };
-const sides = { id: "curl", name: "Curl", muscleGroup: "Arms", equipment: "Dumbbells", notes: "", tracking: "sides" };
+const answers = {
+  name: "Exercise fixture",
+  goal: "maintain",
+  activity: "moderate",
+  age: "30",
+  height: "180",
+  weight: "80",
+  sex: "male",
+  estimateEnabled: true,
+  eligible: true,
+  customCalories: "",
+};
+const single = {
+  id: "squat",
+  name: "Squat",
+  muscleGroup: "Legs",
+  equipment: "Barbell",
+  notes: "",
+  tracking: "single",
+};
+const sides = {
+  id: "curl",
+  name: "Curl",
+  muscleGroup: "Arms",
+  equipment: "Dumbbells",
+  notes: "",
+  tracking: "sides",
+};
 const empty = () => ({ version: 1, exercises: [], workouts: [], sessions: [] });
 const button = (page, name) => page.getByRole("button", { name, exact: true });
 const field = (page, name) => page.getByRole("textbox", { name, exact: true });
-const documentFrom = page => page.evaluate(key => JSON.parse(window.accountFixture.getItem(key)), storageKey);
+const documentFrom = (page) =>
+  page.evaluate((key) => JSON.parse(window.accountFixture.getItem(key)), storageKey);
 async function storedWhen(page, predicate, argument) {
-  await page.waitForFunction(({ key, predicate, argument }) => {
-    const raw = window.accountFixture.getItem(key);
-    return raw !== null && new Function("document", "argument", `return (${predicate})(document, argument)`)(JSON.parse(raw), argument);
-  }, { key: storageKey, predicate: predicate.toString(), argument });
+  await page.waitForFunction(
+    ({ key, predicate, argument }) => {
+      const raw = window.accountFixture.getItem(key);
+      return (
+        raw !== null &&
+        new Function("document", "argument", `return (${predicate})(document, argument)`)(
+          JSON.parse(raw),
+          argument,
+        )
+      );
+    },
+    { key: storageKey, predicate: predicate.toString(), argument },
+  );
   return documentFrom(page);
 }
 
 async function openLoggedWorkout(page, name, completed = false, settings = true) {
   await button(page, "Saved workouts").click();
-  await button(page.getByTestId("workout-library"), `${completed ? "Edit" : "Open"} logged workout ${name}`).click();
+  await button(
+    page.getByTestId("workout-library"),
+    `${completed ? "Edit" : "Open"} logged workout ${name}`,
+  ).click();
   const compact = page.getByTestId("session-editor").getByTestId("planned-workout-card");
   if (await compact.count()) await button(compact, "Log completed workout").click();
   if (settings) await button(page.getByTestId("session-editor"), "Settings").click();
 }
 
-async function open(t, { document = empty(), raw, foodRaw, failure = false, freeze = false, developmentExamples = false, path = "/exercise", onAccountFixture } = {}) {
+async function open(
+  t,
+  {
+    document = empty(),
+    raw,
+    foodRaw,
+    failure = false,
+    freeze = false,
+    developmentExamples = false,
+    path = "/exercise",
+    onAccountFixture,
+  } = {},
+) {
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "Asia/Jerusalem" });
-  await context.addInitScript(({ answers, key, raw, foodRaw, failure }) => {
-    if (!sessionStorage.getItem("exercise-fixture-seeded")) {
-      localStorage.setItem("kinevault-track.profile.v1", JSON.stringify({ version: 1, kind: "complete", answers }));
-      localStorage.setItem(key, raw);
-      if (foodRaw !== undefined) localStorage.setItem("kinevault-track.food-log.v1", foodRaw);
-      sessionStorage.setItem("exercise-fixture-seeded", "true");
-    }
-    window.__exerciseWriteFailure = failure;
-    const setItem = Storage.prototype.setItem;
-    Storage.prototype.setItem = function(keyToSet, value) {
-      if (keyToSet.endsWith(key) && window.accountFixture?.domainReady && window.__exerciseWriteFailure) throw new Error("Fixture exercise write failure");
-      return setItem.call(this, keyToSet, value);
-    };
-  }, { answers, key: storageKey, raw: raw ?? JSON.stringify(developmentExamples ? seedDevelopmentExamples(document).document : { ...document, developmentExamplesSeeded: true }), foodRaw, failure });
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    timezoneId: "Asia/Jerusalem",
+  });
+  await context.addInitScript(
+    ({ answers, key, raw, foodRaw, failure }) => {
+      if (!sessionStorage.getItem("exercise-fixture-seeded")) {
+        localStorage.setItem(
+          "kinevault-track.profile.v1",
+          JSON.stringify({ version: 1, kind: "complete", answers }),
+        );
+        localStorage.setItem(key, raw);
+        if (foodRaw !== undefined) localStorage.setItem("kinevault-track.food-log.v1", foodRaw);
+        sessionStorage.setItem("exercise-fixture-seeded", "true");
+      }
+      window.__exerciseWriteFailure = failure;
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (keyToSet, value) {
+        if (
+          keyToSet.endsWith(key) &&
+          window.accountFixture?.domainReady &&
+          window.__exerciseWriteFailure
+        )
+          throw new Error("Fixture exercise write failure");
+        return setItem.call(this, keyToSet, value);
+      };
+    },
+    {
+      answers,
+      key: storageKey,
+      raw:
+        raw ??
+        JSON.stringify(
+          developmentExamples
+            ? seedDevelopmentExamples(document).document
+            : { ...document, developmentExamplesSeeded: true },
+        ),
+      foodRaw,
+      failure,
+    },
+  );
   const accountFixture = await installAccountFixture(context);
   onAccountFixture?.(accountFixture);
   const page = await context.newPage();
   const runtimeErrors = [];
-  page.on("pageerror", error => runtimeErrors.push(error.message));
-  page.on("console", message => {
+  page.on("pageerror", (error) => runtimeErrors.push(error.message));
+  page.on("console", (message) => {
     // Invalid local JSON deliberately produces a rejected cloud write. A
     // resource status is an expected transport failure, not an uncaught error.
-    if (message.type() === "error" && !(message.location().url.includes("kkywpvkckxniriatelta.supabase.co") && message.text().startsWith("Failed to load resource:"))) runtimeErrors.push(message.text());
+    if (
+      message.type() === "error" &&
+      !(
+        message.location().url.includes("kkywpvkckxniriatelta.supabase.co") &&
+        message.text().startsWith("Failed to load resource:")
+      )
+    )
+      runtimeErrors.push(message.text());
   });
-  t.after(() => assert.deepEqual(runtimeErrors, [], "Exercise flows should not emit runtime errors"));
+  t.after(() =>
+    assert.deepEqual(runtimeErrors, [], "Exercise flows should not emit runtime errors"),
+  );
   page.setDefaultTimeout(15000);
   page.setDefaultNavigationTimeout(30000);
   await page.clock.install({ time: freeze ? new Date(time.getTime() - 60000) : time });
   await page.goto(`${baseURL}${path}`);
-  await (path === "/" ? page.locator('[data-testid="home-workout"], [data-testid="home-workout-empty"]') : page.getByTestId("exercise-search-actions")).waitFor();
+  await (
+    path === "/"
+      ? page.locator('[data-testid="home-workout"], [data-testid="home-workout-empty"]')
+      : page.getByTestId("exercise-search-actions")
+  ).waitFor();
   if (freeze) await page.clock.pauseAt(time);
   return page;
 }
 
-test("Home aggregates completed same-day sessions and side sets while ignoring planned and other-day records", async t => {
-  const morning = { id: "morning", date, name: "Morning", status: "completed", startedAt: null, durationSeconds: 600,
-    exercises: [{ id: "squat-row", exercise: single, sets: [{ id: "set1", kind: "single", reps: "5", weightKg: "40" }] }] };
-  const evening = { ...morning, id: "evening", name: "Evening", durationSeconds: 300,
-    exercises: [{ id: "curl-row", exercise: sides, sets: [{ id: "set2", kind: "sides", left: { reps: "8", weightKg: "10" }, right: { reps: "6", weightKg: "12" } }] }] };
-  const page = await open(t, { path: "/", document: { version: 1, exercises: [single, sides], workouts: [], sessions: [morning, evening,
-    { ...morning, id: "planned", status: "planned", durationSeconds: null }, { ...morning, id: "yesterday", date: "2026-10-03" }] } });
+test("Home aggregates completed same-day sessions and side sets while ignoring planned and other-day records", async (t) => {
+  const morning = {
+    id: "morning",
+    date,
+    name: "Morning",
+    status: "completed",
+    startedAt: null,
+    durationSeconds: 600,
+    exercises: [
+      {
+        id: "squat-row",
+        exercise: single,
+        sets: [{ id: "set1", kind: "single", reps: "5", weightKg: "40" }],
+      },
+    ],
+  };
+  const evening = {
+    ...morning,
+    id: "evening",
+    name: "Evening",
+    durationSeconds: 300,
+    exercises: [
+      {
+        id: "curl-row",
+        exercise: sides,
+        sets: [
+          {
+            id: "set2",
+            kind: "sides",
+            left: { reps: "8", weightKg: "10" },
+            right: { reps: "6", weightKg: "12" },
+          },
+        ],
+      },
+    ],
+  };
+  const page = await open(t, {
+    path: "/",
+    document: {
+      version: 1,
+      exercises: [single, sides],
+      workouts: [],
+      sessions: [
+        morning,
+        evening,
+        { ...morning, id: "planned", status: "planned", durationSeconds: null },
+        { ...morning, id: "yesterday", date: "2026-10-03" },
+      ],
+    },
+  });
   const widget = page.getByTestId("home-workout");
   await widget.getByText("352 kg", { exact: true }).waitFor();
   assert.equal(await widget.getByText("15 min", { exact: true }).count(), 1);
@@ -84,32 +215,81 @@ test("Home aggregates completed same-day sessions and side sets while ignoring p
   assert.equal(await widget.getByText("2", { exact: true }).count(), 1);
 });
 
-test("unreadable exercise data shows recovery without hiding known food totals", async t => {
+test("unreadable exercise data shows recovery without hiding known food totals", async (t) => {
   const page = await open(t, { path: "/", raw: "{broken" });
   await button(page, "Retry workouts").waitFor();
   assert.match(await page.getByTestId("home-workout").innerText(), /Couldn't load your workouts/);
-  assert.equal(await page.getByTestId("home-workout").getByText("0 kg", { exact: true }).count(), 0);
-  await page.evaluate(({ key, document }) => window.accountFixture.setItem(key, JSON.stringify(document)), { key: storageKey, document: empty() });
+  assert.equal(
+    await page.getByTestId("home-workout").getByText("0 kg", { exact: true }).count(),
+    0,
+  );
+  await page.evaluate(
+    ({ key, document }) => window.accountFixture.setItem(key, JSON.stringify(document)),
+    { key: storageKey, document: empty() },
+  );
   await button(page, "Retry workouts").click();
   await page.getByTestId("home-workout-empty").waitFor();
 });
 
-test("Home keeps workout totals and independent recovery visible when Food storage is corrupt", async t => {
-  const session = { id: "complete", date, name: "Training", status: "completed", startedAt: null, durationSeconds: null,
-    exercises: [{ id: "squat-row", exercise: single, sets: [{ id: "set", kind: "single", reps: "5", weightKg: "40" }] }] };
-  const page = await open(t, { path: "/", foodRaw: "{broken", document: { ...empty(), exercises: [single], sessions: [session] } });
+test("Home keeps workout totals and independent recovery visible when Food storage is corrupt", async (t) => {
+  const session = {
+    id: "complete",
+    date,
+    name: "Training",
+    status: "completed",
+    startedAt: null,
+    durationSeconds: null,
+    exercises: [
+      {
+        id: "squat-row",
+        exercise: single,
+        sets: [{ id: "set", kind: "single", reps: "5", weightKg: "40" }],
+      },
+    ],
+  };
+  const page = await open(t, {
+    path: "/",
+    foodRaw: "{broken",
+    document: { ...empty(), exercises: [single], sessions: [session] },
+  });
   await page.getByTestId("home-workout").getByText("200 kg", { exact: true }).waitFor();
-  assert.equal(await page.getByTestId("home-workout").getByText("Not recorded", { exact: true }).count(), 1);
-  await page.evaluate(key => window.accountFixture.setItem(key, "{broken"), storageKey);
+  assert.equal(
+    await page.getByTestId("home-workout").getByText("Not recorded", { exact: true }).count(),
+    1,
+  );
+  await page.evaluate((key) => window.accountFixture.setItem(key, "{broken"), storageKey);
   await page.reload();
   await button(page, "Retry workouts").waitFor();
 });
 
-test("active timer restores elapsed time and drafts after reload and remains visible on another selected date", async t => {
+test("active timer restores elapsed time and drafts after reload and remains visible on another selected date", async (t) => {
   const startedAt = time.getTime() - 90000;
-  const active = { id: "active", date, name: "Active training", status: "active", startedAt, durationSeconds: null,
-    exercises: [{ id: "curl-row", exercise: sides, sets: [{ id: "set", kind: "sides", left: { reps: "8", weightKg: "10" }, right: { reps: "6", weightKg: "12" } }] }] };
-  const page = await open(t, { freeze: true, document: { ...empty(), exercises: [sides], sessions: [active] } });
+  const active = {
+    id: "active",
+    date,
+    name: "Active training",
+    status: "active",
+    startedAt,
+    durationSeconds: null,
+    exercises: [
+      {
+        id: "curl-row",
+        exercise: sides,
+        sets: [
+          {
+            id: "set",
+            kind: "sides",
+            left: { reps: "8", weightKg: "10" },
+            right: { reps: "6", weightKg: "12" },
+          },
+        ],
+      },
+    ],
+  };
+  const page = await open(t, {
+    freeze: true,
+    document: { ...empty(), exercises: [sides], sessions: [active] },
+  });
   const timer = page.getByTestId("active-workout-timer");
   await timer.waitFor();
   await page.getByTestId("active-workout-workspace").waitFor();
@@ -134,20 +314,30 @@ test("active timer restores elapsed time and drafts after reload and remains vis
   assert.equal(await page.getByTestId("exercise-workout").count(), 0);
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false);
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth),
+      false,
+    );
   }
 });
 
-test("create exercises and ordered workouts, then add a planned session without starting a timer", async t => {
+test("create exercises and ordered workouts, then add a planned session without starting a timer", async (t) => {
   const page = await open(t);
   assert.equal(await button(page, "Create Exercise").isEnabled(), true);
-  for (const [name, tracking] of [["Curl", "Left and right"], ["Squat", "Single weight"]]) {
+  for (const [name, tracking] of [
+    ["Curl", "Left and right"],
+    ["Squat", "Single weight"],
+  ]) {
     await button(page, "Create Exercise").click();
     const form = page.getByTestId("exercise-form");
     await field(form, "Exercise name").fill(name);
     await button(form, tracking).click();
     await button(form, "Save exercise").click();
-    await storedWhen(page, (document, name) => document.exercises.some(exercise => exercise.name === name), name);
+    await storedWhen(
+      page,
+      (document, name) => document.exercises.some((exercise) => exercise.name === name),
+      name,
+    );
   }
   await button(page, "Create Workouts").click();
   const form = page.getByTestId("workout-form");
@@ -165,28 +355,49 @@ test("create exercises and ordered workouts, then add a planned session without 
   assert.equal((await documentFrom(page)).workouts.length, 0);
   await field(form, "Planned sets for Squat").fill("4");
   await button(form, "Save workout").click();
-  let document = await storedWhen(page, document => document.workouts.length === 1);
-  assert.deepEqual(document.workouts[0].exercises.map(exercise => exercise.name), ["Curl", "Squat"]);
+  let document = await storedWhen(page, (document) => document.workouts.length === 1);
+  assert.deepEqual(
+    document.workouts[0].exercises.map((exercise) => exercise.name),
+    ["Curl", "Squat"],
+  );
   assert.deepEqual(Object.values(document.workouts[0].setCounts), [2, 4]);
   assert.equal(document.sessions.length, 0);
   await button(page, "Saved workouts").click();
   await button(page.getByTestId("workout-library"), "Add Upper day to selected day").click();
-  document = await storedWhen(page, document => document.sessions.length === 1);
+  document = await storedWhen(page, (document) => document.sessions.length === 1);
   assert.equal(document.sessions[0].date, date);
   assert.equal(document.sessions[0].status, "planned");
   assert.equal(document.sessions[0].startedAt, null);
-  assert.deepEqual(document.sessions[0].exercises.map(row => row.exercise.name), ["Curl", "Squat"]);
-  assert.deepEqual(document.sessions[0].exercises.map(row => row.sets.length), [2, 4]);
+  assert.deepEqual(
+    document.sessions[0].exercises.map((row) => row.exercise.name),
+    ["Curl", "Squat"],
+  );
+  assert.deepEqual(
+    document.sessions[0].exercises.map((row) => row.sets.length),
+    [2, 4],
+  );
   assert.equal(await page.getByTestId("active-workout-timer").count(), 0);
   await page.reload();
   await page.getByTestId("exercise-search-actions").waitFor();
   assert.equal((await documentFrom(page)).sessions[0].status, "planned");
 });
 
-test("manual completion saves independent side measurements and bodyweight and shares totals with Home", async t => {
-  const planned = { id: "manual", date, name: "Strength", status: "planned", startedAt: null, durationSeconds: null,
-    exercises: [{ id: "curl-row", exercise: sides, sets: [] }, { id: "squat-row", exercise: single, sets: [] }] };
-  const page = await open(t, { document: { ...empty(), exercises: [single, sides], sessions: [planned] } });
+test("manual completion saves independent side measurements and bodyweight and shares totals with Home", async (t) => {
+  const planned = {
+    id: "manual",
+    date,
+    name: "Strength",
+    status: "planned",
+    startedAt: null,
+    durationSeconds: null,
+    exercises: [
+      { id: "curl-row", exercise: sides, sets: [] },
+      { id: "squat-row", exercise: single, sets: [] },
+    ],
+  };
+  const page = await open(t, {
+    document: { ...empty(), exercises: [single, sides], sessions: [planned] },
+  });
   await openLoggedWorkout(page, "Strength");
   const editor = page.getByTestId("session-editor");
   await button(editor, "Add set to Curl").click();
@@ -199,7 +410,10 @@ test("manual completion saves independent side measurements and bodyweight and s
   await field(editor, "Squat set 1 reps").fill("5");
   await field(editor, "Duration in minutes (optional)").fill("10");
   await button(editor, "Log completed workout").click();
-  const document = await storedWhen(page, document => document.sessions[0].status === "completed");
+  const document = await storedWhen(
+    page,
+    (document) => document.sessions[0].status === "completed",
+  );
   assert.equal(document.sessions[0].durationSeconds, 600);
   assert.deepEqual(document.sessions[0].exercises[0].sets[0].left, { reps: "8", weightKg: "10" });
   assert.deepEqual(document.sessions[0].exercises[0].sets[0].right, { reps: "6", weightKg: "12" });
@@ -214,10 +428,20 @@ test("manual completion saves independent side measurements and bodyweight and s
   await summary.getByText("152 kg", { exact: true }).waitFor();
 });
 
-test("exercise search edits definitions without adding them to a running or planned workout", async t => {
-  const active = { id: "running", date, name: "Running workout", status: "active", startedAt: time.getTime() - 30000, durationSeconds: null, exercises: [] };
+test("exercise search edits definitions without adding them to a running or planned workout", async (t) => {
+  const active = {
+    id: "running",
+    date,
+    name: "Running workout",
+    status: "active",
+    startedAt: time.getTime() - 30000,
+    durationSeconds: null,
+    exercises: [],
+  };
   const planned = { ...active, id: "later", name: "Later", status: "planned", startedAt: null };
-  const page = await open(t, { document: { ...empty(), exercises: [sides], sessions: [active, planned] } });
+  const page = await open(t, {
+    document: { ...empty(), exercises: [sides], sessions: [active, planned] },
+  });
   await field(page, "Search exercises").fill("Curl");
   await button(page, "Edit exercise Curl").click();
   await page.getByTestId("exercise-form").waitFor();
@@ -231,10 +455,26 @@ test("exercise search edits definitions without adding them to a running or plan
   assert.equal(await page.getByTestId("active-workout-timer").count(), 1);
 });
 
-test("the saved workout menu restores manual duration and starts a timed workout", async t => {
-  const planned = { id: "draft", date, name: "Draft", status: "planned", startedAt: null, durationSeconds: null,
-    exercises: [{ id: "squat-row", exercise: single, sets: [{ id: "set", kind: "single", reps: "5", weightKg: "" }] }] };
-  const page = await open(t, { freeze: true, document: { ...empty(), exercises: [single], sessions: [planned] } });
+test("the saved workout menu restores manual duration and starts a timed workout", async (t) => {
+  const planned = {
+    id: "draft",
+    date,
+    name: "Draft",
+    status: "planned",
+    startedAt: null,
+    durationSeconds: null,
+    exercises: [
+      {
+        id: "squat-row",
+        exercise: single,
+        sets: [{ id: "set", kind: "single", reps: "5", weightKg: "" }],
+      },
+    ],
+  };
+  const page = await open(t, {
+    freeze: true,
+    document: { ...empty(), exercises: [single], sessions: [planned] },
+  });
   await openLoggedWorkout(page, "Draft");
   let editor = page.getByTestId("session-editor");
   await field(editor, "Duration in minutes (optional)").fill("invalid");
@@ -255,26 +495,47 @@ test("the saved workout menu restores manual duration and starts a timed workout
   await button(editor, "Cancel").click();
   await openLoggedWorkout(page, "Draft");
   await button(editor, "Start workout").click();
-  const active = await storedWhen(page, document => document.sessions[0].status === "active");
+  const active = await storedWhen(page, (document) => document.sessions[0].status === "active");
   await page.getByTestId("active-workout-timer").waitFor();
   assert.equal(active.sessions[0].durationSeconds, null);
   await page.clock.fastForward(61000);
   await button(editor, "End workout").click();
-  const completed = await storedWhen(page, document => document.sessions[0].status === "completed");
+  const completed = await storedWhen(
+    page,
+    (document) => document.sessions[0].status === "completed",
+  );
   assert.ok(completed.sessions[0].durationSeconds >= 61);
   assert.ok(completed.sessions[0].durationSeconds < 750);
 });
 
-test("clearing a planned workout name blocks Start until Settings corrects it", async t => {
-  const planned = { id: "unnamed", date, name: "Named draft", status: "planned", startedAt: null, durationSeconds: null,
-    exercises: [{ id: "squat-row", exercise: single, sets: [{ id: "set", kind: "single", reps: "5", weightKg: "" }] }] };
-  const page = await open(t, { document: { ...empty(), exercises: [single], sessions: [planned] } });
+test("clearing a planned workout name blocks Start until Settings corrects it", async (t) => {
+  const planned = {
+    id: "unnamed",
+    date,
+    name: "Named draft",
+    status: "planned",
+    startedAt: null,
+    durationSeconds: null,
+    exercises: [
+      {
+        id: "squat-row",
+        exercise: single,
+        sets: [{ id: "set", kind: "single", reps: "5", weightKg: "" }],
+      },
+    ],
+  };
+  const page = await open(t, {
+    document: { ...empty(), exercises: [single], sessions: [planned] },
+  });
   await openLoggedWorkout(page, "Named draft");
   const editor = page.getByTestId("session-editor");
   const name = field(editor, "Workout name");
   await name.fill("");
   await button(editor, "Start workout").click();
-  await editor.getByRole("alert").getByText("Enter a workout name before starting.", { exact: true }).waitFor();
+  await editor
+    .getByRole("alert")
+    .getByText("Enter a workout name before starting.", { exact: true })
+    .waitFor();
   const retained = await documentFrom(page);
   assert.equal(retained.sessions[0].status, "planned");
   assert.equal(retained.sessions[0].startedAt, null);
@@ -285,14 +546,19 @@ test("clearing a planned workout name blocks Start until Settings corrects it", 
   await page.getByTestId("active-workout-workspace").waitFor();
   assert.equal(await field(editor, "Workout name").count(), 0);
   await button(editor, "End workout").click();
-  const completed = await storedWhen(page, document => document.sessions[0].status === "completed");
+  const completed = await storedWhen(
+    page,
+    (document) => document.sessions[0].status === "completed",
+  );
   assert.equal(completed.sessions[0].name, "Corrected workout");
   assert.equal(completed.sessions[0].exercises[0].sets[0].reps, "5");
 });
 
-test("logging starts from a saved workout and rejects incomplete measurements before completion", async t => {
+test("logging starts from a saved workout and rejects incomplete measurements before completion", async (t) => {
   const template = { id: "template", name: "Quick workout", exercises: [single] };
-  const page = await open(t, { document: { ...empty(), exercises: [single], workouts: [template] } });
+  const page = await open(t, {
+    document: { ...empty(), exercises: [single], workouts: [template] },
+  });
   await button(page, "Saved workouts").click();
   await button(page, "Add Quick workout to selected day").click();
   await button(page.getByTestId("planned-workout-card"), "Log completed workout").click();
@@ -305,16 +571,35 @@ test("logging starts from a saved workout and rejects incomplete measurements be
   assert.equal(await field(editor, "Squat set 1 reps").inputValue(), "1.5");
   await field(editor, "Squat set 1 reps").fill("10");
   await button(editor, "Log completed workout").click();
-  const document = await storedWhen(page, document => document.sessions[0].status === "completed");
+  const document = await storedWhen(
+    page,
+    (document) => document.sessions[0].status === "completed",
+  );
   assert.equal(document.sessions[0].name, "Quick workout");
   assert.equal(document.sessions[0].durationSeconds, null);
   await page.getByTestId("exercise-workout").getByText("Not recorded", { exact: true }).waitFor();
 });
 
-test("failed active completion retains local edits and the running timer, then retry saves the current draft", async t => {
-  const active = { id: "running", date, name: "Running workout", status: "active", startedAt: time.getTime() - 90000, durationSeconds: null,
-    exercises: [{ id: "squat-row", exercise: single, sets: [{ id: "set", kind: "single", reps: "8", weightKg: "10" }] }] };
-  const page = await open(t, { failure: true, document: { ...empty(), exercises: [single], sessions: [active] } });
+test("failed active completion retains local edits and the running timer, then retry saves the current draft", async (t) => {
+  const active = {
+    id: "running",
+    date,
+    name: "Running workout",
+    status: "active",
+    startedAt: time.getTime() - 90000,
+    durationSeconds: null,
+    exercises: [
+      {
+        id: "squat-row",
+        exercise: single,
+        sets: [{ id: "set", kind: "single", reps: "8", weightKg: "10" }],
+      },
+    ],
+  };
+  const page = await open(t, {
+    failure: true,
+    document: { ...empty(), exercises: [single], sessions: [active] },
+  });
   await page.getByTestId("active-workout-workspace").waitFor();
   const editor = page.getByTestId("session-editor");
   await field(editor, "Squat set 1 reps").fill("12");
@@ -323,9 +608,14 @@ test("failed active completion retains local edits and the running timer, then r
   assert.equal(await field(editor, "Squat set 1 reps").inputValue(), "12");
   assert.deepEqual((await documentFrom(page)).sessions[0], active);
   assert.equal(await page.getByTestId("active-workout-timer").isVisible(), true);
-  await page.evaluate(() => { window.__exerciseWriteFailure = false; });
+  await page.evaluate(() => {
+    window.__exerciseWriteFailure = false;
+  });
   await button(editor, "End workout").click();
-  const document = await storedWhen(page, document => document.sessions[0].status === "completed");
+  const document = await storedWhen(
+    page,
+    (document) => document.sessions[0].status === "completed",
+  );
   assert.equal(document.sessions[0].exercises[0].sets[0].reps, "12");
   assert.ok(document.sessions[0].durationSeconds >= 90);
   assert.equal(document.sessions[0].startedAt, active.startedAt);
@@ -333,56 +623,89 @@ test("failed active completion retains local edits and the running timer, then r
   assert.equal(await page.getByTestId("active-workout-timer").count(), 0);
 });
 
-test("library edits and confirmed deletion preserve historical snapshots and sessions remain editable", async t => {
-  const completed = { id: "done", date, name: "Manual", status: "completed", startedAt: null, durationSeconds: null,
-    exercises: [{ id: "squat-row", exercise: single, sets: [{ id: "set", kind: "single", reps: "5", weightKg: "40" }] }] };
+test("library edits and confirmed deletion preserve historical snapshots and sessions remain editable", async (t) => {
+  const completed = {
+    id: "done",
+    date,
+    name: "Manual",
+    status: "completed",
+    startedAt: null,
+    durationSeconds: null,
+    exercises: [
+      {
+        id: "squat-row",
+        exercise: single,
+        sets: [{ id: "set", kind: "single", reps: "5", weightKg: "40" }],
+      },
+    ],
+  };
   const workout = { id: "template", name: "Leg day", exercises: [single] };
-  const page = await open(t, { document: { ...empty(), exercises: [single], workouts: [workout], sessions: [completed] } });
+  const page = await open(t, {
+    document: { ...empty(), exercises: [single], workouts: [workout], sessions: [completed] },
+  });
   await field(page, "Search exercises").fill("Squat");
   await button(page, "Edit exercise Squat").click();
   let form = page.getByTestId("exercise-form");
   await field(form, "Exercise name").fill("Front squat");
   await button(form, "Save exercise").click();
-  let document = await storedWhen(page, document => document.exercises[0].name === "Front squat");
+  let document = await storedWhen(page, (document) => document.exercises[0].name === "Front squat");
   assert.equal(document.sessions[0].exercises[0].exercise.name, "Squat");
   await button(page, "Edit exercise Front squat").click();
   form = page.getByTestId("exercise-form");
   await button(form, "Delete exercise").click();
   assert.equal((await documentFrom(page)).exercises.length, 1);
   await button(form, "Confirm delete exercise").click();
-  document = await storedWhen(page, document => document.exercises.length === 0);
+  document = await storedWhen(page, (document) => document.exercises.length === 0);
   assert.equal(document.sessions[0].exercises[0].exercise.name, "Squat");
   await button(page, "Saved workouts").click();
   await button(page.getByTestId("workout-library"), "Add Leg day to selected day").click();
-  document = await storedWhen(page, document => document.sessions.length === 2);
+  document = await storedWhen(page, (document) => document.sessions.length === 2);
   assert.equal(document.sessions[1].exercises[0].exercise.name, "Squat");
   await button(page, "Saved workouts").click();
   await button(page.getByTestId("workout-library"), "Edit workout Leg day").click();
   form = page.getByTestId("workout-form");
   await button(form, "Delete workout").click();
   await button(form, "Confirm delete workout").click();
-  document = await storedWhen(page, document => document.workouts.length === 0);
+  document = await storedWhen(page, (document) => document.workouts.length === 0);
   assert.equal(document.sessions.length, 2);
   await openLoggedWorkout(page, "Manual", true);
   const editor = page.getByTestId("session-editor");
   await field(editor, "Squat set 1 reps").fill("10");
   assert.equal((await documentFrom(page)).sessions[0].exercises[0].sets[0].reps, "5");
   await button(editor, "Save changes").click();
-  document = await storedWhen(page, document => document.sessions[0].exercises[0].sets[0].reps === "10");
+  document = await storedWhen(
+    page,
+    (document) => document.sessions[0].exercises[0].sets[0].reps === "10",
+  );
   await button(page, "Clear search").click();
   await page.getByTestId("exercise-workout").getByText("400 kg", { exact: true }).waitFor();
   await button(page, "Saved workouts").click();
   await button(page, "Delete logged workout Manual").click();
   assert.equal((await documentFrom(page)).sessions.length, 2);
   await button(page, "Confirm delete logged workout").click();
-  document = await storedWhen(page, document => document.sessions.length === 1);
+  document = await storedWhen(page, (document) => document.sessions.length === 1);
   assert.equal(document.sessions[0].status, "planned");
 });
 
-test("completed workout edits survive exercise editing and menu navigation without saving early", async t => {
-  const completed = { id: "done", date, name: "Manual", status: "completed", startedAt: null, durationSeconds: null,
-    exercises: [{ id: "squat-row", exercise: single, sets: [{ id: "set", kind: "single", reps: "5", weightKg: "40" }] }] };
-  const page = await open(t, { document: { ...empty(), exercises: [single], sessions: [completed] } });
+test("completed workout edits survive exercise editing and menu navigation without saving early", async (t) => {
+  const completed = {
+    id: "done",
+    date,
+    name: "Manual",
+    status: "completed",
+    startedAt: null,
+    durationSeconds: null,
+    exercises: [
+      {
+        id: "squat-row",
+        exercise: single,
+        sets: [{ id: "set", kind: "single", reps: "5", weightKg: "40" }],
+      },
+    ],
+  };
+  const page = await open(t, {
+    document: { ...empty(), exercises: [single], sessions: [completed] },
+  });
   await openLoggedWorkout(page, "Manual", true);
   const editor = page.getByTestId("session-editor");
   await field(editor, "Workout name").fill("Updated workout");
@@ -397,18 +720,33 @@ test("completed workout edits survive exercise editing and menu navigation witho
   assert.equal(await field(editor, "Duration in minutes (optional)").inputValue(), "15");
   assert.deepEqual((await documentFrom(page)).sessions[0], completed);
   await button(editor, "Save changes").click();
-  const document = await storedWhen(page, document => document.sessions[0].name === "Updated workout");
+  const document = await storedWhen(
+    page,
+    (document) => document.sessions[0].name === "Updated workout",
+  );
   assert.equal(document.sessions[0].exercises[0].sets[0].reps, "10");
   assert.equal(document.sessions[0].durationSeconds, 900);
 });
 
-test("selected workouts stay compact on the day and Home retains its Add workout fallback", async t => {
-  const planned = { id: "draft", date, name: "Ready workout", status: "planned", startedAt: null, durationSeconds: null, exercises: [] };
+test("selected workouts stay compact on the day and Home retains its Add workout fallback", async (t) => {
+  const planned = {
+    id: "draft",
+    date,
+    name: "Ready workout",
+    status: "planned",
+    startedAt: null,
+    durationSeconds: null,
+    exercises: [],
+  };
   const page = await open(t, { document: { ...empty(), sessions: [planned] } });
   await page.getByTestId("planned-workout-card").waitFor();
   assert.equal(await page.getByTestId("exercise-workout-empty").count(), 0);
-  assert.equal(await page.getByRole("heading", { name: "Planned workout", exact: true }).count(), 0);
-  for (const id of ["exercise-workout", "exercise-library", "session-list", "session-picker"]) assert.equal(await page.getByTestId(id).count(), 0);
+  assert.equal(
+    await page.getByRole("heading", { name: "Planned workout", exact: true }).count(),
+    0,
+  );
+  for (const id of ["exercise-workout", "exercise-library", "session-list", "session-picker"])
+    assert.equal(await page.getByTestId(id).count(), 0);
   assert.equal(await page.getByRole("heading", { name: "Your exercises", exact: true }).count(), 0);
   assert.doesNotMatch(await page.locator("body").innerText(), /session/i);
   await button(page, "Saved workouts").click();
@@ -417,13 +755,19 @@ test("selected workouts stay compact on the day and Home retains its Add workout
   await page.getByRole("tab", { name: /Home/ }).click();
   await page.getByTestId("home-workout-empty").waitFor();
   assert.equal(await page.getByTestId("home-workout").count(), 0);
-  assert.equal(await button(page.getByTestId("home-workout-empty"), "Add workout").isEnabled(), true);
+  assert.equal(
+    await button(page.getByTestId("home-workout-empty"), "Add workout").isEnabled(),
+    true,
+  );
 });
 
-test("signed-in accounts retain exactly the supplied demo fixtures and preserve deliberate deletion after reload", async t => {
+test("signed-in accounts retain exactly the supplied demo fixtures and preserve deliberate deletion after reload", async (t) => {
   const page = await open(t, { developmentExamples: true });
-  const seeded = await storedWhen(page, document => document.developmentExamplesSeeded === true);
-  assert.deepEqual(seeded.exercises.map(exercise => exercise.name), ["Squat", "Push-up", "Dumbbell curl"]);
+  const seeded = await storedWhen(page, (document) => document.developmentExamplesSeeded === true);
+  assert.deepEqual(
+    seeded.exercises.map((exercise) => exercise.name),
+    ["Squat", "Push-up", "Dumbbell curl"],
+  );
   assert.equal(seeded.exercises[2].tracking, "sides");
   assert.equal(seeded.workouts.length, 0);
   assert.equal(seeded.sessions.length, 0);
@@ -437,21 +781,23 @@ test("signed-in accounts retain exactly the supplied demo fixtures and preserve 
   await button(page, "Edit exercise Push-up").click();
   await button(page, "Delete exercise").click();
   await button(page, "Confirm delete exercise").click();
-  await storedWhen(page, document => document.exercises.length === 2);
+  await storedWhen(page, (document) => document.exercises.length === 2);
   await page.reload();
   await page.getByTestId("exercise-search-actions").waitFor();
   assert.equal((await documentFrom(page)).exercises.length, 2);
 });
 
-test("a workout menu keeps its captured date when the calendar changes before logging", async t => {
+test("a workout menu keeps its captured date when the calendar changes before logging", async (t) => {
   const template = { id: "template", name: "Leg day", exercises: [single] };
-  const page = await open(t, { document: { ...empty(), exercises: [single], workouts: [template] } });
+  const page = await open(t, {
+    document: { ...empty(), exercises: [single], workouts: [template] },
+  });
   await button(page, "Saved workouts").click();
   await button(page, "Expand calendar").click();
   await page.getByRole("button", { name: "Saturday, October 3, 2026", exact: true }).click();
   await button(page, "Collapse calendar").click();
   await button(page, "Add Leg day to selected day").click();
-  const planned = await storedWhen(page, document => document.sessions.length === 1);
+  const planned = await storedWhen(page, (document) => document.sessions.length === 1);
   assert.equal(planned.sessions[0].date, date);
   await button(page.getByTestId("planned-workout-card"), "Log completed workout").click();
   const editor = page.getByTestId("session-editor");
@@ -459,7 +805,7 @@ test("a workout menu keeps its captured date when the calendar changes before lo
   await field(editor, "Squat set 1 reps").fill("5");
   await field(editor, "Squat set 1 weight (kg)").fill("40");
   await button(editor, "Log completed workout").click();
-  await storedWhen(page, document => document.sessions[0].status === "completed");
+  await storedWhen(page, (document) => document.sessions[0].status === "completed");
   await page.getByTestId("exercise-workout-empty").waitFor();
   await button(page, "Expand calendar").click();
   await page.getByRole("button", { name: "Sunday, October 4, 2026, today", exact: true }).click();
@@ -467,22 +813,37 @@ test("a workout menu keeps its captured date when the calendar changes before lo
   await page.getByTestId("exercise-workout").getByText("200 kg", { exact: true }).waitFor();
 });
 
-test("Add workout and the workout icon open the same menu with the requested empty copy", async t => {
+test("Add workout and the workout icon open the same menu with the requested empty copy", async (t) => {
   const page = await open(t);
   const menu = page.getByTestId("workout-library");
-  for (const opener of [button(page.getByTestId("exercise-workout-empty"), "Add workout"), button(page, "Saved workouts")]) {
+  for (const opener of [
+    button(page.getByTestId("exercise-workout-empty"), "Add workout"),
+    button(page, "Saved workouts"),
+  ]) {
     await opener.click();
     await menu.waitFor();
-    assert.equal(await menu.getByText("No workout found. Create a workout to get started.", { exact: true }).count(), 1);
+    assert.equal(
+      await menu
+        .getByText("No workout found. Create a workout to get started.", { exact: true })
+        .count(),
+      1,
+    );
     assert.doesNotMatch(await menu.innerText(), /Choose a workout for|No saved workouts yet/);
     await button(menu, "Close saved workouts").click();
   }
 });
 
-test("Home Add workout opens the saved menu once with the selected date", async t => {
+test("Home Add workout opens the saved menu once with the selected date", async (t) => {
   const template = { id: "template", name: "Leg day", exercises: [single] };
-  const exercises = Array.from({ length: 21 }, (_, index) => ({ ...single, id: `squat-${index}`, name: `Squat ${index + 1}` }));
-  const page = await open(t, { path: "/", document: { ...empty(), exercises, workouts: [template] } });
+  const exercises = Array.from({ length: 21 }, (_, index) => ({
+    ...single,
+    id: `squat-${index}`,
+    name: `Squat ${index + 1}`,
+  }));
+  const page = await open(t, {
+    path: "/",
+    document: { ...empty(), exercises, workouts: [template] },
+  });
   await page.getByRole("tab", { name: /Exercise/ }).click();
   await field(page, "Search exercises").fill("Squat");
   await page.getByTestId("exercise-result").first().waitFor();
@@ -503,24 +864,48 @@ test("Home Add workout opens the saved menu once with the selected date", async 
   await button(page, "Create Exercise").click();
   await field(page, "Exercise name").fill("Bench press");
   await button(page, "Save exercise").click();
-  await storedWhen(page, document => document.exercises.length === 22);
-  assert.equal(await menu.count(), 0, "the consumed menu intent must not reopen after a provider update");
+  await storedWhen(page, (document) => document.exercises.length === 22);
+  assert.equal(
+    await menu.count(),
+    0,
+    "the consumed menu intent must not reopen after a provider update",
+  );
   await page.getByRole("tab", { name: /Home/ }).click();
   await button(page.getByTestId("home-workout-empty"), "Add workout").click();
   await button(menu, "Add Leg day to selected day").click();
-  const document = await storedWhen(page, document => document.sessions.length === 1);
+  const document = await storedWhen(page, (document) => document.sessions.length === 1);
   assert.equal(document.sessions[0].date, "2026-10-03");
 });
 
-test("Exercise search matches Food styling, finds from the first letter, pages results, and clears them", async t => {
-  const exercises = Array.from({ length: 21 }, (_, index) => ({ ...single, id: `squat-${index}`, name: `Squat ${index + 1}` }));
+test("Exercise search matches Food styling, finds from the first letter, pages results, and clears them", async (t) => {
+  const exercises = Array.from({ length: 21 }, (_, index) => ({
+    ...single,
+    id: `squat-${index}`,
+    name: `Squat ${index + 1}`,
+  }));
   const page = await open(t, { document: { ...empty(), exercises } });
-  const styles = locator => locator.evaluate(element => {
-    const css = getComputedStyle(element);
-    return Object.fromEntries(["paddingLeft", "paddingRight", "paddingTop", "paddingBottom", "gap", "borderRadius", "borderColor", "backgroundColor", "minHeight"].map(key => [key, css[key]]));
-  });
+  const styles = (locator) =>
+    locator.evaluate((element) => {
+      const css = getComputedStyle(element);
+      return Object.fromEntries(
+        [
+          "paddingLeft",
+          "paddingRight",
+          "paddingTop",
+          "paddingBottom",
+          "gap",
+          "borderRadius",
+          "borderColor",
+          "backgroundColor",
+          "minHeight",
+        ].map((key) => [key, css[key]]),
+      );
+    });
   for (const appearance of ["light", "dark"]) {
-    await page.evaluate(value => window.accountFixture.setItem("kinevault-track.appearance", value), appearance);
+    await page.evaluate(
+      (value) => window.accountFixture.setItem("kinevault-track.appearance", value),
+      appearance,
+    );
     await page.reload();
     await page.getByTestId("exercise-search-actions").waitFor();
     await page.getByRole("tab", { name: /Food/ }).click();
@@ -544,7 +929,9 @@ test("Exercise search matches Food styling, finds from the first letter, pages r
     assert.equal(await page.getByTestId("exercise-result").count(), 1);
     await button(page, "Previous exercise results").click();
     await page.waitForFunction(() => {
-      const result = document.querySelector('[data-testid="exercise-result"]')?.getBoundingClientRect();
+      const result = document
+        .querySelector('[data-testid="exercise-result"]')
+        ?.getBoundingClientRect();
       return result && result.top >= 0 && result.bottom < innerHeight - 60;
     });
     await button(page, "Edit exercise Squat 1").click();
@@ -557,18 +944,26 @@ test("Exercise search matches Food styling, finds from the first letter, pages r
     await button(page, "Clear search").click();
     assert.equal(await page.getByTestId("exercise-library").count(), 0);
     assert.equal(await field(page, "Search exercises").inputValue(), "");
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
   }
 });
 
-test("Add workout is a button-only fallback that hides behind every Exercise view", async t => {
+test("Add workout is a button-only fallback that hides behind every Exercise view", async (t) => {
   const template = { id: "template", name: "Leg day", exercises: [single] };
-  const page = await open(t, { document: { ...empty(), exercises: [single], workouts: [template] } });
+  const page = await open(t, {
+    document: { ...empty(), exercises: [single], workouts: [template] },
+  });
   const fallback = page.getByTestId("exercise-workout-empty");
   await fallback.waitFor();
   assert.equal(await fallback.getByRole("heading").count(), 0);
   assert.doesNotMatch(await fallback.innerText(), /Workout of the day|No workout logged/);
-  for (const [action, form] of [["Create Exercise", "exercise-form"], ["Create Workouts", "workout-form"]]) {
+  for (const [action, form] of [
+    ["Create Exercise", "exercise-form"],
+    ["Create Workouts", "workout-form"],
+  ]) {
     await button(page, action).click();
     await page.getByTestId(form).waitFor();
     assert.equal(await fallback.count(), 0);
@@ -598,7 +993,9 @@ test("Add workout is a button-only fallback that hides behind every Exercise vie
   await button(page.getByTestId("exercise-form"), "Cancel").click();
   assert.equal(await fallback.count(), 0, "the retained search still occupies the content area");
   await field(page, "Search exercises").fill("unmatched");
-  await page.getByText("No exercises found. Try a simpler name or different equipment.", { exact: true }).waitFor();
+  await page
+    .getByText("No exercises found. Try a simpler name or different equipment.", { exact: true })
+    .waitFor();
   assert.equal(await fallback.count(), 0);
   await button(page, "Clear search").click();
   await fallback.waitFor();
@@ -612,45 +1009,71 @@ test("Add workout is a button-only fallback that hides behind every Exercise vie
   assert.doesNotMatch(await homeFallback.innerText(), /Workout of the day|No workout logged/);
 });
 
-test("exercise results reserve a responsive video preview without hiding long names", async t => {
-  const longName = "Split squat with a very long exercise name and independent left and right repetitions";
-  const longExercise = { ...sides, id: "long", name: longName, muscleGroup: "Legs with a long muscle group description", equipment: "Dumbbells and additional equipment details" };
+test("exercise results keep long names readable and explain upcoming studio videos once", async (t) => {
+  const longName =
+    "Split squat with a very long exercise name and independent left and right repetitions";
+  const longExercise = {
+    ...sides,
+    id: "long",
+    name: longName,
+    muscleGroup: "Legs with a long muscle group description",
+    equipment: "Dumbbells and additional equipment details",
+  };
   const page = await open(t, { document: { ...empty(), exercises: [single, longExercise] } });
   for (const appearance of ["light", "dark"]) {
-    await page.evaluate(value => window.accountFixture.setItem("kinevault-track.appearance", value), appearance);
+    await page.evaluate(
+      (value) => window.accountFixture.setItem("kinevault-track.appearance", value),
+      appearance,
+    );
     await page.reload();
     await page.getByTestId("exercise-search-actions").waitFor();
     await field(page, "Search exercises").fill(" S ");
-    await page.getByTestId("exercise-video-placeholder").first().waitFor();
-    assert.equal(await page.getByTestId("exercise-video-placeholder").count(), 2);
-    assert.equal(await page.getByRole("img", { name: "No video found", exact: true }).count(), 2);
+    await page.getByTestId("exercise-library").waitFor();
+    assert.equal(await page.getByTestId("exercise-video-placeholder").count(), 0);
+    assert.equal(
+      await page
+        .getByText("Exercise videos are upcoming with KineVault studio integration.", {
+          exact: true,
+        })
+        .count(),
+      1,
+    );
+    assert.equal(await page.getByRole("img", { name: "No video found", exact: true }).count(), 0);
     for (const width of [320, 390, 1280]) {
       await page.setViewportSize({ width, height: 844 });
       const result = button(page, `Edit exercise ${longName}`);
-      const previewBox = await result.getByTestId("exercise-video-placeholder").boundingBox();
       const nameBox = await result.getByText(longName, { exact: true }).boundingBox();
       const resultBox = await result.boundingBox();
-      assert.ok(previewBox.width >= 48);
-      assert.ok(Math.abs(previewBox.width / previewBox.height - 16 / 9) < 0.05);
-      assert.ok(nameBox.x + nameBox.width <= previewBox.x + 1, "exercise text stays beside the preview");
-      assert.ok(previewBox.x + previewBox.width <= resultBox.x + resultBox.width, "preview stays inside its card");
-      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      assert.ok(
+        nameBox.x >= resultBox.x && nameBox.x + nameBox.width <= resultBox.x + resultBox.width,
+        "exercise name stays inside its card",
+      );
+      assert.ok(nameBox.height > 0);
+      assert.equal(
+        await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+        false,
+      );
     }
-    await page.getByTestId("exercise-video-placeholder").first().click();
+    await button(page, "Edit exercise Squat").click();
     await page.getByTestId("exercise-form").waitFor();
     assert.equal(await field(page, "Exercise name").inputValue(), "Squat");
     await button(page.getByTestId("exercise-form"), "Cancel").click();
   }
 });
 
-test("workout creation searches above its ordered list and confirms removal inside the red button", async t => {
-  const exercises = Array.from({ length: 25 }, (_, index) => ({ ...single, id: `squat-${index}`, name: `Squat ${index + 1}` }));
+test("workout creation searches above its ordered list and confirms removal inside the red button", async (t) => {
+  const exercises = Array.from({ length: 25 }, (_, index) => ({
+    ...single,
+    id: `squat-${index}`,
+    name: `Squat ${index + 1}`,
+  }));
   const page = await open(t, { document: { ...empty(), exercises } });
   await button(page, "Create Workouts").click();
   const form = page.getByTestId("workout-form");
   const search = field(form, "Search workout exercises");
   assert.equal(await form.getByRole("button", { name: /^Add Squat/ }).count(), 0);
-  const searchBox = await search.boundingBox(), orderBox = await form.getByText("Exercise order", { exact: true }).boundingBox();
+  const searchBox = await search.boundingBox(),
+    orderBox = await form.getByText("Exercise order", { exact: true }).boundingBox();
   assert.ok(searchBox.y + searchBox.height < orderBox.y);
   await search.fill("S");
   assert.equal(await form.getByRole("button", { name: /^Add Squat/ }).count(), 20);
@@ -665,8 +1088,8 @@ test("workout creation searches above its ordered list and confirms removal insi
   await removal.click();
   const confirm = button(form, "Confirm remove workout exercise");
   assert.equal(await confirm.innerText(), "Are you sure?");
-  assert.equal(await element.evaluate(node => node.textContent), "Are you sure?");
-  const background = await confirm.evaluate(node => getComputedStyle(node).backgroundColor);
+  assert.equal(await element.evaluate((node) => node.textContent), "Are you sure?");
+  const background = await confirm.evaluate((node) => getComputedStyle(node).backgroundColor);
   const [red, green, blue] = background.match(/\d+/g).map(Number);
   assert.ok(red > green * 2 && red > blue * 2, "removal has a red background");
   await confirm.blur();
@@ -676,20 +1099,37 @@ test("workout creation searches above its ordered list and confirms removal insi
   assert.equal(await form.getByText("2. Squat 1", { exact: true }).count(), 0);
   await field(form, "Workout name").fill("Search workout");
   await button(form, "Save workout").click();
-  const document = await storedWhen(page, document => document.workouts.length === 1);
-  assert.deepEqual(document.workouts[0].exercises.map(item => item.name), ["Squat 25"]);
+  const document = await storedWhen(page, (document) => document.workouts.length === 1);
+  assert.deepEqual(
+    document.workouts[0].exercises.map((item) => item.name),
+    ["Squat 25"],
+  );
 });
 
-test("a compact workout configures planned sets and starts a scrolling exercise bar, counting only logged sets", async t => {
+test("a compact workout configures planned sets and starts a scrolling exercise bar, counting only logged sets", async (t) => {
   const squat = { ...single, notes: "Keep your chest up." };
-  const long = { ...single, id: "long", name: "Single-leg squat with an extended exercise name for narrow phone layouts" };
-  const template = { id: "template", name: "Strength day", exercises: [squat, sides, long], setCounts: { squat: 3, curl: 2, long: 2 } };
-  const page = await open(t, { document: { ...empty(), exercises: [squat, sides, long], workouts: [template] } });
+  const long = {
+    ...single,
+    id: "long",
+    name: "Single-leg squat with an extended exercise name for narrow phone layouts",
+  };
+  const template = {
+    id: "template",
+    name: "Strength day",
+    exercises: [squat, sides, long],
+    setCounts: { squat: 3, curl: 2, long: 2 },
+  };
+  const page = await open(t, {
+    document: { ...empty(), exercises: [squat, sides, long], workouts: [template] },
+  });
   await button(page, "Saved workouts").click();
   await button(page, "Add Strength day to selected day").click();
   const compact = page.getByTestId("planned-workout-card");
   await compact.waitFor();
-  assert.equal(await page.getByRole("heading", { name: "Planned workout", exact: true }).count(), 0);
+  assert.equal(
+    await page.getByRole("heading", { name: "Planned workout", exact: true }).count(),
+    0,
+  );
   assert.equal(await field(page, "Workout name").count(), 0);
   assert.equal(await page.getByTestId("active-workout-timer").count(), 0);
   await page.reload();
@@ -700,28 +1140,54 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
   await field(settings, "Planned sets for Squat").fill("2");
   await field(settings, "Planned sets for Curl").fill("3");
   await button(settings, "Save settings").click();
-  await storedWhen(page, document => document.sessions[0].exercises[0].sets.length === 2
-    && document.sessions[0].exercises[1].sets.length === 3);
+  await storedWhen(
+    page,
+    (document) =>
+      document.sessions[0].exercises[0].sets.length === 2 &&
+      document.sessions[0].exercises[1].sets.length === 3,
+  );
   await page.reload();
   await compact.waitFor();
   await button(compact, "Start workout").click();
-  await storedWhen(page, document => document.sessions[0].status === "active");
-  const workspace = page.getByTestId("active-workout-workspace"), topbar = page.getByTestId("exercise-topbar");
+  await storedWhen(page, (document) => document.sessions[0].status === "active");
+  const workspace = page.getByTestId("active-workout-workspace"),
+    topbar = page.getByTestId("exercise-topbar");
   const details = page.getByTestId("exercise-details");
   await workspace.waitFor();
   assert.equal(await compact.count(), 0);
   assert.equal(await page.getByTestId("session-editor").count(), 1);
   assert.equal(await field(page, "Workout name").count(), 0);
-  assert.equal(await page.getByTestId("active-workout-timer").getByText("Strength day", { exact: true }).count(), 0);
-  assert.equal(await page.getByTestId("session-editor").getByRole("heading", { name: "Strength day", exact: true }).count(), 1);
+  assert.equal(
+    await page
+      .getByTestId("active-workout-timer")
+      .getByText("Strength day", { exact: true })
+      .count(),
+    0,
+  );
+  assert.equal(
+    await page
+      .getByTestId("session-editor")
+      .getByRole("heading", { name: "Strength day", exact: true })
+      .count(),
+    1,
+  );
   assert.equal(await button(page.getByTestId("session-editor"), /Remove/).count(), 0);
-  assert.doesNotMatch(await workspace.innerText(), /2026-10-04|In progress|Blank weight means|Close workout|Open active workout/);
-  assert.equal(await workspace.getByTestId("workout-workspace-heading").getByTestId("active-workout-timer").count(), 1);
-  const borders = await workspace.getByTestId("exercise-topbar-frame").evaluate(node => {
+  assert.doesNotMatch(
+    await workspace.innerText(),
+    /2026-10-04|In progress|Blank weight means|Close workout|Open active workout/,
+  );
+  assert.equal(
+    await workspace
+      .getByTestId("workout-workspace-heading")
+      .getByTestId("active-workout-timer")
+      .count(),
+    1,
+  );
+  const borders = await workspace.getByTestId("exercise-topbar-frame").evaluate((node) => {
     const style = getComputedStyle(node);
     return [parseFloat(style.borderTopWidth), parseFloat(style.borderBottomWidth)];
   });
-  assert.ok(borders.every(width => width >= 1));
+  assert.ok(borders.every((width) => width >= 1));
   await button(details, "View notes for Squat").click();
   await details.getByText("Keep your chest up.", { exact: true }).waitFor();
   assert.equal(await field(details, "Squat set 2 reps").count(), 1);
@@ -735,7 +1201,10 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
   await field(details, "Curl set 1 left weight (kg)").fill("10");
   await field(details, "Curl set 1 right reps").fill("6");
   await field(details, "Curl set 1 right weight (kg)").fill("12");
-  await storedWhen(page, document => document.sessions[0].exercises[1].sets[0].right.weightKg === "12");
+  await storedWhen(
+    page,
+    (document) => document.sessions[0].exercises[1].sets[0].right.weightKg === "12",
+  );
   await page.reload();
   await workspace.waitFor();
   assert.equal(await field(details, "Squat set 1 reps").inputValue(), "5");
@@ -743,7 +1212,10 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
   assert.equal(await field(details, "Curl set 1 right reps").inputValue(), "6");
   assert.equal(await field(details, "Curl set 1 left weight (kg)").inputValue(), "10");
   for (const appearance of ["light", "dark"]) {
-    await page.evaluate(value => window.accountFixture.setItem("kinevault-track.appearance", value), appearance);
+    await page.evaluate(
+      (value) => window.accountFixture.setItem("kinevault-track.appearance", value),
+      appearance,
+    );
     await page.reload();
     await workspace.waitFor();
     await button(topbar, `Select exercise ${long.name}`).click();
@@ -757,27 +1229,49 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
         const discard = workspace?.querySelector('[aria-label="Discard workout"]');
         const actions = workspace?.querySelector('[data-testid="workout-log-actions"]');
         const exerciseHeading = workspace?.querySelector('[data-testid="exercise-detail-heading"]');
-        if (!workspace || !bar || !details || !end || !discard || !actions || !exerciseHeading) return false;
-        const endBox = end.getBoundingClientRect(), discardBox = discard.getBoundingClientRect();
+        if (!workspace || !bar || !details || !end || !discard || !actions || !exerciseHeading)
+          return false;
+        const endBox = end.getBoundingClientRect(),
+          discardBox = discard.getBoundingClientRect();
         const headingBox = exerciseHeading.getBoundingClientRect();
         const headingButtons = [...exerciseHeading.querySelectorAll('[role="button"]')];
-        return bar.getBoundingClientRect().bottom <= details.getBoundingClientRect().top + 1
-          && actions.getBoundingClientRect().top >= details.getBoundingClientRect().bottom
-          && Math.abs(actions.getBoundingClientRect().bottom - workspace.getBoundingClientRect().bottom) < 2
-          && Math.abs(endBox.width - discardBox.width) < 2
-          && Math.abs(endBox.height - discardBox.height) < 2
-          && Math.abs(endBox.top - discardBox.top) < 2
-          && headingButtons.length === 2 && headingButtons.every(button => {
+        return (
+          bar.getBoundingClientRect().bottom <= details.getBoundingClientRect().top + 1 &&
+          actions.getBoundingClientRect().top >= details.getBoundingClientRect().bottom &&
+          Math.abs(
+            actions.getBoundingClientRect().bottom - workspace.getBoundingClientRect().bottom,
+          ) < 2 &&
+          Math.abs(endBox.width - discardBox.width) < 2 &&
+          Math.abs(endBox.height - discardBox.height) < 2 &&
+          Math.abs(endBox.top - discardBox.top) < 2 &&
+          headingButtons.length === 2 &&
+          headingButtons.every((button) => {
             const box = button.getBoundingClientRect();
-            return box.width >= 44 && box.height >= 44 && box.top >= headingBox.top && box.bottom <= headingBox.bottom + 1;
-          });
+            return (
+              box.width >= 44 &&
+              box.height >= 44 &&
+              box.top >= headingBox.top &&
+              box.bottom <= headingBox.bottom + 1
+            );
+          })
+        );
       });
-      if (width === 320) await page.waitForFunction(() => {
-        const bar = document.querySelector('[data-testid="exercise-topbar"]');
-        return bar && [bar, ...bar.querySelectorAll("*")].some(node =>
-          /auto|scroll/.test(getComputedStyle(node).overflowX) && node.scrollWidth > node.clientWidth);
-      });
-      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      if (width === 320)
+        await page.waitForFunction(() => {
+          const bar = document.querySelector('[data-testid="exercise-topbar"]');
+          return (
+            bar &&
+            [bar, ...bar.querySelectorAll("*")].some(
+              (node) =>
+                /auto|scroll/.test(getComputedStyle(node).overflowX) &&
+                node.scrollWidth > node.clientWidth,
+            )
+          );
+        });
+      assert.equal(
+        await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+        false,
+      );
     }
   }
   await button(workspace, "Discard workout").click();
@@ -786,26 +1280,55 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
   assert.equal((await documentFrom(page)).sessions[0].status, "active");
   await confirm.blur();
   await button(workspace, "End workout").click();
-  const document = await storedWhen(page, document => document.sessions[0].status === "completed");
+  const document = await storedWhen(
+    page,
+    (document) => document.sessions[0].status === "completed",
+  );
   assert.ok(document.sessions[0].durationSeconds >= 0);
-  assert.deepEqual(document.sessions[0].exercises.map(row => row.sets.length), [1, 1, 0]);
+  assert.deepEqual(
+    document.sessions[0].exercises.map((row) => row.sets.length),
+    [1, 1, 0],
+  );
   const summary = page.getByTestId("exercise-workout");
   await summary.getByText("352 kg", { exact: true }).waitFor();
   assert.equal(await summary.getByText("19", { exact: true }).count(), 1);
-  assert.equal(await summary.getByText("Sets", { exact: true }).first().locator("../..").getByText("2", { exact: true }).count(), 1);
+  assert.equal(
+    await summary
+      .getByText("Sets", { exact: true })
+      .first()
+      .locator("../..")
+      .getByText("2", { exact: true })
+      .count(),
+    1,
+  );
   assert.equal(await summary.getByText(long.name, { exact: true }).count(), 0);
   assert.equal(await workspace.count(), 0);
   assert.equal(await page.getByTestId("active-workout-timer").count(), 0);
 });
 
-test("planned workout settings preserve entered sets and block start on invalid counts or failed saves", async t => {
-  const planned = { id: "settings", date, name: "Settings draft", status: "planned", startedAt: null, durationSeconds: null,
-    exercises: [{ id: "squat-row", exercise: single, sets: [
-      { id: "one", kind: "single", reps: "", weightKg: "" },
-      { id: "two", kind: "single", reps: "5", weightKg: "40" },
-      { id: "three", kind: "single", reps: "", weightKg: "" },
-    ] }] };
-  const page = await open(t, { document: { ...empty(), exercises: [single], sessions: [planned] } });
+test("planned workout settings preserve entered sets and block start on invalid counts or failed saves", async (t) => {
+  const planned = {
+    id: "settings",
+    date,
+    name: "Settings draft",
+    status: "planned",
+    startedAt: null,
+    durationSeconds: null,
+    exercises: [
+      {
+        id: "squat-row",
+        exercise: single,
+        sets: [
+          { id: "one", kind: "single", reps: "", weightKg: "" },
+          { id: "two", kind: "single", reps: "5", weightKg: "40" },
+          { id: "three", kind: "single", reps: "", weightKg: "" },
+        ],
+      },
+    ],
+  };
+  const page = await open(t, {
+    document: { ...empty(), exercises: [single], sessions: [planned] },
+  });
   const compact = page.getByTestId("planned-workout-card");
   await button(compact, "Settings").click();
   const settings = page.getByTestId("planned-workout-settings");
@@ -820,10 +1343,12 @@ test("planned workout settings preserve entered sets and block start on invalid 
   assert.equal((await documentFrom(page)).sessions[0].exercises[0].sets.length, 3);
   await count.fill("2");
   await button(settings, "Save settings").click();
-  await storedWhen(page, document => document.sessions[0].exercises[0].sets.length === 2);
+  await storedWhen(page, (document) => document.sessions[0].exercises[0].sets.length === 2);
   await button(compact, "Settings").click();
   assert.equal(await count.inputValue(), "2");
-  await page.evaluate(() => { window.__exerciseWriteFailure = true; });
+  await page.evaluate(() => {
+    window.__exerciseWriteFailure = true;
+  });
   await count.fill("4");
   await button(compact, "Start workout").click();
   await page.getByTestId("session-editor").getByRole("alert").first().waitFor();
@@ -833,26 +1358,39 @@ test("planned workout settings preserve entered sets and block start on invalid 
   await button(page, "Create Exercise").click();
   assert.equal(await page.getByTestId("exercise-form").count(), 0);
   assert.equal(await count.inputValue(), "4");
-  await page.evaluate(() => { window.__exerciseWriteFailure = false; });
+  await page.evaluate(() => {
+    window.__exerciseWriteFailure = false;
+  });
   await button(settings, "Save settings").click();
-  await storedWhen(page, document => document.sessions[0].exercises[0].sets.length === 4);
+  await storedWhen(page, (document) => document.sessions[0].exercises[0].sets.length === 4);
   await button(compact, "Start workout").click();
   await page.getByTestId("active-workout-workspace").waitFor();
   assert.equal(await field(page, "Squat set 2 reps").inputValue(), "5");
   await button(page, "End workout").click();
-  const completed = await storedWhen(page, document => document.sessions[0].status === "completed");
+  const completed = await storedWhen(
+    page,
+    (document) => document.sessions[0].status === "completed",
+  );
   assert.equal(completed.sessions[0].exercises[0].sets.length, 1);
   assert.equal(completed.sessions[0].exercises[0].sets[0].id, "two");
   await page.getByTestId("exercise-workout").getByText("200 kg", { exact: true }).waitFor();
 });
 
-test("saved workout editing uses the exercise bar and preserves settings through a failed save", async t => {
+test("saved workout editing uses the exercise bar and preserves settings through a failed save", async (t) => {
   const squat = { ...single, notes: "Keep your chest up." };
-  const template = { id: "template", name: "Template training", exercises: [squat, sides], setCounts: { squat: 2, curl: 3 } };
-  const page = await open(t, { document: { ...empty(), exercises: [squat, sides], workouts: [template] } });
+  const template = {
+    id: "template",
+    name: "Template training",
+    exercises: [squat, sides],
+    setCounts: { squat: 2, curl: 3 },
+  };
+  const page = await open(t, {
+    document: { ...empty(), exercises: [squat, sides], workouts: [template] },
+  });
   await button(page, "Saved workouts").click();
   await button(page, "Edit workout Template training").click();
-  const form = page.getByTestId("workout-form"), workspace = form.getByTestId("template-workout-workspace");
+  const form = page.getByTestId("workout-form"),
+    workspace = form.getByTestId("template-workout-workspace");
   await workspace.waitFor();
   assert.equal(await field(form, "Workout name").count(), 0);
   assert.equal(await field(form, "Planned sets for Squat").inputValue(), "2");
@@ -864,16 +1402,26 @@ test("saved workout editing uses the exercise bar and preserves settings through
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     await page.waitForFunction(() => {
-      const frame = document.querySelector('[data-testid="template-workout-workspace"] [data-testid="exercise-topbar-frame"]');
+      const frame = document.querySelector(
+        '[data-testid="template-workout-workspace"] [data-testid="exercise-topbar-frame"]',
+      );
       const actions = document.querySelector('[data-testid="workout-template-actions"]');
       if (!frame || !actions) return false;
-      const style = getComputedStyle(frame), buttons = actions.querySelectorAll('[role="button"]');
+      const style = getComputedStyle(frame),
+        buttons = actions.querySelectorAll('[role="button"]');
       if (buttons.length !== 2) return false;
-      const [left, right] = [...buttons].map(node => node.getBoundingClientRect());
-      return parseFloat(style.borderTopWidth) >= 1 && parseFloat(style.borderBottomWidth) >= 1
-        && Math.abs(left.width - right.width) < 2 && Math.abs(left.height - right.height) < 2;
+      const [left, right] = [...buttons].map((node) => node.getBoundingClientRect());
+      return (
+        parseFloat(style.borderTopWidth) >= 1 &&
+        parseFloat(style.borderBottomWidth) >= 1 &&
+        Math.abs(left.width - right.width) < 2 &&
+        Math.abs(left.height - right.height) < 2
+      );
     });
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
   }
   await button(form, "Settings").click();
   const searchBox = await field(form, "Search workout exercises").boundingBox();
@@ -881,31 +1429,74 @@ test("saved workout editing uses the exercise bar and preserves settings through
   assert.ok(searchBox.y + searchBox.height < orderBox.y);
   await field(form, "Workout name").fill("Updated template");
   await button(form, "Move Curl up").click();
-  await page.evaluate(() => { window.__exerciseWriteFailure = true; });
+  await page.evaluate(() => {
+    window.__exerciseWriteFailure = true;
+  });
   await button(form, "Save workout").click();
   await form.getByRole("alert").waitFor();
   assert.equal(await field(form, "Workout name").inputValue(), "Updated template");
   assert.equal(await field(form, "Planned sets for Curl").inputValue(), "4");
   assert.deepEqual((await documentFrom(page)).workouts[0], template);
-  await page.evaluate(() => { window.__exerciseWriteFailure = false; });
+  await page.evaluate(() => {
+    window.__exerciseWriteFailure = false;
+  });
   await button(form, "Save workout").click();
-  const document = await storedWhen(page, document => document.workouts[0].name === "Updated template");
-  assert.deepEqual(document.workouts[0].exercises.map(item => item.id), ["curl", "squat"]);
+  const document = await storedWhen(
+    page,
+    (document) => document.workouts[0].name === "Updated template",
+  );
+  assert.deepEqual(
+    document.workouts[0].exercises.map((item) => item.id),
+    ["curl", "squat"],
+  );
   assert.deepEqual(document.workouts[0].setCounts, { curl: 4, squat: 2 });
 });
 
-test("completed workout editing shares the layout and keeps side edits local until explicit save", async t => {
-  const complete = { id: "done", date, name: "Historical workout", status: "completed", startedAt: null, durationSeconds: 17,
-    exercises: [{ id: "squat-row", exercise: single, sets: [{ id: "one", kind: "single", reps: "5", weightKg: "40" }] },
-      { id: "curl-row", exercise: sides, sets: [{ id: "two", kind: "sides", left: { reps: "8", weightKg: "10" }, right: { reps: "6", weightKg: "12" } }] }] };
-  const page = await open(t, { document: { ...empty(), exercises: [single, sides], sessions: [complete] } });
+test("completed workout editing shares the layout and keeps side edits local until explicit save", async (t) => {
+  const complete = {
+    id: "done",
+    date,
+    name: "Historical workout",
+    status: "completed",
+    startedAt: null,
+    durationSeconds: 17,
+    exercises: [
+      {
+        id: "squat-row",
+        exercise: single,
+        sets: [{ id: "one", kind: "single", reps: "5", weightKg: "40" }],
+      },
+      {
+        id: "curl-row",
+        exercise: sides,
+        sets: [
+          {
+            id: "two",
+            kind: "sides",
+            left: { reps: "8", weightKg: "10" },
+            right: { reps: "6", weightKg: "12" },
+          },
+        ],
+      },
+    ],
+  };
+  const page = await open(t, {
+    document: { ...empty(), exercises: [single, sides], sessions: [complete] },
+  });
   await openLoggedWorkout(page, "Historical workout", true, false);
-  const editor = page.getByTestId("session-editor"), workspace = page.getByTestId("completed-workout-workspace");
+  const editor = page.getByTestId("session-editor"),
+    workspace = page.getByTestId("completed-workout-workspace");
   await workspace.waitFor();
   assert.equal(await editor.getByLabel("Workout duration", { exact: true }).innerText(), "0:17");
   assert.equal(await field(editor, "Workout name").count(), 0);
   assert.equal(await button(editor, "Close workout").count(), 0);
-  assert.equal(await editor.getByTestId("exercise-video-placeholder").count(), 1);
+  assert.equal(await editor.getByTestId("exercise-video-placeholder").count(), 0);
+  assert.equal(
+    await editor
+      .getByText("Exercise videos are upcoming with KineVault studio integration.", { exact: true })
+      .count(),
+    1,
+  );
   assert.equal(await button(editor, "Add set to Squat").count(), 1);
   await button(editor, "Select exercise Curl").click();
   await field(editor, "Curl set 1 right reps").fill("9");
@@ -916,10 +1507,16 @@ test("completed workout editing shares the layout and keeps side edits local unt
   await field(editor, "Workout name").fill("Edited historical workout");
   const invalidDuration = "99999999999999999999999999999999";
   await field(editor, "Duration in minutes (optional)").fill(invalidDuration);
-  assert.equal(await editor.getByLabel("Workout duration", { exact: true }).innerText(), "Invalid duration");
+  assert.equal(
+    await editor.getByLabel("Workout duration", { exact: true }).innerText(),
+    "Invalid duration",
+  );
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
   }
   await button(editor, "Save changes").click();
   await editor.getByRole("alert").waitFor();
@@ -927,7 +1524,9 @@ test("completed workout editing shares the layout and keeps side edits local unt
   assert.deepEqual((await documentFrom(page)).sessions[0], complete);
   await field(editor, "Duration in minutes (optional)").fill("11");
   assert.deepEqual((await documentFrom(page)).sessions[0], complete);
-  await page.evaluate(() => { window.__exerciseWriteFailure = true; });
+  await page.evaluate(() => {
+    window.__exerciseWriteFailure = true;
+  });
   await button(editor, "Save changes").click();
   await editor.getByRole("alert").waitFor();
   assert.deepEqual((await documentFrom(page)).sessions[0], complete);
@@ -939,9 +1538,14 @@ test("completed workout editing shares the layout and keeps side edits local unt
   await button(editor, "Select exercise Curl").click();
   assert.equal(await field(editor, "Curl set 1 right reps").inputValue(), "9");
   assert.equal(await field(editor, "Curl set 2 left reps").inputValue(), "");
-  await page.evaluate(() => { window.__exerciseWriteFailure = false; });
+  await page.evaluate(() => {
+    window.__exerciseWriteFailure = false;
+  });
   await button(editor, "Save changes").click();
-  const document = await storedWhen(page, document => document.sessions[0].name === "Edited historical workout");
+  const document = await storedWhen(
+    page,
+    (document) => document.sessions[0].name === "Edited historical workout",
+  );
   assert.equal(document.sessions[0].exercises[0].sets[0].reps, "7");
   assert.equal(document.sessions[0].exercises[1].sets[0].right.reps, "9");
   assert.equal(document.sessions[0].exercises[1].sets.length, 1);
@@ -949,15 +1553,33 @@ test("completed workout editing shares the layout and keeps side edits local unt
   await page.getByTestId("exercise-workout").getByText("468 kg", { exact: true }).waitFor();
 });
 
-test("cloud sync preserves an unfinished workout across failure, unchanged success, and unrelated cloud changes", async t => {
-  const complete = { id: "done", date, name: "Historical workout", status: "completed", startedAt: null, durationSeconds: 17,
-    exercises: [{ id: "squat-row", exercise: single, sets: [{ id: "one", kind: "single", reps: "5", weightKg: "40" }] }] };
+test("cloud sync preserves an unfinished workout across failure, unchanged success, and unrelated cloud changes", async (t) => {
+  const complete = {
+    id: "done",
+    date,
+    name: "Historical workout",
+    status: "completed",
+    startedAt: null,
+    durationSeconds: 17,
+    exercises: [
+      {
+        id: "squat-row",
+        exercise: single,
+        sets: [{ id: "one", kind: "single", reps: "5", weightKg: "40" }],
+      },
+    ],
+  };
   let accountFixture;
-  const page = await open(t, { document: { ...empty(), exercises: [single], sessions: [complete] }, onAccountFixture: value => { accountFixture = value; } });
+  const page = await open(t, {
+    document: { ...empty(), exercises: [single], sessions: [complete] },
+    onAccountFixture: (value) => {
+      accountFixture = value;
+    },
+  });
   await openLoggedWorkout(page, "Historical workout", true, false);
   const editor = page.getByTestId("session-editor");
   await field(editor, "Squat set 1 reps").fill("7");
-  const tab = name => page.getByRole("tab", { name, exact: true });
+  const tab = (name) => page.getByRole("tab", { name, exact: true });
   const verifyDraft = async () => {
     await tab("Exercise").click();
     await editor.waitFor();
@@ -978,25 +1600,51 @@ test("cloud sync preserves an unfinished workout across failure, unchanged succe
   await verifyDraft();
   await tab("Settings").click();
   const key = "kinevault-track.water-goal.v1";
-  accountFixture.documents.set(key, { user_id: accountFixture.session.user.id, document_key: key,
-    payload: JSON.stringify({ version: 1, dailyMl: 2800 }), revision: 1, updated_at: new Date().toISOString() });
+  accountFixture.documents.set(key, {
+    user_id: accountFixture.session.user.id,
+    document_key: key,
+    payload: JSON.stringify({ version: 1, dailyMl: 2800 }),
+    revision: 1,
+    updated_at: new Date().toISOString(),
+  });
   await button(page, "Sync now").click();
   await page.getByText("Current goal: 2,800 ml per day.", { exact: true }).waitFor();
   await verifyDraft();
   await tab("Settings").click();
-  const profileKey = "kinevault-track.profile.v1", previous = accountFixture.documents.get(profileKey);
+  const profileKey = "kinevault-track.profile.v1",
+    previous = accountFixture.documents.get(profileKey);
   const updated = JSON.parse(previous.payload);
   updated.answers.age = "31";
-  accountFixture.documents.set(profileKey, { ...previous, payload: JSON.stringify(updated), revision: previous.revision + 1 });
+  accountFixture.documents.set(profileKey, {
+    ...previous,
+    payload: JSON.stringify(updated),
+    revision: previous.revision + 1,
+  });
   await button(page, "Sync now").click();
   await page.getByText("31 years", { exact: true }).waitFor();
   await verifyDraft();
 });
 
-test("failed active draft edits survive search and calendar changes before a guarded retry", async t => {
-  const active = { id: "running", date, name: "Running workout", status: "active", startedAt: time.getTime() - 90000, durationSeconds: null,
-    exercises: [{ id: "squat-row", exercise: single, sets: [{ id: "set", kind: "single", reps: "8", weightKg: "10" }] }] };
-  const page = await open(t, { failure: true, document: { ...empty(), exercises: [single], sessions: [active] } });
+test("failed active draft edits survive search and calendar changes before a guarded retry", async (t) => {
+  const active = {
+    id: "running",
+    date,
+    name: "Running workout",
+    status: "active",
+    startedAt: time.getTime() - 90000,
+    durationSeconds: null,
+    exercises: [
+      {
+        id: "squat-row",
+        exercise: single,
+        sets: [{ id: "set", kind: "single", reps: "8", weightKg: "10" }],
+      },
+    ],
+  };
+  const page = await open(t, {
+    failure: true,
+    document: { ...empty(), exercises: [single], sessions: [active] },
+  });
   const editor = page.getByTestId("session-editor");
   await page.getByTestId("active-workout-workspace").waitFor();
   await field(editor, "Squat set 1 reps").fill("12");
@@ -1011,9 +1659,11 @@ test("failed active draft edits survive search and calendar changes before a gua
   await button(page, "Collapse calendar").click();
   assert.equal(await field(editor, "Squat set 1 reps").inputValue(), "12");
   assert.deepEqual((await documentFrom(page)).sessions[0], active);
-  await page.evaluate(() => { window.__exerciseWriteFailure = false; });
+  await page.evaluate(() => {
+    window.__exerciseWriteFailure = false;
+  });
   await button(editor, "Retry draft save").click();
-  await storedWhen(page, document => document.sessions[0].exercises[0].sets[0].reps === "12");
+  await storedWhen(page, (document) => document.sessions[0].exercises[0].sets[0].reps === "12");
   await button(page, "Edit exercise Squat").click();
   await page.getByTestId("exercise-form").waitFor();
   assert.equal((await documentFrom(page)).sessions[0].date, date);

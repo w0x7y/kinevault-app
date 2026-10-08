@@ -6,13 +6,7 @@ import { Field, ErrorText } from "../onboarding/controls";
 import { spacing } from "../theme/tokens";
 import { waterGoalFromText } from "../water/goal-model";
 import { useWaterGoal } from "../water/goal-provider";
-export function WaterGoalEditor({
-  initial,
-  close,
-}: {
-  initial: number;
-  close: () => void;
-}) {
+export function WaterGoalEditor({ initial, close }: { initial: number; close: () => void }) {
   const goal = useWaterGoal();
   const [draft, setDraft] = useState(String(initial)),
     [error, setError] = useState<string | null>(null);
@@ -48,9 +42,7 @@ export function WaterGoalEditor({
         inputMode="numeric"
         keyboardType="number-pad"
       />
-      {(error || goal.error) && (
-        <ErrorText message={error || goal.error || ""} />
-      )}
+      {(error || goal.error) && <ErrorText message={error || goal.error || ""} />}
       <View style={{ flexDirection: "row", gap: spacing.layout }}>
         <View style={{ flex: 1 }}>
           <FoodButton label="Cancel" disabled={goal.saving} onPress={close} />

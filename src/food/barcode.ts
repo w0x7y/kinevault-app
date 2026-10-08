@@ -2,10 +2,14 @@ export const supportedProductBarcodeTypes = ["ean13", "ean8", "upc_a", "upc_e", 
 
 function hasValidCheckDigit(code: string): boolean {
   let sum = 0;
-  for (let index = code.length - 2, weight = 3; index >= 0; index--, weight = weight === 3 ? 1 : 3) {
+  for (
+    let index = code.length - 2, weight = 3;
+    index >= 0;
+    index--, weight = weight === 3 ? 1 : 3
+  ) {
     sum += Number(code[index]) * weight;
   }
-  return (10 - sum % 10) % 10 === Number(code.at(-1));
+  return (10 - (sum % 10)) % 10 === Number(code.at(-1));
 }
 
 function expandUpcE(code: string): string | null {

@@ -1,7 +1,10 @@
 import * as ImagePicker from "expo-image-picker";
 import { validatePhotoSource, type PhotoSource } from "./media-model";
 
-export async function pickProfilePhoto(source: "library" | "camera", avatar: boolean): Promise<PhotoSource | null> {
+export async function pickProfilePhoto(
+  source: "library" | "camera",
+  avatar: boolean,
+): Promise<PhotoSource | null> {
   const web = process.env.EXPO_OS === "web";
   if (web && (typeof window === "undefined" || source === "camera")) return null;
   if (source === "camera") {
@@ -17,9 +20,10 @@ export async function pickProfilePhoto(source: "library" | "camera", avatar: boo
     base64: web,
   };
   // Library selection uses the system photo picker and needs no broad library grant.
-  const result = source === "camera"
-    ? await ImagePicker.launchCameraAsync(options)
-    : await ImagePicker.launchImageLibraryAsync(options);
+  const result =
+    source === "camera"
+      ? await ImagePicker.launchCameraAsync(options)
+      : await ImagePicker.launchImageLibraryAsync(options);
   if (result.canceled || !result.assets[0]) return null;
   const asset = result.assets[0];
   try {
@@ -27,7 +31,9 @@ export async function pickProfilePhoto(source: "library" | "camera", avatar: boo
     // can retain a failed edit without needing a separate URL ownership contract.
     if (web && !asset.base64) throw new Error("This photo could not be read");
     const selected: PhotoSource = {
-      uri: web ? `data:${asset.mimeType ?? asset.file?.type ?? "image/jpeg"};base64,${asset.base64}` : asset.uri,
+      uri: web
+        ? `data:${asset.mimeType ?? asset.file?.type ?? "image/jpeg"};base64,${asset.base64}`
+        : asset.uri,
       width: asset.width,
       height: asset.height,
       ...(asset.file ? { file: asset.file } : {}),

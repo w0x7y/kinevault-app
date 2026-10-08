@@ -8,9 +8,7 @@ export function chartWeeks(
   for (let index = 0; index < points.length; index += 7) {
     const days = points.slice(index, index + 7);
     const aggregate = (field: "total" | "left" | "right") => {
-      const values = days.flatMap((day) =>
-        day[field] === null ? [] : [day[field]!],
-      );
+      const values = days.flatMap((day) => (day[field] === null ? [] : [day[field]!]));
       return values.length
         ? metric === "weight"
           ? Math.max(...values)

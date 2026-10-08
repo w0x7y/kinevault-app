@@ -17,18 +17,12 @@ import { useProfile } from "./provider";
 import { ProfileEditor } from "./profile-editor";
 import type { ProfileEditSection } from "./section-editing";
 import { ProfileDialog, SourceStatus } from "./profile-controls";
-import {
-  JournalAction,
-  JournalHeading,
-  JournalPanel,
-  JournalText,
-} from "./journal-ui";
+import { JournalAction, JournalHeading, JournalPanel, JournalText } from "./journal-ui";
 export type ProfileEditorInstance = {
   id: number;
   section: ProfileEditSection | "water";
 };
-const number = (v: number) =>
-  v.toLocaleString(undefined, { maximumFractionDigits: 1 });
+const number = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 1 });
 function ProgressBar({
   consumed,
   target,
@@ -60,13 +54,7 @@ function ProgressBar({
     </View>
   );
 }
-export function TodayNutrition({
-  today,
-  onPress,
-}: {
-  today: string;
-  onPress: () => void;
-}) {
+export function TodayNutrition({ today, onPress }: { today: string; onPress: () => void }) {
   const profile = useProfile(),
     food = useFoodLog();
   const { colors } = useTheme();
@@ -77,9 +65,7 @@ export function TodayNutrition({
         }).calories
       : null;
   const target =
-    profile.state.kind === "ready"
-      ? calorieState(profile.state.document.answers).target
-      : null;
+    profile.state.kind === "ready" ? calorieState(profile.state.document.answers).target : null;
   return (
     <Pressable
       accessibilityRole="button"
@@ -139,28 +125,15 @@ export function ProfileGoals({
     ...macroTargets(answers),
   };
   const summary = activity.food.kind === "ready" ? activity.food.summary : null;
-  const waterMl =
-    activity.water.total.kind === "ready" ? activity.water.total.ml : null;
-  const waterTarget =
-    activity.water.goal.kind === "ready" ? activity.water.goal.ml : null;
+  const waterMl = activity.water.total.kind === "ready" ? activity.water.total.ml : null;
+  const waterTarget = activity.water.goal.kind === "ready" ? activity.water.goal.ml : null;
   const rows = [
-    [
-      "Weight goal",
-      goals.find((v) => v.value === answers.goal)?.label || "Not set",
-    ],
+    ["Weight goal", goals.find((v) => v.value === answers.goal)?.label || "Not set"],
     ["Current weight", answers.weight ? `${answers.weight} kg` : "Not set"],
     ["Height", answers.height ? `${answers.height} cm` : "Not set"],
     ["Age", `${answers.age} years`],
-    [
-      "Activity",
-      activities.find((v) => v.value === answers.activity)?.label || "Not set",
-    ],
-    [
-      "Calorie target",
-      targets.calories === null
-        ? "Not set"
-        : `${number(targets.calories)} kcal`,
-    ],
+    ["Activity", activities.find((v) => v.value === answers.activity)?.label || "Not set"],
+    ["Calorie target", targets.calories === null ? "Not set" : `${number(targets.calories)} kcal`],
   ];
   return (
     <View style={{ gap: 12 }}>
@@ -174,11 +147,7 @@ export function ProfileGoals({
           />
         </JournalHeading>
         {food.state.kind !== "ready" && (
-          <SourceStatus
-            name="food log"
-            kind={food.state.kind}
-            retry={food.retryLoad}
-          />
+          <SourceStatus name="food log" kind={food.state.kind} retry={food.retryLoad} />
         )}
         <View
           testID="profile-goal-calories"
@@ -188,11 +157,7 @@ export function ProfileGoals({
             {summary ? number(summary.calories) : "Unavailable"}
             <JournalText size={10} muted>
               {" "}
-              /{" "}
-              {targets.calories === null
-                ? "Not set"
-                : number(targets.calories)}{" "}
-              kcal
+              / {targets.calories === null ? "Not set" : number(targets.calories)} kcal
             </JournalText>
           </JournalText>
           <ProgressBar
@@ -216,21 +181,14 @@ export function ProfileGoals({
               accessibilityLabel={`${summary?.[field] ?? "Unavailable"} / ${targets[field] === null ? "Not set" : number(targets[field])} g`}
               style={{ flex: 1 }}
             >
-              <JournalText
-                size={11}
-                variant="label"
-                style={{ color: colors[field] }}
-              >
+              <JournalText size={11} variant="label" style={{ color: colors[field] }}>
                 {field[0].toUpperCase() + field.slice(1)}
               </JournalText>
               <JournalText size={16} variant="heading" style={{ marginTop: 3 }}>
                 {summary ? number(summary[field]) : "—"} g
               </JournalText>
               <JournalText size={10} muted>
-                of{" "}
-                {targets[field] === null
-                  ? "not set"
-                  : `${number(targets[field])} g`}
+                of {targets[field] === null ? "not set" : `${number(targets[field])} g`}
               </JournalText>
               <ProgressBar
                 consumed={summary?.[field] ?? null}
@@ -261,9 +219,7 @@ export function ProfileGoals({
               justifyContent: "space-between",
             }}
           >
-            <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
-            >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <Icon name="droplet" size={14} color={colors.primary} />
               <JournalText size={11}>Water</JournalText>
             </View>
@@ -271,28 +227,16 @@ export function ProfileGoals({
               {waterMl === null ? "—" : number(waterMl / 1000)}
               <JournalText size={10} muted>
                 {" "}
-                /{" "}
-                {waterTarget === null
-                  ? "Not set"
-                  : number(waterTarget / 1000)}{" "}
-                L
+                / {waterTarget === null ? "Not set" : number(waterTarget / 1000)} L
               </JournalText>
             </JournalText>
           </Pressable>
         </View>
         {water.state.kind !== "ready" && (
-          <SourceStatus
-            name="water log"
-            kind={water.state.kind}
-            retry={water.retryLoad}
-          />
+          <SourceStatus name="water log" kind={water.state.kind} retry={water.retryLoad} />
         )}
         {goal.state.kind !== "ready" && (
-          <SourceStatus
-            name="water goal"
-            kind={goal.state.kind}
-            retry={goal.retryLoad}
-          />
+          <SourceStatus name="water goal" kind={goal.state.kind} retry={goal.retryLoad} />
         )}
         {editor?.section === "calories" && (
           <ProfileEditor
@@ -335,33 +279,23 @@ export function ProfileGoals({
             <JournalText size={11} muted>
               {label}
             </JournalText>
-            <JournalText
-              size={11}
-              style={{ textAlign: "right", flexShrink: 1 }}
-            >
+            <JournalText size={11} style={{ textAlign: "right", flexShrink: 1 }}>
               {value}
             </JournalText>
           </View>
         ))}
-        {editor &&
-          editor.section !== "calories" &&
-          editor.section !== "water" && (
-            <ProfileEditor
-              key={editor.id}
-              section={editor.section}
-              initial={answers}
-              close={() => close(editor.id)}
-            />
-          )}
+        {editor && editor.section !== "calories" && editor.section !== "water" && (
+          <ProfileEditor
+            key={editor.id}
+            section={editor.section}
+            initial={answers}
+            close={() => close(editor.id)}
+          />
+        )}
       </JournalPanel>
       {choosing && (
-        <ProfileDialog
-          title="Edit details & goals"
-          dismiss={() => setChoosing(false)}
-        >
-          {(
-            ["name", "age", "body", "goal", "activity", "calories"] as const
-          ).map((section) => (
+        <ProfileDialog title="Edit details & goals" dismiss={() => setChoosing(false)}>
+          {(["name", "age", "body", "goal", "activity", "calories"] as const).map((section) => (
             <FoodButton
               key={section}
               label={`Edit ${section}`}

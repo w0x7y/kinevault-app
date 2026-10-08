@@ -7,7 +7,10 @@ import { Field, ErrorText } from "../onboarding/controls";
 import type { MediaEditing, MediaEditSnapshot } from "./media-editing";
 import { PhotoImage } from "./photo-image";
 import { ProfileDialog } from "./profile-controls";
-export function PhotoEditor({ editing, snapshot }: {
+export function PhotoEditor({
+  editing,
+  snapshot,
+}: {
   editing: MediaEditing;
   snapshot: MediaEditSnapshot;
 }) {
@@ -17,12 +20,11 @@ export function PhotoEditor({ editing, snapshot }: {
   const picking = phase === "picking";
   const disabled = busy || !ready;
   const pick = editing.pick;
-  const dismiss = () => { editing.cancel(); };
+  const dismiss = () => {
+    editing.cancel();
+  };
   return (
-    <ProfileDialog
-      title={photo ? "Edit progress photo" : "Add progress photo"}
-      dismiss={dismiss}
-    >
+    <ProfileDialog title={photo ? "Edit progress photo" : "Add progress photo"} dismiss={dismiss}>
       {source ? (
         <Image
           source={{ uri: source.uri }}
@@ -43,7 +45,9 @@ export function PhotoEditor({ editing, snapshot }: {
       <Field
         label="Photo date (YYYY-MM-DD)"
         value={date}
-        onChangeText={(date) => { editing.change({ date }); }}
+        onChangeText={(date) => {
+          editing.change({ date });
+        }}
         editable={!disabled}
         maxLength={10}
         placeholder="YYYY-MM-DD"
@@ -51,7 +55,9 @@ export function PhotoEditor({ editing, snapshot }: {
       <Field
         label="Photo note (optional)"
         value={note}
-        onChangeText={(note) => { editing.change({ note }); }}
+        onChangeText={(note) => {
+          editing.change({ note });
+        }}
         editable={!disabled}
         multiline
         maxLength={2000}

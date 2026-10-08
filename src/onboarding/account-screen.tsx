@@ -1,5 +1,5 @@
 import Head from "expo-router/head";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   BackHandler,
@@ -30,30 +30,33 @@ export function AccountScreen({
 }) {
   const { colors } = useTheme();
   const account = useAccount();
-  const { busy, error, notice } = account;
+  const { busy, error, notice, clearFeedback } = account;
   const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const scroll = useRef<ScrollView>(null);
-  const confirmationEmail = account.emailDelivery?.kind === "confirmation" ? account.emailDelivery.email : null;
+  const confirmationEmail =
+    account.emailDelivery?.kind === "confirmation" ? account.emailDelivery.email : null;
   const needsEmailConfirmation = mode === "create" && confirmationEmail !== null;
-  const title =
-    needsEmailConfirmation
-      ? "Check your email"
-      : mode === "create"
+  const title = needsEmailConfirmation
+    ? "Check your email"
+    : mode === "create"
       ? "Create your account"
       : mode === "login"
         ? "Welcome back"
         : "Reset your password";
 
-  function changeMode(next: Mode) {
-    Keyboard.dismiss();
-    setPassword("");
-    setShowPassword(false);
-    account.clearFeedback();
-    setMode(next);
-  }
+  const changeMode = useCallback(
+    (next: Mode) => {
+      Keyboard.dismiss();
+      setPassword("");
+      setShowPassword(false);
+      clearFeedback();
+      setMode(next);
+    },
+    [clearFeedback],
+  );
 
   async function submit() {
     Keyboard.dismiss();
@@ -99,13 +102,10 @@ export function AccountScreen({
       return true;
     });
     return () => subscription.remove();
-  }, [busy, mode, onBack]);
+  }, [busy, mode, onBack, changeMode]);
 
   return (
-    <SafeAreaView
-      testID="account-screen"
-      style={{ flex: 1, backgroundColor: colors.background }}
-    >
+    <SafeAreaView testID="account-screen" style={{ flex: 1, backgroundColor: colors.background }}>
       <Head>
         <title>{title} · KineVault Track</title>
       </Head>
@@ -139,10 +139,10 @@ export function AccountScreen({
               {needsEmailConfirmation
                 ? "Confirm your email to finish creating your account."
                 : mode === "recover"
-                ? "Enter the email you use for KineVault."
-                : mode === "login"
-                  ? "Log in to your KineVault account."
-                  : "A KineVault account for your tracking journey."}
+                  ? "Enter the email you use for KineVault."
+                  : mode === "login"
+                    ? "Log in to your KineVault account."
+                    : "A KineVault account for your tracking journey."}
             </AppText>
           </View>
 
@@ -162,20 +162,44 @@ export function AccountScreen({
               >
                 <View style={{ alignItems: "center", gap: spacing.sm }}>
                   <Icon name="envelope" size={28} color={colors.primary} />
-                  <AppText muted style={{ textAlign: "center" }}>A verification email is on its way to</AppText>
-                  <AppText variant="label" style={{ textAlign: "center" }}>{confirmationEmail}</AppText>
+                  <AppText muted style={{ textAlign: "center" }}>
+                    A verification email is on its way to
+                  </AppText>
+                  <AppText variant="label" style={{ textAlign: "center" }}>
+                    {confirmationEmail}
+                  </AppText>
                 </View>
-                <AppText>1. Open the KineVault email and tap the verification link on this device.</AppText>
+                <AppText>
+                  1. Open the KineVault email and tap the verification link on this device.
+                </AppText>
                 <AppText>2. Come back here and log in with your email and password.</AppText>
-                <AppText variant="caption" muted>Can't find the email? Check your spam or junk folder.</AppText>
+                <AppText variant="caption" muted>
+                  Can't find the email? Check your spam or junk folder.
+                </AppText>
               </View>
-              <Button label="Go to log in" disabled={busy} onPress={() => { setEmail(confirmationEmail ?? ""); changeMode("login"); }} />
-              <Button label="Use a different email" secondary disabled={busy} onPress={() => changeMode("create")} />
+              <Button
+                label="Go to log in"
+                disabled={busy}
+                onPress={() => {
+                  setEmail(confirmationEmail ?? "");
+                  changeMode("login");
+                }}
+              />
+              <Button
+                label="Use a different email"
+                secondary
+                disabled={busy}
+                onPress={() => changeMode("create")}
+              />
             </View>
           ) : (
             <>
               {mode !== "recover" && (
-                <View accessibilityRole="tablist" accessibilityLabel="Account options" style={{ flexDirection: "row", gap: spacing.sm }}>
+                <View
+                  accessibilityRole="tablist"
+                  accessibilityLabel="Account options"
+                  style={{ flexDirection: "row", gap: spacing.sm }}
+                >
                   {(["create", "login"] as const).map((option) => (
                     <Pressable
                       key={option}
@@ -218,7 +242,9 @@ export function AccountScreen({
                   editable={!busy}
                   placeholder="you@example.com"
                   returnKeyType="done"
-                  onSubmitEditing={() => { if (mode === "recover") void submit(); }}
+                  onSubmitEditing={() => {
+                    if (mode === "recover") void submit();
+                  }}
                 />
                 {mode !== "recover" && (
                   <>
@@ -259,7 +285,11 @@ export function AccountScreen({
                         </Pressable>
                       }
                     />
-                    {mode === "create" && <AppText variant="caption" muted>Use at least 10 characters.</AppText>}
+                    {mode === "create" && (
+                      <AppText variant="caption" muted>
+                        Use at least 10 characters.
+                      </AppText>
+                    )}
                     {mode === "login" && (
                       <View style={{ flexDirection: "row" }}>
                         <AccountLink
@@ -275,7 +305,15 @@ export function AccountScreen({
 
               <View style={{ gap: spacing.layout }}>
                 <Button
-                  label={busy ? "Please wait…" : mode === "create" ? "Create account" : mode === "login" ? "Log in" : "Send reset link"}
+                  label={
+                    busy
+                      ? "Please wait…"
+                      : mode === "create"
+                        ? "Create account"
+                        : mode === "login"
+                          ? "Log in"
+                          : "Send reset link"
+                  }
                   onPress={() => void submit()}
                   disabled={busy || !account.configured}
                 />
@@ -300,15 +338,25 @@ export function AccountScreen({
                 {error}
               </AppText>
             )}
-            {notice && !needsEmailConfirmation && <AppText accessibilityLiveRegion="polite" style={{ textAlign: "center" }}>{notice}</AppText>}
-            {!account.configured && <AppText accessibilityRole="alert">Account connection is unavailable. Please configure Supabase and restart Track.</AppText>}
-            {mode !== "recover" && <Button
-              label="Back"
-              secondary
-              icon="arrow-left"
-              disabled={busy}
-              onPress={() => leave(onBack)}
-            />}
+            {notice && !needsEmailConfirmation && (
+              <AppText accessibilityLiveRegion="polite" style={{ textAlign: "center" }}>
+                {notice}
+              </AppText>
+            )}
+            {!account.configured && (
+              <AppText accessibilityRole="alert">
+                Account connection is unavailable. Please configure Supabase and restart Track.
+              </AppText>
+            )}
+            {mode !== "recover" && (
+              <Button
+                label="Back"
+                secondary
+                icon="arrow-left"
+                disabled={busy}
+                onPress={() => leave(onBack)}
+              />
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -316,7 +364,11 @@ export function AccountScreen({
   );
 }
 
-function AccountLink({ label, onPress, disabled }: {
+function AccountLink({
+  label,
+  onPress,
+  disabled,
+}: {
   label: string;
   onPress: () => void;
   disabled: boolean;

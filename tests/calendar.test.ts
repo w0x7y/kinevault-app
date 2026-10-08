@@ -13,8 +13,13 @@ test("calendar keeps the current week in row three across a year boundary", () =
   assert.equal(weeks.length, 5);
   assert.ok(weeks.every((week) => week.length === 7));
   assert.deepEqual(weeks[2], [
-    "2025-12-28", "2025-12-29", "2025-12-30", "2025-12-31",
-    "2026-01-01", "2026-01-02", "2026-01-03",
+    "2025-12-28",
+    "2025-12-29",
+    "2025-12-30",
+    "2025-12-31",
+    "2026-01-01",
+    "2026-01-02",
+    "2026-01-03",
   ]);
   assert.equal(weeks[0]?.[0], "2025-12-14");
   assert.equal(weeks[4]?.[6], "2026-01-17");

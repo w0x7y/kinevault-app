@@ -51,17 +51,13 @@ export function ProfileChoices<T extends string | number>({
               borderRadius: 7,
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor:
-                selected === option.value ? colors.card : "transparent",
+              backgroundColor: selected === option.value ? colors.card : "transparent",
             }}
           >
             <JournalText
               size={10}
               style={{
-                color:
-                  selected === option.value
-                    ? colors.primary
-                    : colors.mutedForeground,
+                color: selected === option.value ? colors.primary : colors.mutedForeground,
               }}
             >
               {option.label}
@@ -106,8 +102,7 @@ export function ProfileControls({
             justifyContent: "center",
             alignItems: "center",
             borderBottomWidth: 2,
-            borderBottomColor:
-              section === name ? colors.primary : "transparent",
+            borderBottomColor: section === name ? colors.primary : "transparent",
           }}
         >
           <JournalText
@@ -142,9 +137,7 @@ export function SourceStatus({
       >
         {kind === "loading" ? `Loading ${name}…` : `Couldn't load ${name}.`}
       </AppText>
-      {kind === "error" && (
-        <FoodButton label={`Retry ${name}`} onPress={retry} />
-      )}
+      {kind === "error" && <FoodButton label={`Retry ${name}`} onPress={retry} />}
     </View>
   );
 }

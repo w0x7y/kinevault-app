@@ -1,7 +1,10 @@
 import { Directory, File, Paths } from "expo-file-system";
 import { ImageManipulator, SaveFormat, type ImageRef } from "expo-image-manipulator";
 import {
-  fitPhotoDimensions, isSafeMediaId, validatePhotoSource,
+  MediaIdentityCollisionError,
+  fitPhotoDimensions,
+  isSafeMediaId,
+  validatePhotoSource,
   type MediaFiles,
 } from "./media-model";
 
@@ -14,9 +17,15 @@ function ownedFiles(id: string) {
     thumbnail: new File(directory, `${id}.thumb.jpg`),
   };
 }
-function deleteFile(file: File) { if (file.exists) file.delete(); }
+function deleteFile(file: File) {
+  if (file.exists) file.delete();
+}
 function discardFile(file: File) {
-  try { deleteFile(file); } catch { /* A leftover owned file must not undo a saved record. */ }
+  try {
+    deleteFile(file);
+  } catch {
+    /* A leftover owned file must not undo a saved record. */
+  }
 }
 async function resizedCopy(uri: string, maximum: number, quality: number) {
   const context = ImageManipulator.manipulate(uri);
@@ -39,11 +48,15 @@ async function resizedCopy(uri: string, maximum: number, quality: number) {
 
 export function createMediaFiles(): MediaFiles {
   return {
+    async assertAvailable(id) {
+      const files = ownedFiles(id);
+      if (files.original.exists || files.thumbnail.exists) throw new MediaIdentityCollisionError();
+    },
     async importPhoto(source, id) {
       validatePhotoSource(source);
       const files = ownedFiles(id);
       files.directory.create({ idempotent: true, intermediates: true });
-      if (files.original.exists || files.thumbnail.exists) throw new Error("Photo identity already exists");
+      if (files.original.exists || files.thumbnail.exists) throw new MediaIdentityCollisionError();
       const temporary: File[] = [];
       try {
         const original = await resizedCopy(source.uri, 1600, 0.85);
@@ -54,7 +67,8 @@ export function createMediaFiles(): MediaFiles {
         const thumbnailFile = new File(thumbnail.uri);
         temporary.push(thumbnailFile);
         await thumbnailFile.copy(files.thumbnail);
-        if (!files.original.size || !files.thumbnail.size) throw new Error("This photo could not be saved");
+        if (!files.original.size || !files.thumbnail.size)
+          throw new Error("This photo could not be saved");
         return { id, width: original.width, height: original.height };
       } catch (error) {
         discardFile(files.original);
@@ -75,11 +89,17 @@ export function createMediaFiles(): MediaFiles {
       // Attempt both versions even if the first removal fails.
       let failure: unknown;
       for (const file of [files.original, files.thumbnail]) {
-        try { deleteFile(file); } catch (error) { failure = error; }
+        try {
+          deleteFile(file);
+        } catch (error) {
+          failure = error;
+        }
       }
       if (failure) throw failure;
     },
-    releaseUri() { /* Native file URIs do not allocate browser resources. */ },
+    releaseUri() {
+      /* Native file URIs do not allocate browser resources. */
+    },
   };
 }
 export const mediaFiles = createMediaFiles();

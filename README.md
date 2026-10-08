@@ -6,8 +6,9 @@ studio is maintained separately.
 
 See [module ownership](docs/architecture.md) for the current architecture and
 [domain language](CONTEXT.md) for tracking terms.
-The latest [final review](docs/final-check.md) records verification and remaining
-security findings.
+[TODO.md](TODO.md) is the source for completed work, remaining verification,
+and release blockers. Dated [review reports](docs/final-check.md) preserve
+evidence from earlier revisions, rather than current status.
 
 ## Current foundation
 
@@ -18,7 +19,7 @@ security findings.
   changes; a deliberately chosen other date stays selected until changed again.
   Profile, Friends, Messages, and KineVault appear above a separator, followed by
   Support and Feedback. Profile opens the personal journal; the other entries
-  open coming-soon panels.
+  are disabled and marked Upcoming.
 - Daily layouts for nutrition, workouts, steps, water, and five meal sections.
   Kine uses the same even split and size beside Home macros, Food/Exercise
   action buttons, and the Settings title. Macro counts sit beside their labels.
@@ -29,12 +30,16 @@ security findings.
   Workout details list completed exercises with sets, reps, and actual weight ranges.
   Food records can be logged to a meal on the selected day. Exercise supports
   user-created exercises, reusable workouts, and multiple workout logs per day.
-  Steps remain empty until their logging is implemented.
+  Steps displays Not connected until a step source is implemented.
 - Shared 12px screen margins, panel padding, and gaps across tabs and onboarding.
 - Comfortaa typography, Font Awesome 6 icons, and shared themed components.
 - System, Light, and Dark appearance, saved locally on the device.
 - English copy, metric units, safe-area layout, and scalable text.
-- Empty states and a missing-route recovery screen.
+- Empty states, a missing-route recovery screen, and root crash recovery with Reload.
+- Confirmed offline notices and automatic cloud sync retry after reconnect.
+  Optional JavaScript crash reporting is described in [resilience setup](docs/resilience.md).
+- Profile body-weight history with dated measurements, editing/removal, and an accessible trend chart. Measurements sync with the profile and do not change calorie or macro goals. See [weight history](docs/weight-history.md).
+- Settings account JSON export includes device/cloud copies and local photos. Password-confirmed deletion and local cleanup are implemented; the server endpoint still requires deployment and isolated validation. See [account management](docs/account-management.md).
 - Offline food database search with 5,431 USDA foods, calories and macros per
   100 g, serving weights, and nutrition previews for a custom gram amount.
 - Tap Home's Water widget to edit manually logged water in millilitres for the selected day.
@@ -106,7 +111,7 @@ Start workout requires a nonblank name; an unnamed draft stays editable in
 Settings until corrected. It runs the sole active timer. Its start time and
 entered sets are saved on the device, so switching tabs, backgrounding, or reopening keeps elapsed
 time. Starting expands the card into a horizontally scrolling exercise bar and a selected-exercise
-detail with a sets/reps/weight table and video placeholder. Add set and View
+detail with a sets/reps/weight table and a compact upcoming-video caption. Add set and View
 notes sit beside the exercise name. Dividers frame the scrolling bar.
 The workout name and elapsed timer share the widget's title row, with no active
 name field, date/status line or separate Open active workout panel. Active
@@ -138,7 +143,7 @@ another view requires a successful draft save.
 
 Exercise search shares Food's field and result-card styling. It searches from
 the first character, shows exercise metadata, and pages results in groups of 20.
-Each result reserves a landscape video preview with a No video found icon.
+Search has a compact upcoming-studio caption; results have no fake video previews.
 
 Bodyweight uses repetitions and blank kilograms, without inventing lifted body
 mass. Left/right sets keep each side's reps and weight, count as one set, and
@@ -200,9 +205,9 @@ and thumbnails persist in the owned native document directory or browser Indexed
 `kinevault-track.profile-media.v1` key. Photo metadata is isolated per account on this device; images are not uploaded.
 Native supports library and camera; the web preview offers file selection.
 
-Android emulator checks cover library/camera selection, cancellation, avatar
-cropping, saved-photo reopening, carousel scrolling, removal, both themes, and
-larger text. A physical iPhone check of the new photo flow remains in TODO.md.
+See [TODO.md](TODO.md) for current device acceptance and the dated
+[Profile review](docs/superpowers/reviews/2026-10-04-profile-personal-journal.md)
+for the recorded emulator evidence.
 
 The selected layout is version 3, Personal journal, in the standalone
 [layout reference](design/profile-prototype.html).
@@ -281,7 +286,6 @@ denied or unavailable cameras leave manual entry usable. The camera closes on
 tab blur, scanner close, or app background. The camera permission covers barcode
 scanning and profile/progress photos. Android audio recording is disabled,
 microphone access is blocked, and no iOS microphone permission is declared.
-The new Profile photo flow still needs physical-iPhone verification.
 
 Food has two search-row controls: offline Search and barcode Scan, with a 75/25
 width split. Barcode lookup opens an unsaved food draft with editable name,
@@ -438,6 +442,13 @@ clear a field or leave a decimal separator while typing.
 
 ## Verify
 
+`npm run check` runs ESLint, Prettier verification, TypeScript and unit/script
+tests. Use `npm run format` to format source/tests/scripts and
+`npm run lint:fix` for safe lint fixes. ESLint uses the SDK-compatible Expo
+configuration; two compiler-specific ref/effect diagnostics are excluded because
+React Compiler is not enabled and persisted-draft effects/owner refs are intentional.
+Hook ordering and effect dependency checks remain enabled.
+
 ```sh
 npm run check
 npx expo-doctor
@@ -475,7 +486,8 @@ deletion, and independent Home recovery when Food or Exercise storage fails.
 Connection checks use local HTTP fixtures for
 manifest errors, bundle host rules, HTTPS links, startup retries, and shutdown. Formula assumptions and supported ranges are recorded
 in [the onboarding design](docs/superpowers/specs/2026-09-30-kine-onboarding-design.md). The web export produces static routes in `dist/`.
-GitHub Actions runs these checks and the browser regressions on pushes and pull requests.
+GitHub Actions runs checks and exports independently. The browser job reuses the
+web export and runs alongside the check job on pushes and pull requests.
 
 For browser checks, install Chromium once with `npx playwright install chromium`.
 Start the preview with `npm run web -- --port 8081`, then run `npm run test:browser`
@@ -490,121 +502,25 @@ nonempty workout rendering and exercise filtering,
 reduced motion, mascot prefetching, and retrying a failed save while editing the
 review screen.
 
-The Personal journal Profile passed all 558 direct tests, all 136 browser
-scenarios, TypeScript including unused-code checks, Expo Doctor's 21 checks,
-and web/iOS/Android exports. Independent task and final reviews passed after
-editor and navigation regressions were corrected. Android emulator photo,
-reopening, comparison, larger-text, and system-Back checks passed. Physical-iPhone
-Profile photo acceptance remains pending. See the
-[Profile verification report](docs/superpowers/reviews/2026-10-04-profile-personal-journal.md)
-for evidence and implementation decisions.
+Current verification and pending device checks live in [TODO.md](TODO.md).
+Dated reports preserve the checks run for their own revisions:
 
-The latest Profile final check covers the complete feature since `211eb49` plus
-uncommitted media and focused-edit ownership refactors. All 599 direct tests,
-141 browser scenarios and the separate optional visual capture passed, alongside
-TypeScript/unused-code checks, Expo Doctor 21/21 and web/iOS/Android exports.
-It fixed padded-name validation and added visible Cancel in the details chooser.
-The [final-check report](docs/superpowers/reviews/2026-10-04-profile-final-check.md)
-records full coverage, dependency advisories and remaining native limits.
+- [Profile verification](docs/superpowers/reviews/2026-10-04-profile-personal-journal.md)
+  and [Profile final review](docs/superpowers/reviews/2026-10-04-profile-final-check.md).
+- [Saved-workout revision](docs/superpowers/reviews/2026-10-04-saved-workout-revision-review.md)
+  and [workout architecture review](docs/superpowers/reviews/2026-10-04-workout-depth-final-check.md).
+- [Account and editing review](docs/final-check.md) and
+  [dependency remediation evidence](docs/security-remediation.md).
 
-The October 4, 2026 Exercise increment passed TypeScript with unused-code checks,
-463 unit tests, and all 100 browser scenarios. The full browser run passed 99;
-its remaining layout test used an obsolete expectation that Exercise creation
-buttons were disabled and passed after that assertion was updated. Web, iOS,
-and Android bundle exports passed. Native keyboard, app backgrounding, and
-screen-reader interactions still need a device or simulator check.
+Dependency overrides and local patches are described in
+[patch maintenance](patches/README.md). Run `npm audit` to inspect the installed
+versions; dated audit counts describe only their recorded revision. Keep patch
+regression tests through every Expo upgrade. Do not use `npm audit fix --force`
+to downgrade Expo or React Native.
 
-The saved-workout-only revision passed 476 unit tests, TypeScript with unused-code
-checks, and all 103 browser scenarios. The full run passed 102; its remaining
-captured-date test was corrected to include the calendar's existing “today”
-accessible-label suffix and passed on rerun. Web/iOS/Android exports passed.
-Independent UI, domain, and final reviews passed. See the
-[revision review](docs/superpowers/reviews/2026-10-04-saved-workout-revision-review.md)
-for the exact verification evidence and native-device limits.
-
-The workout architecture final check passed all 518 direct tests, all 115
-browser scenarios (27 Exercise regressions), TypeScript with unused-code checks,
-Expo Doctor's 21 checks, and web/iOS/Android exports. Start now rejects unnamed
-drafts without trapping them in the active layout. Both architecture refactors
-and the correction received independent reviews. See the
-[final-check report](docs/superpowers/reviews/2026-10-04-workout-depth-final-check.md)
-for coverage, remaining dependency findings, and physical-device limits.
-
-The October 1, 2026 final check passed TypeScript, including unused-code checks,
-84 unit tests, 15 browser tests, Expo Doctor's 21 checks, the 11-route static web
-export, and iOS/Android bundle exports. Browser checks cover 320, 390, and 1280px
-widths in both themes. Native keyboard, gestures, safe areas, text scaling, and
-screen-reader behavior still need testing on a native device or simulator.
-See [the architecture contract](docs/superpowers/specs/2026-10-01-architecture-refactor-design.md)
-for module ownership and lifecycle rules.
-
-The food database increment passed 98 unit tests, all 16 browser tests,
-TypeScript with unused-code checks, and web, iOS, and Android bundle exports.
-Reimporting the pinned USDA archive reproduced the committed catalog byte for
-byte. Native serving controls and keyboard interaction still need device testing.
-
-The food-logging and layout increment passed 108 unit tests, all 18 browser tests,
-TypeScript with unused-code checks, and web, iOS, and Android bundle exports.
-Browser checks verify empty-meal labels, the Kine-first layout, meal selection,
-durable past-day logging, shared totals, removal, and failure recovery.
-Native logging controls and screen-reader behavior still need device testing.
-
-The macro-view and food-editing increment passed 114 unit tests, all 20 browser
-tests, TypeScript with unused-code checks, and web, iOS, and Android bundle exports.
-Native editing and keyboard behavior still need device testing.
-
-The detailed-nutrition increment passed 120 unit tests, all 21 browser tests,
-TypeScript with unused-code checks, and web/iOS/Android bundle exports. Reimporting
-the pinned archive reproduced the expanded catalog byte for byte.
-
-The October 4, 2026 dependency audit reports 23 affected package entries:
-20 high and three moderate, representing four advisory chains. No critical
-findings were reported. These are installed dependency findings; a working
-application exploit was not demonstrated in this review.
-
-The high-severity chain is `expo` → `@expo/cli` →
-`@expo/code-signing-certificates` / `node-forge` 1.4.0. The
-[RSA signature-verification advisory](https://github.com/advisories/GHSA-86w9-cpqp-85rv)
-affects versions through 1.4.0; no patched release was available at review time.
-Expo tooling calls the affected verifier when validating code-signing certificates
-and checking generated signatures. The app source does not import this library,
-and no update-signing configuration is enabled. This does not establish that
-the tooling is safe. Update the compatible Expo toolchain when an upstream fix
-is available; the audit's proposed Expo 44 downgrade is unsuitable for SDK 57.
-
-The other high-severity chains are Metro's `micromatch` → `braces` 3.0.3 and
-the development tunnel dependency `@expo/ngrok` → `got` → `cacheable-request` →
-`http-cache-semantics` 4.2.0. The
-[nested-pattern denial-of-service advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
-has no patched Braces release. Inspected Metro callers use configured glob
-patterns; no attacker-controlled pattern path was confirmed.
-The [shared-cache disclosure advisory](https://github.com/advisories/GHSA-ch52-4w7c-c8xp)
-also remains unresolved. The Ngrok caller does not enable Got caching, and the
-app has no shared response cache. An isolated synthetic test reproduced the
-reported zero-age/`max-stale` flaw in both 4.2.0 and registry release 4.3.0,
-despite 4.3.0 falling outside npm's affected range. Upgrading it alone would not
-establish remediation. Recheck these chains when verified compatible upstream
-fixes become available.
-
-The moderate-severity chain is:
-`expo-router` → `query-string` → `decode-uri-component`. The decoder has a
-[malformed-input denial-of-service advisory](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr).
-Its fixed version, 0.5.0, is ESM; the installed `query-string` 7 calls it through
-CommonJS as a function. A decoder-only override would break URL parsing, and
-newer `query-string` versions also change the export interface used by Router.
-The current Expo linking parser uses `URL.searchParams`; no reachable use of the
-vulnerable decoder was confirmed in this app. The dependency advisory remains
-open. An isolated compatibility check of the fixed decoder under query-string 7
-failed with `decodeComponent is not a function`.
-This needs a compatible Router update or a separately validated dependency patch.
-Do not use `npm audit fix --force`; its proposed Expo or Router major-version
-changes require compatibility validation.
-
-Scoped overrides give the Xcode and Expo tunnel tools `uuid` 11.1.1, fixing
-[UUID output-buffer validation](https://github.com/advisories/GHSA-w5hq-g745-h8pq)
-while retaining their CommonJS `v4()` calls. Tests check both consumers and Xcode
-project identifier generation. Keep the overrides until upstream dependencies
-include the fix.
+Local storage and sign-out behavior are documented in [privacy storage decisions](docs/privacy.md).
+[Language and units](docs/language-and-units.md) records the current English/metric
+scope and the future Hebrew/RTL work.
 
 ## Structure
 

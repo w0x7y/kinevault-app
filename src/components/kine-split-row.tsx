@@ -3,7 +3,12 @@ import { View, useWindowDimensions } from "react-native";
 import { Kine, type KinePose } from "../onboarding/kine";
 import { spacing } from "../theme/tokens";
 
-export function KineSplitRow({ pose, testIDPrefix, rowTestID, children }: {
+export function KineSplitRow({
+  pose,
+  testIDPrefix,
+  rowTestID,
+  children,
+}: {
   pose: KinePose;
   testIDPrefix: string;
   rowTestID?: string;
@@ -23,7 +28,10 @@ export function KineSplitRow({ pose, testIDPrefix, rowTestID, children }: {
       <View testID={`${testIDPrefix}-kine-content`} style={{ flex: 1, minWidth: 0 }}>
         {typeof children === "function" ? children(columnWidth) : children}
       </View>
-      <View testID={`${testIDPrefix}-kine-column`} style={{ flex: 1, minWidth: 0, alignItems: "center", justifyContent: "center" }}>
+      <View
+        testID={`${testIDPrefix}-kine-column`}
+        style={{ flex: 1, minWidth: 0, alignItems: "center", justifyContent: "center" }}
+      >
         <Kine pose={pose} size={columnWidth} />
       </View>
     </View>

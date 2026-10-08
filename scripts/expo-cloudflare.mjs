@@ -9,9 +9,7 @@ if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535)
   throw new Error("Use a port between 1 and 65535.");
 const binary = process.env.CLOUDFLARED_BIN || "cloudflared";
 if (spawnSync(binary, ["--version"], { stdio: "ignore" }).status !== 0) {
-  console.error(
-    "Install cloudflared first: https://developers.cloudflare.com/tunnel/downloads/",
-  );
+  console.error("Install cloudflared first: https://developers.cloudflare.com/tunnel/downloads/");
   process.exit(1);
 }
 
@@ -45,23 +43,13 @@ try {
   });
   const tunnel = spawn(
     binary,
-    [
-      "tunnel",
-      "--url",
-      `http://127.0.0.1:${port}`,
-      "--protocol",
-      "http2",
-      "--no-autoupdate",
-    ],
+    ["tunnel", "--url", `http://127.0.0.1:${port}`, "--protocol", "http2", "--no-autoupdate"],
     { stdio: ["ignore", "pipe", "pipe"] },
   );
   children.push(tunnel);
   const origin = await new Promise((resolve, reject) => {
     const timeout = setTimeout(
-      () =>
-        reject(
-          new Error("Cloudflare did not create a tunnel within 30 seconds."),
-        ),
+      () => reject(new Error("Cloudflare did not create a tunnel within 30 seconds.")),
       30000,
     );
     let buffer = "";
@@ -72,8 +60,7 @@ try {
         clearTimeout(timeout);
         resolve(url[0]);
       }
-      if (!closing && chunk.toString().includes("ERR"))
-        process.stderr.write(chunk);
+      if (!closing && chunk.toString().includes("ERR")) process.stderr.write(chunk);
     }
     tunnel.stdout.on("data", output);
     tunnel.stderr.on("data", output);
@@ -120,11 +107,9 @@ try {
   for (let y = -4; y < size + 4; y++) {
     let line = "\x1b[47m\x1b[30m";
     for (let x = -4; x < size + 4; x++) {
-      const black =
-        x >= 0 && y >= 0 && x < size && y < size && qr[y * size + x];
+      const black = x >= 0 && y >= 0 && x < size && y < size && qr[y * size + x];
       line += black ? "██" : "  ";
-      if (black)
-        svg += `<rect x="${x + 4}" y="${y + 4}" width="1" height="1" fill="black"/>`;
+      if (black) svg += `<rect x="${x + 4}" y="${y + 4}" width="1" height="1" fill="black"/>`;
     }
     console.log(line + "\x1b[0m");
   }
@@ -134,7 +119,6 @@ try {
     "QR saved to .expo/connection-qr.svg. Keep this terminal running. Ctrl+C stops both servers.",
   );
 } catch (error) {
-  if (!closing)
-    console.error(error instanceof Error ? error.message : String(error));
+  if (!closing) console.error(error instanceof Error ? error.message : String(error));
   stop(1);
 }

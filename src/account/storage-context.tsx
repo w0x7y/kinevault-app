@@ -3,8 +3,13 @@ import type { AccountStorage } from "./storage";
 
 const AccountStorageContext = createContext<AccountStorage | null>(null);
 
-export function AccountStorageProvider({ storage, children }: PropsWithChildren<{ storage: AccountStorage }>) {
-  return <AccountStorageContext.Provider value={storage}>{children}</AccountStorageContext.Provider>;
+export function AccountStorageProvider({
+  storage,
+  children,
+}: PropsWithChildren<{ storage: AccountStorage }>) {
+  return (
+    <AccountStorageContext.Provider value={storage}>{children}</AccountStorageContext.Provider>
+  );
 }
 
 export function useAccountStorage(): AccountStorage {

@@ -5,12 +5,7 @@ import { spacing } from "../theme/tokens";
 import { Choice, ErrorText, Field } from "./controls";
 import type { QuestionProps } from "./types";
 
-export function BodyQuestion({
-  answers,
-  update,
-  errors,
-  disabled,
-}: QuestionProps) {
+export function BodyQuestion({ answers, update, errors, disabled }: QuestionProps) {
   const mode = calorieState(answers);
   const teen = mode.kind === "teen";
   const estimate = mode.kind === "estimate";
@@ -18,9 +13,8 @@ export function BodyQuestion({
     <View style={{ gap: spacing.layout }}>
       {teen ? (
         <AppText muted>
-          You're still growing. We don't estimate calorie targets for under-18s.
-          You can add a target agreed with a qualified health professional, or
-          leave it blank.
+          You're still growing. We don't estimate calorie targets for under-18s. You can add a
+          target agreed with a qualified health professional, or leave it blank.
         </AppText>
       ) : (
         <View
@@ -50,8 +44,7 @@ export function BodyQuestion({
           <View style={{ gap: 8 }}>
             <AppText variant="label">Sex used by the formula</AppText>
             <AppText variant="caption" muted>
-              The formula has two coefficients. If neither fits, you can skip
-              the estimate.
+              The formula has two coefficients. If neither fits, you can skip the estimate.
             </AppText>
             <View
               accessibilityRole="radiogroup"
@@ -62,9 +55,7 @@ export function BodyQuestion({
                 <Choice
                   label="Female"
                   selected={answers.sex === "female"}
-                  onPress={() =>
-                    update({ kind: "fields", patch: { sex: "female" } })
-                  }
+                  onPress={() => update({ kind: "fields", patch: { sex: "female" } })}
                   disabled={disabled}
                 />
               </View>
@@ -72,9 +63,7 @@ export function BodyQuestion({
                 <Choice
                   label="Male"
                   selected={answers.sex === "male"}
-                  onPress={() =>
-                    update({ kind: "fields", patch: { sex: "male" } })
-                  }
+                  onPress={() => update({ kind: "fields", patch: { sex: "male" } })}
                   disabled={disabled}
                 />
               </View>
@@ -88,9 +77,7 @@ export function BodyQuestion({
           <Field
             label={`Height (cm)${estimate ? "" : " · optional"}`}
             value={answers.height}
-            onChangeText={(height) =>
-              update({ kind: "fields", patch: { height } })
-            }
+            onChangeText={(height) => update({ kind: "fields", patch: { height } })}
             placeholder="e.g. 175"
             keyboardType="decimal-pad"
             inputMode="decimal"
@@ -103,9 +90,7 @@ export function BodyQuestion({
           <Field
             label={`Weight (kg)${estimate ? "" : " · optional"}`}
             value={answers.weight}
-            onChangeText={(weight) =>
-              update({ kind: "fields", patch: { weight } })
-            }
+            onChangeText={(weight) => update({ kind: "fields", patch: { weight } })}
             placeholder="e.g. 70"
             keyboardType="decimal-pad"
             inputMode="decimal"

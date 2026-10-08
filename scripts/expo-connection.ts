@@ -22,11 +22,7 @@ export async function checkExpoConnection({
   });
   if (!response.ok) throw new Error(`Server returned HTTP ${response.status}.`);
   const manifest: unknown = await response.json();
-  if (
-    typeof manifest !== "object" ||
-    manifest === null ||
-    !("launchAsset" in manifest)
-  )
+  if (typeof manifest !== "object" || manifest === null || !("launchAsset" in manifest))
     throw new Error("Server did not return an Expo Go manifest.");
   const asset = manifest.launchAsset;
   if (
@@ -51,8 +47,7 @@ export async function checkExpoConnection({
     hostname.startsWith("127.");
   return {
     runtimeVersion:
-      "runtimeVersion" in manifest &&
-      typeof manifest.runtimeVersion === "string"
+      "runtimeVersion" in manifest && typeof manifest.runtimeVersion === "string"
         ? manifest.runtimeVersion
         : "unknown",
     expoGoUrl: `${bundle.protocol === "https:" ? "exps" : "exp"}://${bundle.host}`,
@@ -81,15 +76,13 @@ export async function waitForExpoConnection({
     } catch (error) {
       signal?.throwIfAborted();
       const timedOut =
-        error instanceof Error &&
-        (error.name === "TimeoutError" || error.name === "AbortError");
+        error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
       // A retry hitting its deadline must not erase a useful server error.
       if (!timedOut || !lastError)
         lastError = error instanceof Error ? error.message : String(error);
     }
     const remaining = deadline - Date.now();
-    if (remaining > 0)
-      await delay(Math.min(retryMs, remaining), undefined, { signal });
+    if (remaining > 0) await delay(Math.min(retryMs, remaining), undefined, { signal });
   }
   throw new Error(
     `The iOS manifest is not ready: ${lastError ?? "Server is starting."}. Check the Expo output above.`,

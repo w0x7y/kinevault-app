@@ -10,11 +10,15 @@ email-delivery feedback and email-link completion. Its interface returns stable
 snapshots and account intentions. Supabase Auth is an injected adapter, so tests
 exercise the same seam as the account screens.
 
+The app retains one controller per stable auth adapter across root-layout remounts. Mounted providers attach and detach its lifecycle; request generations still retire abandoned work. Deletion feedback survives a remount, while a replacement identity clears the previous account's feedback.
+
 Email verification feedback carries its purpose and normalized recipient. Screens
 do not infer a successful signup from arbitrary notice text or a mutable input.
 An identity change invalidates request feedback and recovery from the prior owner.
 Only the active email-link result survives an owner replacement, allowing the
 callback screen to resume after the account-owned subtree changes.
+
+Account management attempts own Settings action exclusion, owner/caller lifetime, confirmation fields, export delivery and action feedback. The React adapter supplies current account/connectivity readings and platform delivery; rendering submits intentions. Rejected deletion feedback is scoped to its caller, while confirmed deletion and its notice remain with the auth owner. Account management owns logical export assembly and the authenticated deletion sequence. Settings renders those intentions; file download/sharing and server requests are adapters. Deletion freezes the owner's storage before server work, then commits a tombstone and scoped cleanup after confirmed success. Session storage performs owner-conditional clearing so a delayed deletion cannot remove a replacement account. See [account management](account-management.md).
 
 The entry policy permits sign-in and email-link routes independently of Profile
 loading or failure. A signed-in Account with a damaged Profile sees Profile
@@ -29,6 +33,14 @@ Its interface exposes ordinary key-based reads and writes, synchronization
 intentions, snapshots and key-specific external-change subscriptions. Device
 storage and the Supabase document transport are adapters at this seam.
 
+Food and exercise history have physical monthly partitions behind that logical
+document interface. Local copy-on-write manifests publish a whole replacement
+only after its changed fragments are durable. The optional cloud transport
+commits changed fragments and one logical revision atomically. Providers keep
+their existing v1 documents and explicit conflict choices. Migration, rollout,
+and remaining full-history assembly costs are described in
+[history storage](account-history-storage.md).
+
 Synchronization reserves its current operation before publishing feedback. A
 stopped lifecycle cannot start another adapter request or publish an abandoned
 request's result. Restarting does not wait for an abandoned network read; device
@@ -39,6 +51,12 @@ durable. A failed upload after successful hydration still notifies the changed
 data. An unchanged sync emits no document refresh. Settings does not remount
 tracking to reload it, so a Water goal update cannot erase an unrelated Workout
 edit. Account replacement still remounts the owner scope for privacy.
+
+Connectivity owns reachability observations, while each account scope owns its
+reconnect retry subscription. It removes that subscription before stopping
+storage. Root crash recovery sits outside the providers and can remount them
+without clearing persisted records. Optional JavaScript reporting sanitizes
+errors independently of the recovery UI; see [resilience](resilience.md).
 
 ## Editing and summaries
 
@@ -78,8 +96,10 @@ replacement. A failed refresh carries a typed `refreshError` and retry action,
 retains draft owners, and blocks stale writes until a valid replacement is read.
 Normal save failures remain separate from failed refreshes.
 
+Body-weight entries are optional history within the existing Profile document. The weight model owns dated entry validation and trend coordinates; the body-weight edit module owns raw drafts, validation, replacement guidance and save/delete feedback. The journal renders that snapshot, and Profile persistence owns durable mutations. Leaving the journal retires its edit; an older completion cannot change a replacement edit. Logging a measurement preserves goal answers and does not recalculate calorie or macro targets.
+
 Profile media keeps its own module: importing an image, committing its metadata
-and cleaning up owned files is a distinct two-phase workflow. It shares Account
+and cleaning up owned files is a distinct two-phase workflow. The media ownership module interprets metadata and ownership ledgers once for reservation, retirement and confirmed Account cleanup. Account storage supplies immutable namespaces, its local transaction gate and freeze/drain coordination; persistence uses the required ownership interface instead of a separate fallback policy. It shares Account
 privacy but does not synchronize image files. Cancellation is checked before
 starting adapter work, and committed metadata keeps its owned image after a
 lifecycle change.
@@ -93,6 +113,12 @@ This ownership gives locality to lifecycle fixes and leverage to all document
 callers without adding another public abstraction layer.
 
 ## Verification
+
+The October 8, 2026 implementation concentrates Profile media ownership,
+Account management attempts and body-weight editing. See the
+[final-check record](final-check-2026-10-08-architecture.md) for review coverage,
+regression fixes and remaining release gates, and [TODO.md](../TODO.md) for the
+latest integrated results.
 
 The October 5, 2026 architecture follow-up passed TypeScript, all 739 automated
 unit and script tests, and 159 browser tests. One optional screenshot export case

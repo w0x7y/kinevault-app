@@ -113,10 +113,7 @@ async function open(t, options = {}) {
             developmentExamplesSeeded: true,
           }),
         );
-        localStorage.setItem(
-          "kinevault-track.appearance",
-          options.appearance || "light",
-        );
+        localStorage.setItem("kinevault-track.appearance", options.appearance || "light");
         sessionStorage.setItem("profile-fixture", "1");
       }
       if (options.failureKey) {
@@ -144,11 +141,11 @@ async function open(t, options = {}) {
       page.__profileWarnings.push(message.text());
   });
   page.on("pageerror", (error) => runtimeErrors.push(error.message));
-  t.after(() =>
-    assert.deepEqual(runtimeErrors, [], "no uncaught browser errors"),
-  );
+  t.after(() => assert.deepEqual(runtimeErrors, [], "no uncaught browser errors"));
   await page.clock.install({ time: new Date("2026-10-04T12:00:00+03:00") });
-  const previewURL = options.developmentRuntime ? process.env.KINE_DEV_PREVIEW_URL || baseURL : baseURL;
+  const previewURL = options.developmentRuntime
+    ? process.env.KINE_DEV_PREVIEW_URL || baseURL
+    : baseURL;
   await page.goto(previewURL);
   await button(page, "Profile menu").waitFor();
   return page;
@@ -159,10 +156,7 @@ async function editDetail(page, section) {
 }
 async function expectGoal(page, field, label) {
   await page.getByTestId(`profile-goal-${field}`).waitFor();
-  assert.equal(
-    await page.getByTestId(`profile-goal-${field}`).getAttribute("aria-label"),
-    label,
-  );
+  assert.equal(await page.getByTestId(`profile-goal-${field}`).getAttribute("aria-label"), label);
 }
 async function profile(page) {
   await button(page, "Profile menu").click();
@@ -190,9 +184,7 @@ async function upload(page, name = "fixture.png") {
     });
 }
 async function stored(page, key = profileKey) {
-  return JSON.parse(
-    await page.evaluate((key) => window.accountFixture.getItem(key), key),
-  );
+  return JSON.parse(await page.evaluate((key) => window.accountFixture.getItem(key), key));
 }
 async function bottomTabGeometry(page) {
   await page.evaluate(() => document.fonts.ready);
@@ -200,9 +192,10 @@ async function bottomTabGeometry(page) {
     elements.map((element) => {
       const descendants = [...element.querySelectorAll("*")];
       const name = descendants
-        .find((node) =>
-          node.childElementCount === 0 &&
-          ["Home", "Food", "Exercise", "Settings"].includes(node.textContent.trim()),
+        .find(
+          (node) =>
+            node.childElementCount === 0 &&
+            ["Home", "Food", "Exercise", "Settings"].includes(node.textContent.trim()),
         )
         ?.textContent.trim();
       const geometry = (node) => {
@@ -219,62 +212,61 @@ async function bottomTabGeometry(page) {
       return {
         name,
         icons: descendants
-          .filter((node) =>
-            node.childElementCount === 0 &&
-            getComputedStyle(node).fontFamily.includes("FontAwesome"),
+          .filter(
+            (node) =>
+              node.childElementCount === 0 &&
+              getComputedStyle(node).fontFamily.includes("FontAwesome"),
           )
           .map(geometry),
         labels: descendants
-          .filter((node) =>
-            node.childElementCount === 0 && node.textContent.trim() === name,
-          )
+          .filter((node) => node.childElementCount === 0 && node.textContent.trim() === name)
           .map(geometry),
       };
     }),
   );
-  assert.deepEqual(tabs.map((tab) => tab.name), [
-    "Home", "Food", "Exercise", "Settings",
-  ]);
+  assert.deepEqual(
+    tabs.map((tab) => tab.name),
+    ["Home", "Food", "Exercise", "Settings"],
+  );
   for (const tab of tabs) {
     assert.ok(tab.icons.length > 0, `${tab.name} has measured icon glyphs`);
     assert.ok(tab.labels.length > 0, `${tab.name} has a measured text label`);
-    assert.ok(
-      [...tab.icons, ...tab.labels].every((item) => item.width > 0 && item.height > 0),
-    );
+    assert.ok([...tab.icons, ...tab.labels].every((item) => item.width > 0 && item.height > 0));
   }
   return tabs;
 }
 const photoDateLabel = (date) =>
   new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 async function expectDateBelowPhoto(container, date) {
   const image = container.getByRole("img", {
-    name: `Progress photo ${date}`, exact: true,
+    name: `Progress photo ${date}`,
+    exact: true,
   });
   await image.waitFor();
   const label = container.getByText(photoDateLabel(date), { exact: true });
   await label.waitFor();
   const imageBox = await image.boundingBox(),
     dateBox = await label.boundingBox();
-  assert.ok(
-    dateBox.y >= imageBox.y + imageBox.height - 1,
-    `${date} date is beneath its image`,
-  );
+  assert.ok(dateBox.y >= imageBox.y + imageBox.height - 1, `${date} date is beneath its image`);
 }
 async function expectComparison(page, firstDate, latestDate) {
   const comparison = page.getByTestId("profile-recent-photos");
-  await comparison
-    .getByRole("heading", { name: "Progress comparison", exact: true })
-    .waitFor();
+  await comparison.getByRole("heading", { name: "Progress comparison", exact: true }).waitFor();
   assert.deepEqual(
-    await comparison.getByRole("button").evaluateAll((elements) =>
-      elements.map((element) => element.getAttribute("data-testid")),
-    ),
+    await comparison
+      .getByRole("button")
+      .evaluateAll((elements) => elements.map((element) => element.getAttribute("data-testid"))),
     ["profile-comparison-first", "profile-comparison-latest"],
     "comparison offers only its two photo panes with no header or Add buttons",
   );
-  for (const [side, date] of [["first", firstDate], ["latest", latestDate]]) {
+  for (const [side, date] of [
+    ["first", firstDate],
+    ["latest", latestDate],
+  ]) {
     const pane = comparison.getByTestId(`profile-comparison-${side}`);
     await pane.waitFor();
     if (date) await expectDateBelowPhoto(pane, date);
@@ -283,21 +275,16 @@ async function expectComparison(page, firstDate, latestDate) {
       await pane.getByText("No saved photo", { exact: true }).waitFor();
     }
   }
-  const firstBox = await comparison
-    .getByTestId("profile-comparison-first").boundingBox();
-  const latestBox = await comparison
-    .getByTestId("profile-comparison-latest").boundingBox();
+  const firstBox = await comparison.getByTestId("profile-comparison-first").boundingBox();
+  const latestBox = await comparison.getByTestId("profile-comparison-latest").boundingBox();
   assert.ok(firstBox.x + firstBox.width <= latestBox.x, "first photo is left of latest photo");
 }
 async function addPhoto(page, date, note = "") {
   await button(page, "Add from library").click();
   await upload(page, `photo-${date}.png`);
-  await page
-    .getByRole("textbox", { name: "Photo date (YYYY-MM-DD)", exact: true })
-    .fill(date);
-  if (note) await page
-    .getByRole("textbox", { name: "Photo note (optional)", exact: true })
-    .fill(note);
+  await page.getByRole("textbox", { name: "Photo date (YYYY-MM-DD)", exact: true }).fill(date);
+  if (note)
+    await page.getByRole("textbox", { name: "Photo note (optional)", exact: true }).fill(note);
   await button(page, "Save photo").click();
   await page.getByRole("dialog").waitFor({ state: "detached" });
   return (await stored(page, mediaKey)).photos.find((photo) => photo.date === date);
@@ -307,14 +294,17 @@ async function expectCarousel(page, photos) {
   assert.deepEqual(
     await journal
       .locator('[data-testid^="progress-photo-"]')
-      .evaluateAll((elements) => elements.map((element) =>
-        element.getAttribute("data-testid").slice("progress-photo-".length),
-      )),
+      .evaluateAll((elements) =>
+        elements.map((element) =>
+          element.getAttribute("data-testid").slice("progress-photo-".length),
+        ),
+      ),
     photos.map((photo) => photo.id),
     "carousel renders the entire saved gallery in date order",
   );
   assert.equal(
-    await journal.getByRole("button").count(), photos.length + 1,
+    await journal.getByRole("button").count(),
+    photos.length + 1,
     "Photos offers one editor per item and one Add action",
   );
   const separators = journal.getByTestId("profile-photo-separator");
@@ -332,11 +322,11 @@ async function expectCarousel(page, photos) {
         .getByRole("img", { name: `Progress photo ${photo.date}`, exact: true })
         .boundingBox();
       const nextItem = await journal
-        .getByTestId(`progress-photo-${photos[index + 1].id}`).boundingBox();
+        .getByTestId(`progress-photo-${photos[index + 1].id}`)
+        .boundingBox();
       assert.ok(divider.height > divider.width * 10, "photo divider is vertical");
       assert.ok(
-        divider.x >= image.x + image.width - 1 &&
-        divider.x + divider.width <= nextItem.x + 1,
+        divider.x >= image.x + image.width - 1 && divider.x + divider.width <= nextItem.x + 1,
         "divider sits between adjacent photos",
       );
     }
@@ -350,22 +340,17 @@ test("historical Home date survives Profile/back; calendar streak week and four 
   await button(page, "Collapse calendar").click();
   await profile(page);
   assert.deepEqual(
-    await bottomTabGeometry(page), homeTabs,
+    await bottomTabGeometry(page),
+    homeTabs,
     "Profile keeps Home icon and label fonts and dimensions",
   );
   assert.equal(await button(page, "Expand calendar").count(), 0);
-  await page
-    .getByTestId("profile-streak")
-    .getByText("3 days", { exact: true })
-    .first()
-    .waitFor();
+  await page.getByTestId("profile-streak").getByText("3 days", { exact: true }).first().waitFor();
   assert.deepEqual(
     await page
       .getByTestId("streak-week")
       .locator("[data-testid^=streak-day-]")
-      .evaluateAll((e) =>
-        e.map((x) => x.getAttribute("data-testid").slice(11)),
-      ),
+      .evaluateAll((e) => e.map((x) => x.getAttribute("data-testid").slice(11))),
     [
       "2026-10-04",
       "2026-10-05",
@@ -387,9 +372,7 @@ test("historical Home date survives Profile/back; calendar streak week and four 
   await selectLatestWorkoutWeek(page);
   await page.getByText("Week ending 2026-10-04: 30 min", { exact: true }).waitFor();
   await button(page, "Today's nutrition").click();
-  await page
-    .getByLabel("Today & targets · 2026-10-04", { exact: true })
-    .waitFor();
+  await page.getByLabel("Today & targets · 2026-10-04", { exact: true }).waitFor();
   await expectGoal(page, "calories", "240 / 2,000 kcal");
   await expectGoal(page, "carbs", "30 / 0 g");
   await expectGoal(page, "water", "2,500 / 1,500 ml");
@@ -413,7 +396,7 @@ test("details chooser cancels without opening an editor or changing saved answer
   assert.equal(await page.getByTestId("profile-editor").count(), 0);
   assert.deepEqual(await stored(page), before);
   assert.equal(await button(page, "Goals").getAttribute("aria-pressed"), "true");
-  assert.equal(await trigger.evaluate(node => node === document.activeElement), true);
+  assert.equal(await trigger.evaluate((node) => node === document.activeElement), true);
   await trigger.click();
   await chooser.waitFor();
   await chooser.getByRole("button", { name: "Edit age", exact: true }).click();
@@ -425,9 +408,7 @@ test("focused editing validates, retains failed saves, merges latest values and 
   await profile(page);
   await button(page, "Goals").click();
   await editDetail(page, "name");
-  await page
-    .getByRole("textbox", { name: "Your name (optional)", exact: true })
-    .fill("New name");
+  await page.getByRole("textbox", { name: "Your name (optional)", exact: true }).fill("New name");
   await page.evaluate((key) => {
     const set = Storage.prototype.setItem;
     Storage.prototype.setItem = function (k, v) {
@@ -439,30 +420,18 @@ test("focused editing validates, retains failed saves, merges latest values and 
     };
   }, profileKey);
   await button(page, "Save name").click();
-  await page
-    .getByRole("alert")
-    .filter({ hasText: "Couldn't save your answers" })
-    .waitFor();
+  await page.getByRole("alert").filter({ hasText: "Couldn't save your answers" }).waitFor();
   assert.equal(
-    await page
-      .getByRole("textbox", { name: "Your name (optional)", exact: true })
-      .inputValue(),
+    await page.getByRole("textbox", { name: "Your name (optional)", exact: true }).inputValue(),
     "New name",
   );
   await button(page, "Save name").click();
   assert.equal((await stored(page)).answers.name, "New name");
   await editDetail(page, "age");
-  await page
-    .getByRole("textbox", { name: "Age (years)", exact: true })
-    .fill("15");
+  await page.getByRole("textbox", { name: "Age (years)", exact: true }).fill("15");
   await button(page, "Save age").click();
-  await page
-    .getByRole("alert")
-    .filter({ hasText: "between 16 and 100" })
-    .waitFor();
-  await page
-    .getByRole("textbox", { name: "Age (years)", exact: true })
-    .fill("17");
+  await page.getByRole("alert").filter({ hasText: "between 16 and 100" }).waitFor();
+  await page.getByRole("textbox", { name: "Age (years)", exact: true }).fill("17");
   await button(page, "Save age").click();
   await button(page, "Edit details and goals").waitFor();
   const next = (await stored(page)).answers;
@@ -476,20 +445,14 @@ test("real library uploads support dated notes, replacement, oldest/latest compa
   const page = await open(t);
   await profile(page);
   await button(page, "Photos").click();
-  await page
-    .getByText("Your photo journal starts here.", { exact: true })
-    .waitFor();
+  await page.getByText("Your photo journal starts here.", { exact: true }).waitFor();
   await button(page, "Add from library").click();
   await upload(page);
-  await page
-    .getByRole("dialog", { name: "Add progress photo", exact: true })
-    .waitFor();
+  await page.getByRole("dialog", { name: "Add progress photo", exact: true }).waitFor();
   await page
     .getByRole("textbox", { name: "Photo date (YYYY-MM-DD)", exact: true })
     .fill("2026-10-01");
-  await page
-    .getByRole("textbox", { name: "Photo note (optional)", exact: true })
-    .fill("First day");
+  await page.getByRole("textbox", { name: "Photo note (optional)", exact: true }).fill("First day");
   await button(page, "Save photo").click();
   await page.getByRole("dialog").waitFor({ state: "detached" });
   await button(page, "Add from library").click();
@@ -502,9 +465,7 @@ test("real library uploads support dated notes, replacement, oldest/latest compa
   await photoButton(page, document.photos[0].id, "Edit").click();
   await button(page, "Replace from library").click();
   await upload(page, "replacement.png");
-  await page
-    .getByRole("textbox", { name: "Photo note (optional)", exact: true })
-    .fill("Replaced");
+  await page.getByRole("textbox", { name: "Photo note (optional)", exact: true }).fill("Replaced");
   await button(page, "Save photo").click();
   await page.getByRole("dialog").waitFor({ state: "detached" });
   const old = document.photos[0].image.id;
@@ -552,32 +513,22 @@ test("Profile water goal has focused cancel, validation, failed draft retry and 
   await profile(page);
   await button(page, "Goals").click();
   assert.equal(
-    await page
-      .getByRole("textbox", { name: "Daily water goal (ml)", exact: true })
-      .count(),
+    await page.getByRole("textbox", { name: "Daily water goal (ml)", exact: true }).count(),
     0,
   );
   await button(page, "Edit water goal").click();
-  await page
-    .getByRole("textbox", { name: "Daily water goal (ml)", exact: true })
-    .fill("2500");
+  await page.getByRole("textbox", { name: "Daily water goal (ml)", exact: true }).fill("2500");
   await button(page, "Cancel").click();
   assert.equal(
-    await page
-      .getByRole("textbox", { name: "Daily water goal (ml)", exact: true })
-      .count(),
+    await page.getByRole("textbox", { name: "Daily water goal (ml)", exact: true }).count(),
     0,
   );
   await expectGoal(page, "water", "2,500 / 1,500 ml");
   await button(page, "Edit water goal").click();
-  await page
-    .getByRole("textbox", { name: "Daily water goal (ml)", exact: true })
-    .fill("0");
+  await page.getByRole("textbox", { name: "Daily water goal (ml)", exact: true }).fill("0");
   await button(page, "Save water goal").click();
   await page.getByRole("alert").filter({ hasText: "1 to 10,000" }).waitFor();
-  await page
-    .getByRole("textbox", { name: "Daily water goal (ml)", exact: true })
-    .fill("2000");
+  await page.getByRole("textbox", { name: "Daily water goal (ml)", exact: true }).fill("2000");
   await page.evaluate(() => {
     const set = Storage.prototype.setItem;
     Storage.prototype.setItem = function (k, v) {
@@ -589,22 +540,15 @@ test("Profile water goal has focused cancel, validation, failed draft retry and 
     };
   });
   await button(page, "Save water goal").click();
-  await page
-    .getByRole("alert")
-    .filter({ hasText: "Couldn't save your water goal" })
-    .waitFor();
+  await page.getByRole("alert").filter({ hasText: "Couldn't save your water goal" }).waitFor();
   assert.equal(
-    await page
-      .getByRole("textbox", { name: "Daily water goal (ml)", exact: true })
-      .inputValue(),
+    await page.getByRole("textbox", { name: "Daily water goal (ml)", exact: true }).inputValue(),
     "2000",
   );
   await button(page, "Save water goal").click();
   await expectGoal(page, "water", "2,500 / 2,000 ml");
   assert.equal(
-    await page
-      .getByRole("textbox", { name: "Daily water goal (ml)", exact: true })
-      .count(),
+    await page.getByRole("textbox", { name: "Daily water goal (ml)", exact: true }).count(),
     0,
   );
   await page.reload();
@@ -625,22 +569,15 @@ test("each source recovers independently while usable sections remain available"
     await button(page, `Retry ${name}`).first().waitFor();
     if (section === "Overview") {
       assert.equal(
-        await page
-          .getByTestId("profile-streak")
-          .getByText("3 days", { exact: true })
-          .count(),
+        await page.getByTestId("profile-streak").getByText("3 days", { exact: true }).count(),
         0,
       );
       await button(page, "Photos").click();
-      await page
-        .getByText("Your photo journal starts here.", { exact: true })
-        .waitFor();
+      await page.getByText("Your photo journal starts here.", { exact: true }).waitFor();
       await button(page, "Overview").click();
       if (name !== "workouts") {
         await selectLatestWorkoutWeek(page);
-        await page
-          .getByText("Week ending 2026-10-04: 150 kg x reps", { exact: true })
-          .waitFor();
+        await page.getByText("Week ending 2026-10-04: 150 kg x reps", { exact: true }).waitFor();
       }
     }
     await page.evaluate(() => {
@@ -654,9 +591,7 @@ test("each source recovers independently while usable sections remain available"
         .first()
         .waitFor();
     if (section === "Photos")
-      await page
-        .getByText("Your photo journal starts here.", { exact: true })
-        .waitFor();
+      await page.getByText("Your photo journal starts here.", { exact: true }).waitFor();
     if (section === "Goals") await button(page, "Edit water goal").waitFor();
   }
 });
@@ -702,9 +637,7 @@ test("avatar retains failed draft, prevents pending duplicate writes, replaces a
     name: "Profile photo",
     exact: true,
   });
-  await dialog
-    .getByRole("img", { name: "Draft profile photo", exact: true })
-    .waitFor();
+  await dialog.getByRole("img", { name: "Draft profile photo", exact: true }).waitFor();
   await page.evaluate((key) => {
     const set = Storage.prototype.setItem;
     Storage.prototype.setItem = function (k, v) {
@@ -716,14 +649,9 @@ test("avatar retains failed draft, prevents pending duplicate writes, replaces a
     };
   }, mediaKey);
   await button(page, "Save profile photo").click();
-  await page
-    .getByRole("alert")
-    .filter({ hasText: "Couldn't save your photo changes" })
-    .waitFor();
+  await page.getByRole("alert").filter({ hasText: "Couldn't save your photo changes" }).waitFor();
   assert.equal(
-    await dialog
-      .getByRole("img", { name: "Draft profile photo", exact: true })
-      .count(),
+    await dialog.getByRole("img", { name: "Draft profile photo", exact: true }).count(),
     1,
   );
   assert.equal(await stored(page, mediaKey), null);
@@ -762,9 +690,7 @@ test("avatar retains failed draft, prevents pending duplicate writes, replaces a
   assert.notEqual((await stored(page, mediaKey)).avatar.id, original);
   await page.reload();
   await button(page, "Change profile photo").click();
-  await dialog
-    .getByRole("img", { name: "Profile photo", exact: true })
-    .waitFor();
+  await dialog.getByRole("img", { name: "Profile photo", exact: true }).waitFor();
   await button(page, "Remove profile photo").click();
   assert.notEqual((await stored(page, mediaKey)).avatar, null);
   await button(page, "Confirm remove profile photo").click();
@@ -803,10 +729,7 @@ test("photo save and remove failures preserve date, note, image and saved metada
     };
   }, mediaKey);
   await button(page, "Save photo").click();
-  await page
-    .getByRole("alert")
-    .filter({ hasText: "Couldn't save your photo changes" })
-    .waitFor();
+  await page.getByRole("alert").filter({ hasText: "Couldn't save your photo changes" }).waitFor();
   assert.equal(
     await dialog
       .getByRole("textbox", { name: "Photo date (YYYY-MM-DD)", exact: true })
@@ -814,15 +737,11 @@ test("photo save and remove failures preserve date, note, image and saved metada
     "2026-10-02",
   );
   assert.equal(
-    await dialog
-      .getByRole("textbox", { name: "Photo note (optional)", exact: true })
-      .inputValue(),
+    await dialog.getByRole("textbox", { name: "Photo note (optional)", exact: true }).inputValue(),
     "Retain this draft",
   );
   assert.equal(
-    await dialog
-      .getByRole("img", { name: "Draft progress photo", exact: true })
-      .count(),
+    await dialog.getByRole("img", { name: "Draft progress photo", exact: true }).count(),
     1,
   );
   await button(page, "Save photo").click();
@@ -854,10 +773,7 @@ test("photo save and remove failures preserve date, note, image and saved metada
   }, mediaKey);
   await button(page, "Remove photo").click();
   await button(page, "Confirm remove photo").click();
-  await page
-    .getByRole("alert")
-    .filter({ hasText: "Couldn't save your photo changes" })
-    .waitFor();
+  await page.getByRole("alert").filter({ hasText: "Couldn't save your photo changes" }).waitFor();
   assert.deepEqual(await stored(page, mediaKey), saved);
   await button(page, "Confirm remove photo").click();
   await page.getByRole("dialog").waitFor({ state: "detached" });
@@ -872,26 +788,22 @@ test("journal sections and focused editors fit light and dark small, tablet and 
       for (const section of ["Overview", "Goals", "Photos"]) {
         await button(page, section).click();
         assert.equal(
-          await page.evaluate(
-            () => document.documentElement.scrollWidth > innerWidth,
-          ),
+          await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
           false,
           `${appearance} ${width} ${section} has no horizontal overflow`,
         );
-        const geometry = await page
-          .locator("[role=button]")
-          .evaluateAll((elements) =>
-            elements
-              .filter((element) => {
-                const b = element.getBoundingClientRect();
-                return b.width > 0 && b.height > 0;
-              })
-              .map((element) => ({
-                name: element.getAttribute("aria-label"),
-                width: element.getBoundingClientRect().width,
-                height: element.getBoundingClientRect().height,
-              })),
-          );
+        const geometry = await page.locator("[role=button]").evaluateAll((elements) =>
+          elements
+            .filter((element) => {
+              const b = element.getBoundingClientRect();
+              return b.width > 0 && b.height > 0;
+            })
+            .map((element) => ({
+              name: element.getAttribute("aria-label"),
+              width: element.getBoundingClientRect().width,
+              height: element.getBoundingClientRect().height,
+            })),
+        );
         assert.deepEqual(
           geometry.filter((hit) => hit.width < 44 || hit.height < 44),
           [],
@@ -902,9 +814,7 @@ test("journal sections and focused editors fit light and dark small, tablet and 
       await button(page, "Goals").click();
       await editDetail(page, "body");
       assert.equal(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth > innerWidth,
-        ),
+        await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
         false,
       );
       await button(page, "Cancel").click();
@@ -935,19 +845,33 @@ test("dated carousel scrolls oldest to newest and date edits and removal update 
     await page.setViewportSize({ width, height: 844 });
     const carousel = page.getByTestId("profile-photo-carousel");
     await carousel.scrollIntoViewIfNeeded();
-    await carousel.evaluate((element) => { element.scrollLeft = 0; });
+    await carousel.evaluate((element) => {
+      element.scrollLeft = 0;
+    });
     const initial = await carousel.evaluate((element) => ({
       clientWidth: element.clientWidth,
       scrollWidth: element.scrollWidth,
       scrollLeft: element.scrollLeft,
     }));
-    assert.ok(initial.scrollWidth > initial.clientWidth, `${width}px carousel has more photos than its viewport`);
+    assert.ok(
+      initial.scrollWidth > initial.clientWidth,
+      `${width}px carousel has more photos than its viewport`,
+    );
     await carousel.hover();
     await page.mouse.wheel(500, 0);
-    await page.waitForFunction(() => document.querySelector('[data-testid="profile-photo-carousel"]').scrollLeft > 0);
+    await page.waitForFunction(
+      () => document.querySelector('[data-testid="profile-photo-carousel"]').scrollLeft > 0,
+    );
     const scrolled = await carousel.evaluate((element) => element.scrollLeft);
-    assert.ok(scrolled > initial.scrollLeft, `${width}px carousel responds to horizontal wheel scrolling`);
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${width}px Photos keeps horizontal scrolling inside the carousel`);
+    assert.ok(
+      scrolled > initial.scrollLeft,
+      `${width}px carousel responds to horizontal wheel scrolling`,
+    );
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+      `${width}px Photos keeps horizontal scrolling inside the carousel`,
+    );
     await photoButton(page, photos[0].id).click();
     await page.getByRole("dialog", { name: "Edit progress photo", exact: true }).waitFor();
     await button(page, "Cancel").click();
@@ -955,7 +879,9 @@ test("dated carousel scrolls oldest to newest and date edits and removal update 
 
   // Move the middle dated photo earlier than the original first photo.
   await photoButton(page, photos[2].id).click();
-  await page.getByRole("textbox", { name: "Photo date (YYYY-MM-DD)", exact: true }).fill("2026-08-01");
+  await page
+    .getByRole("textbox", { name: "Photo date (YYYY-MM-DD)", exact: true })
+    .fill("2026-08-01");
   await button(page, "Save photo").click();
   await page.getByRole("dialog").waitFor({ state: "detached" });
   photos[2] = { ...photos[2], date: "2026-08-01" };
@@ -966,7 +892,9 @@ test("dated carousel scrolls oldest to newest and date edits and removal update 
 
   // Editing the original first photo can also change the latest endpoint.
   await photoButton(page, photos[1].id).click();
-  await page.getByRole("textbox", { name: "Photo date (YYYY-MM-DD)", exact: true }).fill("2026-10-04");
+  await page
+    .getByRole("textbox", { name: "Photo date (YYYY-MM-DD)", exact: true })
+    .fill("2026-10-04");
   await button(page, "Save photo").click();
   await page.getByRole("dialog").waitFor({ state: "detached" });
   photos[1] = { ...photos[1], date: "2026-10-04" };
@@ -1006,7 +934,10 @@ test("workout graph icon stays decorative while point selection announces weekly
   assert.equal(await icon.getAttribute("role"), null);
   assert.equal(await button(page, "Show workout data").count(), 0);
   await icon.click();
-  assert.equal(await page.getByText("Gaps mean no measurement was recorded.", { exact: true }).count(), 0);
+  assert.equal(
+    await page.getByText("Gaps mean no measurement was recorded.", { exact: true }).count(),
+    0,
+  );
   assert.equal(await page.getByRole("button", { name: /^2026-\d\d-\d\d:/ }).count(), 0);
   await selectLatestWorkoutWeek(page);
   assert.equal(
@@ -1014,9 +945,7 @@ test("workout graph icon stays decorative while point selection announces weekly
     1,
   );
   assert.deepEqual(
-    page.__profileWarnings.filter((text) =>
-      text.includes("Unknown event handler property"),
-    ),
+    page.__profileWarnings.filter((text) => text.includes("Unknown event handler property")),
     [],
   );
 });
@@ -1043,40 +972,58 @@ test("inline name editing stays in place, cancels cleanly, saves, and persists",
   const page = await open(t);
   await profile(page);
   assert.equal(await button(page, "Edit profile").count(), 0);
-  for (const caption of ["Food, water, or a completed workout counts.", "kg × reps · latest week", "Completed workouts only"]) {
+  for (const caption of [
+    "Food, water, or a completed workout counts.",
+    "kg × reps · latest week",
+    "Completed workouts only",
+  ]) {
     assert.equal(await page.getByText(caption, { exact: true }).count(), 0);
   }
   const badge = await page.getByTestId("profile-camera-badge").evaluate((node) => {
-    const parent = node.getBoundingClientRect(), svg = node.querySelector("svg"), path = svg.querySelector("path");
-    const bounds = path.getBBox(), point = svg.createSVGPoint();
+    const parent = node.getBoundingClientRect(),
+      svg = node.querySelector("svg"),
+      path = svg.querySelector("path");
+    const bounds = path.getBBox(),
+      point = svg.createSVGPoint();
     point.x = bounds.x + bounds.width / 2;
     point.y = bounds.y + bounds.height / 2;
     const center = point.matrixTransform(path.getScreenCTM());
-    return { x: Math.abs(parent.x + parent.width / 2 - center.x),
-      y: Math.abs(parent.y + parent.height / 2 - center.y) };
+    return {
+      x: Math.abs(parent.x + parent.width / 2 - center.x),
+      y: Math.abs(parent.y + parent.height / 2 - center.y),
+    };
   });
-  assert.ok(badge.x <= 0.5 && badge.y <= 0.5, "the visible camera drawing is centered in its badge");
+  assert.ok(
+    badge.x <= 0.5 && badge.y <= 0.5,
+    "the visible camera drawing is centered in its badge",
+  );
   const name = page.getByRole("textbox", { name: "Profile name", exact: true });
   await button(page, "Edit profile name").click();
   assert.equal(await button(page, "Overview").getAttribute("aria-pressed"), "true");
   assert.equal(await page.getByTestId("profile-editor").count(), 0);
-  assert.equal(await name.evaluate(node => getComputedStyle(node).borderBottomWidth), "1px");
-  assert.equal(await name.evaluate(node => getComputedStyle(node).outlineWidth), "0px");
-  assert.equal(await name.evaluate(node => getComputedStyle(node).outlineStyle), "solid");
+  assert.equal(await name.evaluate((node) => getComputedStyle(node).borderBottomWidth), "1px");
+  assert.equal(await name.evaluate((node) => getComputedStyle(node).outlineWidth), "0px");
+  assert.equal(await name.evaluate((node) => getComputedStyle(node).outlineStyle), "solid");
   await name.fill("Discarded");
   await button(page, "Cancel name editing").click();
   await button(page, "Edit profile name").click();
   assert.equal(await name.inputValue(), "Journal fixture");
   await page.setViewportSize({ width: 320, height: 844 });
   await name.fill("a".repeat(40));
-  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "inline editing fits a narrow phone");
+  assert.ok(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    "inline editing fits a narrow phone",
+  );
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     const input = await name.boundingBox();
     const avatar = await button(page, "Change profile photo").boundingBox();
     const cancel = await button(page, "Cancel name editing").boundingBox();
     const save = await button(page, "Save profile name").boundingBox();
-    assert.ok(Math.abs(input.x + input.width / 2 - avatar.x - avatar.width / 2) <= 0.5, "editing name is centered under the avatar");
+    assert.ok(
+      Math.abs(input.x + input.width / 2 - avatar.x - avatar.width / 2) <= 0.5,
+      "editing name is centered under the avatar",
+    );
     assert.ok(cancel.x + cancel.width <= input.x + 0.5, "Cancel is left of the name");
     assert.ok(save.x >= input.x + input.width - 0.5, "Save is right of the name");
   }
@@ -1089,7 +1036,11 @@ test("inline name editing stays in place, cancels cleanly, saves, and persists",
   await button(page, "Cancel name editing").click();
   await page.reload();
   await page.getByRole("heading", { name: "Saved name", exact: true }).waitFor();
-  assert.deepEqual(page.__profileWarnings.filter(text => text.includes("non-boolean attribute")), [], "decorative camera SVG emits no DOM attribute warning");
+  assert.deepEqual(
+    page.__profileWarnings.filter((text) => text.includes("non-boolean attribute")),
+    [],
+    "decorative camera SVG emits no DOM attribute warning",
+  );
 });
 
 test("inline name input limit and failed save retain the draft for retry", async (t) => {
@@ -1104,7 +1055,7 @@ test("inline name input limit and failed save retain the draft for retry", async
   await name.fill("Retry name");
   await page.evaluate((key) => {
     const set = Storage.prototype.setItem;
-    Storage.prototype.setItem = function(k, value) {
+    Storage.prototype.setItem = function (k, value) {
       if (k.endsWith(key)) {
         Storage.prototype.setItem = set;
         throw new Error("name write failure");
@@ -1126,9 +1077,7 @@ test("delayed water save leaves replacement Name draft and section navigation in
   await profile(page);
   await button(page, "Goals").click();
   await button(page, "Edit water goal").click();
-  await page
-    .getByRole("textbox", { name: "Daily water goal (ml)", exact: true })
-    .fill("2000");
+  await page.getByRole("textbox", { name: "Daily water goal (ml)", exact: true }).fill("2000");
   await delayWrite(page, "kinevault-track.water-goal.v1");
   await button(page, "Save water goal").click();
   await button(page, "Saving water goal…").waitFor();
@@ -1141,10 +1090,7 @@ test("delayed water save leaves replacement Name draft and section navigation in
   await page.evaluate(() => window.__releaseEditorWrite());
   await expectGoal(page, "water", "2,500 / 2,000 ml");
   assert.equal(await name.inputValue(), "Replacement name draft");
-  assert.equal(
-    await button(page, "Goals").getAttribute("aria-pressed"),
-    "true",
-  );
+  assert.equal(await button(page, "Goals").getAttribute("aria-pressed"), "true");
   await button(page, "Save name").click();
   await name.waitFor({ state: "detached" });
   assert.equal((await stored(page)).answers.name, "Replacement name draft");
@@ -1168,16 +1114,11 @@ test("delayed profile save closes only its original editor and preserves replace
   });
   await water.fill("2345");
   await page.evaluate(() => window.__releaseEditorWrite());
-  await page
-    .getByRole("heading", { name: "Pending saved name", exact: true })
-    .waitFor();
+  await page.getByRole("heading", { name: "Pending saved name", exact: true }).waitFor();
   assert.equal(await water.inputValue(), "2345");
   await button(page, "Save water goal").click();
   await water.waitFor({ state: "detached" });
-  assert.equal(
-    (await stored(page, "kinevault-track.water-goal.v1")).dailyMl,
-    2345,
-  );
+  assert.equal((await stored(page, "kinevault-track.water-goal.v1")).dailyMl, 2345);
 });
 
 test("inline name drafts survive pending water or profile section saves", async (t) => {
@@ -1190,7 +1131,9 @@ test("inline name drafts survive pending water or profile section saves", async 
       await page.getByRole("textbox", { name: "Daily water goal (ml)", exact: true }).fill("2000");
     } else {
       await editDetail(page, "name");
-      await page.getByRole("textbox", { name: "Your name (optional)", exact: true }).fill("Pending section name");
+      await page
+        .getByRole("textbox", { name: "Your name (optional)", exact: true })
+        .fill("Pending section name");
     }
     await delayWrite(page, section === "water" ? "kinevault-track.water-goal.v1" : profileKey);
     await button(page, section === "water" ? "Save water goal" : "Save name").click();
@@ -1242,30 +1185,17 @@ test("section controls stay responsive during pending water and profile saves", 
     if (section === "water") await button(page, "Edit water goal").click();
     else await editDetail(page, "name");
     const sourceField = page.getByRole("textbox", {
-      name:
-        section === "water" ? "Daily water goal (ml)" : "Your name (optional)",
+      name: section === "water" ? "Daily water goal (ml)" : "Your name (optional)",
       exact: true,
     });
     await sourceField.fill(section === "water" ? "2000" : "Pending name");
-    await delayWrite(
-      page,
-      section === "water" ? "kinevault-track.water-goal.v1" : profileKey,
-    );
-    await button(
-      page,
-      section === "water" ? "Save water goal" : "Save name",
-    ).click();
-    await button(
-      page,
-      section === "water" ? "Saving water goal…" : "Saving…",
-    ).waitFor();
+    await delayWrite(page, section === "water" ? "kinevault-track.water-goal.v1" : profileKey);
+    await button(page, section === "water" ? "Save water goal" : "Save name").click();
+    await button(page, section === "water" ? "Saving water goal…" : "Saving…").waitFor();
     for (const destination of ["Photos", "Overview", "Goals"]) {
       assert.equal(await button(page, destination).isEnabled(), true);
       await button(page, destination).click();
-      assert.equal(
-        await button(page, destination).getAttribute("aria-pressed"),
-        "true",
-      );
+      assert.equal(await button(page, destination).getAttribute("aria-pressed"), "true");
       assert.equal(
         await page.getByTestId("profile-section").getAttribute("aria-label"),
         `${destination} section`,
@@ -1275,22 +1205,13 @@ test("section controls stay responsive during pending water and profile saves", 
     if (replacement === "name") await editDetail(page, "name");
     else await button(page, "Edit water goal").click();
     const draft = page.getByRole("textbox", {
-      name:
-        replacement === "name"
-          ? "Your name (optional)"
-          : "Daily water goal (ml)",
+      name: replacement === "name" ? "Your name (optional)" : "Daily water goal (ml)",
       exact: true,
     });
-    await draft.fill(
-      replacement === "name" ? "Replacement after navigation" : "2345",
-    );
+    await draft.fill(replacement === "name" ? "Replacement after navigation" : "2345");
     await page.evaluate(() => window.__releaseEditorWrite());
-    if (section === "water")
-      await expectGoal(page, "water", "2,500 / 2,000 ml");
-    else
-      await page
-        .getByRole("heading", { name: "Pending name", exact: true })
-        .waitFor();
+    if (section === "water") await expectGoal(page, "water", "2,500 / 2,000 ml");
+    else await page.getByRole("heading", { name: "Pending name", exact: true }).waitFor();
     assert.equal(
       await draft.inputValue(),
       replacement === "name" ? "Replacement after navigation" : "2345",
@@ -1300,21 +1221,16 @@ test("section controls stay responsive during pending water and profile saves", 
 
 async function installHardwareBackBoundary(page) {
   await page.evaluate(() => {
-    const definition = [...globalThis.__r.getModules().values()].find(
-      (module) =>
-        String(module.verboseName).includes(
-          "react-native-web/dist/exports/BackHandler/",
-        ),
+    const definition = [...globalThis.__r.getModules().values()].find((module) =>
+      String(module.verboseName).includes("react-native-web/dist/exports/BackHandler/"),
     );
-    if (!definition)
-      throw new Error("The installed native Back event boundary was not found");
+    if (!definition) throw new Error("The installed native Back event boundary was not found");
     const backHandler = definition.publicModule.exports.default;
     const listeners = [];
     // Web has no Android OS events. Replace only that boundary; actual AppHeader
     // subscriptions, dismissal callbacks and Expo route changes remain in use.
     backHandler.addEventListener = (event, listener) => {
-      if (event !== "hardwareBackPress")
-        throw new Error(`Unexpected Back event ${event}`);
+      if (event !== "hardwareBackPress") throw new Error(`Unexpected Back event ${event}`);
       listeners.push(listener);
       return {
         remove() {
@@ -1323,12 +1239,10 @@ async function installHardwareBackBoundary(page) {
         },
       };
     };
-    window.__pressHardwareBack = () =>
-      [...listeners].reverse().some((listener) => listener());
+    window.__pressHardwareBack = () => [...listeners].reverse().some((listener) => listener());
   });
 }
-const hardwareBack = (page) =>
-  page.evaluate(() => window.__pressHardwareBack());
+const hardwareBack = (page) => page.evaluate(() => window.__pressHardwareBack());
 
 test("Profile hardware Back boundary returns every source tab and retains its selected day", async (t) => {
   for (const [tab, path] of [
@@ -1341,23 +1255,19 @@ test("Profile hardware Back boundary returns every source tab and retains its se
     await installHardwareBackBoundary(page);
     await button(page, "Expand calendar").click();
     await button(page, "Select previous day").click();
-    if (tab !== "Home")
-      await page.getByRole("tab", { name: tab, exact: true }).click();
+    if (tab !== "Home") await page.getByRole("tab", { name: tab, exact: true }).click();
     await profile(page);
     assert.equal(await button(page, "Expand calendar").count(), 0);
     assert.equal(await button(page, "Collapse calendar").count(), 0);
     assert.equal(await hardwareBack(page), true);
     await page.waitForURL(new URL(path, page.url()).href);
-    if (tab === "Settings")
-      await page.getByRole("tab", { name: "Home", exact: true }).click();
-    await page
-      .getByLabel("Saturday, October 3, 2026", { exact: true })
-      .waitFor();
+    if (tab === "Settings") await page.getByRole("tab", { name: "Home", exact: true }).click();
+    await page.getByLabel("Saturday, October 3, 2026", { exact: true }).waitFor();
     await button(page, "Expand calendar").waitFor();
   }
 });
 
-test("Profile Back dismisses dropdown and Modal before returning to its source tab", async (t) => {
+test("Profile Back dismisses dropdown before returning to its source tab", async (t) => {
   const page = await open(t, { developmentRuntime: true });
   await installHardwareBackBoundary(page);
   await page.getByRole("tab", { name: "Food", exact: true }).click();
@@ -1369,21 +1279,14 @@ test("Profile Back dismisses dropdown and Modal before returning to its source t
     .waitFor({ state: "detached" });
   assert.equal(new URL(page.url()).pathname, "/profile");
   await button(page, "Profile menu").click();
-  await page.getByRole("menuitem", { name: "Friends", exact: true }).click();
-  const modal = page.getByRole("dialog", {
-    name: "Friends coming soon",
-    exact: true,
-  });
-  await modal.waitFor();
-  assert.equal(
-    await hardwareBack(page),
-    false,
-    "Profile return yields to the native Modal",
-  );
-  assert.equal(new URL(page.url()).pathname, "/profile");
-  // Web Escape runs Modal.onRequestClose, the callback native Modal invokes for Back.
-  await page.keyboard.press("Escape");
-  await modal.waitFor({ state: "detached" });
+  const friends = page.getByRole("menuitem", { name: "Friends · Upcoming", exact: true });
+  assert.equal(await friends.isDisabled(), true);
+  await friends.evaluate((element) => element.click());
+  assert.equal(await page.getByRole("dialog").count(), 0);
+  assert.equal(await hardwareBack(page), true);
+  await page
+    .getByRole("menu", { name: "Profile menu", exact: true })
+    .waitFor({ state: "detached" });
   assert.equal(new URL(page.url()).pathname, "/profile");
   assert.equal(await hardwareBack(page), true);
   await page.waitForURL(new URL("/food", page.url()).href);
@@ -1402,9 +1305,7 @@ test("direct Profile Back uses Home fallback after dismissing an open menu", asy
   assert.equal(new URL(page.url()).pathname, "/profile");
   assert.equal(await hardwareBack(page), true);
   await page.waitForURL(new URL("/", page.url()).href);
-  await page
-    .getByLabel("Sunday, October 4, 2026, today", { exact: true })
-    .waitFor();
+  await page.getByLabel("Sunday, October 4, 2026, today", { exact: true }).waitFor();
 });
 
 // Opt-in screenshots use isolated browser storage, never the user's saved records.
@@ -1470,8 +1371,7 @@ test(
         }),
       );
       const sessions = [
-        7900, 8400, 8100, 9700, 9200, 10800, 10300, 12100, 11700, 13600, 14200,
-        15240,
+        7900, 8400, 8100, 9700, 9200, 10800, 10300, 12100, 11700, 13600, 14200, 15240,
       ].map((volume, i) => ({
         id: "visual-session-" + i,
         date: date(-(11 - i) * 7),
@@ -1523,13 +1423,10 @@ test(
       x.fillText("\uf03e", 160, 88);
       x.font = "9px Comfortaa_400Regular";
       x.fillText("Progress photo", 160, 110);
-      const blob = await new Promise((resolve) =>
-        c.toBlob(resolve, "image/jpeg", 0.95),
-      );
+      const blob = await new Promise((resolve) => c.toBlob(resolve, "image/jpeg", 0.95));
       const db = await new Promise((resolve, reject) => {
         const r = indexedDB.open("kinevault-track.profile-media-files.v1", 1);
-        r.onupgradeneeded = () =>
-          r.result.createObjectStore("photos", { keyPath: "id" });
+        r.onupgradeneeded = () => r.result.createObjectStore("photos", { keyPath: "id" });
         r.onsuccess = () => resolve(r.result);
         r.onerror = () => reject(r.error);
       });
@@ -1571,9 +1468,7 @@ test(
     });
     await page.goto(baseURL + "/profile");
     await page.getByText("15,240", { exact: true }).waitFor();
-    await page
-      .getByRole("img", { name: "Progress photo 2026-10-04", exact: true })
-      .waitFor();
+    await page.getByRole("img", { name: "Progress photo 2026-10-04", exact: true }).waitFor();
     const dir = process.env.KINE_PROFILE_VISUAL_DIR;
     await mkdir(dir, { recursive: true });
     await page.screenshot({ path: path.join(dir, "overview.png") });
@@ -1583,10 +1478,7 @@ test(
     await button(page, "Cancel name editing").click();
     await page.getByTestId("profile-workout-chart").evaluate((el) => {
       let parent = el.parentElement;
-      while (
-        parent &&
-        !["auto", "scroll"].includes(getComputedStyle(parent).overflowY)
-      )
+      while (parent && !["auto", "scroll"].includes(getComputedStyle(parent).overflowY))
         parent = parent.parentElement;
       parent.scrollTop += el.getBoundingClientRect().top - 53;
     });
@@ -1598,14 +1490,16 @@ test(
     await button(page, "Change profile photo").scrollIntoViewIfNeeded();
     await page.screenshot({ path: path.join(dir, "goals.png") });
     await button(page, "Photos").click();
-    await page
-      .getByRole("img", { name: "Progress photo 2026-10-04", exact: true })
-      .waitFor();
+    await page.getByRole("img", { name: "Progress photo 2026-10-04", exact: true }).waitFor();
     const carousel = page.getByTestId("profile-photo-carousel");
     await carousel.scrollIntoViewIfNeeded();
-    await carousel.evaluate((element) => { element.scrollLeft = 0; });
+    await carousel.evaluate((element) => {
+      element.scrollLeft = 0;
+    });
     await page.screenshot({ path: path.join(dir, "photos.png") });
-    await carousel.evaluate((element) => { element.scrollLeft = element.scrollWidth; });
+    await carousel.evaluate((element) => {
+      element.scrollLeft = element.scrollWidth;
+    });
     await page.screenshot({ path: path.join(dir, "photos-scrolled.png") });
   },
 );
@@ -1639,25 +1533,17 @@ test("weekly chart selection matches the plotted total and range menu closes wit
   await page.reload();
   await button(page, "Workout range").click();
   await button(page, "4 weeks").click();
-  assert.equal(
-    await button(page, "Workout range").getAttribute("aria-expanded"),
-    "false",
-  );
+  assert.equal(await button(page, "Workout range").getAttribute("aria-expanded"), "false");
   const graph = button(page, "Select workout graph point"),
     bounds = await graph.boundingBox();
   await graph.click({ position: { x: bounds.width - 12, y: 50 } });
-  await page
-    .getByText("Week ending 2026-10-04: 250 kg x reps", { exact: true })
-    .waitFor();
+  await page.getByText("Week ending 2026-10-04: 250 kg x reps", { exact: true }).waitFor();
   assert.equal(
     await page.getByText("Week ending 2026-10-04: 250 kg x reps", { exact: true }).count(),
     1,
   );
   await button(page, "Workout range").click();
   await page.keyboard.press("Escape");
-  assert.equal(
-    await button(page, "Workout range").getAttribute("aria-expanded"),
-    "false",
-  );
+  assert.equal(await button(page, "Workout range").getAttribute("aria-expanded"), "false");
   assert.ok(page.url().endsWith("/profile"));
 });

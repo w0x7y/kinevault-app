@@ -15,9 +15,18 @@ export const detailedNutrients = [
 export type DetailedNutrientKey = (typeof detailedNutrients)[number]["key"];
 export type DetailedNutrients = Record<DetailedNutrientKey, number | null>;
 export const unknownNutrients: DetailedNutrients = {
-  saturatedFat: null, transFat: null, fiber: null, totalSugars: null,
-  sodium: null, cholesterol: null, potassium: null, calcium: null,
-  iron: null, vitaminD: null, caffeine: null, alcohol: null,
+  saturatedFat: null,
+  transFat: null,
+  fiber: null,
+  totalSugars: null,
+  sodium: null,
+  cholesterol: null,
+  potassium: null,
+  calcium: null,
+  iron: null,
+  vitaminD: null,
+  caffeine: null,
+  alcohol: null,
 };
 
 export function scaleNutrients(nutrients: DetailedNutrients, factor: number): DetailedNutrients {

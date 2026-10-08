@@ -7,31 +7,90 @@ import { canonicalFoodSearchQuery } from "./search-query.ts";
 // Completed variants carry nutrition/preparation meaning. They cannot become
 // prefixes of a different word or participate in fuzzy matching.
 const protectedTerms = new Set([
-  "diet", "zero", "sugar", "free", "raw", "cooked", "grilled", "baked",
-  "fried", "boiled", "steamed", "decaffeinated", "unsweetened", "sweetened",
-  "low", "calorie", "fat", "nonfat", "skim", "regular", "cola",
+  "diet",
+  "zero",
+  "sugar",
+  "free",
+  "raw",
+  "cooked",
+  "grilled",
+  "baked",
+  "fried",
+  "boiled",
+  "steamed",
+  "decaffeinated",
+  "unsweetened",
+  "sweetened",
+  "low",
+  "calorie",
+  "fat",
+  "nonfat",
+  "skim",
+  "regular",
+  "cola",
   // Common source-catalog preparation, processing, and nutrition labels.
-  "roasted", "toasted", "salted", "unsalted", "broiled", "smoked", "dried",
-  "fresh", "frozen", "canned", "whole", "light", "reduced", "lean", "fortified",
-  "prepared", "cured", "pickled", "mashed", "creamed", "breaded", "skinless",
-  "boneless", "malted", "dry", "roast", "evaporated", "condensed", "instant",
-  "sodium", "high", "full", "skin", "added", "no", "caffeine",
-  ...["zero sugar", "sugar free", "low calorie", "low fat", "fat free"].map(text => searchWords(text).join("")),
+  "roasted",
+  "toasted",
+  "salted",
+  "unsalted",
+  "broiled",
+  "smoked",
+  "dried",
+  "fresh",
+  "frozen",
+  "canned",
+  "whole",
+  "light",
+  "reduced",
+  "lean",
+  "fortified",
+  "prepared",
+  "cured",
+  "pickled",
+  "mashed",
+  "creamed",
+  "breaded",
+  "skinless",
+  "boneless",
+  "malted",
+  "dry",
+  "roast",
+  "evaporated",
+  "condensed",
+  "instant",
+  "sodium",
+  "high",
+  "full",
+  "skin",
+  "added",
+  "no",
+  "caffeine",
+  ...["zero sugar", "sugar free", "low calorie", "low fat", "fat free"].map((text) =>
+    searchWords(text).join(""),
+  ),
 ]);
 const maxSpanWords = 3;
 
 function searchWords(text: string): string[] {
-  return (canonicalFoodSearchQuery(text).normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase()
-    .replace(/'/gu, "").match(/[\p{L}\p{N}]+/gu) ?? []).map(word => {
+  return (
+    canonicalFoodSearchQuery(text)
+      .normalize("NFKD")
+      .replace(/\p{M}/gu, "")
+      .toLowerCase()
+      .replace(/'/gu, "")
+      .match(/[\p{L}\p{N}]+/gu) ?? []
+  ).map((word) => {
     if (word.length > 4 && word.endsWith("ies")) return `${word.slice(0, -3)}y`;
     if (word.length > 4 && /(oes|ches|shes|xes|zes)$/.test(word)) return word.slice(0, -2);
-    if (word.length > 3 && word.endsWith("s") && !/(ss|us|is)$/.test(word)) return word.slice(0, -1);
+    if (word.length > 3 && word.endsWith("s") && !/(ss|us|is)$/.test(word))
+      return word.slice(0, -1);
     return word;
   });
 }
 
 const numeric = (term: string) => /\p{N}/u.test(term);
-const eligibleForFuzzy = (term: string) => term.length >= 5 && !numeric(term) && !protectedTerms.has(term);
+const eligibleForFuzzy = (term: string) =>
+  term.length >= 5 && !numeric(term) && !protectedTerms.has(term);
 
 type SearchKey = { text: string; sourceSpans: string[][] };
 function keysFor(segments: readonly string[][]): SearchKey[] {
@@ -42,7 +101,7 @@ function keysFor(segments: readonly string[][]): SearchKey[] {
         const span = tokens.slice(start, start + length);
         const text = span.join("");
         const existing = keys.get(text);
-        keys.set(text, { text, sourceSpans: [...existing?.sourceSpans ?? [], span] });
+        keys.set(text, { text, sourceSpans: [...(existing?.sourceSpans ?? []), span] });
       }
     }
   }
@@ -53,7 +112,7 @@ function keysFor(segments: readonly string[][]): SearchKey[] {
 // qualifier at that source boundary even when the query omitted its spaces.
 function prefixMatches(term: string, key: SearchKey): boolean {
   if (!key.text.startsWith(term)) return false;
-  return key.sourceSpans.every(span => {
+  return key.sourceSpans.every((span) => {
     let start = 0;
     for (const component of span) {
       const end = start + component.length;
@@ -73,13 +132,17 @@ function oneEditPosition(left: string, right: string): number | null {
   let b = 0;
   let editedAt: number | null = null;
   while (a < left.length && b < right.length) {
-    if (left[a] === right[b]) { a++; b++; continue; }
+    if (left[a] === right[b]) {
+      a++;
+      b++;
+      continue;
+    }
     if (editedAt !== null) return null;
     editedAt = a;
     if (left.length >= right.length) a++;
     if (right.length >= left.length) b++;
   }
-  const remainder = (left.length - a) + (right.length - b);
+  const remainder = left.length - a + (right.length - b);
   if (editedAt === null) return remainder === 1 ? a : null;
   return remainder === 0 ? editedAt : null;
 }
@@ -88,7 +151,7 @@ function editedQueryComponentIsEligible(span: readonly string[], position: numbe
   let start = 0;
   for (const [index, term] of span.entries()) {
     const end = start + term.length;
-    if (position >= start && (position < end || index === span.length - 1 && position === end))
+    if (position >= start && (position < end || (index === span.length - 1 && position === end)))
       return eligibleForFuzzy(term);
     start = end;
   }
@@ -119,7 +182,7 @@ function fuzzySpanMatches(span: readonly string[], key: SearchKey): boolean {
   const query = span.join("");
   const position = oneEditPosition(query, key.text);
   if (position === null || !editedQueryComponentIsEligible(span, position)) return false;
-  return key.sourceSpans.every(sourceSpan => sourceComponentsAllowEdit(query, sourceSpan));
+  return key.sourceSpans.every((sourceSpan) => sourceComponentsAllowEdit(query, sourceSpan));
 }
 
 // Compact source spans and compact query spans handle both joined and separated
@@ -134,12 +197,15 @@ function matchCost(terms: readonly string[], keys: readonly SearchKey[]): number
     for (let length = 1; length <= maxSpanWords && start + length <= terms.length; length++) {
       const span = terms.slice(start, start + length);
       const term = span.join("");
-      const protectedQuery = span.some(token => protectedTerms.has(token) || numeric(token));
+      const protectedQuery = span.some((token) => protectedTerms.has(token) || numeric(token));
       const prefix = !protectedQuery && (term.length >= 3 || start + length === terms.length);
       const fuzzy = !protectedQuery && span.some(eligibleForFuzzy);
       let best = Infinity;
       for (const key of keys) {
-        if (key.text === term || prefix && prefixMatches(term, key)) { best = 0; break; }
+        if (key.text === term || (prefix && prefixMatches(term, key))) {
+          best = 0;
+          break;
+        }
         if (fuzzy && fuzzySpanMatches(span, key)) best = 1;
       }
       const end = start + length;
@@ -158,7 +224,12 @@ type SearchEntry = {
   tokenCount: number;
   kind: "direct" | "qualifier" | "generic";
 };
-export type FoodSearchMatch = { food: CatalogFood; rank: number; genericDrink: boolean; tokenCount: number };
+export type FoodSearchMatch = {
+  food: CatalogFood;
+  rank: number;
+  genericDrink: boolean;
+  tokenCount: number;
+};
 
 export function createFoodSearch(foods: readonly CatalogFood[]) {
   const entries = new Map<number, SearchEntry>();
@@ -170,26 +241,32 @@ export function createFoodSearch(foods: readonly CatalogFood[]) {
       const keys = keysFor(alias === undefined ? segments : [...segments, searchWords(alias)]);
       const id = entries.size;
       entries.set(id, { id, food, keys, nameTokens, tokenCount: segments.flat().length, kind });
-      documents.push({ id, text: keys.map(key => key.text).join(" ") });
+      documents.push({ id, text: keys.map((key) => key.text).join(" ") });
     };
     addEntry("direct");
     const aliases = drinkAliasesFor(food);
-    for (const text of aliases?.texts ?? []) addEntry(aliases?.kind === "generic" ? "generic" : "qualifier", text);
+    for (const text of aliases?.texts ?? [])
+      addEntry(aliases?.kind === "generic" ? "generic" : "qualifier", text);
   }
   const index = new MiniSearch<{ id: number; text: string }>({
-    fields: ["text"], tokenize: text => text.split(" "), processTerm: term => term,
+    fields: ["text"],
+    tokenize: (text) => text.split(" "),
+    processTerm: (term) => term,
   });
   index.addAll(documents);
 
   return (query: string): FoodSearchMatch[] => {
     const terms = searchWords(query.slice(0, 100));
-    if (!terms.some(term => term.length >= 2)) return [];
+    if (!terms.some((term) => term.length >= 2)) return [];
     // The index supplies a broad union of candidates; matchCost enforces AND
     // semantics including alternative compact spans and qualifier protection.
-    const queryKeys = keysFor([terms]).map(key => key.text).join(" ");
+    const queryKeys = keysFor([terms])
+      .map((key) => key.text)
+      .join(" ");
     const candidates = index.search(queryKeys, {
-      combineWith: "OR", fuzzy: term => eligibleForFuzzy(term) ? 1 : false,
-      prefix: term => !numeric(term) && !protectedTerms.has(term),
+      combineWith: "OR",
+      fuzzy: (term) => (eligibleForFuzzy(term) ? 1 : false),
+      prefix: (term) => !numeric(term) && !protectedTerms.has(term),
     });
     const matches = new Map<string, FoodSearchMatch>();
     for (const candidate of candidates) {
@@ -202,15 +279,32 @@ export function createFoodSearch(foods: readonly CatalogFood[]) {
       const phrase = terms.join(" ");
       const exactName = name === phrase || entry.nameTokens.join("") === terms.join("");
       const genericDrink = entry.kind === "generic";
-      const rank = genericDrink ? 4 : cost > 0 ? 3 : exactName ? 0 : name.startsWith(`${phrase} `) ? 1 : 2;
+      const rank = genericDrink
+        ? 4
+        : cost > 0
+          ? 3
+          : exactName
+            ? 0
+            : name.startsWith(`${phrase} `)
+              ? 1
+              : 2;
       const key = foodKey(entry.food);
       const existing = matches.get(key);
-      if (!existing || rank < existing.rank) matches.set(key, {
-        food: entry.food, rank, genericDrink, tokenCount: entry.tokenCount,
-      });
+      if (!existing || rank < existing.rank)
+        matches.set(key, {
+          food: entry.food,
+          rank,
+          genericDrink,
+          tokenCount: entry.tokenCount,
+        });
     }
-    return [...matches.values()].sort((a, b) => a.rank - b.rank || a.tokenCount - b.tokenCount ||
-      a.food.name.length - b.food.name.length || a.food.name.localeCompare(b.food.name) ||
-      foodKey(a.food).localeCompare(foodKey(b.food)));
+    return [...matches.values()].sort(
+      (a, b) =>
+        a.rank - b.rank ||
+        a.tokenCount - b.tokenCount ||
+        a.food.name.length - b.food.name.length ||
+        a.food.name.localeCompare(b.food.name) ||
+        foodKey(a.food).localeCompare(foodKey(b.food)),
+    );
   };
 }

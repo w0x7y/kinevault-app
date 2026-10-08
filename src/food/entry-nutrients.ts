@@ -5,7 +5,10 @@ import { scaleNutrients, unknownNutrients, type DetailedNutrients } from "./nutr
 export type FindFood = (id: number) => CatalogFood | undefined;
 
 /** Saved snapshots are authoritative. Legacy gram entries can use their original source and weight. */
-export function detailedNutrientsForEntry(entry: FoodEntry, findFood: FindFood = () => undefined): DetailedNutrients {
+export function detailedNutrientsForEntry(
+  entry: FoodEntry,
+  findFood: FindFood = () => undefined,
+): DetailedNutrients {
   if (entry.details !== undefined) return entry.details;
   if (entry.measurement === "volume" || entry.fdcId === undefined) return unknownNutrients;
   const source = findFood(entry.fdcId)?.details;

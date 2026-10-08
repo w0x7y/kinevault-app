@@ -31,9 +31,7 @@ try {
   }
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
-  console.error(
-    "Start Expo first. For another port: npm run doctor:connection -- 8082",
-  );
+  console.error("Start Expo first. For another port: npm run doctor:connection -- 8082");
   process.exitCode = 1;
 }
 
@@ -46,9 +44,7 @@ if (auth.status !== 0) {
     "Expo CLI is not signed in. Run npx expo login and use the same account in Expo Go on iPhone.",
   );
 } else {
-  console.log(
-    "Expo CLI is signed in. Check that Expo Go on iPhone uses the same account.",
-  );
+  console.log("Expo CLI is signed in. Check that Expo Go on iPhone uses the same account.");
 }
 console.log(
   "For a LAN timeout: allow Expo Go's Local Network permission in iOS Settings, or use npm run start:tunnel.",

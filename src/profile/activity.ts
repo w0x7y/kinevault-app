@@ -7,21 +7,39 @@ export type WorkoutMetric = "volume" | "duration" | "weight";
 export type WorkoutRange = 4 | 12 | 52;
 export type WorkoutExerciseOption = { key: string; name: string; tracking: "single" | "sides" };
 export type WorkoutGraphPoint = {
-  date: string; total: number | null; left: number | null; right: number | null;
-  workouts: number; partialDuration: boolean;
+  date: string;
+  total: number | null;
+  left: number | null;
+  right: number | null;
+  workouts: number;
+  partialDuration: boolean;
 };
 export type WorkoutGraph = {
-  points: WorkoutGraphPoint[]; unit: "kg x reps" | "min" | "kg"; tracking: "single" | "sides";
+  points: WorkoutGraphPoint[];
+  unit: "kg x reps" | "min" | "kg";
+  tracking: "single" | "sides";
 };
 
 function completedSessions(sessions: readonly WorkoutSession[], today: string): WorkoutSession[] {
-  return sessions.filter(session => session.status === "completed" && session.date <= today &&
-    session.exercises.some(row => row.sets.length > 0));
+  return sessions.filter(
+    (session) =>
+      session.status === "completed" &&
+      session.date <= today &&
+      session.exercises.some((row) => row.sets.length > 0),
+  );
 }
 
 export function profileStreak(input: {
-  today: string; food: FoodLogDocument; water: WaterLogDocument; sessions: readonly WorkoutSession[];
-}): { current: number; longest: number; days: string[]; week: { date: string; logged: boolean }[] } {
+  today: string;
+  food: FoodLogDocument;
+  water: WaterLogDocument;
+  sessions: readonly WorkoutSession[];
+}): {
+  current: number;
+  longest: number;
+  days: string[];
+  week: { date: string; logged: boolean }[];
+} {
   const logged = new Set<string>();
   for (const [date, entries] of Object.entries(input.food.days)) {
     if (date <= input.today && entries.length > 0) logged.add(date);
@@ -32,7 +50,8 @@ export function profileStreak(input: {
   for (const session of completedSessions(input.sessions, input.today)) logged.add(session.date);
 
   const days = [...logged].sort();
-  let longest = 0, run = 0;
+  let longest = 0,
+    run = 0;
   let previous: string | undefined;
   for (const day of days) {
     run = previous !== undefined && addDays(previous, 1) === day ? run + 1 : 1;
@@ -57,9 +76,14 @@ function exerciseKey(exercise: WorkoutSession["exercises"][number]["exercise"]):
   return JSON.stringify([exercise.id, exercise.tracking]);
 }
 
-export function workoutExerciseOptions(sessions: readonly WorkoutSession[], today: string): WorkoutExerciseOption[] {
+export function workoutExerciseOptions(
+  sessions: readonly WorkoutSession[],
+  today: string,
+): WorkoutExerciseOption[] {
   const options = new Map<string, WorkoutExerciseOption>();
-  const historical = completedSessions(sessions, today).sort((a, b) => a.date.localeCompare(b.date));
+  const historical = completedSessions(sessions, today).sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
   for (const session of historical) {
     for (const row of session.exercises) {
       if (row.sets.length === 0) continue;
@@ -67,7 +91,9 @@ export function workoutExerciseOptions(sessions: readonly WorkoutSession[], toda
       options.set(key, { key, name: row.exercise.name, tracking: row.exercise.tracking });
     }
   }
-  return [...options.values()].sort((a, b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key));
+  return [...options.values()].sort(
+    (a, b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key),
+  );
 }
 
 function positiveMaximum(current: number | null, weight: number): number | null {
@@ -80,25 +106,42 @@ function sideWeight(side: SetSide): number {
 }
 
 export function workoutGraph(input: {
-  today: string; weeks: WorkoutRange; metric: WorkoutMetric; sessions: readonly WorkoutSession[]; exerciseKey?: string;
+  today: string;
+  weeks: WorkoutRange;
+  metric: WorkoutMetric;
+  sessions: readonly WorkoutSession[];
+  exerciseKey?: string;
 }): WorkoutGraph {
   const points: WorkoutGraphPoint[] = Array.from({ length: input.weeks * 7 }, (_, index) => ({
-    date: addDays(input.today, index - input.weeks * 7 + 1), total: null, left: null, right: null,
-    workouts: 0, partialDuration: false,
+    date: addDays(input.today, index - input.weeks * 7 + 1),
+    total: null,
+    left: null,
+    right: null,
+    workouts: 0,
+    partialDuration: false,
   }));
-  const byDate = new Map(points.map(point => [point.date, point]));
-  const option = input.metric === "weight"
-    ? workoutExerciseOptions(input.sessions, input.today).find(option => option.key === input.exerciseKey)
-    : undefined;
-  const graph: WorkoutGraph = { points, tracking: option?.tracking ?? "single",
-    unit: input.metric === "volume" ? "kg x reps" : input.metric === "duration" ? "min" : "kg" };
+  const byDate = new Map(points.map((point) => [point.date, point]));
+  const option =
+    input.metric === "weight"
+      ? workoutExerciseOptions(input.sessions, input.today).find(
+          (option) => option.key === input.exerciseKey,
+        )
+      : undefined;
+  const graph: WorkoutGraph = {
+    points,
+    tracking: option?.tracking ?? "single",
+    unit: input.metric === "volume" ? "kg x reps" : input.metric === "duration" ? "min" : "kg",
+  };
   if (input.metric === "weight" && option === undefined) return graph;
 
   for (const session of completedSessions(input.sessions, input.today)) {
     const point = byDate.get(session.date);
     if (!point) continue;
-    const rows = session.exercises.filter(row => row.sets.length > 0 &&
-      (input.metric !== "weight" || exerciseKey(row.exercise) === input.exerciseKey));
+    const rows = session.exercises.filter(
+      (row) =>
+        row.sets.length > 0 &&
+        (input.metric !== "weight" || exerciseKey(row.exercise) === input.exerciseKey),
+    );
     if (rows.length === 0) continue;
     point.workouts += 1;
     if (input.metric === "duration") {

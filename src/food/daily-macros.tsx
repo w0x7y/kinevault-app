@@ -26,7 +26,15 @@ function formatNutrient(value: number | null): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-export function DailyMacros({ day, onBack, onLayout }: { day: FoodDay; onBack: () => void; onLayout: ViewProps["onLayout"] }) {
+export function DailyMacros({
+  day,
+  onBack,
+  onLayout,
+}: {
+  day: FoodDay;
+  onBack: () => void;
+  onLayout: ViewProps["onLayout"];
+}) {
   const { state } = useProfile();
   const { colors } = useTheme();
   if (state.kind !== "ready") return null;
@@ -38,28 +46,68 @@ export function DailyMacros({ day, onBack, onLayout }: { day: FoodDay; onBack: (
     <View testID="daily-macro-view" onLayout={onLayout} style={{ gap: spacing.layout }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.layout }}>
         <View style={{ flex: 1, minWidth: 0, gap: spacing.xs }}>
-          <AppText variant="heading" accessibilityRole="header">Daily macros</AppText>
+          <AppText variant="heading" accessibilityRole="header">
+            Daily macros
+          </AppText>
           <AppText variant="caption" muted selectable>
-            {parseDay(day.date).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric", year: "numeric" })}
+            {parseDay(day.date).toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
           </AppText>
         </View>
         <View style={{ flexShrink: 1, maxWidth: "45%" }}>
           <FoodButton label="Back to food log" onPress={onBack} />
         </View>
       </View>
-      <CalorieWidget current={summary.calories} macros={summary} goal={calorieState(answers).target} testIDPrefix="day" />
+      <CalorieWidget
+        current={summary.calories}
+        macros={summary}
+        goal={calorieState(answers).target}
+        testIDPrefix="day"
+      />
       <Panel testID="daily-nutrient-details" style={{ gap: 0 }}>
         {nutrientRows.map(({ key, label, unit, indented }, index) => (
-          <View key={key} testID={`daily-nutrient-${key}`} style={{ flexDirection: "row", alignItems: "center",
-            gap: spacing.layout, paddingVertical: spacing.layout,
-            borderTopWidth: index ? 1 : 0, borderColor: colors.border }}>
-            <AppText testID="nutrient-label" variant="label" style={{ flex: 1, paddingLeft: indented ? spacing.layout : 0,
-              color: key === "carbs" || key === "protein" || key === "fat" ? colors[key] : colors.foreground }}>
+          <View
+            key={key}
+            testID={`daily-nutrient-${key}`}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: spacing.layout,
+              paddingVertical: spacing.layout,
+              borderTopWidth: index ? 1 : 0,
+              borderColor: colors.border,
+            }}
+          >
+            <AppText
+              testID="nutrient-label"
+              variant="label"
+              style={{
+                flex: 1,
+                paddingLeft: indented ? spacing.layout : 0,
+                color:
+                  key === "carbs" || key === "protein" || key === "fat"
+                    ? colors[key]
+                    : colors.foreground,
+              }}
+            >
               {label} ({unit})
             </AppText>
-            <AppText testID="nutrient-value" variant="label" selectable
-              style={{ color: values[key] === null ? colors.mutedForeground : colors.foreground, fontVariant: ["tabular-nums"] }}>
-              {key === "calories" ? Math.round(values[key]).toLocaleString() : formatNutrient(values[key])}
+            <AppText
+              testID="nutrient-value"
+              variant="label"
+              selectable
+              style={{
+                color: values[key] === null ? colors.mutedForeground : colors.foreground,
+                fontVariant: ["tabular-nums"],
+              }}
+            >
+              {key === "calories"
+                ? Math.round(values[key]).toLocaleString()
+                : formatNutrient(values[key])}
             </AppText>
           </View>
         ))}

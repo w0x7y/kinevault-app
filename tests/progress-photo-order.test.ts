@@ -5,7 +5,9 @@ import { progressPhotoTimeline } from "../src/profile/progress-photo-order.ts";
 
 function photo(id: string, date: string): ProgressPhoto {
   return {
-    id, date, note: "",
+    id,
+    date,
+    note: "",
     image: { id: `image-${id}`, width: 100, height: 100 },
   };
 }
@@ -19,7 +21,10 @@ test("timeline compares the earliest and latest dates across the entire saved ga
   ];
   const original = [...saved];
   const timeline = progressPhotoTimeline(saved);
-  assert.deepEqual(timeline.photos.map(({ id }) => id), ["first", "middle", "between", "latest"]);
+  assert.deepEqual(
+    timeline.photos.map(({ id }) => id),
+    ["first", "middle", "between", "latest"],
+  );
   assert.equal(timeline.first, saved[2]);
   assert.equal(timeline.latest, saved[1]);
   assert.deepEqual(saved, original);
@@ -29,7 +34,10 @@ test("same-day entries have a stable ID tie-break independent of saved order", (
   const saved = [photo("z", "2026-10-01"), photo("a", "2026-10-01"), photo("m", "2026-10-01")];
   for (const order of [saved, [...saved].reverse()]) {
     const timeline = progressPhotoTimeline(order);
-    assert.deepEqual(timeline.photos.map(({ id }) => id), ["a", "m", "z"]);
+    assert.deepEqual(
+      timeline.photos.map(({ id }) => id),
+      ["a", "m", "z"],
+    );
     assert.equal(timeline.first?.id, "a");
     assert.equal(timeline.latest?.id, "z");
   }

@@ -21,8 +21,7 @@ const choices: {
 ];
 
 export default function SettingsScreen() {
-  const { colors, preference, setPreference, saving, error, retryLoad } =
-    useTheme();
+  const { colors, preference, setPreference, saving, error, retryLoad } = useTheme();
   const [focused, setFocused] = useState<AppearancePreference | null>(null);
   const { state } = useProfile();
   return (
@@ -36,11 +35,7 @@ export default function SettingsScreen() {
             </AppText>
             <ProfileReview answers={state.document.answers} />
           </Panel>
-          <Destination
-            href="/onboarding"
-            title="Edit profile"
-            icon="user-pen"
-          />
+          <Destination href="/onboarding" title="Edit profile" icon="user-pen" />
         </>
       )}
       <WaterGoalSettings />
@@ -77,13 +72,8 @@ export default function SettingsScreen() {
                   borderRadius: radius.control,
                   borderWidth: focused === value ? 2 : 1,
                   borderColor:
-                    focused === value
-                      ? colors.ring
-                      : selected
-                        ? colors.primary
-                        : colors.border,
-                  backgroundColor:
-                    selected || pressed ? colors.accent : colors.card,
+                    focused === value ? colors.ring : selected ? colors.primary : colors.border,
+                  backgroundColor: selected || pressed ? colors.accent : colors.card,
                   opacity: saving ? 0.6 : 1,
                 })}
               >
@@ -95,9 +85,7 @@ export default function SettingsScreen() {
                 <AppText variant="label" style={{ flex: 1 }}>
                   {label}
                 </AppText>
-                {selected && (
-                  <Icon name="check" size={18} color={colors.primary} />
-                )}
+                {selected && <Icon name="check" size={18} color={colors.primary} />}
               </Pressable>
             );
           })}
@@ -124,8 +112,9 @@ export default function SettingsScreen() {
       </Panel>
       <Panel>
         <AppText variant="heading" accessibilityRole="header">
-          Preferences
+          App format
         </AppText>
+        <AppText muted>English and metric units are the supported formats.</AppText>
         <View style={{ gap: spacing.layout }}>
           <View style={{ gap: 4 }}>
             <AppText variant="label">Language</AppText>
@@ -133,7 +122,7 @@ export default function SettingsScreen() {
           </View>
           <View style={{ gap: 4 }}>
             <AppText variant="label">Units</AppText>
-            <AppText muted>Metric · kg, cm, km</AppText>
+            <AppText muted>Metric · kg, cm, km, ml</AppText>
           </View>
         </View>
       </Panel>

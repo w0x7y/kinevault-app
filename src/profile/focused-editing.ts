@@ -24,7 +24,12 @@ export function createFocusedProfileEdit(
   } = {},
 ) {
   let attempt: Attempt | null = options.initial
-    ? { section: options.initial.section, draft: { ...options.initial.answers }, errors: {}, error: null }
+    ? {
+        section: options.initial.section,
+        draft: { ...options.initial.answers },
+        errors: {},
+        error: null,
+      }
     : null;
   let active = false;
   let generation = 0;
@@ -39,8 +44,11 @@ export function createFocusedProfileEdit(
     if (snapshot.attempt === attempt && snapshot.busy === busy) return;
     snapshot = { attempt, busy };
     notifying++;
-    try { for (const listener of listeners) listener(); }
-    finally { notifying--; }
+    try {
+      for (const listener of listeners) listener();
+    } finally {
+      notifying--;
+    }
   }
   function current(ticket: { generation: number; attempt: Attempt }) {
     return active && generation === ticket.generation && attempt === ticket.attempt;
@@ -57,7 +65,9 @@ export function createFocusedProfileEdit(
     getSnapshot: () => snapshot,
     subscribe(listener: () => void) {
       listeners.add(listener);
-      return () => { listeners.delete(listener); };
+      return () => {
+        listeners.delete(listener);
+      };
     },
     start() {
       if (active) return;
@@ -84,7 +94,12 @@ export function createFocusedProfileEdit(
     },
     change(change: AnswerChange) {
       if (!active || !attempt || pending || profile.getSnapshot().saving) return false;
-      attempt = { ...attempt, draft: changeAnswers(attempt.draft, change), errors: {}, error: null };
+      attempt = {
+        ...attempt,
+        draft: changeAnswers(attempt.draft, change),
+        errors: {},
+        error: null,
+      };
       publish();
       return true;
     },
@@ -95,10 +110,22 @@ export function createFocusedProfileEdit(
     },
     async save(): Promise<boolean> {
       const saved = profile.getSnapshot();
-      if (!active || !attempt || pending || notifying || saved.saving || saved.state.kind !== "ready") return false;
+      if (
+        !active ||
+        !attempt ||
+        pending ||
+        notifying ||
+        saved.saving ||
+        saved.state.kind !== "ready"
+      )
+        return false;
       const ticket = { generation, attempt };
       pending = ticket;
-      const answers = editedProfileAnswers(saved.state.document.answers, attempt.draft, attempt.section);
+      const answers = editedProfileAnswers(
+        saved.state.document.answers,
+        attempt.draft,
+        attempt.section,
+      );
       const errors = validateAnswers(answers);
       if (Object.keys(errors).length) {
         pending = null;
@@ -117,7 +144,10 @@ export function createFocusedProfileEdit(
       pending = null;
       if (success) dismiss();
       else {
-        attempt = { ...attempt!, error: profile.getSnapshot().error || "Couldn't save your answers. Try again." };
+        attempt = {
+          ...attempt!,
+          error: profile.getSnapshot().error || "Couldn't save your answers. Try again.",
+        };
         publish();
       }
       return success;

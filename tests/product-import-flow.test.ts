@@ -8,18 +8,43 @@ const barcode = "3017620422003";
 const otherBarcode = "7290004131074";
 const context = { active: true, scopeKey: "2026-10-02" };
 function product(code = barcode): BrandedProduct {
-  return { barcode: code, name: "Cereal", brand: "Label brand", volumeBased: false,
-    draft: { name: "Cereal", servingGrams: "100", calories: "300", carbs: "45", protein: "10", fat: "", details: { fiber: "0" } } };
+  return {
+    barcode: code,
+    name: "Cereal",
+    brand: "Label brand",
+    volumeBased: false,
+    draft: {
+      name: "Cereal",
+      servingGrams: "100",
+      calories: "300",
+      carbs: "45",
+      protein: "10",
+      fat: "",
+      details: { fiber: "0" },
+    },
+  };
 }
 function fixture() {
   const drafts = createCatalogDrafts();
-  const requests: { barcode: string; signal: AbortSignal; resolve: (value: BrandedProduct | null) => void; reject: (error: unknown) => void }[] = [];
+  const requests: {
+    barcode: string;
+    signal: AbortSignal;
+    resolve: (value: BrandedProduct | null) => void;
+    reject: (error: unknown) => void;
+  }[] = [];
   // Deliberately ignores abort: stale-response exclusion belongs to the workflow.
-  const lookup = { lookupProduct(input: { barcode: string; signal: AbortSignal }) {
-    return new Promise<BrandedProduct | null>((resolve, reject) => requests.push({ ...input, resolve, reject }));
-  } };
+  const lookup = {
+    lookupProduct(input: { barcode: string; signal: AbortSignal }) {
+      return new Promise<BrandedProduct | null>((resolve, reject) =>
+        requests.push({ ...input, resolve, reject }),
+      );
+    },
+  };
   const flow = createProductImportFlow({ lookup, drafts });
-  function start() { flow.start(); flow.setContext(context); }
+  function start() {
+    flow.start();
+    flow.setContext(context);
+  }
   return { flow, drafts, requests, start, lookup };
 }
 function foodSession(drafts: ReturnType<typeof createCatalogDrafts>) {
@@ -40,7 +65,8 @@ test("construction is inert, snapshots are stable, and subscription cleanup work
   assert.equal(drafts.getSnapshot().session, null);
   let updates = 0;
   const unsubscribe = flow.subscribe(() => updates++);
-  start(); start();
+  start();
+  start();
   assert.equal(flow.getSnapshot(), initial);
   const pending = flow.lookupBarcode(barcode);
   assert.equal(updates, 1);
@@ -64,8 +90,11 @@ test("review adopts provider values and provenance through the real Catalog draf
   const session = foodSession(drafts);
   assert.equal(session.mealIntent, "dinner");
   assert.equal(session.volumeBased, true);
-  assert.deepEqual(session.draft, { ...result.draft, brand: result.brand,
-    importSource: { provider: "open-food-facts", barcode, method: "barcode" } });
+  assert.deepEqual(session.draft, {
+    ...result.draft,
+    brand: result.brand,
+    importSource: { provider: "open-food-facts", barcode, method: "barcode" },
+  });
   assert.equal(drafts.getSnapshot().resumable.length, 1);
   result.draft.name = "Changed adapter result";
   assert.equal(foodSession(drafts).draft.name, "Cereal");
@@ -96,16 +125,32 @@ for (const outcome of ["resolve", "reject"] as const) {
       start();
       const pending = flow.lookupBarcode(barcode);
       switch (interruption) {
-        case "cancel": flow.cancel(); break;
-        case "stop": flow.stop(); break;
-        case "day": flow.setContext({ ...context, scopeKey: "2026-10-01" }); break;
-        case "inactive": flow.setContext({ ...context, active: false }); break;
-        case "scan": flow.scanAgain(); break;
+        case "cancel":
+          flow.cancel();
+          break;
+        case "stop":
+          flow.stop();
+          break;
+        case "day":
+          flow.setContext({ ...context, scopeKey: "2026-10-01" });
+          break;
+        case "inactive":
+          flow.setContext({ ...context, active: false });
+          break;
+        case "scan":
+          flow.scanAgain();
+          break;
       }
       assert.equal(requests[0].signal.aborted, true);
       const interrupted = flow.getSnapshot();
-      if (interruption === "cancel" || interruption === "scan") assert.equal(interrupted.kind, "scanner");
-      else assert.deepEqual(interrupted, { kind: "error", barcode, message: "Lookup cancelled. Retry when you're ready." });
+      if (interruption === "cancel" || interruption === "scan")
+        assert.equal(interrupted.kind, "scanner");
+      else
+        assert.deepEqual(interrupted, {
+          kind: "error",
+          barcode,
+          message: "Lookup cancelled. Retry when you're ready.",
+        });
       if (outcome === "resolve") requests[0].resolve(product());
       else requests[0].reject(new Error("Late failure"));
       await pending;
@@ -157,9 +202,17 @@ test("lookup failure retries the same barcode and missing entry adopts blank man
   flow.enterManually();
   assert.deepEqual(flow.getSnapshot(), { kind: "draft" });
   assert.equal(foodSession(drafts).volumeBased, false);
-  assert.deepEqual(foodSession(drafts).draft, { name: "", brand: "", servingGrams: "100",
-    calories: "", carbs: "", protein: "", fat: "", details: undefined,
-    importSource: { provider: "manual", barcode, method: "barcode" } });
+  assert.deepEqual(foodSession(drafts).draft, {
+    name: "",
+    brand: "",
+    servingGrams: "100",
+    calories: "",
+    carbs: "",
+    protein: "",
+    fat: "",
+    details: undefined,
+    importSource: { provider: "manual", barcode, method: "barcode" },
+  });
 });
 
 test("manual entry works after unknown lookup errors and cannot interrupt loading", async () => {
@@ -171,8 +224,11 @@ test("manual entry works after unknown lookup errors and cannot interrupt loadin
   assert.equal(drafts.getSnapshot().session, null);
   requests[0].reject("Unexpected rejection");
   await pending;
-  assert.deepEqual(flow.getSnapshot(), { kind: "error", barcode,
-    message: "Couldn't look up this product. Try again or enter it manually." });
+  assert.deepEqual(flow.getSnapshot(), {
+    kind: "error",
+    barcode,
+    message: "Couldn't look up this product. Try again or enter it manually.",
+  });
   flow.enterManually();
   assert.equal(foodSession(drafts).draft.importSource?.provider, "manual");
 });
@@ -180,10 +236,13 @@ test("manual entry works after unknown lookup errors and cannot interrupt loadin
 for (const outcome of ["resolve", "reject"] as const) {
   test(`stop/start survives StrictMode replay and excludes a previous lifecycle's ${outcome}`, async () => {
     const { flow, drafts, requests, start } = fixture();
-    start(); flow.stop(); start();
+    start();
+    flow.stop();
+    start();
     assert.equal(requests.length, 0);
     const first = flow.lookupBarcode(barcode);
-    flow.stop(); flow.stop();
+    flow.stop();
+    flow.stop();
     await flow.retry();
     assert.equal(requests.length, 1);
     start();
@@ -207,16 +266,23 @@ test("reviewed edits survive activity/day interruption, stop/restart, cancellati
   requests[0].resolve(product());
   await pending;
   const session = foodSession(drafts);
-  drafts.changeFood(session.handle, { ...session.draft, name: "Reviewed label", calories: "321", details: { fiber: "7" } });
+  drafts.changeFood(session.handle, {
+    ...session.draft,
+    name: "Reviewed label",
+    calories: "321",
+    details: { fiber: "7" },
+  });
   const edited = foodSession(drafts);
   flow.setContext({ active: false, scopeKey: "2026-10-01" });
-  flow.stop(); start();
+  flow.stop();
+  start();
   assert.equal(flow.getSnapshot().kind, "draft");
   assert.equal(foodSession(drafts), edited);
   flow.cancel();
   assert.equal(foodSession(drafts), edited);
   const reopened = createProductImportFlow({ lookup, drafts });
-  reopened.start(); reopened.setContext(context);
+  reopened.start();
+  reopened.setContext(context);
   assert.equal(reopened.getSnapshot().kind, "scanner");
   const refreshed = reopened.lookupBarcode(barcode);
   requests[1].resolve(product());
@@ -254,7 +320,9 @@ test("manual retained edits stay separate from reviewed provider drafts for the 
 test("a loading subscriber can cancel before the adapter starts work", async () => {
   const { flow, drafts, requests, start } = fixture();
   start();
-  flow.subscribe(() => { if (flow.getSnapshot().kind === "loading") flow.cancel(); });
+  flow.subscribe(() => {
+    if (flow.getSnapshot().kind === "loading") flow.cancel();
+  });
   await flow.lookupBarcode(barcode);
   assert.equal(requests.length, 0);
   assert.equal(flow.getSnapshot().kind, "scanner");
@@ -281,22 +349,36 @@ for (const outcome of ["resolve", "reject"] as const) {
       const { flow, drafts, requests, start } = fixture();
       start();
       const first = flow.lookupBarcode(barcode);
-      requests[0].signal.addEventListener("abort", () => {
-        switch (interruption) {
-          case "cancel": flow.cancel(); break;
-          case "stop": flow.stop(); break;
-          case "inactive": flow.setContext({ ...context, active: false }); break;
-          case "day": flow.setContext({ ...context, scopeKey: "2026-10-01" }); break;
-        }
-      }, { once: true });
+      requests[0].signal.addEventListener(
+        "abort",
+        () => {
+          switch (interruption) {
+            case "cancel":
+              flow.cancel();
+              break;
+            case "stop":
+              flow.stop();
+              break;
+            case "inactive":
+              flow.setContext({ ...context, active: false });
+              break;
+            case "day":
+              flow.setContext({ ...context, scopeKey: "2026-10-01" });
+              break;
+          }
+        },
+        { once: true },
+      );
       const replacement = flow.lookupBarcode(otherBarcode);
       const winning = flow.getSnapshot();
-      const expected = interruption === "cancel" ? { kind: "scanner" } :
-        { kind: "error", barcode, message: "Lookup cancelled. Retry when you're ready." };
+      const expected =
+        interruption === "cancel"
+          ? { kind: "scanner" }
+          : { kind: "error", barcode, message: "Lookup cancelled. Retry when you're ready." };
       // Settle even an erroneously issued replacement so the regression cannot hang.
       if (outcome === "resolve") requests[0].resolve(product());
       else requests[0].reject(new Error("Late first request"));
-      requests.slice(1).forEach(request => request.resolve(product(otherBarcode)));
+      requests.slice(1).forEach((request) => request.resolve(product(otherBarcode)));
       await Promise.all([first, replacement]);
       assert.deepEqual(winning, expected);
       assert.equal(requests.length, 1);
@@ -316,7 +398,11 @@ for (const outcome of ["resolve", "reject"] as const) {
     if (outcome === "resolve") requests[0].resolve(product());
     else requests[0].reject(new Error("Late scan"));
     await pending;
-    assert.deepEqual(interrupted, { kind: "error", barcode, message: "Lookup cancelled. Retry when you're ready." });
+    assert.deepEqual(interrupted, {
+      kind: "error",
+      barcode,
+      message: "Lookup cancelled. Retry when you're ready.",
+    });
     assert.equal(flow.getSnapshot(), interrupted);
     assert.equal(drafts.getSnapshot().session, null);
     start();

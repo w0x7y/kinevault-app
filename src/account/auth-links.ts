@@ -13,30 +13,55 @@ function callbackPath(url: URL): string | null {
 }
 
 export function sanitizedAuthPath(value: string): string | null {
-  try { return callbackPath(new URL(value)); } catch { return null; }
+  try {
+    return callbackPath(new URL(value));
+  } catch {
+    return null;
+  }
 }
 
 export function parseAuthLink(value: string): AuthLink {
   let url: URL;
-  try { url = new URL(value); } catch { return { kind: "invalid" }; }
+  try {
+    url = new URL(value);
+  } catch {
+    return { kind: "invalid" };
+  }
   const path = callbackPath(url);
   if (!path) return { kind: "invalid" };
   const params = new URLSearchParams(url.search);
   new URLSearchParams(url.hash.slice(1)).forEach((item, key) => params.append(key, item));
-  for (const key of ["code", "token_hash", "type", "flow", "access_token", "refresh_token", "error", "error_code"])
+  for (const key of [
+    "code",
+    "token_hash",
+    "type",
+    "flow",
+    "access_token",
+    "refresh_token",
+    "error",
+    "error_code",
+  ])
     if (params.getAll(key).length > 1) return { kind: "invalid" };
   if (params.has("error") || params.has("error_code")) {
-    return { kind: "error", message: params.get("error_code") === "otp_expired"
-      ? "This email link has expired or already been used. Request a new one."
-      : "This email link couldn't be verified. Request a new one and try again." };
+    return {
+      kind: "error",
+      message:
+        params.get("error_code") === "otp_expired"
+          ? "This email link has expired or already been used. Request a new one."
+          : "This email link couldn't be verified. Request a new one and try again.",
+    };
   }
   const code = params.get("code");
   const tokenHash = params.get("token_hash");
   const accessToken = params.get("access_token");
   const refreshToken = params.get("refresh_token");
   const type = params.get("type");
-  const recovery = type === "recovery" || params.get("flow") === "recovery" || path === "/auth/reset-password";
-  const formats = Number(Boolean(code)) + Number(Boolean(tokenHash)) + Number(Boolean(accessToken || refreshToken));
+  const recovery =
+    type === "recovery" || params.get("flow") === "recovery" || path === "/auth/reset-password";
+  const formats =
+    Number(Boolean(code)) +
+    Number(Boolean(tokenHash)) +
+    Number(Boolean(accessToken || refreshToken));
   if (formats !== 1) return { kind: "invalid" };
   if (code) return { kind: "code", code, recovery };
   if (tokenHash && (type === "email" || type === "recovery"))

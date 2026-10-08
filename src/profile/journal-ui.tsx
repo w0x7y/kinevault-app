@@ -25,9 +25,7 @@ export function JournalText({
   muted?: boolean;
   variant?: "body" | "heading" | "label" | "caption";
 }) {
-  return (
-    <AppText {...props} style={[{ fontSize: size, lineHeight }, props.style]} />
-  );
+  return <AppText {...props} style={[{ fontSize: size, lineHeight }, props.style]} />;
 }
 export function JournalPanel(props: ViewProps) {
   return <Panel {...props} style={[{ gap: 0 }, props.style]} />;
@@ -72,11 +70,7 @@ export function JournalAction({
       ]}
     >
       {icon && <Icon name={icon} size={12} color={colors.primary} />}
-      <JournalText
-        size={size}
-        variant="label"
-        style={{ color: colors.primary }}
-      >
+      <JournalText size={size} variant="label" style={{ color: colors.primary }}>
         {label}
       </JournalText>
     </Pressable>
@@ -102,12 +96,7 @@ export function JournalHeading({
         style,
       ]}
     >
-      <JournalText
-        size={14}
-        variant="heading"
-        accessibilityRole="header"
-        style={{ flexShrink: 1 }}
-      >
+      <JournalText size={14} variant="heading" accessibilityRole="header" style={{ flexShrink: 1 }}>
         {title}
       </JournalText>
       {children}
@@ -142,8 +131,7 @@ export function JournalDisclosure<T extends string | number>({
     if (Platform.OS === "web") document.addEventListener("keydown", escape);
     return () => {
       back.remove();
-      if (Platform.OS === "web")
-        document.removeEventListener("keydown", escape);
+      if (Platform.OS === "web") document.removeEventListener("keydown", escape);
     };
   }, [open]);
   const choices = values.map((option) => (
@@ -162,8 +150,7 @@ export function JournalDisclosure<T extends string | number>({
         justifyContent: "center",
         paddingHorizontal: 8,
         borderRadius: 6,
-        backgroundColor:
-          value === option.value ? colors.secondary : colors.card,
+        backgroundColor: value === option.value ? colors.secondary : colors.card,
       }}
     >
       <JournalText size={10}>{option.label}</JournalText>
@@ -193,9 +180,7 @@ export function JournalDisclosure<T extends string | number>({
             backgroundColor: colors.card,
           }}
         >
-          <JournalText size={9}>
-            {values.find((v) => v.value === value)?.label}
-          </JournalText>
+          <JournalText size={9}>{values.find((v) => v.value === value)?.label}</JournalText>
           <Icon name="chevron-down" size={6} color={colors.foreground} />
         </View>
       </Pressable>
@@ -214,20 +199,12 @@ export function JournalDisclosure<T extends string | number>({
               padding: 4,
             }}
           >
-            <ScrollView
-              nestedScrollEnabled
-              style={{ maxHeight: 240, flexGrow: 0 }}
-            >
+            <ScrollView nestedScrollEnabled style={{ maxHeight: 240, flexGrow: 0 }}>
               {choices}
             </ScrollView>
           </View>
         ) : (
-          <Modal
-            transparent
-            animationType="fade"
-            visible
-            onRequestClose={() => setOpen(false)}
-          >
+          <Modal transparent animationType="fade" visible onRequestClose={() => setOpen(false)}>
             <View
               style={{
                 flex: 1,
@@ -262,17 +239,10 @@ export function JournalDisclosure<T extends string | number>({
                   gap: 8,
                 }}
               >
-                <JournalText
-                  size={14}
-                  variant="heading"
-                  accessibilityRole="header"
-                >
+                <JournalText size={14} variant="heading" accessibilityRole="header">
                   {label}
                 </JournalText>
-                <ScrollView
-                  nestedScrollEnabled
-                  style={{ maxHeight: 360, flexGrow: 0 }}
-                >
+                <ScrollView nestedScrollEnabled style={{ maxHeight: 360, flexGrow: 0 }}>
                   {choices}
                 </ScrollView>
               </View>

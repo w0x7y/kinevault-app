@@ -26,3 +26,22 @@ Keep these tests when removing patches after upstream releases.
 2026-10-05. Their 19 propagated high audit findings remain. These patches do not
 fix or suppress those advisories. Never use `npm audit fix --force` to downgrade
 Expo or React Native; recheck the registries and upstream advisories for fixes.
+
+## Expo upgrade checks
+
+Before changing the SDK or its patch versions:
+
+1. Run `npm ci` with lifecycle scripts enabled. An unexpected patch target must
+   fail installation rather than quietly omit its security fix.
+2. Run `npm run check`, including `tests/dependency-security.test.ts`, against
+   the actual packages resolved by Router and the tunnel dependency.
+3. Run Expo Doctor, web/iOS/Android exports, and the browser suite. URL parsing
+   needs both the dependency tests and real navigation coverage.
+4. Inspect `npm audit` and record remaining advisories in [TODO.md](../TODO.md).
+
+SDK 58 is tracked in TODO.md as a separate upgrade. When its installed Router
+no longer resolves query-string, remove the decoder override and adapter patch
+together. Keep the URL parsing regressions and update them to exercise the new
+resolved implementation. Remove the HTTP cache patch only after a published
+compatible version passes the protected-cache regressions. A version outside
+npm's advisory range is not proof that this behavior is fixed.

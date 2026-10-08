@@ -21,6 +21,8 @@ Daily dashboard layouts, navigation, and Kine-guided onboarding. Home, Food, Exe
 Settings are the top-level destinations. English copy and metric measurement units.
 Appearance supports System, Light, and Dark, with a saved preference.
 A local profile and editable, goal-adjusted calorie estimates are included.
+Profile also logs dated body-weight measurements with editing, removal and an accessible trend chart. These measurements do not change the separately configured calorie or macro goals.
+Settings exports account tracking data and local photos as JSON. Password-confirmed account deletion includes owner-scoped device cleanup; its server endpoint requires deployment before live deletion is available. See [account management](docs/account-management.md).
 Macro targets start at 50% carbs, 25% protein, and 25% fat, with editable gram
 overrides. Home starts with an even split between macro progress and Kine,
 followed by a full-width calorie count and horizontal progress bar.
@@ -41,20 +43,20 @@ shows summaries for active or completed workouts; totals include completed
 workouts only, with sets, reps, and actual weight ranges. Exercise search opens
 library definitions for editing and matches Food's search and result styling,
 matching from the first character and showing
-20 results per page. Each result has a landscape video placeholder with a
-No video found icon. The button beside search opens saved workouts and that day's drafts and
+20 results per page. A compact caption identifies studio videos as upcoming;
+results have no fake video tiles. The button beside search opens saved workouts and that day's drafts and
 logs. Logging starts only from a saved workout. Empty days show a button-only
 Add workout widget opening the same menu. Exercise hides its daily widget while
 search, a form, the saved menu, or a workout editor occupies the screen. Storage
 recovery stays visible. Home opens the menu in Exercise for the selected day.
 An empty menu says “No workout found. Create a workout to get started.” The sessions and exercise
-library widgets are removed. Steps remain empty.
+library widgets are removed. Steps displays Not connected until a source exists.
 Workout creation searches available exercises above the ordered list. Selecting
 a saved workout shows a compact card with Start workout, Settings and manual logging.
 Templates and pre-start Settings can set exercise counts from 0 to 100; new
 template exercises default to three. Start expands the card into a horizontally
 scrolling exercise bar above the selected-exercise sets table,
-with notes and a video placeholder. Add set and View notes sit on the exercise
+with notes and an upcoming-video caption. Add set and View notes sit on the exercise
 title row; dividers sit above and below the exercise bar. The workout name and
 elapsed timer share the active widget's title row. Date/status text, the separate
 timer panel, Close workout and explanatory footer are removed. Active workouts
@@ -206,6 +208,13 @@ device edits require choosing a copy. Existing device data is imported once, and
 accounts have isolated local caches. Membership plans/status are server-managed,
 default to Free/active, and have no payment processing. Photos stay on the device.
 
+English and metric are the supported interface formats. See
+[language and units](docs/language-and-units.md) for the recorded decision and
+[privacy storage decisions](docs/privacy.md) for local storage and sign-out behavior.
+Root recovery offers Reload after a render failure. Confirmed offline operation
+is visible, and reconnect retries pending cloud saves. Optional JavaScript
+reporting requires a configured destination; see [resilience setup](docs/resilience.md).
+
 ## Evidence on hand
 
 Food entries come from users logging catalog foods; exercises and workout
@@ -219,12 +228,10 @@ Empty days keep the metric and meal layouts without fabricated activity.
 Each empty meal says “No food has been logged yet”. Failed food-log loads
 show recovery before displaying meal records or Home totals.
 
-The current implementation passed 120 unit tests, 21 browser tests, TypeScript
-with unused-code checks, and web/iOS/Android bundle exports on October 1, 2026.
-Native device interaction and screen-reader behavior have not been verified by
-those exports. The known Router decoder dependency advisory remains documented
-in README.md; the app's configured linking parser bypasses that decoder, and a
-direct dependency override is incompatible.
+[TODO.md](TODO.md) records completion, remaining verification, and release
+blockers. [Dated review reports](docs/final-check.md) record evidence for the
+revisions they reviewed. [Patch maintenance](patches/README.md) describes the
+validated dependency fixes and the checks required when upgrading Expo.
 
 Drinks persist explicit volume entries with nutrition snapshots and no invented grams.
 Bundled beverage volume nutrition uses actual non-iced fluid source servings, with

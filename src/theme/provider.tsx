@@ -1,11 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type PropsWithChildren,
-} from "react";
+import { createContext, useContext, useEffect, useState, type PropsWithChildren } from "react";
 import { useColorScheme } from "react-native";
 import {
   parseAppearance,
@@ -32,8 +26,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: PropsWithChildren) {
   const system = useColorScheme();
-  const [preference, updatePreference] =
-    useState<AppearancePreference>("system");
+  const [preference, updatePreference] = useState<AppearancePreference>("system");
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,8 +42,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
         }
       })
       .catch(() => {
-        if (active)
-          setError("Couldn't load your appearance setting. Try again.");
+        if (active) setError("Couldn't load your appearance setting. Try again.");
       })
       .finally(() => {
         if (active) setReady(true);
