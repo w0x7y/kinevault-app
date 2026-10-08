@@ -62,17 +62,8 @@ export function ProgressPhotos({
         style={style}
       />
     ) : (
-      <View
-        style={[
-          style,
-          { justifyContent: "center", alignItems: "center", gap: 9 },
-        ]}
-      >
-        <Icon
-          name="image"
-          size={journal ? 22 : 19}
-          color={colors.mutedForeground}
-        />
+      <View style={[style, { justifyContent: "center", alignItems: "center", gap: 9 }]}>
+        <Icon name="image" size={journal ? 22 : 19} color={colors.mutedForeground} />
         <JournalText size={9} muted style={{ textAlign: "center" }}>
           No saved photo
         </JournalText>
@@ -89,17 +80,11 @@ export function ProgressPhotos({
         style={{ marginBottom: recent ? 2 : 0 }}
       />
       {media.state.kind !== "ready" ? (
-        <SourceStatus
-          name="profile media"
-          kind={media.state.kind}
-          retry={media.retryLoad}
-        />
+        <SourceStatus name="profile media" kind={media.state.kind} retry={media.retryLoad} />
       ) : (
         <>
           {recent ? (
-            <View
-              style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}
-            >
+            <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
               {[
                 { label: "First", photo: first, testID: "profile-comparison-first" },
                 { label: "Latest", photo: latest, testID: "profile-comparison-latest" },
@@ -121,9 +106,7 @@ export function ProgressPhotos({
                   <JournalText size={9} muted style={{ marginTop: 6 }}>
                     {label}
                   </JournalText>
-                  {photo && (
-                    <JournalText size={10}>{dateLabel(photo.date)}</JournalText>
-                  )}
+                  {photo && <JournalText size={10}>{dateLabel(photo.date)}</JournalText>}
                 </Pressable>
               ))}
             </View>
@@ -138,9 +121,7 @@ export function ProgressPhotos({
                 </View>
               ) : (
                 <View
-                  onLayout={({ nativeEvent }) =>
-                    setGalleryWidth(nativeEvent.layout.width)
-                  }
+                  onLayout={({ nativeEvent }) => setGalleryWidth(nativeEvent.layout.width)}
                   style={{ width: "100%", minWidth: 0, overflow: "hidden" }}
                 >
                   <ScrollView
@@ -168,10 +149,7 @@ export function ProgressPhotos({
                             }}
                           />
                         )}
-                        <View
-                          testID={`progress-photo-${photo.id}`}
-                          style={{ width: itemWidth }}
-                        >
+                        <View testID={`progress-photo-${photo.id}`} style={{ width: itemWidth }}>
                           <Pressable
                             accessibilityRole="button"
                             accessibilityLabel={`Edit photo ${index + 1} from ${photo.date}`}
@@ -185,12 +163,7 @@ export function ProgressPhotos({
                             {dateLabel(photo.date)}
                           </JournalText>
                           {photo.note !== "" && (
-                            <JournalText
-                              size={10}
-                              muted
-                              numberOfLines={3}
-                              style={{ marginTop: 4 }}
-                            >
+                            <JournalText size={10} muted numberOfLines={3} style={{ marginTop: 4 }}>
                               {photo.note}
                             </JournalText>
                           )}
@@ -222,11 +195,7 @@ export function ProgressPhotos({
                   {picking ? "Opening photo picker…" : "Add progress photo"}
                 </JournalText>
               </Pressable>
-              <JournalText
-                size={9}
-                muted
-                style={{ textAlign: "center", marginTop: 9 }}
-              >
+              <JournalText size={9} muted style={{ textAlign: "center", marginTop: 9 }}>
                 Optional · Stored on this device
               </JournalText>
             </>
@@ -235,10 +204,7 @@ export function ProgressPhotos({
         </>
       )}
       {sources && (
-        <ProfileDialog
-          title="Add progress photo"
-          dismiss={() => setSources(false)}
-        >
+        <ProfileDialog title="Add progress photo" dismiss={() => setSources(false)}>
           <FoodButton
             label="Add from library"
             onPress={() => {

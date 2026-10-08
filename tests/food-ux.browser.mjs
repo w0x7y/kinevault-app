@@ -5,22 +5,54 @@ import { chromium } from "playwright";
 
 const baseURL = process.env.KINE_PREVIEW_URL || "http://localhost:8081";
 const storageKey = "kinevault-track.custom-foods.v1";
-const answers = { name: "Alex", goal: "maintain", activity: "moderate", age: "30", height: "180", weight: "80",
-  sex: "male", estimateEnabled: true, eligible: true, customCalories: "" };
-const product = { code: "3017620422003", product_name: "Fixture cereal", brands: "FixtureBrand", nutriments: {
-  "energy-kcal_100g": 300, carbohydrates_100g: 45, proteins_100g: 10, fat_100g: 5,
-  sodium_100g: 0.1, fiber_100g: 0, "vitamin-d_100g": 0.000002 } };
-const button = (page, name) => page.getByRole("button", { name: name === "Log food" || name === "Log meal" ? new RegExp(`^${name} to `) : name, exact: true });
+const answers = {
+  name: "Alex",
+  goal: "maintain",
+  activity: "moderate",
+  age: "30",
+  height: "180",
+  weight: "80",
+  sex: "male",
+  estimateEnabled: true,
+  eligible: true,
+  customCalories: "",
+};
+const product = {
+  code: "3017620422003",
+  product_name: "Fixture cereal",
+  brands: "FixtureBrand",
+  nutriments: {
+    "energy-kcal_100g": 300,
+    carbohydrates_100g: 45,
+    proteins_100g: 10,
+    fat_100g: 5,
+    sodium_100g: 0.1,
+    fiber_100g: 0,
+    "vitamin-d_100g": 0.000002,
+  },
+};
+const button = (page, name) =>
+  page.getByRole("button", {
+    name: name === "Log food" || name === "Log meal" ? new RegExp(`^${name} to `) : name,
+    exact: true,
+  });
 const field = (page, name) => page.getByRole("textbox", { name, exact: true });
 const heading = (page, name) => page.getByRole("heading", { name, exact: true }).waitFor();
-const catalog = page => page.evaluate(key => JSON.parse(window.accountFixture.getItem(key)), storageKey);
+const catalog = (page) =>
+  page.evaluate((key) => JSON.parse(window.accountFixture.getItem(key)), storageKey);
 async function open(t) {
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
-  await context.addInitScript(({ answers }) => {
-    localStorage.setItem("kinevault-track.profile.v1", JSON.stringify({ version: 1, kind: "complete", answers }));
-  }, { answers });
+  await context.addInitScript(
+    ({ answers }) => {
+      localStorage.setItem(
+        "kinevault-track.profile.v1",
+        JSON.stringify({ version: 1, kind: "complete", answers }),
+      );
+    },
+    { answers },
+  );
   await installAccountFixture(context);
   const page = await context.newPage();
   page.setDefaultTimeout(10000);
@@ -41,12 +73,18 @@ async function scan(page, code) {
   await button(page, "Look up barcode").click();
 }
 async function fillMacros(page) {
-  for (const [name, value] of [["Calories (kcal)", "200"], ["Carbs (g)", "30"], ["Protein (g)", "10"], ["Fat (g)", "4"]])
+  for (const [name, value] of [
+    ["Calories (kcal)", "200"],
+    ["Carbs (g)", "30"],
+    ["Protein (g)", "10"],
+    ["Fat (g)", "4"],
+  ])
     await field(page, name).fill(value);
 }
-const json = (route, body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+const json = (route, body, status = 200) =>
+  route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 
-test("food and meal drafts survive global navigation, discard and successful save", async t => {
+test("food and meal drafts survive global navigation, discard and successful save", async (t) => {
   const page = await open(t);
   await button(page, "Create food/meal").click();
   await field(page, "Food name").fill("Retained oats");
@@ -56,7 +94,7 @@ test("food and meal drafts survive global navigation, discard and successful sav
   await field(page, "Search foods").fill("apple");
   await button(page, "Create food/meal").click();
   assert.equal(await field(page, "Food name").inputValue(), "Retained oats");
-  if (!await field(page, "Sodium (mg)").count()) await button(page, "More nutrients").click();
+  if (!(await field(page, "Sodium (mg)").count())) await button(page, "More nutrients").click();
   assert.equal(await field(page, "Sodium (mg)").inputValue(), "123");
   await button(page, "Save food").click();
   await expectCatalogSaved(page);
@@ -69,7 +107,10 @@ test("food and meal drafts survive global navigation, discard and successful sav
   assert.equal(await button(page, "Resume draft: Edited draft oats").count(), 0);
   await button(page, "Create food/meal").click();
   assert.equal(await field(page, "Food name").inputValue(), "");
-  await page.getByTestId("food-creation-switch").getByRole("button", { name: "Meal", exact: true }).click();
+  await page
+    .getByTestId("food-creation-switch")
+    .getByRole("button", { name: "Meal", exact: true })
+    .click();
   await field(page, "Meal name").fill("Retained bowl");
   await field(page, "Search ingredients").fill("Retained oats");
   await button(page, "Add Retained oats to meal, custom food").click();
@@ -82,7 +123,7 @@ test("food and meal drafts survive global navigation, discard and successful sav
   assert.equal(await field(page, "Meal name").inputValue(), "Retained bowl");
   assert.equal(await field(page, "Amount for Retained oats (g)").inputValue(), "75");
   assert.equal(await field(page, "Calories (kcal)").inputValue(), "321");
-  if (!await field(page, "Sodium (mg)").count()) await button(page, "More nutrients").click();
+  if (!(await field(page, "Sodium (mg)").count())) await button(page, "More nutrients").click();
   assert.equal(await field(page, "Sodium (mg)").inputValue(), "45");
   await button(page, "Cancel").click();
   await button(page, "Create food/meal").click();
@@ -90,10 +131,13 @@ test("food and meal drafts survive global navigation, discard and successful sav
   assert.equal(await field(page, "Amount for Retained oats (g)").count(), 0);
 });
 
-test("import review resumes without another request and preserves provenance through failed save", async t => {
+test("import review resumes without another request and preserves provenance through failed save", async (t) => {
   const page = await open(t);
   let requests = 0;
-  await page.route("**/api/v2/product/**", route => { requests++; return json(route, { status: 1, product }); });
+  await page.route("**/api/v2/product/**", (route) => {
+    requests++;
+    return json(route, { status: 1, product });
+  });
   await scan(page, product.code);
   await heading(page, "Review imported food");
   await field(page, "Food name").fill("Imported draft");
@@ -104,10 +148,13 @@ test("import review resumes without another request and preserves provenance thr
   assert.equal(requests, 1);
   assert.equal(await field(page, "Food name").inputValue(), "Imported draft");
   assert.equal(await field(page, "Carbs (g)").inputValue(), "42");
-  await page.evaluate(key => {
+  await page.evaluate((key) => {
     const original = Storage.prototype.setItem;
-    Storage.prototype.setItem = function(nextKey, value) {
-      if (nextKey.endsWith(key)) { Storage.prototype.setItem = original; throw new Error("Fixture save failure"); }
+    Storage.prototype.setItem = function (nextKey, value) {
+      if (nextKey.endsWith(key)) {
+        Storage.prototype.setItem = original;
+        throw new Error("Fixture save failure");
+      }
       return original.call(this, nextKey, value);
     };
   }, storageKey);
@@ -125,10 +172,13 @@ test("import review resumes without another request and preserves provenance thr
   assert.equal(await button(page, "Resume draft: Imported draft").count(), 0);
 });
 
-const intake = page => page.evaluate(() => {
-  const document = JSON.parse(window.accountFixture.getItem("kinevault-track.food-log.v1") || "null");
-  return document ? Object.values(document.days).flat() : [];
-});
+const intake = (page) =>
+  page.evaluate(() => {
+    const document = JSON.parse(
+      window.accountFixture.getItem("kinevault-track.food-log.v1") || "null",
+    );
+    return document ? Object.values(document.days).flat() : [];
+  });
 
 // Set a destination through the global search/detail flow, which also updates
 // the draft owner context used by create and barcode review.
@@ -139,19 +189,30 @@ async function chooseDestination(page, meal) {
   await button(page, meal).click();
 }
 
-test("global search opens nutrition on the first focused click and logs a source portion to Lunch", async t => {
+test("global search opens nutrition on the first focused click and logs a source portion to Lunch", async (t) => {
   const page = await open(t);
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
     assert.equal(await page.getByRole("button", { name: /^Add food to / }).count(), 0);
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await field(page, "Search foods").fill("banana");
-  assert.ok(await field(page, "Search foods").evaluate(input => document.activeElement === input));
-  await page.getByTestId("food-catalog-results").getByRole("button", { name: /^View nutrition for Banana, raw$/ }).click();
+  assert.ok(
+    await field(page, "Search foods").evaluate((input) => document.activeElement === input),
+  );
+  await page
+    .getByTestId("food-catalog-results")
+    .getByRole("button", { name: /^View nutrition for Banana, raw$/ })
+    .click();
   await page.getByTestId("food-nutrition-detail").waitFor();
-  assert.equal(await field(page, "Search foods").evaluate(input => document.activeElement === input), false);
+  assert.equal(
+    await field(page, "Search foods").evaluate((input) => document.activeElement === input),
+    false,
+  );
   assert.equal(await button(page, "Breakfast").getAttribute("aria-pressed"), "true");
   await button(page, "Lunch").click();
   const detail = page.getByTestId("food-nutrition-detail");
@@ -162,8 +223,17 @@ test("global search opens nutrition on the first focused click and logs a source
   assert.equal(await button(page, "Lunch").getAttribute("aria-pressed"), "true");
   assert.deepEqual(await intake(page), []);
   // Serving presets precede nutrition and the final log action in reading order.
-  assert.ok(await portion.evaluate(element => Boolean(element.compareDocumentPosition(
-    document.querySelector('[data-testid="food-nutrition-detail"] button[aria-label="Log food to Lunch"]')) & Node.DOCUMENT_POSITION_FOLLOWING)));
+  assert.ok(
+    await portion.evaluate((element) =>
+      Boolean(
+        element.compareDocumentPosition(
+          document.querySelector(
+            '[data-testid="food-nutrition-detail"] button[aria-label="Log food to Lunch"]',
+          ),
+        ) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ),
+  );
   await button(page, "Log food to Lunch").click();
   await heading(page, "Daily food log");
   const entries = await intake(page);
@@ -173,7 +243,10 @@ test("global search opens nutrition on the first focused click and logs a source
   const lunch = page.getByTestId("meal-lunch");
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
     const edit = await button(lunch, "Edit Banana, raw in Lunch").boundingBox();
     const name = await lunch.getByText("Banana, raw", { exact: true }).boundingBox();
     const remove = await button(lunch, "Remove Banana, raw from Lunch").boundingBox();
@@ -185,9 +258,9 @@ test("global search opens nutrition on the first focused click and logs a source
   }
 });
 
-test("detail meal choice retains Snacks through barcode review resume and catalog save", async t => {
+test("detail meal choice retains Snacks through barcode review resume and catalog save", async (t) => {
   const page = await open(t);
-  await page.route("**/api/v2/product/**", route => json(route, { status: 1, product }));
+  await page.route("**/api/v2/product/**", (route) => json(route, { status: 1, product }));
   await chooseDestination(page, "Snacks");
   await scan(page, product.code);
   await heading(page, "Review imported food");
@@ -206,7 +279,7 @@ test("detail meal choice retains Snacks through barcode review resume and catalo
   assert.equal((await intake(page))[0].meal, "snacks");
 });
 
-test("Lunch creation saves inline without intake and destination remains changeable", async t => {
+test("Lunch creation saves inline without intake and destination remains changeable", async (t) => {
   const page = await open(t);
   await chooseDestination(page, "Lunch");
   await button(page, "Create food/meal").click();
@@ -224,7 +297,7 @@ test("Lunch creation saves inline without intake and destination remains changea
   assert.equal((await intake(page))[0].meal, "dinner");
 });
 
-test("expanded source servings scale nutrition and keep the Lunch destination", async t => {
+test("expanded source servings scale nutrition and keep the Lunch destination", async (t) => {
   const page = await open(t);
   await field(page, "Search foods").fill("banana");
   await button(page, "View nutrition for Banana, raw").click();
@@ -247,10 +320,10 @@ test("expanded source servings scale nutrition and keep the Lunch destination", 
 });
 
 for (const mode of ["barcode", "manual barcode"]) {
-  test(`reopening the same ${mode} restores retained Snacks destination after Lunch entry`, async t => {
+  test(`reopening the same ${mode} restores retained Snacks destination after Lunch entry`, async (t) => {
     const page = await open(t);
     let requests = 0;
-    await page.route("**/api/v2/product/**", route => {
+    await page.route("**/api/v2/product/**", (route) => {
       requests++;
       return json(route, mode === "manual barcode" ? { status: 0 } : { status: 1, product });
     });
@@ -297,7 +370,7 @@ async function createLunchFood(page) {
 }
 
 for (const outcome of ["Cancel", "Save food changes"]) {
-  test(`changed Dinner destination survives catalog editor ${outcome}`, async t => {
+  test(`changed Dinner destination survives catalog editor ${outcome}`, async (t) => {
     const page = await open(t);
     await createLunchFood(page);
     await button(page, "Dinner").click();
@@ -324,7 +397,7 @@ for (const outcome of ["Cancel", "Save food changes"]) {
   });
 }
 
-test("changed Dinner destination belongs to a retained catalog-editor draft", async t => {
+test("changed Dinner destination belongs to a retained catalog-editor draft", async (t) => {
   const page = await open(t);
   await createLunchFood(page);
   await button(page, "Dinner").click();
@@ -344,13 +417,27 @@ test("changed Dinner destination belongs to a retained catalog-editor draft", as
 });
 
 async function seedEditableCatalog(page) {
-  await page.evaluate(key => {
-    const food = { customId: "review-oats", name: "Review oats", category: "Custom food",
-      per100g: { calories: 200, carbs: 30, protein: 10, fat: 4 }, portions: [{ label: "1 serving", grams: 100 }] };
-    const meal = { customId: "review-bowl", name: "Review bowl", category: "Custom meal",
-      per100g: food.per100g, portions: [{ label: "1 meal", grams: 100 }],
-      ingredients: [{ id: "oats", food, grams: 100 }], overrides: {} };
-    window.accountFixture.setItem(key, JSON.stringify({ version: 1, foods: [food], meals: [meal] }));
+  await page.evaluate((key) => {
+    const food = {
+      customId: "review-oats",
+      name: "Review oats",
+      category: "Custom food",
+      per100g: { calories: 200, carbs: 30, protein: 10, fat: 4 },
+      portions: [{ label: "1 serving", grams: 100 }],
+    };
+    const meal = {
+      customId: "review-bowl",
+      name: "Review bowl",
+      category: "Custom meal",
+      per100g: food.per100g,
+      portions: [{ label: "1 meal", grams: 100 }],
+      ingredients: [{ id: "oats", food, grams: 100 }],
+      overrides: {},
+    };
+    window.accountFixture.setItem(
+      key,
+      JSON.stringify({ version: 1, foods: [food], meals: [meal] }),
+    );
   }, storageKey);
   await page.reload();
   await page.getByRole("tab", { name: "Food", exact: true }).click();
@@ -364,7 +451,7 @@ async function openSavedItem(page, kind) {
 }
 
 for (const kind of ["food", "meal"]) {
-  test(`ordinary catalog ${kind} Edit reentry restores retained Dinner destination`, async t => {
+  test(`ordinary catalog ${kind} Edit reentry restores retained Dinner destination`, async (t) => {
     const page = await open(t);
     await seedEditableCatalog(page);
     await chooseDestination(page, "Lunch");
@@ -397,13 +484,15 @@ for (const kind of ["food", "meal"]) {
     assert.equal(entry.name, `Follow-on dinner ${kind}`);
   });
 
-  test(`paused editor deletion reconciles only the ${kind} draft after success`, async t => {
+  test(`paused editor deletion reconciles only the ${kind} draft after success`, async (t) => {
     const page = await open(t);
     await seedEditableCatalog(page);
     const otherKind = kind === "food" ? "meal" : "food";
     await openSavedItem(page, otherKind);
     await button(page, `Edit ${otherKind}`).click();
-    await field(page, otherKind === "food" ? "Food name" : "Meal name").fill("Unrelated retained editor");
+    await field(page, otherKind === "food" ? "Food name" : "Meal name").fill(
+      "Unrelated retained editor",
+    );
     await openSavedItem(page, kind);
     await button(page, `Edit ${kind}`).click();
     await field(page, kind === "food" ? "Food name" : "Meal name").fill("Deleted editor draft");
@@ -412,10 +501,13 @@ for (const kind of ["food", "meal"]) {
     const confirmation = button(page, `Confirm delete ${kind}`);
     assert.equal(await confirmation.innerText(), "Are you sure?");
     assert.equal(await page.getByRole("dialog").count(), 0);
-    await page.evaluate(key => {
+    await page.evaluate((key) => {
       const original = Storage.prototype.setItem;
-      Storage.prototype.setItem = function(nextKey, value) {
-        if (nextKey.endsWith(key)) { Storage.prototype.setItem = original; throw new Error("Fixture delete failure"); }
+      Storage.prototype.setItem = function (nextKey, value) {
+        if (nextKey.endsWith(key)) {
+          Storage.prototype.setItem = original;
+          throw new Error("Fixture delete failure");
+        }
         return original.call(this, nextKey, value);
       };
     }, storageKey);
@@ -428,7 +520,10 @@ for (const kind of ["food", "meal"]) {
     assert.equal(await button(page, "Resume draft: Unrelated retained editor").count(), 1);
     assert.equal((await catalog(page))[kind === "food" ? "foods" : "meals"].length, 1);
     await button(page, "Resume draft: Deleted editor draft").click();
-    assert.equal(await field(page, kind === "food" ? "Food name" : "Meal name").inputValue(), "Deleted editor draft");
+    assert.equal(
+      await field(page, kind === "food" ? "Food name" : "Meal name").inputValue(),
+      "Deleted editor draft",
+    );
     await openSavedItem(page, kind);
     await button(page, `Delete ${kind}`).click();
     await confirmation.click();
@@ -437,13 +532,15 @@ for (const kind of ["food", "meal"]) {
     assert.equal(await button(page, "Resume draft: Deleted editor draft").count(), 0);
     assert.equal(await button(page, "Resume draft: Unrelated retained editor").count(), 1);
     await button(page, "Resume draft: Unrelated retained editor").click();
-    assert.equal(await field(page, otherKind === "food" ? "Food name" : "Meal name").inputValue(), "Unrelated retained editor");
+    assert.equal(
+      await field(page, otherKind === "food" ? "Food name" : "Meal name").inputValue(),
+      "Unrelated retained editor",
+    );
     assert.deepEqual(await intake(page), []);
   });
 }
 
-
-test("saving each creation retires only that draft across food and meal switches", async t => {
+test("saving each creation retires only that draft across food and meal switches", async (t) => {
   const page = await open(t);
   await chooseDestination(page, "Lunch");
   await button(page, "Create food/meal").click();
@@ -451,19 +548,28 @@ test("saving each creation retires only that draft across food and meal switches
   await fillMacros(page);
   await chooseDestination(page, "Dinner");
   await button(page, "Create food/meal").click();
-  await page.getByTestId("food-creation-switch").getByRole("button", { name: "Meal", exact: true }).click();
+  await page
+    .getByTestId("food-creation-switch")
+    .getByRole("button", { name: "Meal", exact: true })
+    .click();
   await field(page, "Meal name").fill("Independent bowl");
   await field(page, "Search ingredients").fill("banana");
   await button(page, "Add Banana, raw to meal").click();
   await field(page, "Amount for Banana, raw (g)").fill("75");
-  await page.getByTestId("food-creation-switch").getByRole("button", { name: "Food", exact: true }).click();
+  await page
+    .getByTestId("food-creation-switch")
+    .getByRole("button", { name: "Food", exact: true })
+    .click();
   assert.equal(await field(page, "Food name").inputValue(), "Independent lunch oats");
   await button(page, "Save food").click();
   await expectCatalogSaved(page);
   assert.equal(await button(page, "Lunch").getAttribute("aria-pressed"), "true");
   await button(page, "Create food/meal").click();
   assert.equal(await field(page, "Food name").inputValue(), "");
-  await page.getByTestId("food-creation-switch").getByRole("button", { name: "Meal", exact: true }).click();
+  await page
+    .getByTestId("food-creation-switch")
+    .getByRole("button", { name: "Meal", exact: true })
+    .click();
   assert.equal(await field(page, "Meal name").inputValue(), "Independent bowl");
   assert.equal(await field(page, "Amount for Banana, raw (g)").inputValue(), "75");
   await button(page, "Save meal").click();

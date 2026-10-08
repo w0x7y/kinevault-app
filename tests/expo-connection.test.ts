@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import { createServer, type ServerResponse } from "node:http";
 import { once } from "node:events";
 import test from "node:test";
-import {
-  checkExpoConnection,
-  waitForExpoConnection,
-} from "../scripts/expo-connection.ts";
+import { checkExpoConnection, waitForExpoConnection } from "../scripts/expo-connection.ts";
 
 async function fixture(
   t: { after: (cleanup: () => Promise<void>) => void },
@@ -25,8 +22,7 @@ async function fixture(
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
-  if (!address || typeof address === "string")
-    throw new Error("Missing test server address");
+  if (!address || typeof address === "string") throw new Error("Missing test server address");
   origin = `http://127.0.0.1:${address.port}`;
   t.after(async () => {
     server.closeAllConnections();
@@ -53,9 +49,7 @@ test("the iOS manifest produces an HTTP Expo Go link and identifies localhost", 
 
 test("HTTPS uses exps and preserves the bundle host and port", async (t) => {
   const origin = await fixture(t, (response) =>
-    response.end(
-      JSON.stringify(manifest("https://kine.trycloudflare.com:8443/bundle")),
-    ),
+    response.end(JSON.stringify(manifest("https://kine.trycloudflare.com:8443/bundle"))),
   );
   const connection = await checkExpoConnection({
     origin,
@@ -70,10 +64,7 @@ test("IPv6 and other loopback addresses are never reported as phone reachable", 
     const origin = await fixture(t, (response) =>
       response.end(JSON.stringify(manifest(`http://${host}:8081/bundle`))),
     );
-    assert.equal(
-      (await checkExpoConnection({ origin })).deviceReachable,
-      false,
-    );
+    assert.equal((await checkExpoConnection({ origin })).deviceReachable, false);
   }
 });
 
@@ -91,9 +82,7 @@ test("malformed manifests, unsupported URLs, HTTP errors, and wrong origins fail
     ],
     [JSON.stringify(manifest("http://localhost:8081/bundle")), 503, undefined],
   ] as const) {
-    const origin = await fixture(t, (response) =>
-      response.writeHead(status).end(body),
-    );
+    const origin = await fixture(t, (response) => response.writeHead(status).end(body));
     await assert.rejects(checkExpoConnection({ origin, expectedOrigin }));
   }
 });
@@ -103,10 +92,7 @@ test("readiness retries startup errors until a matching public manifest arrives"
   const origin = await fixture(t, (response) => {
     attempts++;
     if (attempts < 3) response.writeHead(503).end("starting");
-    else
-      response.end(
-        JSON.stringify(manifest("https://kine.trycloudflare.com/bundle")),
-      );
+    else response.end(JSON.stringify(manifest("https://kine.trycloudflare.com/bundle")));
   });
   const ready = await waitForExpoConnection({
     origin,
@@ -141,9 +127,7 @@ test("readiness timeout preserves the HTTP error when a later retry stalls", asy
 
 test("shutdown cancels an in-flight readiness request", async (t) => {
   const controller = new AbortController();
-  const origin = await fixture(t, () =>
-    controller.abort(new Error("Tunnel stopped")),
-  );
+  const origin = await fixture(t, () => controller.abort(new Error("Tunnel stopped")));
   await assert.rejects(
     waitForExpoConnection({ origin, signal: controller.signal }),
     /Tunnel stopped/,
@@ -155,10 +139,7 @@ test("a stalled manifest body cannot exceed the readiness deadline", async (t) =
     response.writeHead(200, { "Content-Type": "application/json" });
     response.write('{"launchAsset":');
   });
-  await assert.rejects(
-    waitForExpoConnection({ origin, timeoutMs: 120, retryMs: 10 }),
-    /not ready/,
-  );
+  await assert.rejects(waitForExpoConnection({ origin, timeoutMs: 120, retryMs: 10 }), /not ready/);
 });
 
 test("shutdown cancels the retry delay without another manifest request", async (t) => {

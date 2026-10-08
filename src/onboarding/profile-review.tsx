@@ -2,12 +2,7 @@ import { calorieState } from "../profile/calories";
 import { macroTargets } from "../profile/macros";
 import { View } from "react-native";
 import { AppText } from "../components/ui";
-import {
-  activities,
-  goals,
-  type Answers,
-  type EditableStep,
-} from "../profile/answers";
+import { activities, goals, type Answers, type EditableStep } from "../profile/answers";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import { Button } from "./controls";
@@ -28,8 +23,7 @@ export function ProfileReview({
     { label: "Name", value: answers.name.trim() || "Not added", step: "name" },
     {
       label: "Goal",
-      value:
-        goals.find(({ value }) => value === answers.goal)?.label || "Not set",
+      value: goals.find(({ value }) => value === answers.goal)?.label || "Not set",
       step: "goal",
     },
     {
@@ -51,9 +45,7 @@ export function ProfileReview({
     },
     {
       label: "Activity",
-      value:
-        activities.find(({ value }) => value === answers.activity)?.label ||
-        "Not set",
+      value: activities.find(({ value }) => value === answers.activity)?.label || "Not set",
       step: "activity",
     },
     {

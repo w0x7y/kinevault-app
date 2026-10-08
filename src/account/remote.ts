@@ -1,5 +1,6 @@
 import { getSupabaseClient } from "./client";
 import type { AccountRemote, CloudDocument } from "./storage";
+import { createPartitionedRemote, type PartitionRow } from "./partitioned-remote";
 
 function documentFromRow(value: unknown, userId: string): CloudDocument {
   if (typeof value !== "object" || value === null) {
@@ -31,12 +32,16 @@ export function createAccountRemote(userId: string): AccountRemote {
   const client = getSupabaseClient();
   if (!client) throw new Error("Account services are not configured.");
 
-  return {
-    async list() {
-      const { data, error } = await client
+  const legacy: AccountRemote = {
+    async list(excludeKeys = []) {
+      let query = client
         .from("track_documents")
         .select("user_id,document_key,payload,revision,updated_at")
         .eq("user_id", userId);
+      // Migrated histories remain frozen recovery copies. Avoid downloading
+      // those entire histories again during every incremental sync.
+      if (excludeKeys.length) query = query.not("document_key", "in", `(${excludeKeys.join(",")})`);
+      const { data, error } = await query;
       if (error) throw new Error("Your account tracking could not be loaded.");
       return (data ?? []).map((row) => documentFromRow(row, userId));
     },
@@ -58,4 +63,61 @@ export function createAccountRemote(userId: string): AccountRemote {
       return documentFromRow(data[0], userId);
     },
   };
+  // Apply the reviewed SQL migration before activating this build setting.
+  if (process.env.EXPO_PUBLIC_TRACK_PARTITIONS !== "true") return legacy;
+  return createPartitionedRemote(legacy, {
+    async list(known) {
+      const { data, error } = await client.rpc("list_track_partitioned_documents", {
+        p_user_id: userId,
+        p_known_revisions: known,
+      });
+      if (error || !Array.isArray(data))
+        throw new Error("Your account history could not be loaded.");
+      return data.map((value: unknown) => {
+        if (
+          !value ||
+          typeof value !== "object" ||
+          !("user_id" in value) ||
+          value.user_id !== userId
+        )
+          throw new Error("Invalid account history owner");
+        const row = value as Record<string, unknown>;
+        if (
+          typeof row.document_key !== "string" ||
+          typeof row.part_key !== "string" ||
+          typeof row.payload !== "string" ||
+          typeof row.revision !== "number" ||
+          typeof row.updated_at !== "string"
+        )
+          throw new Error("Invalid account history row");
+        return {
+          document_key: row.document_key,
+          part_key: row.part_key,
+          payload: row.payload,
+          revision: row.revision,
+          updated_at: row.updated_at,
+        } satisfies PartitionRow;
+      });
+    },
+    async save(input) {
+      const { data, error } = await client.rpc("save_track_partitioned_document", {
+        p_user_id: userId,
+        p_document_key: input.key,
+        p_expected_revision: input.expectedRevision,
+        p_deleted: input.deleted,
+        p_parts: input.parts,
+        p_changes: input.changes,
+      });
+      if (error) throw new Error("Your account history could not be saved.");
+      if (data === null) return null;
+      if (
+        !data ||
+        typeof data !== "object" ||
+        typeof data.revision !== "number" ||
+        typeof data.updated_at !== "string"
+      )
+        throw new Error("Invalid history save result");
+      return { revision: data.revision, updated_at: data.updated_at };
+    },
+  });
 }

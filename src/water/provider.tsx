@@ -1,5 +1,12 @@
 import { useAccountStorage } from "../account/storage-context";
-import { createContext, useContext, useEffect, useState, useSyncExternalStore, type PropsWithChildren } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type PropsWithChildren,
+} from "react";
 import { createWaterLogPersistence, type WaterLogSnapshot } from "./persistence";
 
 type WaterLogStore = ReturnType<typeof createWaterLogPersistence>;
@@ -10,8 +17,15 @@ export function WaterLogProvider({ children }: PropsWithChildren) {
   const storage = useAccountStorage();
   const [log] = useState(() => createWaterLogPersistence({ storage }));
   const snapshot = useSyncExternalStore(log.subscribe, log.getSnapshot, log.getSnapshot);
-  useEffect(() => { log.start(); return log.stop; }, [log]);
-  return <WaterLogContext.Provider value={{ ...snapshot, set: log.set, retryLoad: log.retryLoad }}>{children}</WaterLogContext.Provider>;
+  useEffect(() => {
+    log.start();
+    return log.stop;
+  }, [log]);
+  return (
+    <WaterLogContext.Provider value={{ ...snapshot, set: log.set, retryLoad: log.retryLoad }}>
+      {children}
+    </WaterLogContext.Provider>
+  );
 }
 
 export function useWaterLog() {

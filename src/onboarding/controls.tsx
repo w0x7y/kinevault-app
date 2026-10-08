@@ -1,12 +1,6 @@
 import { Icon, type IconName } from "../components/icon";
 import { useState, type ReactNode } from "react";
-import {
-  Pressable,
-  StyleSheet,
-  TextInput,
-  View,
-  type TextInputProps,
-} from "react-native";
+import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from "react-native";
 import { AppText } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
@@ -45,16 +39,8 @@ export function Button({
         gap: 8,
         borderRadius: radius.control,
         borderWidth: 2,
-        borderColor: focused
-          ? colors.ring
-          : secondary
-            ? colors.border
-            : colors.primary,
-        backgroundColor: secondary
-          ? pressed
-            ? colors.accent
-            : colors.card
-          : colors.primary,
+        borderColor: focused ? colors.ring : secondary ? colors.border : colors.primary,
+        backgroundColor: secondary ? (pressed ? colors.accent : colors.card) : colors.primary,
         opacity: disabled ? 0.55 : pressed ? 0.8 : 1,
       })}
     >
@@ -88,11 +74,7 @@ export function Field({
 }: TextInputProps & { label: string; error?: string; trailing?: ReactNode }) {
   const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
-  const borderColor = error
-    ? colors.error
-    : focused
-      ? colors.ring
-      : colors.input;
+  const borderColor = error ? colors.error : focused ? colors.ring : colors.input;
   const input = (
     <TextInput
       {...props}
@@ -127,25 +109,25 @@ export function Field({
     <View style={{ gap: 8 }}>
       <AppText variant="label">{label}</AppText>
       {trailing ? (
-        <View style={{
-          flexDirection: "row",
-          alignItems: "center",
-          borderRadius: radius.control,
-          borderColor,
-          borderWidth: focused ? 2 : 1,
-          backgroundColor: colors.card,
-          paddingRight: spacing.sm,
-        }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            borderRadius: radius.control,
+            borderColor,
+            borderWidth: focused ? 2 : 1,
+            backgroundColor: colors.card,
+            paddingRight: spacing.sm,
+          }}
+        >
           {input}
           {trailing}
         </View>
-      ) : input}
+      ) : (
+        input
+      )}
       {error && (
-        <AppText
-          variant="caption"
-          accessibilityRole="alert"
-          style={{ color: colors.error }}
-        >
+        <AppText variant="caption" accessibilityRole="alert" style={{ color: colors.error }}>
           {error}
         </AppText>
       )}
@@ -187,11 +169,7 @@ export function Choice({
         alignItems: "center",
         gap: spacing.layout,
         borderWidth: focused ? 2 : 1,
-        borderColor: focused
-          ? colors.ring
-          : selected
-            ? colors.primary
-            : colors.border,
+        borderColor: focused ? colors.ring : selected ? colors.primary : colors.border,
         backgroundColor: selected || pressed ? colors.accent : colors.card,
       })}
     >
@@ -215,13 +193,7 @@ export function Choice({
           justifyContent: "center",
         }}
       >
-        {selected && (
-          <Icon
-            name="check"
-            size={14}
-            color={colors.primaryForeground}
-          />
-        )}
+        {selected && <Icon name="check" size={14} color={colors.primaryForeground} />}
       </View>
     </Pressable>
   );
@@ -241,11 +213,7 @@ const styles = StyleSheet.create({
 export function ErrorText({ message }: { message: string }) {
   const { colors } = useTheme();
   return (
-    <AppText
-      variant="caption"
-      accessibilityRole="alert"
-      style={{ color: colors.error }}
-    >
+    <AppText variant="caption" accessibilityRole="alert" style={{ color: colors.error }}>
       {message}
     </AppText>
   );

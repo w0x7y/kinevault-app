@@ -17,7 +17,8 @@ export function ProfileEditor({
   close: () => void;
 }) {
   const { edit, attempt, busy } = useFocusedProfileEdit({
-    initial: { section, answers: initial }, close,
+    initial: { section, answers: initial },
+    close,
   });
   if (!attempt) return null;
   const { draft, errors, error } = attempt;
@@ -32,7 +33,9 @@ export function ProfileEditor({
         disabled={busy}
         errors={errors}
         edit={() => {}}
-        update={(change) => { edit.change(change); }}
+        update={(change) => {
+          edit.change(change);
+        }}
       />
       {Object.entries(errors)
         .filter(
@@ -44,12 +47,7 @@ export function ProfileEditor({
                 body: ["height", "weight", "eligible", "sex"],
                 goal: ["goal"],
                 activity: ["activity"],
-                calories: [
-                  "customCalories",
-                  "customCarbs",
-                  "customProtein",
-                  "customFat",
-                ],
+                calories: ["customCalories", "customCarbs", "customProtein", "customFat"],
               }[section] as string[]
             ).includes(field),
         )
@@ -62,7 +60,9 @@ export function ProfileEditor({
           <FoodButton
             label="Cancel"
             disabled={busy}
-            onPress={() => { edit.cancel(); }}
+            onPress={() => {
+              edit.cancel();
+            }}
           />
         </View>
         <View style={{ flex: 1 }}>

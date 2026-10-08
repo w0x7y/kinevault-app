@@ -12,19 +12,27 @@ function controlledTime(initial: Date) {
       schedule(callback: () => void, delay: number) {
         const timer = { callback, delay };
         timers.add(timer);
-        return () => { timers.delete(timer); };
+        return () => {
+          timers.delete(timer);
+        };
       },
     },
     wakeEvents: {
       subscribe(callback: () => void) {
         wakes.add(callback);
-        return () => { wakes.delete(callback); };
+        return () => {
+          wakes.delete(callback);
+        };
       },
     },
     timers,
     wakes,
-    setNow(value: Date) { now = value; },
-    wake() { for (const callback of [...wakes]) callback(); },
+    setNow(value: Date) {
+      now = value;
+    },
+    wake() {
+      for (const callback of [...wakes]) callback();
+    },
     nextTimer() {
       const timer = timers.values().next().value;
       assert.ok(timer, "expected a pending midnight refresh");
@@ -44,7 +52,9 @@ test("construction is inert and midnight advances the observable Today selection
   const selection = lifecycle.createSelectedDay(time);
   const initial = selection.getSnapshot();
   const snapshots: unknown[] = [];
-  selection.subscribe(() => { snapshots.push(selection.getSnapshot()); });
+  selection.subscribe(() => {
+    snapshots.push(selection.getSnapshot());
+  });
   assert.equal(selection.getSnapshot(), initial);
   assert.deepEqual(initial, { today: "2026-10-01", selectedDay: "2026-10-01" });
   assert.equal(time.timers.size, 0);
@@ -66,7 +76,9 @@ test("wake catches up across skipped days without publishing repeated refreshes"
   const time = controlledTime(new Date(2026, 9, 1, 12));
   const selection = lifecycle.createSelectedDay(time);
   let published = 0;
-  const unsubscribe = selection.subscribe(() => { published += 1; });
+  const unsubscribe = selection.subscribe(() => {
+    published += 1;
+  });
   selection.start();
   time.setNow(new Date(2026, 9, 5, 9));
   time.wake();
@@ -89,7 +101,9 @@ test("selection rejects invalid days and publishes only when the selected day ch
   const selection = lifecycle.createSelectedDay(time);
   assert.equal(typeof selection.selectDay, "function");
   let published = 0;
-  selection.subscribe(() => { published += 1; });
+  selection.subscribe(() => {
+    published += 1;
+  });
   const initial = selection.getSnapshot();
   selection.selectDay("2026-10-01");
   assert.equal(selection.getSnapshot(), initial);
@@ -145,7 +159,9 @@ test("selecting the matching Today explicitly resumes following without publishi
   time.wake();
   const snapshot = selection.getSnapshot();
   let published = 0;
-  selection.subscribe(() => { published += 1; });
+  selection.subscribe(() => {
+    published += 1;
+  });
   selection.selectDay("2026-10-03");
   assert.equal(selection.getSnapshot(), snapshot);
   assert.equal(published, 0);
@@ -159,7 +175,9 @@ test("start stop start keeps one timer and wake listener and catches up immediat
   const time = controlledTime(new Date(2026, 9, 1, 12));
   const selection = lifecycle.createSelectedDay(time);
   let published = 0;
-  selection.subscribe(() => { published += 1; });
+  selection.subscribe(() => {
+    published += 1;
+  });
   selection.start();
   selection.start();
   assert.equal(time.timers.size, 1);
@@ -217,7 +235,9 @@ test("a midnight callback replaced by wake cannot publish or replace the current
 test("a subscriber stopping during midnight publication leaves no acquired resources", () => {
   const time = controlledTime(new Date(2026, 9, 1, 12));
   const selection = lifecycle.createSelectedDay(time);
-  selection.subscribe(() => { selection.stop(); });
+  selection.subscribe(() => {
+    selection.stop();
+  });
   selection.start();
   time.setNow(new Date(2026, 9, 2, 12));
   time.fireTimer();

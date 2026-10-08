@@ -18,7 +18,12 @@ import { AccountProvider } from "../account/provider";
 import { AccountDataProvider } from "../account/data-provider";
 import { isPublicAccountRoute } from "../account/navigation";
 import { RefreshNotice } from "../persistence/refresh-notice";
+import { AppErrorBoundary } from "../components/error-boundary";
+import { initializeCrashReporting } from "../components/crash-reporting";
+import { ConnectivityProvider } from "../connectivity/provider";
+import { OfflineNotice } from "../connectivity/notice";
 
+initializeCrashReporting();
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootNavigator() {
@@ -43,8 +48,7 @@ function RootNavigator() {
 
   useEffect(() => {
     void SystemUI.setBackgroundColorAsync(colors.background);
-    if (Platform.OS === "web")
-      document.documentElement.style.colorScheme = appearance;
+    if (Platform.OS === "web") document.documentElement.style.colorScheme = appearance;
   }, [appearance, colors.background]);
 
   if (!loaded) return <KineLoading fill />;
@@ -71,14 +75,21 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <MotionProvider>
-        <AccountProvider>
-          <AccountDataProvider>
-            <RootNavigator />
-          </AccountDataProvider>
-        </AccountProvider>
-      </MotionProvider>
-    </ThemeProvider>
+    <AppErrorBoundary>
+      <ThemeProvider>
+        <MotionProvider>
+          <ConnectivityProvider>
+            <AccountProvider>
+              <View style={{ flex: 1 }}>
+                <OfflineNotice />
+                <AccountDataProvider>
+                  <RootNavigator />
+                </AccountDataProvider>
+              </View>
+            </AccountProvider>
+          </ConnectivityProvider>
+        </MotionProvider>
+      </ThemeProvider>
+    </AppErrorBoundary>
   );
 }

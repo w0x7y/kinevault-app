@@ -7,11 +7,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { AppText } from "../components/ui";
-import {
-  motionEase,
-  PageTransition,
-  useReducedMotion,
-} from "../components/motion";
+import { motionEase, PageTransition, useReducedMotion } from "../components/motion";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import { steps } from "../profile/answers";

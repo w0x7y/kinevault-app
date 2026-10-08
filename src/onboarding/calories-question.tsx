@@ -10,12 +10,7 @@ import { useTheme } from "../theme/provider";
 import { Button, ErrorText, Field } from "./controls";
 import type { QuestionProps } from "./types";
 
-export function CaloriesQuestion({
-  answers,
-  update,
-  errors,
-  disabled,
-}: QuestionProps) {
+export function CaloriesQuestion({ answers, update, errors, disabled }: QuestionProps) {
   const { colors } = useTheme();
   const [showMath, setShowMath] = useState(false);
   const mode = calorieState(answers);
@@ -23,9 +18,10 @@ export function CaloriesQuestion({
   const teen = mode.kind === "teen";
   const macros = macroTargets(answers);
   const customMacros = macroInputs.some(({ field }) => answers[field].trim());
-  const macroCalories = macros.carbs !== null && macros.protein !== null && macros.fat !== null
-    ? macros.carbs * 4 + macros.protein * 4 + macros.fat * 9
-    : null;
+  const macroCalories =
+    macros.carbs !== null && macros.protein !== null && macros.fat !== null
+      ? macros.carbs * 4 + macros.protein * 4 + macros.fat * 9
+      : null;
   return (
     <View style={{ gap: spacing.layout }}>
       <View style={{ gap: 4 }}>
@@ -53,15 +49,9 @@ export function CaloriesQuestion({
         )}
       </View>
       <Field
-        label={
-          estimate
-            ? "Adjust target (optional, kcal)"
-            : "Daily target (optional, kcal)"
-        }
+        label={estimate ? "Adjust target (optional, kcal)" : "Daily target (optional, kcal)"}
         value={answers.customCalories}
-        onChangeText={(customCalories) =>
-          update({ kind: "fields", patch: { customCalories } })
-        }
+        onChangeText={(customCalories) => update({ kind: "fields", patch: { customCalories } })}
         placeholder={estimate ? String(estimate.target) : "Enter your target"}
         keyboardType="number-pad"
         inputMode="numeric"
@@ -82,8 +72,8 @@ export function CaloriesQuestion({
         <View style={{ gap: 8 }}>
           <AppText variant="label">Daily macros</AppText>
           <AppText variant="caption" muted>
-            The app starts with 50% carbs, 25% protein, and 25% fat. Edit any
-            target in grams, or leave it blank to follow your calorie target.
+            The app starts with 50% carbs, 25% protein, and 25% fat. Edit any target in grams, or
+            leave it blank to follow your calorie target.
           </AppText>
         </View>
         {macroInputs.map(({ field, macro, label }) => (
@@ -105,14 +95,21 @@ export function CaloriesQuestion({
             label="Reset macro targets"
             icon="rotate-left"
             secondary
-            onPress={() => update({ kind: "fields", patch: { customCarbs: "", customProtein: "", customFat: "" } })}
+            onPress={() =>
+              update({
+                kind: "fields",
+                patch: { customCarbs: "", customProtein: "", customFat: "" },
+              })
+            }
             disabled={disabled}
           />
         )}
         {customMacros && macroCalories !== null && (
           <AppText variant="caption" muted>
             Macro targets total {macroCalories.toLocaleString("en-US")} kcal.
-            {target !== null ? ` Your calorie target stays at ${target.toLocaleString("en-US")} kcal.` : ""}
+            {target !== null
+              ? ` Your calorie target stays at ${target.toLocaleString("en-US")} kcal.`
+              : ""}
           </AppText>
         )}
       </View>
@@ -127,20 +124,18 @@ export function CaloriesQuestion({
           {showMath && (
             <View style={{ gap: 8 }}>
               <AppText muted>
-                Resting energy:{" "}
-                {Math.round(estimate.resting).toLocaleString("en-US")} kcal
+                Resting energy: {Math.round(estimate.resting).toLocaleString("en-US")} kcal
               </AppText>
               <AppText muted>
-                With your activity:{" "}
-                {estimate.maintenance.toLocaleString("en-US")} kcal
+                With your activity: {estimate.maintenance.toLocaleString("en-US")} kcal
               </AppText>
               <AppText muted>
                 Goal adjustment: {estimate.adjustment > 0 ? "+" : ""}
                 {estimate.adjustment} kcal
               </AppText>
               <AppText variant="caption" muted>
-                Mifflin–St Jeor × activity. Rounded to 10 kcal. Loss and gain
-                use a 250 kcal adjustment as an app default.
+                Mifflin–St Jeor × activity. Rounded to 10 kcal. Loss and gain use a 250 kcal
+                adjustment as an app default.
               </AppText>
               <Link
                 href="https://pubmed.ncbi.nlm.nih.gov/2305711/"

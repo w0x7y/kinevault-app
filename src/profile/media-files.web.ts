@@ -1,13 +1,18 @@
 import {
-  fitPhotoDimensions, isSafeMediaId, validatePhotoSource,
-  type MediaFiles, type PhotoSource,
+  MediaIdentityCollisionError,
+  fitPhotoDimensions,
+  isSafeMediaId,
+  validatePhotoSource,
+  type MediaFiles,
+  type PhotoSource,
 } from "./media-model.ts";
 
 const databaseName = "kinevault-track.profile-media-files.v1";
 const storeName = "photos";
 
 function requireStorage() {
-  if (typeof window === "undefined" || !window.indexedDB) throw new Error("Local photo storage is unavailable");
+  if (typeof window === "undefined" || !window.indexedDB)
+    throw new Error("Local photo storage is unavailable");
 }
 function validateId(id: string) {
   if (!isSafeMediaId(id)) throw new Error("Invalid photo identity");
@@ -24,28 +29,41 @@ async function openDatabase(): Promise<IDBDatabase> {
       if (blocked) request.result.close();
       else resolve(request.result);
     };
-    request.onerror = () => reject(request.error ?? new Error("Local photo storage is unavailable"));
+    request.onerror = () =>
+      reject(request.error ?? new Error("Local photo storage is unavailable"));
     request.onblocked = () => {
       blocked = true;
       reject(new Error("Local photo storage is unavailable. Close other app tabs and retry."));
     };
   });
 }
-async function transact<T>(mode: IDBTransactionMode, operation: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+async function transact<T>(
+  mode: IDBTransactionMode,
+  operation: (store: IDBObjectStore) => IDBRequest<T>,
+): Promise<T> {
   const database = await openDatabase();
   try {
     return await new Promise<T>((resolve, reject) => {
       const transaction = database.transaction(storeName, mode);
       let result: T;
       transaction.oncomplete = () => resolve(result);
-      transaction.onabort = () => reject(transaction.error ?? new Error("Local photo storage transaction failed"));
-      transaction.onerror = () => { /* Abort is the terminal failure signal. */ };
+      transaction.onabort = () =>
+        reject(transaction.error ?? new Error("Local photo storage transaction failed"));
+      transaction.onerror = () => {
+        /* Abort is the terminal failure signal. */
+      };
       const request = operation(transaction.objectStore(storeName));
-      request.onsuccess = () => { result = request.result; };
+      request.onsuccess = () => {
+        result = request.result;
+      };
     });
-  } finally { database.close(); }
+  } finally {
+    database.close();
+  }
 }
-async function decodePhoto(source: PhotoSource): Promise<{ image: HTMLImageElement; release: () => void }> {
+async function decodePhoto(
+  source: PhotoSource,
+): Promise<{ image: HTMLImageElement; release: () => void }> {
   if (!source.file && !/^(blob:|data:image\/)/.test(source.uri)) {
     throw new Error("Select a local image file");
   }
@@ -57,7 +75,12 @@ async function decodePhoto(source: PhotoSource): Promise<{ image: HTMLImageEleme
       image.onerror = () => reject(new Error("This photo could not be read"));
       image.src = ownedUri ?? source.uri;
     });
-    return { image, release: () => { if (ownedUri) URL.revokeObjectURL(ownedUri); } };
+    return {
+      image,
+      release: () => {
+        if (ownedUri) URL.revokeObjectURL(ownedUri);
+      },
+    };
   } catch (error) {
     if (ownedUri) URL.revokeObjectURL(ownedUri);
     throw error;
@@ -74,8 +97,14 @@ async function resize(image: HTMLImageElement, maximum: number, quality: number)
   context.fillRect(0, 0, canvas.width, canvas.height);
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
   const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(value => value && value.type === "image/jpeg"
-      ? resolve(value) : reject(new Error("This photo could not be processed")), "image/jpeg", quality);
+    canvas.toBlob(
+      (value) =>
+        value && value.type === "image/jpeg"
+          ? resolve(value)
+          : reject(new Error("This photo could not be processed")),
+      "image/jpeg",
+      quality,
+    );
   });
   return { blob, ...dimensions };
 }
@@ -84,30 +113,46 @@ export function createMediaFiles(): MediaFiles {
   // No browser globals are read until a command runs, including during SSR.
   const uris = new Set<string>();
   return {
+    async assertAvailable(id) {
+      validateId(id);
+      if ((await transact("readonly", (store) => store.get(id))) !== undefined)
+        throw new MediaIdentityCollisionError();
+    },
     async importPhoto(source, id) {
-      requireStorage(); validateId(id); validatePhotoSource(source);
+      requireStorage();
+      validateId(id);
+      validatePhotoSource(source);
       const decoded = await decodePhoto(source);
       try {
         const original = await resize(decoded.image, 1600, 0.85);
         const thumbnail = await resize(decoded.image, 320, 0.75);
         // add rejects existing identities. Both versions commit atomically.
-        await transact("readwrite", store => store.add({ id, original: original.blob, thumbnail: thumbnail.blob }));
+        await transact("readwrite", (store) =>
+          store.add({ id, original: original.blob, thumbnail: thumbnail.blob }),
+        );
         return { id, width: original.width, height: original.height };
-      } finally { decoded.release(); }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "ConstraintError")
+          throw new MediaIdentityCollisionError();
+        throw error;
+      } finally {
+        decoded.release();
+      }
     },
     async resolvePhoto(image, thumbnail = false) {
       validateId(image.id);
-      const value: unknown = await transact("readonly", store => store.get(image.id));
+      const value: unknown = await transact("readonly", (store) => store.get(image.id));
       if (!value || typeof value !== "object") throw new Error("Photo unavailable");
       const blob = (value as Record<string, unknown>)[thumbnail ? "thumbnail" : "original"];
-      if (!(blob instanceof Blob) || !blob.size || blob.type !== "image/jpeg") throw new Error("Photo unavailable");
+      if (!(blob instanceof Blob) || !blob.size || blob.type !== "image/jpeg")
+        throw new Error("Photo unavailable");
       const uri = URL.createObjectURL(blob);
       uris.add(uri);
       return uri;
     },
     async removePhoto(image) {
       validateId(image.id);
-      await transact("readwrite", store => store.delete(image.id));
+      await transact("readwrite", (store) => store.delete(image.id));
     },
     releaseUri(uri) {
       if (uris.delete(uri)) URL.revokeObjectURL(uri);

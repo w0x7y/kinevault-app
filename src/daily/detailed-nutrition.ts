@@ -2,7 +2,10 @@ import { detailedNutrientsForEntry, type FindFood } from "../food/entry-nutrient
 import { detailedNutrients, unknownNutrients, type DetailedNutrients } from "../food/nutrients.ts";
 import type { FoodEntry } from "./model.ts";
 
-export function sumDetailedNutrients(foods: readonly FoodEntry[], findFood: FindFood): DetailedNutrients {
+export function sumDetailedNutrients(
+  foods: readonly FoodEntry[],
+  findFood: FindFood,
+): DetailedNutrients {
   const totals = { ...unknownNutrients };
   for (const { key } of detailedNutrients) totals[key] = 0;
   for (const food of foods) {

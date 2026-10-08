@@ -10,8 +10,16 @@ import { useCustomFoods } from "./custom-provider";
 import { useFoodDrafts } from "./draft-provider";
 import { FoodButton } from "./food-button";
 
-export function CustomItemActions({ item, disabled, onEdit, onDeleted }: {
-  item: CustomFood | CustomMeal; disabled: boolean; onEdit: () => void; onDeleted: () => void;
+export function CustomItemActions({
+  item,
+  disabled,
+  onEdit,
+  onDeleted,
+}: {
+  item: CustomFood | CustomMeal;
+  disabled: boolean;
+  onEdit: () => void;
+  onDeleted: () => void;
 }) {
   const custom = useCustomFoods();
   const drafts = useFoodDrafts();
@@ -19,7 +27,12 @@ export function CustomItemActions({ item, disabled, onEdit, onDeleted }: {
   const [failed, setFailed] = useState(false);
   const pending = useRef(false);
   const mounted = useRef(true);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const kind = "ingredients" in item ? "meal" : "food";
   const busy = disabled || custom.saving;
   async function remove() {
@@ -32,16 +45,34 @@ export function CustomItemActions({ item, disabled, onEdit, onDeleted }: {
       if (removed) onDeleted();
       else setFailed(true);
       return removed;
-    } finally { pending.current = false; }
+    } finally {
+      pending.current = false;
+    }
   }
-  return <>
-    <View style={{ flexDirection: "row", gap: spacing.layout }}>
-      <View style={{ flex: 1 }}><FoodButton label={`Edit ${kind}`} disabled={busy || custom.state.kind !== "ready"} onPress={onEdit} /></View>
-      <View style={{ flex: 1 }}><DeleteButton label={`Delete ${kind}`} disabled={busy || custom.state.kind !== "ready"}
-        confirmAccessibilityLabel={`Confirm delete ${kind}`} onDelete={remove} /></View>
-    </View>
-    {failed && <AppText accessibilityRole="alert" style={{ color: colors.error }}>
-      {custom.error ?? "Couldn't delete this item. It is still saved. Try again."}
-    </AppText>}
-  </>;
+  return (
+    <>
+      <View style={{ flexDirection: "row", gap: spacing.layout }}>
+        <View style={{ flex: 1 }}>
+          <FoodButton
+            label={`Edit ${kind}`}
+            disabled={busy || custom.state.kind !== "ready"}
+            onPress={onEdit}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <DeleteButton
+            label={`Delete ${kind}`}
+            disabled={busy || custom.state.kind !== "ready"}
+            confirmAccessibilityLabel={`Confirm delete ${kind}`}
+            onDelete={remove}
+          />
+        </View>
+      </View>
+      {failed && (
+        <AppText accessibilityRole="alert" style={{ color: colors.error }}>
+          {custom.error ?? "Couldn't delete this item. It is still saved. Try again."}
+        </AppText>
+      )}
+    </>
+  );
 }

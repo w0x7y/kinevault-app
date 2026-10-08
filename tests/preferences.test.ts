@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  parseAppearance,
-  resolveAppearance,
-} from "../src/theme/preferences.ts";
+import { parseAppearance, resolveAppearance } from "../src/theme/preferences.ts";
 
 test("missing and unsupported stored preferences use system appearance", () => {
   for (const value of [null, "", "sepia", "{broken"]) {

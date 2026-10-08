@@ -12,7 +12,8 @@ import type { QuestionProps } from "./types";
 export const stepCopy: Record<Step, { title: string; message: string }> = {
   welcome: {
     title: "Hi, I'm Kine.",
-    message: "A place for your meals, movement, and everyday progress. Let's start with what matters to you.",
+    message:
+      "A place for your meals, movement, and everyday progress. Let's start with what matters to you.",
   },
   name: {
     title: "What should I call you?",
@@ -88,9 +89,7 @@ export function Question({ step, ...props }: QuestionProps & { step: Step }) {
             <Choice
               key={value}
               label={label}
-              description={
-                calorieState(answers).kind === "teen" ? undefined : description
-              }
+              description={calorieState(answers).kind === "teen" ? undefined : description}
               selected={answers.goal === value}
               onPress={() => update({ kind: "fields", patch: { goal: value } })}
               disabled={disabled}
@@ -114,9 +113,7 @@ export function Question({ step, ...props }: QuestionProps & { step: Step }) {
               label={label}
               description={description}
               selected={answers.activity === value}
-              onPress={() =>
-                update({ kind: "fields", patch: { activity: value } })
-              }
+              onPress={() => update({ kind: "fields", patch: { activity: value } })}
               disabled={disabled}
             />
           ))}
@@ -131,12 +128,6 @@ export function Question({ step, ...props }: QuestionProps & { step: Step }) {
     case "calories":
       return <CaloriesQuestion {...props} />;
     case "review":
-      return (
-        <ProfileReview
-          answers={answers}
-          edit={props.edit}
-          disabled={disabled}
-        />
-      );
+      return <ProfileReview answers={answers} edit={props.edit} disabled={disabled} />;
   }
 }

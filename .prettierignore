@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist-native/
+.expo/
+.local-artifacts/
+graft/
+assets/
+marketing/
+patches/*.patch
+package-lock.json
+expo-env.d.ts

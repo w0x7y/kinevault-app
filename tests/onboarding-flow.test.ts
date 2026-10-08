@@ -30,10 +30,16 @@ function setup(
 
 test("an inactive onboarding flow cannot change answers or start a save", async () => {
   let saves = 0;
-  const flow = createOnboardingFlow({ version: 1, kind: "draft", step: "review", answers: adult }, {
-    save: async () => { saves++; return true; },
-    exit: () => assert.fail("inactive flow navigated"),
-  });
+  const flow = createOnboardingFlow(
+    { version: 1, kind: "draft", step: "review", answers: adult },
+    {
+      save: async () => {
+        saves++;
+        return true;
+      },
+      exit: () => assert.fail("inactive flow navigated"),
+    },
+  );
   const initial = flow.getSnapshot();
   flow.update({ kind: "fields", patch: { name: "Other" } });
   await flow.act({ kind: "next" });
@@ -45,7 +51,10 @@ test("leaving during a draft save preserves the visible step without late feedba
   let finish!: (saved: boolean) => void;
   const { flow, destinations } = setup(
     { version: 1, kind: "draft", step: "goal", answers: adult },
-    () => new Promise<boolean>(resolve => { finish = resolve; }),
+    () =>
+      new Promise<boolean>((resolve) => {
+        finish = resolve;
+      }),
   );
   const pending = flow.act({ kind: "next" });
   flow.stop();
@@ -63,7 +72,10 @@ test("leaving onboarding during a final save prevents late navigation and feedba
   let finish: (saved: boolean) => void = () => assert.fail("Save did not begin");
   const { flow, destinations } = setup(
     { version: 1, kind: "draft", step: "review", answers: adult },
-    () => new Promise(resolve => { finish = resolve; }),
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
   );
   const pending = flow.act({ kind: "next" });
   flow.stop();
@@ -78,9 +90,14 @@ test("a reentrant stop during saving feedback prevents adapter work", async () =
   const saved: ProfileDocument[] = [];
   const { flow, destinations } = setup(
     { version: 1, kind: "draft", step: "review", answers: adult },
-    async document => { saved.push(document); return true; },
+    async (document) => {
+      saved.push(document);
+      return true;
+    },
   );
-  flow.subscribe(() => { if (flow.getSnapshot().saving) flow.stop(); });
+  flow.subscribe(() => {
+    if (flow.getSnapshot().saving) flow.stop();
+  });
   await flow.act({ kind: "next" });
   assert.deepEqual(saved, []);
   assert.deepEqual(destinations, []);
@@ -91,7 +108,12 @@ test("restarting onboarding excludes its old pending save and ignores its failur
   let calls = 0;
   const { flow, destinations } = setup(
     { version: 1, kind: "draft", step: "review", answers: adult },
-    () => ++calls === 1 ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(true),
+    () =>
+      ++calls === 1
+        ? new Promise((resolve) => {
+            finish = resolve;
+          })
+        : Promise.resolve(true),
   );
   const pending = flow.act({ kind: "next" });
   flow.stop();
@@ -270,12 +292,9 @@ test("step validation shows local errors and review validates all answers", asyn
 });
 
 test("thrown saves leave answers available for another attempt", async () => {
-  const { flow } = setup(
-    { version: 1, kind: "draft", step: "name", answers: adult },
-    async () => {
-      throw new Error("disk unavailable");
-    },
-  );
+  const { flow } = setup({ version: 1, kind: "draft", step: "name", answers: adult }, async () => {
+    throw new Error("disk unavailable");
+  });
   await flow.act({ kind: "next" });
   assert.equal(flow.getSnapshot().saving, false);
   assert.equal(flow.getSnapshot().step, "name");
@@ -328,7 +347,10 @@ test("invalid macro inputs block the calorie step and persist after correction",
   const saved: ProfileDocument[] = [];
   const { flow } = setup(
     { version: 1, kind: "draft", step: "calories", answers: adult },
-    async (document) => { saved.push(document); return true; },
+    async (document) => {
+      saved.push(document);
+      return true;
+    },
   );
   flow.update({ kind: "fields", patch: { customCarbs: "-5" } });
   await flow.act({ kind: "next" });

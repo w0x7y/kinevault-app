@@ -30,19 +30,14 @@ export function ProfileRecovery() {
         <AppText variant="title" accessibilityRole="header">
           Couldn't load your profile
         </AppText>
-        <AppText muted>
-          Your saved answers haven't been changed. Try loading them again.
-        </AppText>
-        <Button
-          label="Try again"
-          icon="rotate-right"
-          onPress={retryLoad}
-          disabled={saving}
-        />
+        <AppText muted>Your saved answers haven't been changed. Try loading them again.</AppText>
+        <Button label="Try again" icon="rotate-right" onPress={retryLoad} disabled={saving} />
         {confirmReset ? (
           <View style={{ gap: spacing.layout }}>
             <AppText accessibilityRole="alert">
-              {user ? "Starting fresh removes this account's saved profile and goals from this device and cloud storage, then opens setup again." : "Starting fresh removes this device's saved profile and opens setup again."}
+              {user
+                ? "Starting fresh removes this account's saved profile and goals from this device and cloud storage, then opens setup again."
+                : "Starting fresh removes this device's saved profile and opens setup again."}
             </AppText>
             <Button
               label={saving ? "Resetting…" : "Reset saved profile"}
@@ -71,13 +66,19 @@ export function ProfileRecovery() {
             {error}
           </AppText>
         )}
-        {user && <Button
-          label={account.busy ? "Signing out…" : "Log out"}
-          secondary
-          disabled={saving || account.busy}
-          onPress={() => void account.signOut()}
-        />}
-        {account.error && <AppText accessibilityRole="alert" style={{ color: colors.error }}>{account.error}</AppText>}
+        {user && (
+          <Button
+            label={account.busy ? "Signing out…" : "Log out"}
+            secondary
+            disabled={saving || account.busy}
+            onPress={() => void account.signOut()}
+          />
+        )}
+        {account.error && (
+          <AppText accessibilityRole="alert" style={{ color: colors.error }}>
+            {account.error}
+          </AppText>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

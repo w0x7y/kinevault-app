@@ -14,9 +14,7 @@ export function ProfileStreak({ today }: { today: string }) {
     exercise = useExercises();
   const { colors } = useTheme();
   const streak =
-    food.state.kind === "ready" &&
-    water.state.kind === "ready" &&
-    exercise.state.kind === "ready"
+    food.state.kind === "ready" && water.state.kind === "ready" && exercise.state.kind === "ready"
       ? profileStreak({
           today,
           food: food.state.document,
@@ -27,25 +25,13 @@ export function ProfileStreak({ today }: { today: string }) {
   return (
     <JournalPanel testID="profile-streak" accessibilityLabel="Tracking streaks">
       {food.state.kind !== "ready" && (
-        <SourceStatus
-          name="food log"
-          kind={food.state.kind}
-          retry={food.retryLoad}
-        />
+        <SourceStatus name="food log" kind={food.state.kind} retry={food.retryLoad} />
       )}
       {water.state.kind !== "ready" && (
-        <SourceStatus
-          name="water log"
-          kind={water.state.kind}
-          retry={water.retryLoad}
-        />
+        <SourceStatus name="water log" kind={water.state.kind} retry={water.retryLoad} />
       )}
       {exercise.state.kind !== "ready" && (
-        <SourceStatus
-          name="workouts"
-          kind={exercise.state.kind}
-          retry={exercise.retryLoad}
-        />
+        <SourceStatus name="workouts" kind={exercise.state.kind} retry={exercise.retryLoad} />
       )}
       {streak && (
         <>
@@ -84,10 +70,7 @@ export function ProfileStreak({ today }: { today: string }) {
                 <View>
                   <JournalText size={18} variant="heading">
                     {item.value}
-                    <JournalText size={10}>
-                      {" "}
-                      {item.value === 1 ? "day" : "days"}
-                    </JournalText>
+                    <JournalText size={10}> {item.value === 1 ? "day" : "days"}</JournalText>
                   </JournalText>
                   <JournalText size={10} muted>
                     {item.label}
@@ -139,19 +122,13 @@ export function ProfileStreak({ today }: { today: string }) {
                       borderRadius: 14,
                       alignItems: "center",
                       justifyContent: "center",
-                      backgroundColor: day.logged
-                        ? colors.primary
-                        : colors.secondary,
+                      backgroundColor: day.logged ? colors.primary : colors.secondary,
                     }}
                   >
                     <Icon
                       name={day.logged ? "check" : "minus"}
                       size={10}
-                      color={
-                        day.logged
-                          ? colors.primaryForeground
-                          : colors.mutedForeground
-                      }
+                      color={day.logged ? colors.primaryForeground : colors.mutedForeground}
                     />
                   </View>
                 </View>

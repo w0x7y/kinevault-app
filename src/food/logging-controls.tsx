@@ -11,7 +11,12 @@ import { useFoodLog } from "./log-provider";
 import { useCustomFoods } from "./custom-provider";
 import type { CatalogKind } from "./meal-model.ts";
 
-export function FoodLoggingControls({ preparation, onSaved, itemKind = "food", onMealChange }: {
+export function FoodLoggingControls({
+  preparation,
+  onSaved,
+  itemKind = "food",
+  onMealChange,
+}: {
   preparation: FoodLoggingPreparation;
   itemKind?: CatalogKind;
   onMealChange: (meal: Meal) => void;
@@ -25,9 +30,15 @@ export function FoodLoggingControls({ preparation, onSaved, itemKind = "food", o
   const [failed, setFailed] = useState(false);
   const pending = useRef(false);
   const mounted = useRef(true);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   async function save() {
-    if (pending.current || preparation.status !== "ready" || busy || log.state.kind !== "ready") return;
+    if (pending.current || preparation.status !== "ready" || busy || log.state.kind !== "ready")
+      return;
     pending.current = true;
     setFailed(false);
     try {
@@ -38,25 +49,75 @@ export function FoodLoggingControls({ preparation, onSaved, itemKind = "food", o
       else setFailed(true);
     } catch {
       if (mounted.current) setFailed(true);
-    } finally { pending.current = false; }
+    } finally {
+      pending.current = false;
+    }
   }
   return (
     <View style={{ gap: spacing.layout }}>
-      {preparation.measurement === "grams" && <><AppText variant="label" accessibilityRole="header">Meal for {parseDay(date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</AppText>
-      <View accessibilityLabel="Meal" style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-        {meals.filter(option => option.key !== "drinks").map(option => (
-          <View key={option.key} style={{ flexGrow: 1, flexBasis: "45%" }}>
-            <FoodButton label={option.label} accessibilityLabel={option.label} selected={meal === option.key}
-              disabled={busy} onPress={() => onMealChange(option.key)} />
+      {preparation.measurement === "grams" && (
+        <>
+          <AppText variant="label" accessibilityRole="header">
+            Meal for{" "}
+            {parseDay(date).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </AppText>
+          <View
+            accessibilityLabel="Meal"
+            style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}
+          >
+            {meals
+              .filter((option) => option.key !== "drinks")
+              .map((option) => (
+                <View key={option.key} style={{ flexGrow: 1, flexBasis: "45%" }}>
+                  <FoodButton
+                    label={option.label}
+                    accessibilityLabel={option.label}
+                    selected={meal === option.key}
+                    disabled={busy}
+                    onPress={() => onMealChange(option.key)}
+                  />
+                </View>
+              ))}
           </View>
-        ))}
-      </View></>}
-      {preparation.measurement === "volume" && <AppText variant="caption" muted>Logs to Drinks for {parseDay(date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} and adds this amount to your water total.</AppText>}
-      {failed && <AppText variant="caption" accessibilityRole="alert" style={{ color: colors.error }}>
-        {operation === "edit" ? "Couldn't save your changes." : `Couldn't log this ${itemKind}.`} Your amounts and meal are kept. Try again.
-      </AppText>}
-      <FoodButton primary label={log.saving ? `Saving ${itemKind}...` : operation === "edit" ? "Save changes" : preparation.measurement === "volume" ? "Log drink to Drinks" : `Log ${itemKind} to ${meals.find(option => option.key === meal)?.label}`}
-        disabled={preparation.status !== "ready" || busy || log.state.kind !== "ready"} onPress={() => { void save(); }} />
+        </>
+      )}
+      {preparation.measurement === "volume" && (
+        <AppText variant="caption" muted>
+          Logs to Drinks for{" "}
+          {parseDay(date).toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}{" "}
+          and adds this amount to your water total.
+        </AppText>
+      )}
+      {failed && (
+        <AppText variant="caption" accessibilityRole="alert" style={{ color: colors.error }}>
+          {operation === "edit" ? "Couldn't save your changes." : `Couldn't log this ${itemKind}.`}{" "}
+          Your amounts and meal are kept. Try again.
+        </AppText>
+      )}
+      <FoodButton
+        primary
+        label={
+          log.saving
+            ? `Saving ${itemKind}...`
+            : operation === "edit"
+              ? "Save changes"
+              : preparation.measurement === "volume"
+                ? "Log drink to Drinks"
+                : `Log ${itemKind} to ${meals.find((option) => option.key === meal)?.label}`
+        }
+        disabled={preparation.status !== "ready" || busy || log.state.kind !== "ready"}
+        onPress={() => {
+          void save();
+        }}
+      />
     </View>
   );
 }

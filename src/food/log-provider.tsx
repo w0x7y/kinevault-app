@@ -1,10 +1,18 @@
 import { useAccountStorage } from "../account/storage-context";
-import { createContext, useContext, useEffect, useState, useSyncExternalStore, type PropsWithChildren } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type PropsWithChildren,
+} from "react";
 import { foodDatabase } from "./database";
 import { createFoodLogPersistence, type FoodLogSnapshot } from "./log-persistence";
 
 type FoodLogStore = ReturnType<typeof createFoodLogPersistence>;
-type FoodLogContextValue = FoodLogSnapshot & Pick<FoodLogStore, "add" | "edit" | "remove" | "retryLoad">;
+type FoodLogContextValue = FoodLogSnapshot &
+  Pick<FoodLogStore, "add" | "edit" | "remove" | "retryLoad">;
 const FoodLogContext = createContext<FoodLogContextValue | null>(null);
 
 export function FoodLogProvider({ children }: PropsWithChildren) {
@@ -14,12 +22,28 @@ export function FoodLogProvider({ children }: PropsWithChildren) {
     return createFoodLogPersistence({
       storage,
       findFood: foodDatabase.getById,
-      createId: () => `${Date.now().toString(36)}-${++sequence}-${Math.random().toString(36).slice(2)}`,
+      createId: () =>
+        `${Date.now().toString(36)}-${++sequence}-${Math.random().toString(36).slice(2)}`,
     });
   });
   const snapshot = useSyncExternalStore(log.subscribe, log.getSnapshot, log.getSnapshot);
-  useEffect(() => { log.start(); return log.stop; }, [log]);
-  return <FoodLogContext.Provider value={{ ...snapshot, add: log.add, edit: log.edit, remove: log.remove, retryLoad: log.retryLoad }}>{children}</FoodLogContext.Provider>;
+  useEffect(() => {
+    log.start();
+    return log.stop;
+  }, [log]);
+  return (
+    <FoodLogContext.Provider
+      value={{
+        ...snapshot,
+        add: log.add,
+        edit: log.edit,
+        remove: log.remove,
+        retryLoad: log.retryLoad,
+      }}
+    >
+      {children}
+    </FoodLogContext.Provider>
+  );
 }
 
 export function useFoodLog() {

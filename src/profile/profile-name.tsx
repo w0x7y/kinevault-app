@@ -18,15 +18,16 @@ export function ProfileName() {
   const error = attempt?.error
     ? "Couldn't save your name. Try again."
     : Object.values(attempt?.errors || {})[0];
-  function start() { edit.begin("name"); }
-  function cancel() { edit.cancel(); }
-  function save() { return edit.save(); }
-  function action(
-    label: string,
-    icon: IconName,
-    onPress: () => void,
-    disabled = false,
-  ) {
+  function start() {
+    edit.begin("name");
+  }
+  function cancel() {
+    edit.cancel();
+  }
+  function save() {
+    return edit.save();
+  }
+  function action(label: string, icon: IconName, onPress: () => void, disabled = false) {
     return (
       <Pressable
         accessibilityRole="button"

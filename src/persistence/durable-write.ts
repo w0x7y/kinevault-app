@@ -19,12 +19,20 @@ type Mutation<Document, Value> = Change<Document, Value> | { remove: true; value
 
 // Internal lifecycle shared by domain persistence modules. Domain code owns each
 // mutation, its rejection message, and the value returned after durable success.
-export function createDurableWrite<Document>({ storage, key, parse }: {
+export function createDurableWrite<Document>({
+  storage,
+  key,
+  parse,
+}: {
   storage: DurableStorage;
   key: string;
   parse: (raw: string | null) => Document;
 }) {
-  let snapshot: DurableSnapshot<Document> = { state: { kind: "loading" }, saving: false, error: null };
+  let snapshot: DurableSnapshot<Document> = {
+    state: { kind: "loading" },
+    saving: false,
+    error: null,
+  };
   const listeners = new Set<() => void>();
   let active = false;
   let lifecycle = 0;
@@ -54,7 +62,8 @@ export function createDurableWrite<Document>({ storage, key, parse }: {
     try {
       const document = parse(await storage.getItem(key));
       if (current()) {
-        externalInvalid = false; backgroundRead = null;
+        externalInvalid = false;
+        backgroundRead = null;
         publish({ state: { kind: "ready", document }, saving: false, refreshError: null });
       }
     } catch {
@@ -107,10 +116,11 @@ export function createDurableWrite<Document>({ storage, key, parse }: {
       publish({ state: { kind: "ready", document: canonical }, refreshError: null });
       return current() ? change.value : null;
     } catch {
-      if (current()) publish({
-        state: snapshot.state.kind === "loading" ? { kind: "error" } : snapshot.state,
-        error: failureMessage,
-      });
+      if (current())
+        publish({
+          state: snapshot.state.kind === "loading" ? { kind: "error" } : snapshot.state,
+          error: failureMessage,
+        });
       return null;
     } finally {
       // Storage writes cannot be canceled. Keep exclusion across stop/start,
@@ -119,8 +129,7 @@ export function createDurableWrite<Document>({ storage, key, parse }: {
       if (current()) {
         publish({ saving: false });
         if (reloadAfterWrite && active) void load();
-      }
-      else if (active) void load();
+      } else if (active) void load();
     }
   }
 
@@ -138,22 +147,36 @@ export function createDurableWrite<Document>({ storage, key, parse }: {
         externalInvalid = true;
         void load();
       });
-      if (!active || ticket !== lifecycle) { detach?.(); return; }
+      if (!active || ticket !== lifecycle) {
+        detach?.();
+        return;
+      }
       unsubscribeItem = detach;
       if (write) publish({ state: { kind: "loading" } });
       else void load();
     },
     stop() {
-      active = false; ++lifecycle; ++readGeneration;
-      unsubscribeItem?.(); unsubscribeItem = undefined;
+      active = false;
+      ++lifecycle;
+      ++readGeneration;
+      unsubscribeItem?.();
+      unsubscribeItem = undefined;
     },
-    retryLoad() { void load(); },
+    retryLoad() {
+      void load();
+    },
     subscribe(listener: () => void) {
       listeners.add(listener);
-      return () => { listeners.delete(listener); };
+      return () => {
+        listeners.delete(listener);
+      };
     },
-    update<Value>(build: (document: Document) => Change<Document, Value>, failureMessage: string): Promise<Value | null> {
-      if (snapshot.state.kind !== "ready" || externalInvalid || backgroundRead !== null) return Promise.resolve(null);
+    update<Value>(
+      build: (document: Document) => Change<Document, Value>,
+      failureMessage: string,
+    ): Promise<Value | null> {
+      if (snapshot.state.kind !== "ready" || externalInvalid || backgroundRead !== null)
+        return Promise.resolve(null);
       const previous = snapshot.state.document;
       return mutate(() => build(previous), failureMessage);
     },

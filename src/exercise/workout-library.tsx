@@ -7,27 +7,52 @@ import type { WorkoutTemplate } from "./model";
 import { useExercises } from "./provider";
 import { ActionRow, ExerciseButton, ExerciseError } from "./controls";
 
-export function WorkoutLibrary({ date, onEdit, onClose, onAdded, onOpen }: {
-  date: string; onEdit: (workout: WorkoutTemplate) => void; onClose: () => void; onAdded: (id: string) => void; onOpen: (id: string) => void;
+export function WorkoutLibrary({
+  date,
+  onEdit,
+  onClose,
+  onAdded,
+  onOpen,
+}: {
+  date: string;
+  onEdit: (workout: WorkoutTemplate) => void;
+  onClose: () => void;
+  onAdded: (id: string) => void;
+  onOpen: (id: string) => void;
 }) {
   const store = useExercises();
   const workouts = store.state.kind === "ready" ? store.state.document.workouts : [];
-  const records = store.state.kind === "ready" ? store.state.document.sessions.filter(workout => workout.date === date) : [];
-  const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
-  const alive = useRef(true), pending = useRef(false);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  const records =
+    store.state.kind === "ready"
+      ? store.state.document.sessions.filter((workout) => workout.date === date)
+      : [];
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState<string | null>(null);
+  const alive = useRef(true),
+    pending = useRef(false);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
   async function add(id: string) {
     if (pending.current) return;
-    pending.current = true; setBusy(true); setError(null);
+    pending.current = true;
+    setBusy(true);
+    setError(null);
     const result = await store.planWorkout({ date, workoutId: id });
     pending.current = false;
     if (!alive.current) return;
     setBusy(false);
-    if (result) onAdded(result); else setError("Couldn't add this workout. Try again.");
+    if (result) onAdded(result);
+    else setError("Couldn't add this workout. Try again.");
   }
   async function remove(id: string) {
     if (pending.current) return;
-    pending.current = true; setBusy(true); setError(null);
+    pending.current = true;
+    setBusy(true);
+    setError(null);
     const success = await store.removeSession(id);
     pending.current = false;
     if (!alive.current) return;
@@ -35,26 +60,79 @@ export function WorkoutLibrary({ date, onEdit, onClose, onAdded, onOpen }: {
     if (!success) setError("Couldn't delete this workout. Try again.");
     return success;
   }
-  return <Panel testID="workout-library"><AppText variant="heading" accessibilityRole="header">Saved workouts</AppText>
-    {workouts.length === 0 && <AppText>No workout found. Create a workout to get started.</AppText>}
-    {workouts.map(workout => <View key={workout.id} style={{ gap: spacing.layout }}>
-      <AppText variant="label">{workout.name}</AppText><AppText variant="caption" muted>{workout.exercises.map(item => item.name).join(" · ")}</AppText>
-      <ActionRow><ExerciseButton label="Add to selected day" accessibilityLabel={`Add ${workout.name} to selected day`} onPress={() => void add(workout.id)} disabled={busy} />
-        <ExerciseButton label="Edit" accessibilityLabel={`Edit workout ${workout.name}`} onPress={() => onEdit(workout)} disabled={busy} /></ActionRow>
-    </View>)}
-    {records.length > 0 && <AppText variant="heading" accessibilityRole="header">Workouts for {date}</AppText>}
-    {records.map(workout => <View key={workout.id} testID={`logged-workout-${workout.id}`} style={{ gap: spacing.layout }}>
-      <AppText variant="label">{workout.name}</AppText>
-      <AppText variant="caption" muted>{workout.status === "active" ? "In progress" : workout.status === "planned" ? "Planned" : "Completed"} · {workout.exercises.length} exercises</AppText>
-      <ActionRow><ExerciseButton label={workout.status === "completed" ? "Edit" : "Open"}
-        accessibilityLabel={`${workout.status === "completed" ? "Edit logged workout" : "Open logged workout"} ${workout.name}`}
-        onPress={() => onOpen(workout.id)} disabled={busy} />
-        <DeleteButton label={workout.status === "active" ? "Discard" : "Delete"}
-          accessibilityLabel={`${workout.status === "active" ? "Discard workout" : "Delete logged workout"} ${workout.name}`}
-          confirmAccessibilityLabel={workout.status === "active" ? "Confirm discard workout" : "Confirm delete logged workout"}
-          onDelete={() => remove(workout.id)} disabled={busy} />
-      </ActionRow>
-    </View>)}
-    <ExerciseError message={error} /><ExerciseButton label="Close saved workouts" onPress={onClose} disabled={busy} />
-  </Panel>;
+  return (
+    <Panel testID="workout-library">
+      <AppText variant="heading" accessibilityRole="header">
+        Saved workouts
+      </AppText>
+      {workouts.length === 0 && (
+        <AppText>No workout found. Create a workout to get started.</AppText>
+      )}
+      {workouts.map((workout) => (
+        <View key={workout.id} style={{ gap: spacing.layout }}>
+          <AppText variant="label">{workout.name}</AppText>
+          <AppText variant="caption" muted>
+            {workout.exercises.map((item) => item.name).join(" · ")}
+          </AppText>
+          <ActionRow>
+            <ExerciseButton
+              label="Add to selected day"
+              accessibilityLabel={`Add ${workout.name} to selected day`}
+              onPress={() => void add(workout.id)}
+              disabled={busy}
+            />
+            <ExerciseButton
+              label="Edit"
+              accessibilityLabel={`Edit workout ${workout.name}`}
+              onPress={() => onEdit(workout)}
+              disabled={busy}
+            />
+          </ActionRow>
+        </View>
+      ))}
+      {records.length > 0 && (
+        <AppText variant="heading" accessibilityRole="header">
+          Workouts for {date}
+        </AppText>
+      )}
+      {records.map((workout) => (
+        <View
+          key={workout.id}
+          testID={`logged-workout-${workout.id}`}
+          style={{ gap: spacing.layout }}
+        >
+          <AppText variant="label">{workout.name}</AppText>
+          <AppText variant="caption" muted>
+            {workout.status === "active"
+              ? "In progress"
+              : workout.status === "planned"
+                ? "Planned"
+                : "Completed"}{" "}
+            · {workout.exercises.length} exercises
+          </AppText>
+          <ActionRow>
+            <ExerciseButton
+              label={workout.status === "completed" ? "Edit" : "Open"}
+              accessibilityLabel={`${workout.status === "completed" ? "Edit logged workout" : "Open logged workout"} ${workout.name}`}
+              onPress={() => onOpen(workout.id)}
+              disabled={busy}
+            />
+            <DeleteButton
+              label={workout.status === "active" ? "Discard" : "Delete"}
+              accessibilityLabel={`${workout.status === "active" ? "Discard workout" : "Delete logged workout"} ${workout.name}`}
+              confirmAccessibilityLabel={
+                workout.status === "active"
+                  ? "Confirm discard workout"
+                  : "Confirm delete logged workout"
+              }
+              onDelete={() => remove(workout.id)}
+              disabled={busy}
+            />
+          </ActionRow>
+        </View>
+      ))}
+      <ExerciseError message={error} />
+      <ExerciseButton label="Close saved workouts" onPress={onClose} disabled={busy} />
+    </Panel>
+  );
 }

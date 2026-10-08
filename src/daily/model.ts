@@ -19,9 +19,9 @@ export type FoodEntry = FoodIdentity & {
   fat: number;
   details?: DetailedNutrients;
 } & (
-  | { measurement?: "grams"; grams: number; drinkMl?: number }
-  | { measurement: "volume"; drinkMl: number; meal: "drinks"; grams?: never }
-);
+    | { measurement?: "grams"; grams: number; drinkMl?: number }
+    | { measurement: "volume"; drinkMl: number; meal: "drinks"; grams?: never }
+  );
 export type FoodDay = { date: string; foods: FoodEntry[] };
 
 export function summarizeDay(day: Pick<FoodDay, "foods">) {
@@ -38,6 +38,7 @@ export function summarizeDay(day: Pick<FoodDay, "foods">) {
 }
 
 export function progressFraction(value: number, target: number | null) {
-  if (target === null || target <= 0 || !Number.isFinite(target) || !Number.isFinite(value)) return 0;
+  if (target === null || target <= 0 || !Number.isFinite(target) || !Number.isFinite(value))
+    return 0;
   return Math.min(1, Math.max(0, value / target));
 }

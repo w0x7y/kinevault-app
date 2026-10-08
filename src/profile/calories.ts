@@ -35,12 +35,10 @@ export function estimateCalories(answers: Answers) {
     weight > 350
   )
     return null;
-  const resting =
-    10 * weight + 6.25 * height - 5 * age + (answers.sex === "male" ? 5 : -161);
+  const resting = 10 * weight + 6.25 * height - 5 * age + (answers.sex === "male" ? 5 : -161);
   const maintenance = Math.round((resting * activity.factor) / 10) * 10;
   // A transparent product default, not a personalized prescription or pace prediction.
-  const adjustment =
-    answers.goal === "lose" ? -250 : answers.goal === "gain" ? 250 : 0;
+  const adjustment = answers.goal === "lose" ? -250 : answers.goal === "gain" ? 250 : 0;
   const target = maintenance + adjustment;
   if (target < 1200 || target > 10000) return null;
   return { resting, maintenance, adjustment, target };
@@ -49,8 +47,7 @@ export function estimateCalories(answers: Answers) {
 export function validateAnswers(answers: Answers): FieldErrors {
   const errors: FieldErrors = {};
   const needsEstimate = calorieState(answers).kind === "estimate";
-  if (answers.name.length > 40)
-    errors.name = "Use 40 characters or fewer.";
+  if (answers.name.length > 40) errors.name = "Use 40 characters or fewer.";
   const metrics = [
     {
       key: "age",
@@ -77,32 +74,21 @@ export function validateAnswers(answers: Answers): FieldErrors {
   }
   if (needsEstimate) {
     if (!answers.goal) errors.goal = "Choose a goal for your estimate.";
-    if (!answers.activity)
-      errors.activity = "Choose your usual activity level.";
+    if (!answers.activity) errors.activity = "Choose your usual activity level.";
     if (!answers.sex) errors.sex = "Choose a formula or skip the estimate.";
-    if (!answers.eligible)
-      errors.eligible = "Confirm the standard estimate applies, or skip it.";
+    if (!answers.eligible) errors.eligible = "Confirm the standard estimate applies, or skip it.";
   }
   if (answers.customCalories.trim()) {
     const target = numericValue(answers.customCalories);
-    if (
-      target === null ||
-      !Number.isInteger(target) ||
-      target < 1200 ||
-      target > 10000
-    )
-      errors.customCalories =
-        "Enter a whole number between 1,200 and 10,000 kcal.";
+    if (target === null || !Number.isInteger(target) || target < 1200 || target > 10000)
+      errors.customCalories = "Enter a whole number between 1,200 and 10,000 kcal.";
   }
   for (const { field, label, max } of macroInputs) {
     if (answers[field].trim() && macroInputValue(answers[field], max) === null)
-      errors[field] = `Enter ${label.toLowerCase()} as whole grams between 0 and ${max.toLocaleString("en-US")}.`;
+      errors[field] =
+        `Enter ${label.toLowerCase()} as whole grams between 0 and ${max.toLocaleString("en-US")}.`;
   }
-  if (
-    needsEstimate &&
-    Object.keys(errors).length === 0 &&
-    !estimateCalories(answers)
-  )
+  if (needsEstimate && Object.keys(errors).length === 0 && !estimateCalories(answers))
     errors.customCalories =
       "This estimate is outside our supported range. Skip the estimate and enter your own target.";
   return errors;
@@ -137,11 +123,7 @@ export function changeAnswers(answers: Answers, change: AnswerChange): Answers {
   switch (change.kind) {
     case "fields":
       next = { ...answers, ...change.patch };
-      if (
-        change.patch.age !== undefined &&
-        isTeen(next) &&
-        answers.estimateEnabled
-      )
+      if (change.patch.age !== undefined && isTeen(next) && answers.estimateEnabled)
         return {
           ...next,
           estimateEnabled: false,

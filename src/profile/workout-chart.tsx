@@ -14,12 +14,7 @@ import {
 } from "./activity";
 import { chartWeeks } from "./chart-weeks";
 import { ProfileChoices, SourceStatus } from "./profile-controls";
-import {
-  JournalDisclosure,
-  JournalHeading,
-  JournalPanel,
-  JournalText,
-} from "./journal-ui";
+import { JournalDisclosure, JournalHeading, JournalPanel, JournalText } from "./journal-ui";
 export function WorkoutChart({ today }: { today: string }) {
   const exercise = useExercises(),
     { colors } = useTheme();
@@ -33,18 +28,12 @@ export function WorkoutChart({ today }: { today: string }) {
     return (
       <JournalPanel>
         <JournalHeading title="Workout progress" />
-        <SourceStatus
-          name="workouts"
-          kind={exercise.state.kind}
-          retry={exercise.retryLoad}
-        />
+        <SourceStatus name="workouts" kind={exercise.state.kind} retry={exercise.retryLoad} />
       </JournalPanel>
     );
   const sessions = exercise.state.document.sessions;
   const options = workoutExerciseOptions(sessions, today);
-  const selectedKey = options.some((option) => option.key === key)
-    ? key
-    : options[0]?.key;
+  const selectedKey = options.some((option) => option.key === key) ? key : options[0]?.key;
   const graph = workoutGraph({
     today,
     weeks,
@@ -53,16 +42,10 @@ export function WorkoutChart({ today }: { today: string }) {
     exerciseKey: selectedKey,
   });
   const points = chartWeeks(graph.points, metric);
-  const selected = selectedWeek
-    ? points.find((point) => point.date === selectedWeek)
-    : null;
+  const selected = selectedWeek ? points.find((point) => point.date === selectedWeek) : null;
   const maximum = Math.max(
     1,
-    ...points.flatMap((point) => [
-      point.total ?? 0,
-      point.left ?? 0,
-      point.right ?? 0,
-    ]),
+    ...points.flatMap((point) => [point.total ?? 0, point.left ?? 0, point.right ?? 0]),
   );
   const top =
     maximum > 1
@@ -71,8 +54,7 @@ export function WorkoutChart({ today }: { today: string }) {
       : 1;
   const x = (i: number) => 42 + (i / Math.max(1, points.length - 1)) * 264;
   const y = (v: number) => 121 - (v / top) * 98;
-  const number = (v: number) =>
-    v.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  const number = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 1 });
   const label = (point: (typeof graph.points)[number]) =>
     `${point.date}: ${graph.tracking === "sides" ? `Left ${point.left === null ? "not logged" : `${number(point.left)} ${graph.unit}`}, Right ${point.right === null ? "not logged" : `${number(point.right)} ${graph.unit}`}` : point.total === null ? "No measurement recorded" : `${number(point.total)} ${graph.unit}`}${point.partialDuration ? " · Some workout durations were not recorded" : ""}`;
   const series =
@@ -190,14 +172,7 @@ export function WorkoutChart({ today }: { today: string }) {
           accessibilityLabel={`Workout ${metric} in ${graph.unit}. Tap the graph for weekly values.`}
         >
           {[top, top / 2, 0].map((value) => (
-            <Line
-              key={value}
-              x1={42}
-              x2={308}
-              y1={y(value)}
-              y2={y(value)}
-              stroke={colors.border}
-            />
+            <Line key={value} x1={42} x2={308} y1={y(value)} y2={y(value)} stroke={colors.border} />
           ))}
           {[top, top / 2, 0].map((value) => (
             <SvgText
@@ -221,8 +196,7 @@ export function WorkoutChart({ today }: { today: string }) {
             points.forEach((point, index) => {
               const value = point[field];
               if (value === null) return;
-              if (!index || points[index - 1][field] === null)
-                segments.push([]);
+              if (!index || points[index - 1][field] === null) segments.push([]);
               segments.at(-1)!.push({ index, value });
             });
             return segments.map((segment, index) => {
@@ -240,10 +214,7 @@ export function WorkoutChart({ today }: { today: string }) {
                   fill={graph.tracking === "single" ? colors.accent : color}
                   lastX={x(last.index)}
                   lastY={y(last.value)}
-                  showDot={
-                    last.index ===
-                    points.findLastIndex((p) => p[field] !== null)
-                  }
+                  showDot={last.index === points.findLastIndex((p) => p[field] !== null)}
                   card={colors.card}
                 />
               );
@@ -295,22 +266,14 @@ export function WorkoutChart({ today }: { today: string }) {
             const fraction = ((touchX / width) * 320 - 42) / 264;
             const index = Math.max(
               0,
-              Math.min(
-                points.length - 1,
-                Math.round(fraction * (points.length - 1)),
-              ),
+              Math.min(points.length - 1, Math.round(fraction * (points.length - 1))),
             );
             setSelectedWeek(points[index].date);
           }}
         />
       </View>
       {selected && (
-        <JournalText
-          size={10}
-          selectable
-          accessibilityLiveRegion="polite"
-          style={{ marginTop: 8 }}
-        >
+        <JournalText size={10} selectable accessibilityLiveRegion="polite" style={{ marginTop: 8 }}>
           {`Week ending ${label(selected)}`}
         </JournalText>
       )}
@@ -348,14 +311,7 @@ function ChartSeries({
         strokeLinecap="round"
       />
       {showDot && (
-        <Circle
-          cx={lastX}
-          cy={lastY}
-          r={4.5}
-          fill={color}
-          stroke={card}
-          strokeWidth={2}
-        />
+        <Circle cx={lastX} cy={lastY} r={4.5} fill={color} stroke={card} strokeWidth={2} />
       )}
     </>
   );

@@ -45,11 +45,7 @@ export function Panel({ style, ...props }: ViewProps) {
   return (
     <View
       {...props}
-      style={[
-        styles.panel,
-        { backgroundColor: colors.card, borderColor: colors.border },
-        style,
-      ]}
+      style={[styles.panel, { backgroundColor: colors.card, borderColor: colors.border }, style]}
     />
   );
 }
@@ -78,10 +74,7 @@ export function Screen({
 }>) {
   const { colors } = useTheme();
   return (
-    <SafeAreaView
-      edges={["left", "right"]}
-      style={{ flex: 1, backgroundColor: colors.background }}
-    >
+    <SafeAreaView edges={["left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
       <Head>
         <title>{title} · KineVault Track</title>
       </Head>
@@ -97,17 +90,17 @@ export function Screen({
             {pose ? (
               <KineSplitRow pose={pose} testIDPrefix={pose}>
                 {(columnWidth) => (
-                  <AppText variant="title" accessibilityRole="header" style={columnWidth < 180 ? { fontSize: 24, lineHeight: 32 } : undefined}>
+                  <AppText
+                    variant="title"
+                    accessibilityRole="header"
+                    style={columnWidth < 180 ? { fontSize: 24, lineHeight: 32 } : undefined}
+                  >
                     {title}
                   </AppText>
                 )}
               </KineSplitRow>
             ) : (
-              <AppText
-                variant="title"
-                accessibilityRole="header"
-                style={{ flexShrink: 1 }}
-              >
+              <AppText variant="title" accessibilityRole="header" style={{ flexShrink: 1 }}>
                 {title}
               </AppText>
             )}

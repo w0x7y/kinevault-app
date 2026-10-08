@@ -1,9 +1,11 @@
 import { emptyAnswers, steps, type Answers, type Step } from "./answers.ts";
 import { validateAnswers } from "./calories.ts";
+import { parseWeightEntries, type WeightEntry } from "./weight-model.ts";
 
-export type ProfileDocument =
+export type ProfileDocument = (
   | { version: 1; kind: "draft"; step: Step; answers: Answers }
-  | { version: 1; kind: "complete"; answers: Answers };
+  | { version: 1; kind: "complete"; answers: Answers }
+) & { weightEntries?: WeightEntry[] };
 
 function readMacroInput(data: object, field: string): string {
   if (!(field in data)) return "";
@@ -84,16 +86,18 @@ export function parseProfile(raw: string | null): ProfileDocument {
     goal: data.goal,
     activity: data.activity,
   };
+  const history =
+    "weightEntries" in value ? { weightEntries: parseWeightEntries(value.weightEntries) } : {};
   if (value.kind === "complete") {
     const errors = validateAnswers(answers);
     if (Object.keys(errors).length === 0)
-      return { version: 1, kind: "complete", answers };
+      return { version: 1, kind: "complete", answers, ...history };
     // Older versions allowed setup without age. Keep the profile and ask again.
-    if (errors.age) return { version: 1, kind: "draft", step: "age", answers };
+    if (errors.age) return { version: 1, kind: "draft", step: "age", answers, ...history };
   }
   if (value.kind === "draft" && "step" in value) {
     const step = steps.find((step) => step === value.step);
-    if (step) return { version: 1, kind: "draft", step, answers };
+    if (step) return { version: 1, kind: "draft", step, answers, ...history };
   }
   throw new Error("Invalid profile state");
 }

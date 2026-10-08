@@ -10,35 +10,93 @@ type SearchActionsProps = {
   inputRef?: Ref<TextInput>;
   query: string;
   onQueryChange: (query: string) => void;
-} & ({ kind: "food"; onViewMacros: () => void; macrosDisabled: boolean;
-  onCreateItem: () => void; createDisabled: boolean; searchDisabled: boolean;
-  onScanBarcode: () => void } | { kind: "exercise"; onCreateExercise: () => void; onCreateWorkout: () => void;
-  onSavedWorkouts: () => void; disabled: boolean });
+} & (
+  | {
+      kind: "food";
+      onViewMacros: () => void;
+      macrosDisabled: boolean;
+      onCreateItem: () => void;
+      createDisabled: boolean;
+      searchDisabled: boolean;
+      onScanBarcode: () => void;
+    }
+  | {
+      kind: "exercise";
+      onCreateExercise: () => void;
+      onCreateWorkout: () => void;
+      onSavedWorkouts: () => void;
+      disabled: boolean;
+    }
+);
 
 export function SearchActions(props: SearchActionsProps) {
   const { kind, query, onQueryChange } = props;
   const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
   const label = props.kind === "food" ? "Search foods" : "Search exercises";
-  const actions: { label: string; icon: IconName; hint?: string; onPress?: () => void; disabled?: boolean }[] = props.kind === "food" ? [
-    { label: "Create food/meal", icon: "circle-plus", onPress: props.onCreateItem, disabled: props.createDisabled,
-      hint: "Create a reusable food or a meal made from foods" },
-    { label: "View macros for the day", icon: "chart-pie", onPress: props.onViewMacros, disabled: props.macrosDisabled,
-      hint: "Shows nutrition totals for the selected day" },
-  ] : [
-    { label: "Create Exercise", icon: "circle-plus", onPress: props.onCreateExercise, disabled: props.disabled, hint: "Create an exercise in your local library" },
-    { label: "Create Workouts", icon: "clipboard-list", onPress: props.onCreateWorkout, disabled: props.disabled, hint: "Create an ordered reusable workout" },
-  ];
+  const actions: {
+    label: string;
+    icon: IconName;
+    hint?: string;
+    onPress?: () => void;
+    disabled?: boolean;
+  }[] =
+    props.kind === "food"
+      ? [
+          {
+            label: "Create food/meal",
+            icon: "circle-plus",
+            onPress: props.onCreateItem,
+            disabled: props.createDisabled,
+            hint: "Create a reusable food or a meal made from foods",
+          },
+          {
+            label: "View macros for the day",
+            icon: "chart-pie",
+            onPress: props.onViewMacros,
+            disabled: props.macrosDisabled,
+            hint: "Shows nutrition totals for the selected day",
+          },
+        ]
+      : [
+          {
+            label: "Create Exercise",
+            icon: "circle-plus",
+            onPress: props.onCreateExercise,
+            disabled: props.disabled,
+            hint: "Create an exercise in your local library",
+          },
+          {
+            label: "Create Workouts",
+            icon: "clipboard-list",
+            onPress: props.onCreateWorkout,
+            disabled: props.disabled,
+            hint: "Create an ordered reusable workout",
+          },
+        ];
   const searchBox = (
-    <View testID={`${kind}-search-box`} style={{ flexDirection: "row", alignItems: "center",
-      gap: spacing.xs, paddingHorizontal: spacing.sm,
-      borderWidth: 1, borderRadius: radius.control, borderColor: focused ? colors.ring : colors.border,
-      backgroundColor: colors.card }}>
+    <View
+      testID={`${kind}-search-box`}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: spacing.xs,
+        paddingHorizontal: spacing.sm,
+        borderWidth: 1,
+        borderRadius: radius.control,
+        borderColor: focused ? colors.ring : colors.border,
+        backgroundColor: colors.card,
+      }}
+    >
       <Icon name="magnifying-glass" size={18} color={colors.mutedForeground} />
       <TextInput
         ref={props.inputRef}
         accessibilityLabel={label}
-        accessibilityHint={props.kind === "food" ? "Searches the offline food database and your saved foods and meals" : "Searches your saved exercise library"}
+        accessibilityHint={
+          props.kind === "food"
+            ? "Searches the offline food database and your saved foods and meals"
+            : "Searches your saved exercise library"
+        }
         placeholder={label}
         placeholderTextColor={colors.mutedForeground}
         selectionColor={colors.ring}
@@ -49,16 +107,33 @@ export function SearchActions(props: SearchActionsProps) {
         onBlur={() => setFocused(false)}
         returnKeyType="search"
         maxLength={100}
-        style={{ flex: 1, minWidth: 0, minHeight: 52, paddingVertical: spacing.layout,
-          color: colors.foreground, fontFamily: fonts.regular, fontSize: 15,
-          outlineWidth: 0, outlineStyle: "solid" }}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: 52,
+          paddingVertical: spacing.layout,
+          color: colors.foreground,
+          fontFamily: fonts.regular,
+          fontSize: 15,
+          outlineWidth: 0,
+          outlineStyle: "solid",
+        }}
       />
       {query.length > 0 && (
-        <Pressable accessibilityRole="button" accessibilityLabel="Clear search"
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Clear search"
           disabled={props.kind === "food" ? props.searchDisabled : props.disabled}
           onPress={() => onQueryChange("")}
-          style={({ pressed }) => ({ width: 44, minHeight: 44, alignItems: "center", justifyContent: "center",
-            backgroundColor: pressed ? colors.accent : "transparent", borderRadius: 8 })}>
+          style={({ pressed }) => ({
+            width: 44,
+            minHeight: 44,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: pressed ? colors.accent : "transparent",
+            borderRadius: 8,
+          })}
+        >
           <Icon name="xmark" size={18} color={colors.primary} />
         </Pressable>
       )}
@@ -107,12 +182,24 @@ export function SearchActions(props: SearchActionsProps) {
         <View style={{ flexDirection: "row", alignItems: "stretch", gap: spacing.layout }}>
           <View style={{ flex: 3, minWidth: 0 }}>{searchBox}</View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Scan food barcode"
-              accessibilityHint="Opens the camera or manual barcode entry" accessibilityState={{ disabled: props.createDisabled }}
-              disabled={props.createDisabled} onPress={props.onScanBarcode}
-              style={({ pressed }) => ({ flex: 1, minHeight: 52, alignItems: "center", justifyContent: "center",
-                borderWidth: 1, borderColor: colors.border, borderRadius: radius.control,
-                backgroundColor: pressed ? colors.accent : colors.secondary })}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Scan food barcode"
+              accessibilityHint="Opens the camera or manual barcode entry"
+              accessibilityState={{ disabled: props.createDisabled }}
+              disabled={props.createDisabled}
+              onPress={props.onScanBarcode}
+              style={({ pressed }) => ({
+                flex: 1,
+                minHeight: 52,
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: radius.control,
+                backgroundColor: pressed ? colors.accent : colors.secondary,
+              })}
+            >
               <Icon name="barcode" size={18} color={colors.secondaryForeground} />
             </Pressable>
           </View>
@@ -121,11 +208,24 @@ export function SearchActions(props: SearchActionsProps) {
         <View style={{ flexDirection: "row", alignItems: "stretch", gap: spacing.layout }}>
           <View style={{ flex: 3, minWidth: 0 }}>{searchBox}</View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Saved workouts"
-              accessibilityHint="Choose a saved workout to plan on the selected day" accessibilityState={{ disabled: props.disabled }}
-              disabled={props.disabled} onPress={props.onSavedWorkouts}
-              style={({ pressed }) => ({ flex: 1, minHeight: 52, alignItems: "center", justifyContent: "center", borderWidth: 1,
-                borderColor: colors.border, borderRadius: radius.control, backgroundColor: pressed ? colors.accent : colors.secondary })}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Saved workouts"
+              accessibilityHint="Choose a saved workout to plan on the selected day"
+              accessibilityState={{ disabled: props.disabled }}
+              disabled={props.disabled}
+              onPress={props.onSavedWorkouts}
+              style={({ pressed }) => ({
+                flex: 1,
+                minHeight: 52,
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: radius.control,
+                backgroundColor: pressed ? colors.accent : colors.secondary,
+              })}
+            >
               <Icon name="clipboard-list" size={18} color={colors.secondaryForeground} />
             </Pressable>
           </View>

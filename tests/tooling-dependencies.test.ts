@@ -12,10 +12,7 @@ test("build-tool UUID generation rejects undersized output buffers", () => {
   assert.equal(typeof uuid.v5, "function");
   for (const generate of [uuid.v3, uuid.v5]) {
     assert.ok(typeof generate === "function");
-    assert.throws(
-      () => generate("Kine", dnsNamespace, new Uint8Array(1)),
-      RangeError,
-    );
+    assert.throws(() => generate("Kine", dnsNamespace, new Uint8Array(1)), RangeError);
     const output = new Uint8Array(16);
     assert.equal(generate("Kine", dnsNamespace, output), output);
     assert.ok(output.some((byte) => byte !== 0));
@@ -33,20 +30,14 @@ test("Expo tunnel and build tools retain CommonJS UUID v4 generation", () => {
     );
     const value: unknown = uuid.v4();
     assert.ok(typeof value === "string");
-    assert.match(
-      value,
-      /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/,
-    );
+    assert.match(value, /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/);
   }
 });
 
 test("Xcode still generates unique project identifiers", () => {
   const xcode: unknown = require("xcode");
   assert.ok(
-    xcode &&
-      typeof xcode === "object" &&
-      "project" in xcode &&
-      typeof xcode.project === "function",
+    xcode && typeof xcode === "object" && "project" in xcode && typeof xcode.project === "function",
   );
   const project: unknown = xcode.project("synthetic.pbxproj");
   assert.ok(

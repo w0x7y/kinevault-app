@@ -9,9 +9,5 @@ export function resolveAppearance(
   preference: AppearancePreference,
   system: string | null | undefined,
 ): ResolvedAppearance {
-  return preference === "system"
-    ? system === "dark"
-      ? "dark"
-      : "light"
-    : preference;
+  return preference === "system" ? (system === "dark" ? "dark" : "light") : preference;
 }

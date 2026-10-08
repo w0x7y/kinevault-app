@@ -17,18 +17,11 @@ import { Icon } from "../components/icon";
 import { JournalText } from "./journal-ui";
 import { ProfileName } from "./profile-name";
 
-export function ProfileAvatar({
-  size = 28,
-  person = false,
-}: {
-  size?: number;
-  person?: boolean;
-}) {
+export function ProfileAvatar({ size = 28, person = false }: { size?: number; person?: boolean }) {
   const media = useProfileMedia(),
     profile = useProfile();
   const { colors } = useTheme();
-  const name =
-    profile.state.kind === "ready" ? profile.state.document.answers.name : "";
+  const name = profile.state.kind === "ready" ? profile.state.document.answers.name : "";
   const initials =
     name
       .trim()
@@ -61,10 +54,7 @@ export function ProfileAvatar({
       {person ? (
         <Icon name="user" size={29} color={colors.primary} />
       ) : (
-        <JournalText
-          size={size < 40 ? 11 : 24}
-          style={{ color: colors.primary }}
-        >
+        <JournalText size={size < 40 ? 11 : 24} style={{ color: colors.primary }}>
           {initials}
         </JournalText>
       )}
@@ -79,12 +69,13 @@ export function ProfileIdentity() {
   const open = attempt.kind === "avatar";
   const draft = attempt.kind === "avatar" ? attempt.source : undefined;
   const picking = phase === "picking";
-  const close = () => { editing.cancel(); };
+  const close = () => {
+    editing.cancel();
+  };
   const pick = editing.pick;
   if (profile.state.kind !== "ready") return null;
   const answers = profile.state.document.answers;
-  const hasAvatar =
-    media.state.kind === "ready" && media.state.document.avatar !== null;
+  const hasAvatar = media.state.kind === "ready" && media.state.document.avatar !== null;
   return (
     <View style={{ alignItems: "center", paddingTop: 12, paddingBottom: 4 }}>
       <Pressable
@@ -123,18 +114,13 @@ export function ProfileIdentity() {
       <JournalText size={10} muted style={{ textAlign: "center" }}>
         {[
           goals.find((goal) => goal.value === answers.goal)?.label,
-          activities.find((activity) => activity.value === answers.activity)
-            ?.label,
+          activities.find((activity) => activity.value === answers.activity)?.label,
         ]
           .filter(Boolean)
           .join(" · ") || "Your goals, at your pace"}
       </JournalText>
       {media.state.kind !== "ready" && (
-        <SourceStatus
-          name="profile media"
-          kind={media.state.kind}
-          retry={media.retryLoad}
-        />
+        <SourceStatus name="profile media" kind={media.state.kind} retry={media.retryLoad} />
       )}
       {open && (
         <ProfileDialog title="Profile photo" dismiss={close}>
@@ -151,11 +137,7 @@ export function ProfileIdentity() {
             </View>
           )}
           {media.state.kind !== "ready" ? (
-            <SourceStatus
-              name="profile media"
-              kind={media.state.kind}
-              retry={media.retryLoad}
-            />
+            <SourceStatus name="profile media" kind={media.state.kind} retry={media.retryLoad} />
           ) : (
             <>
               <FoodButton
@@ -177,11 +159,7 @@ export function ProfileIdentity() {
               {draft && (
                 <FoodButton
                   primary
-                  label={
-                    busy && !picking
-                      ? "Saving profile photo…"
-                      : "Save profile photo"
-                  }
+                  label={busy && !picking ? "Saving profile photo…" : "Save profile photo"}
                   disabled={busy}
                   onPress={() => void editing.save()}
                 />

@@ -15,7 +15,10 @@ export function calorieSegments(nutrition: Nutrition, goal: number | null): Calo
   const total = energy.reduce((sum, value) => sum + value, 0);
   const hasShares = total > 0 && Number.isFinite(total);
   return [
-    ...macroCategories.map(({ key }, index) => ({ key, fraction: hasShares ? fill * energy[index] / total : 0 })),
+    ...macroCategories.map(({ key }, index) => ({
+      key,
+      fraction: hasShares ? (fill * energy[index]) / total : 0,
+    })),
     { key: "other", fraction: hasShares ? 0 : fill },
   ];
 }

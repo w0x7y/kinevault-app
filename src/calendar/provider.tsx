@@ -8,7 +8,11 @@ import {
   type PropsWithChildren,
 } from "react";
 import { AppState, Platform } from "react-native";
-import { createSelectedDay, type SelectedDaySnapshot, type SelectedDayWakeEvents } from "./selection";
+import {
+  createSelectedDay,
+  type SelectedDaySnapshot,
+  type SelectedDayWakeEvents,
+} from "./selection";
 
 type DaySelection = SelectedDaySnapshot & {
   selectDay: (day: string) => void;
@@ -33,23 +37,36 @@ const wakeEvents: SelectedDayWakeEvents = {
 };
 
 export function DayProvider({ children }: PropsWithChildren) {
-  const [controller] = useState(() => createSelectedDay({
-    clock: {
-      now: () => new Date(),
-      schedule(callback, delay) {
-        const timer = setTimeout(callback, delay);
-        return () => { clearTimeout(timer); };
+  const [controller] = useState(() =>
+    createSelectedDay({
+      clock: {
+        now: () => new Date(),
+        schedule(callback, delay) {
+          const timer = setTimeout(callback, delay);
+          return () => {
+            clearTimeout(timer);
+          };
+        },
       },
-    },
-    wakeEvents,
-  }));
-  const selection = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+      wakeEvents,
+    }),
+  );
+  const selection = useSyncExternalStore(
+    controller.subscribe,
+    controller.getSnapshot,
+    controller.getSnapshot,
+  );
   useEffect(() => {
     controller.start();
-    return () => { controller.stop(); };
+    return () => {
+      controller.stop();
+    };
   }, [controller]);
 
-  const value = useMemo(() => ({ ...selection, selectDay: controller.selectDay }), [selection, controller]);
+  const value = useMemo(
+    () => ({ ...selection, selectDay: controller.selectDay }),
+    [selection, controller],
+  );
   return <DayContext.Provider value={value}>{children}</DayContext.Provider>;
 }
 

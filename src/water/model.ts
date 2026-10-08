@@ -24,7 +24,10 @@ export function parseWaterLog(raw: string | null): WaterLogDocument {
   return { version: 1, days };
 }
 
-export function setWater(document: WaterLogDocument, { date, ml }: SetWaterInput): WaterLogDocument {
+export function setWater(
+  document: WaterLogDocument,
+  { date, ml }: SetWaterInput,
+): WaterLogDocument {
   parseDay(date);
   if (!isTotal(ml)) throw new RangeError("Invalid water amount");
   return { version: 1, days: { ...document.days, [date]: ml } };

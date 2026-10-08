@@ -35,10 +35,10 @@ export default function OnboardingScreen() {
   const { user, recovery } = useAccount();
   if (recovery) return <Redirect href="/auth/reset-password" />;
   if (state.kind !== "ready") return null;
-  if (user && state.document.kind === "complete" && setupStage === "account") return <Redirect href="/(tabs)" />;
+  if (user && state.document.kind === "complete" && setupStage === "account")
+    return <Redirect href="/(tabs)" />;
   const resumeSavedReview =
-    state.document.kind === "complete" &&
-    (setupStage === "account" || setupStage === "review");
+    state.document.kind === "complete" && (setupStage === "account" || setupStage === "review");
   const initial: ProfileDocument = resumeSavedReview
     ? { ...state.document, kind: "draft", step: "review" }
     : state.document;
@@ -50,7 +50,10 @@ export default function OnboardingScreen() {
   );
 }
 
-function OnboardingFlow({ initial, startWithAccount }: {
+function OnboardingFlow({
+  initial,
+  startWithAccount,
+}: {
   initial: ProfileDocument;
   startWithAccount: boolean;
 }) {
@@ -69,16 +72,16 @@ function OnboardingFlow({ initial, startWithAccount }: {
           setShowAccount(true);
           return;
         }
-        router.replace(
-          destination === "settings" ? "/(tabs)/settings" : "/(tabs)",
-        );
+        router.replace(destination === "settings" ? "/(tabs)/settings" : "/(tabs)");
       },
     }),
   );
-  useFocusEffect(useCallback(() => {
-    flow.start();
-    return flow.stop;
-  }, [flow]));
+  useFocusEffect(
+    useCallback(() => {
+      flow.start();
+      return flow.stop;
+    }, [flow]),
+  );
   const {
     answers,
     step,
@@ -116,22 +119,17 @@ function OnboardingFlow({ initial, startWithAccount }: {
 
   useEffect(() => {
     if (Object.keys(errors).length)
-      AccessibilityInfo.announceForAccessibility(
-        "Please check the highlighted answers.",
-      );
+      AccessibilityInfo.announceForAccessibility("Please check the highlighted answers.");
   }, [errors]);
 
   useEffect(() => {
     if (Platform.OS !== "android" || showAccount) return;
-    const subscription = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        if (step === "welcome") return false;
-        Keyboard.dismiss();
-        void flow.act({ kind: "back" });
-        return true;
-      },
-    );
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (step === "welcome") return false;
+      Keyboard.dismiss();
+      void flow.act({ kind: "back" });
+      return true;
+    });
     return () => subscription.remove();
   }, [flow, step, showAccount]);
 
@@ -150,9 +148,7 @@ function OnboardingFlow({ initial, startWithAccount }: {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <Head>
-        <title>
-          {editing ? "Edit profile" : "Meet Kine"} · KineVault Track
-        </title>
+        <title>{editing ? "Edit profile" : "Meet Kine"} · KineVault Track</title>
       </Head>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -191,10 +187,7 @@ function OnboardingFlow({ initial, startWithAccount }: {
                 ]}
               >
                 <Kine pose={step} />
-                <AppText
-                  muted
-                  style={width < 380 ? { textAlign: "center" } : { flex: 1 }}
-                >
+                <AppText muted style={width < 380 ? { textAlign: "center" } : { flex: 1 }}>
                   {mode.kind !== "estimate" && step === "body"
                     ? "A few details for your profile. Height and weight are optional."
                     : mode.kind !== "estimate" && step === "calories"
@@ -203,9 +196,7 @@ function OnboardingFlow({ initial, startWithAccount }: {
                 </AppText>
               </View>
             )}
-            <View
-              style={{ gap: spacing.layout, alignItems: welcome ? "center" : "stretch" }}
-            >
+            <View style={{ gap: spacing.layout, alignItems: welcome ? "center" : "stretch" }}>
               <AppText
                 nativeID="onboarding-title"
                 variant="title"
@@ -232,18 +223,12 @@ function OnboardingFlow({ initial, startWithAccount }: {
               disabled={saving}
             />
             {step === "review" && Object.keys(errors).length > 0 && (
-              <AppText
-                accessibilityRole="alert"
-                style={{ color: colors.error }}
-              >
+              <AppText accessibilityRole="alert" style={{ color: colors.error }}>
                 Some answers need another look. Use Edit above to check them.
               </AppText>
             )}
             {error && (
-              <AppText
-                accessibilityRole="alert"
-                style={{ color: colors.error }}
-              >
+              <AppText accessibilityRole="alert" style={{ color: colors.error }}>
                 {error}
               </AppText>
             )}
@@ -274,7 +259,11 @@ function OnboardingFlow({ initial, startWithAccount }: {
               )}
             </View>
             {welcome && (
-              <Button label="I already have an account" secondary onPress={() => router.push("/account")} />
+              <Button
+                label="I already have an account"
+                secondary
+                onPress={() => router.push("/account")}
+              />
             )}
             {welcome && (
               <AppText variant="caption" muted style={{ textAlign: "center" }}>
