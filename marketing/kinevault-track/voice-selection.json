@@ -1,8 +1,0 @@
-{
-  "provider": "elevenlabs",
-  "voice": "Jessica - Playful, Bright, Warm",
-  "voice_id": "cgSgspJ2msm6clMCkdW9",
-  "model_id": "eleven_v4",
-  "audio_file": "elevenlabs/jessica-continuous.mp3",
-  "offset_seconds": 0.15
-}
