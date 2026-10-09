@@ -41,6 +41,11 @@ part of this review.
   Search now builds it once on the first eligible query. Empty/short queries and
   catalog construction skip indexing; a captured array retains the catalog's
   original membership. The first eligible query pays the indexing cost once.
+- **Low: clean-checkout CSS import types.** Integration CI found that the global
+  CSS import depended on ignored, generated Expo declarations. A type check
+  restricted to tracked files reproduced the missing declaration. The versioned
+  TypeScript configuration now includes `expo/types`, using Expo's CSS
+  declarations without requiring a development server to generate local files.
 
 The final browser rerun exposed a transient food-row geometry assertion during
 viewport resizing; an isolated rerun passed. The test now reads all compared
@@ -62,12 +67,13 @@ confirmed behavior defect was found in these paths.
 
 ## Change coverage checklist
 
-All 66 feature paths below were reviewed, including each changed hunk and every
+All 67 feature paths below were reviewed, including each changed hunk and every
 new file. This review record is the additional documentation file. Callers,
 ownership boundaries and test intent were checked as appropriate to each change.
 
 | Directory | Reviewed files |
 | --- | --- |
+| Configuration | `tsconfig.json` |
 | `docs` | `architecture.md`, `button-layout-review-2026-10-09.md` |
 | `src/account` | `client.ts`, `settings-panel.tsx` |
 | `src/app/(tabs)` | `exercise.tsx`, `food.tsx` |
@@ -133,6 +139,7 @@ or cryptography patch was applied. These findings remain unresolved.
 | Check | Result |
 | --- | --- |
 | `npm run check` | Passed: lint, formatting, TypeScript and all 891 unit/script tests |
+| Clean-checkout TypeScript check excluding generated Expo files | Passed after explicitly including Expo's ambient types |
 | Full browser suite against the final web export and development fixtures | 169 passed, 0 failed; 1 optional screenshot case skipped |
 | Expo Doctor | All 21 checks passed |
 | Deno 2.9.6 account deletion function check | Passed with `--node-modules-dir=none --no-lock` |
