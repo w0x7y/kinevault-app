@@ -347,8 +347,23 @@ test("create exercises and ordered workouts, then add a planned session without 
   await field(form, "Search workout exercises").fill("Curl");
   await button(form, "Add Curl to workout").click();
   await button(form, "Move Curl up").click();
+  await form.getByTestId("create-workout-workspace").waitFor();
+  await button(form, "Select exercise Squat").click();
   assert.equal(await field(form, "Planned sets for Squat").inputValue(), "3");
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    const cancel = await button(form, "Cancel").boundingBox();
+    const save = await button(form, "Save workout").boundingBox();
+    assert.ok(cancel && save);
+    assert.ok(Math.abs(cancel.width - save.width) <= 1, "creation actions have equal widths");
+    assert.ok(Math.abs(cancel.height - save.height) <= 1, "creation actions have equal heights");
+    assert.ok(cancel.x < save.x, "Cancel precedes the primary action");
+    assert.ok(save.x + save.width <= width, "the primary action stays inside the screen");
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await button(form, "Select exercise Curl").click();
   await field(form, "Planned sets for Curl").fill("2");
+  await button(form, "Select exercise Squat").click();
   await field(form, "Planned sets for Squat").fill("1.5");
   await button(form, "Save workout").click();
   await form.getByRole("alert").waitFor();
@@ -1134,12 +1149,15 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
   assert.equal(await page.getByTestId("active-workout-timer").count(), 0);
   await page.reload();
   await compact.waitFor();
+  assert.equal(await button(compact, "Settings").getAttribute("aria-expanded"), "false");
   await button(compact, "Settings").click();
+  assert.equal(await button(compact, "Settings").getAttribute("aria-expanded"), "true");
   const settings = page.getByTestId("planned-workout-settings");
   assert.equal(await field(settings, "Planned sets for Squat").inputValue(), "3");
   await field(settings, "Planned sets for Squat").fill("2");
   await field(settings, "Planned sets for Curl").fill("3");
   await button(settings, "Save settings").click();
+  assert.equal(await button(compact, "Settings").getAttribute("aria-expanded"), "false");
   await storedWhen(
     page,
     (document) =>
@@ -1188,7 +1206,12 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
     return [parseFloat(style.borderTopWidth), parseFloat(style.borderBottomWidth)];
   });
   assert.ok(borders.every((width) => width >= 1));
+  assert.equal(
+    await button(details, "View notes for Squat").getAttribute("aria-expanded"),
+    "false",
+  );
   await button(details, "View notes for Squat").click();
+  assert.equal(await button(details, "View notes for Squat").getAttribute("aria-expanded"), "true");
   await details.getByText("Keep your chest up.", { exact: true }).waitFor();
   assert.equal(await field(details, "Squat set 2 reps").count(), 1);
   assert.equal(await field(details, "Squat set 3 reps").count(), 0);
@@ -1394,8 +1417,15 @@ test("saved workout editing uses the exercise bar and preserves settings through
   await workspace.waitFor();
   assert.equal(await field(form, "Workout name").count(), 0);
   assert.equal(await field(form, "Planned sets for Squat").inputValue(), "2");
-  await button(form, "View notes for Squat").click();
+  const notes = button(form, "View notes for Squat");
+  assert.equal(await notes.getAttribute("aria-expanded"), "false");
+  await notes.focus();
+  await page.keyboard.press("Enter");
+  assert.equal(await notes.getAttribute("aria-expanded"), "true");
   await form.getByText("Keep your chest up.", { exact: true }).waitFor();
+  await page.keyboard.press("Enter");
+  assert.equal(await notes.getAttribute("aria-expanded"), "false");
+  assert.equal(await form.getByText("Keep your chest up.", { exact: true }).count(), 0);
   await button(form, "Select exercise Curl").click();
   await field(form, "Planned sets for Curl").fill("4");
   assert.deepEqual((await documentFrom(page)).workouts[0], template);
@@ -1424,6 +1454,7 @@ test("saved workout editing uses the exercise bar and preserves settings through
     );
   }
   await button(form, "Settings").click();
+  assert.equal(await button(form, "Settings").getAttribute("aria-expanded"), "true");
   const searchBox = await field(form, "Search workout exercises").boundingBox();
   const orderBox = await form.getByText("Exercise order", { exact: true }).boundingBox();
   assert.ok(searchBox.y + searchBox.height < orderBox.y);
@@ -1487,6 +1518,7 @@ test("completed workout editing shares the layout and keeps side edits local unt
   const editor = page.getByTestId("session-editor"),
     workspace = page.getByTestId("completed-workout-workspace");
   await workspace.waitFor();
+  assert.equal(await button(editor, "Settings").getAttribute("aria-expanded"), "false");
   assert.equal(await editor.getByLabel("Workout duration", { exact: true }).innerText(), "0:17");
   assert.equal(await field(editor, "Workout name").count(), 0);
   assert.equal(await button(editor, "Close workout").count(), 0);
@@ -1504,6 +1536,7 @@ test("completed workout editing shares the layout and keeps side edits local unt
   await button(editor, "Select exercise Squat").click();
   await field(editor, "Squat set 1 reps").fill("7");
   await button(editor, "Settings").click();
+  assert.equal(await button(editor, "Settings").getAttribute("aria-expanded"), "true");
   await field(editor, "Workout name").fill("Edited historical workout");
   const invalidDuration = "99999999999999999999999999999999";
   await field(editor, "Duration in minutes (optional)").fill(invalidDuration);

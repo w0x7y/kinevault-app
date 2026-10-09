@@ -123,6 +123,8 @@ export function ProfileMenu({
   }, [onDismiss]);
   return (
     <ScrollView
+      showsVerticalScrollIndicator={false}
+      showsHorizontalScrollIndicator={false}
       nativeID="profile-menu"
       accessibilityRole="menu"
       accessibilityLabel="Profile menu"

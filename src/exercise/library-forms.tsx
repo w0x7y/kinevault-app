@@ -1,17 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
+import { ButtonRow, AppButton, IconButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
 import { AppText, Panel } from "../components/ui";
 import { spacing } from "../theme/tokens";
 import type { ExerciseDefinition, WorkoutTemplate } from "./model";
 import { useExercises } from "./provider";
-import {
-  ActionRow,
-  ExerciseButton,
-  ExerciseError,
-  ExerciseField,
-  ExerciseIconButton,
-} from "./controls";
+import { ExerciseError, ExerciseField } from "./controls";
 import { exerciseRowLabel, WorkoutWorkspace } from "./workout-workspace";
 import { createWorkoutTemplateDraft } from "./workout-template-draft";
 
@@ -99,9 +94,10 @@ export function ExerciseForm({
         multiline
       />
       <AppText variant="label">Track repetitions and weight</AppText>
-      <ActionRow>
+      <ButtonRow>
         {(["single", "sides"] as const).map((tracking) => (
-          <ExerciseButton
+          <AppButton
+            fill
             key={tracking}
             label={tracking === "single" ? "Single weight" : "Left and right"}
             selected={values.tracking === tracking}
@@ -109,23 +105,23 @@ export function ExerciseForm({
             disabled={busy}
           />
         ))}
-      </ActionRow>
+      </ButtonRow>
       <AppText variant="caption" muted>
         Leave weight blank for bodyweight. Changes apply to future workouts.
       </AppText>
       <ExerciseError message={error} />
-      <ActionRow>
-        <ExerciseButton label="Save exercise" onPress={() => void save()} primary disabled={busy} />
-        <ExerciseButton label="Cancel" onPress={onClose} disabled={busy} />
-        {exercise && (
-          <DeleteButton
-            label="Delete exercise"
-            confirmAccessibilityLabel="Confirm delete exercise"
-            onDelete={() => save(true)}
-            disabled={busy}
-          />
-        )}
-      </ActionRow>
+      <ButtonRow>
+        <AppButton label="Cancel" onPress={onClose} disabled={busy} fill />
+        <AppButton label="Save exercise" onPress={() => void save()} primary disabled={busy} fill />
+      </ButtonRow>
+      {exercise && (
+        <DeleteButton
+          label="Delete exercise"
+          confirmAccessibilityLabel="Confirm delete exercise"
+          onDelete={() => save(true)}
+          disabled={busy}
+        />
+      )}
     </Panel>
   );
 }
@@ -145,7 +141,7 @@ export function WorkoutForm({
     pending = useRef(false);
   const [query, setQuery] = useState(""),
     [limit, setLimit] = useState(20);
-  const [settingsOpen, setSettingsOpen] = useState(false),
+  const [settingsOpen, setSettingsOpen] = useState(!workout),
     [selectedId, setSelectedId] = useState(workout?.exercises[0]?.id);
   const [notesId, setNotesId] = useState<string | null>(null);
   const search = query.trim().toLocaleLowerCase();
@@ -212,7 +208,7 @@ export function WorkoutForm({
         <AppText muted>No available exercises match your search.</AppText>
       ) : null}
       {available.slice(0, limit).map((item) => (
-        <ExerciseButton
+        <AppButton
           key={item.id}
           label={item.name}
           accessibilityLabel={`Add ${item.name} to workout`}
@@ -224,7 +220,7 @@ export function WorkoutForm({
         />
       ))}
       {available.length > limit && (
-        <ExerciseButton
+        <AppButton
           label="Show more exercises"
           onPress={() => setLimit((value) => value + 20)}
           disabled={busy}
@@ -236,41 +232,35 @@ export function WorkoutForm({
           Search above to choose exercises, then set how many sets you plan to do.
         </AppText>
       )}
-      {draft.rows.map(({ exercise: item, rawCount }, index) => (
+      {draft.rows.map(({ exercise: item }, index) => (
         <View key={item.id} style={{ gap: spacing.layout }}>
           <AppText variant="label">
             {index + 1}. {item.name}
           </AppText>
-          {!workout && (
-            <ExerciseField
-              label={`Planned sets for ${item.name}`}
-              value={rawCount}
-              onChange={(value) => setDraft((current) => current.setCount(item.id, value))}
-              numeric
-              disabled={busy}
-            />
-          )}
-          <ActionRow>
-            <ExerciseButton
+          <ButtonRow>
+            <AppButton
+              fill
               label="Up"
               accessibilityLabel={`Move ${item.name} up`}
               onPress={() => setDraft((current) => current.move(index, -1))}
               disabled={busy || index === 0}
             />
-            <ExerciseButton
+            <AppButton
+              fill
               label="Down"
               accessibilityLabel={`Move ${item.name} down`}
               onPress={() => setDraft((current) => current.move(index, 1))}
               disabled={busy || index === draft.rows.length - 1}
             />
             <DeleteButton
+              fill
               label="Remove"
               accessibilityLabel={`Remove ${item.name} from workout`}
               confirmAccessibilityLabel="Confirm remove workout exercise"
               onDelete={() => setDraft((current) => current.remove(item.id))}
               disabled={busy}
             />
-          </ActionRow>
+          </ButtonRow>
         </View>
       ))}
     </View>
@@ -285,117 +275,111 @@ export function WorkoutForm({
     : "";
   return (
     <Panel testID="workout-form">
-      {workout ? (
-        <WorkoutWorkspace
-          name={draft.name.trim() || "Edit workout"}
-          testID="template-workout-workspace"
-          headerRight={
-            <View style={{ flexDirection: "row", gap: spacing.sm }}>
-              <ExerciseIconButton
-                label="Settings"
-                icon="gear"
-                onPress={() => setSettingsOpen((value) => !value)}
+      <WorkoutWorkspace
+        name={draft.name.trim() || (workout ? "Edit workout" : "Create workout")}
+        testID={workout ? "template-workout-workspace" : "create-workout-workspace"}
+        headerActions={
+          <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            <IconButton
+              appearance="secondary"
+              label="Settings"
+              icon="gear"
+              expanded={settingsOpen}
+              onPress={() => setSettingsOpen((value) => !value)}
+              disabled={busy}
+            />
+            {workout && (
+              <IconButton
+                appearance="secondary"
+                label="Cancel"
+                icon="xmark"
+                onPress={onClose}
                 disabled={busy}
               />
-              <ExerciseIconButton label="Cancel" icon="xmark" onPress={onClose} disabled={busy} />
-            </View>
-          }
-          toolbar={settingsOpen ? builder : undefined}
-          exercises={rows}
-          selectedId={selectedExercise?.id}
-          onSelect={setSelectedId}
-          busy={busy}
-          feedback={<ExerciseError message={error} />}
-          actions={
-            <View
-              testID="workout-template-actions"
-              style={{ flexDirection: "row", gap: spacing.sm }}
-            >
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <DeleteButton
-                  label="Delete workout"
-                  fill
-                  confirmAccessibilityLabel="Confirm delete workout"
-                  onDelete={() => save(true)}
-                  disabled={busy}
-                />
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <ExerciseButton
-                  label="Save workout"
-                  fill
-                  onPress={() => void save()}
-                  primary
-                  disabled={busy}
-                />
-              </View>
-            </View>
-          }
-        >
-          {selectedDraftRow && selectedExercise ? (
-            <>
-              <View
-                testID="exercise-heading-row"
-                style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}
-              >
-                <AppText
-                  variant="heading"
-                  accessibilityRole="header"
-                  style={{ flex: 1, minWidth: 0 }}
-                >
-                  {selectedExercise.name}
-                </AppText>
-                <ExerciseIconButton
-                  label={`View notes for ${rowLabel}`}
-                  icon="note-sticky"
-                  onPress={() =>
-                    setNotesId((previous) =>
-                      previous === selectedExercise.id ? null : selectedExercise.id,
-                    )
-                  }
-                  disabled={busy}
-                />
-              </View>
-              <ExerciseField
-                label={`Planned sets for ${rowLabel}`}
-                value={selectedDraftRow.rawCount}
-                onChange={(value) =>
-                  setDraft((current) => current.setCount(selectedExercise.id, value))
-                }
-                numeric
+            )}
+          </View>
+        }
+        toolbar={settingsOpen ? builder : undefined}
+        exercises={rows}
+        selectedId={selectedExercise?.id}
+        onSelect={setSelectedId}
+        busy={busy}
+        feedback={<ExerciseError message={error} />}
+        actions={
+          <ButtonRow testID="workout-template-actions">
+            {workout ? (
+              <DeleteButton
+                label="Delete workout"
+                fill
+                confirmAccessibilityLabel="Confirm delete workout"
+                onDelete={() => save(true)}
                 disabled={busy}
               />
-              {notesId === selectedExercise.id && (
-                <AppText variant="caption" muted>
-                  {selectedExercise.notes || "No notes for this exercise."}
-                </AppText>
-              )}
-              <AppText variant="caption" muted>
-                Exercise videos are upcoming with KineVault studio integration.
-              </AppText>
-            </>
-          ) : (
-            <AppText muted>Open Settings to add exercises to this workout.</AppText>
-          )}
-        </WorkoutWorkspace>
-      ) : (
-        <>
-          <AppText variant="heading" accessibilityRole="header">
-            Create workout
-          </AppText>
-          {builder}
-          <ExerciseError message={error} />
-          <ActionRow>
-            <ExerciseButton
+            ) : (
+              <AppButton label="Cancel" onPress={onClose} disabled={busy} fill />
+            )}
+            <AppButton
               label="Save workout"
+              fill
               onPress={() => void save()}
               primary
               disabled={busy}
             />
-            <ExerciseButton label="Cancel" onPress={onClose} disabled={busy} />
-          </ActionRow>
-        </>
-      )}
+          </ButtonRow>
+        }
+      >
+        {selectedDraftRow && selectedExercise ? (
+          <>
+            <View
+              testID="exercise-heading-row"
+              style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}
+            >
+              <AppText
+                variant="heading"
+                accessibilityRole="header"
+                style={{ flex: 1, minWidth: 0 }}
+              >
+                {selectedExercise.name}
+              </AppText>
+              <IconButton
+                appearance="secondary"
+                label={`View notes for ${rowLabel}`}
+                icon="note-sticky"
+                expanded={notesId === selectedExercise.id}
+                onPress={() =>
+                  setNotesId((previous) =>
+                    previous === selectedExercise.id ? null : selectedExercise.id,
+                  )
+                }
+                disabled={busy}
+              />
+            </View>
+            <ExerciseField
+              label={`Planned sets for ${rowLabel}`}
+              value={selectedDraftRow.rawCount}
+              onChange={(value) =>
+                setDraft((current) => current.setCount(selectedExercise.id, value))
+              }
+              numeric
+              disabled={busy}
+            />
+            {notesId === selectedExercise.id && (
+              <AppText variant="caption" muted>
+                {selectedExercise.notes || "No notes for this exercise."}
+              </AppText>
+            )}
+            <AppText variant="caption" muted>
+              Exercise videos are upcoming with KineVault studio integration.
+            </AppText>
+          </>
+        ) : (
+          <AppText muted>
+            {settingsOpen
+              ? "Choose exercises above to set their planned sets."
+              : "Open Settings to add exercises to this workout."}
+          </AppText>
+        )}
+      </WorkoutWorkspace>
     </Panel>
   );
 }

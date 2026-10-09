@@ -40,18 +40,48 @@ const field = (page, name) => page.getByRole("textbox", { name, exact: true });
 const heading = (page, name) => page.getByRole("heading", { name, exact: true }).waitFor();
 const catalog = (page) =>
   page.evaluate((key) => JSON.parse(window.accountFixture.getItem(key)), storageKey);
-async function open(t) {
+async function elementBoxes(page, ...locators) {
+  const elements = await Promise.all(locators.map((locator) => locator.elementHandle()));
+  try {
+    // Resize and focus can scroll the page between separate boundingBox calls.
+    // Compare every element in the same layout frame.
+    return await page.evaluate(
+      (nodes) =>
+        nodes.map((node) => {
+          if (!node?.isConnected) throw new Error("Layout element is missing");
+          const { x, y, width, height } = node.getBoundingClientRect();
+          return { x, y, width, height };
+        }),
+      elements,
+    );
+  } finally {
+    await Promise.all(elements.map((element) => element?.dispose()));
+  }
+}
+async function open(t, { foods = [] } = {}) {
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await context.addInitScript(
-    ({ answers }) => {
+    ({ answers, foods }) => {
       localStorage.setItem(
         "kinevault-track.profile.v1",
         JSON.stringify({ version: 1, kind: "complete", answers }),
       );
+      if (foods.length) {
+        const now = new Date();
+        const date = [
+          now.getFullYear(),
+          String(now.getMonth() + 1).padStart(2, "0"),
+          String(now.getDate()).padStart(2, "0"),
+        ].join("-");
+        localStorage.setItem(
+          "kinevault-track.food-log.v1",
+          JSON.stringify({ version: 1, days: { [date]: foods } }),
+        );
+      }
     },
-    { answers },
+    { answers, foods },
   );
   await installAccountFixture(context);
   const page = await context.newPage();
@@ -247,14 +277,95 @@ test("global search opens nutrition on the first focused click and logs a source
       await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
       false,
     );
-    const edit = await button(lunch, "Edit Banana, raw in Lunch").boundingBox();
-    const name = await lunch.getByText("Banana, raw", { exact: true }).boundingBox();
-    const remove = await button(lunch, "Remove Banana, raw from Lunch").boundingBox();
+    const [edit, name, remove] = await elementBoxes(
+      page,
+      button(lunch, "Edit Banana, raw in Lunch"),
+      lunch.getByText("Banana, raw", { exact: true }),
+      button(lunch, "Remove Banana, raw from Lunch"),
+    );
     assert.ok(edit.height >= 44 && edit.width >= 44);
     assert.ok(remove.height >= 44 && remove.width >= 44);
-    assert.ok(edit.x + edit.width <= name.x, "Edit precedes the entry name at the far left");
-    assert.ok(name.x + name.width <= remove.x, "Remove follows the entry name on the right");
+    assert.ok(name.x + name.width <= edit.x, "entry text stays left of its actions");
+    assert.ok(name.y < edit.y + edit.height && name.y + name.height > edit.y);
+    assert.ok(edit.x + edit.width <= remove.x, "Edit and Remove stay together in one row");
+    assert.ok(Math.abs(edit.width - remove.width) <= 1, "entry actions have equal widths");
+    assert.ok(Math.abs(edit.height - remove.height) <= 1, "entry actions have equal heights");
+    await button(lunch, "Remove Banana, raw from Lunch").click();
+    assert.equal((await intake(page)).length, 1, "the trash icon only opens confirmation");
+    await button(lunch, "Confirm remove Banana, raw from Lunch").waitFor();
+    assert.equal(
+      await button(lunch, "Cancel removing Banana, raw from Lunch").evaluate(
+        (element) => document.activeElement === element,
+      ),
+      true,
+      "confirmation focuses the safe Cancel action",
+    );
+    const confirmedName = await lunch.getByText("Banana, raw", { exact: true }).boundingBox();
+    assert.equal(confirmedName.width, name.width, "confirmation keeps the food name's full width");
+    await button(lunch, "Cancel removing Banana, raw from Lunch").click();
+    assert.equal(await button(lunch, "Confirm remove Banana, raw from Lunch").count(), 0);
+    assert.equal(
+      await button(lunch, "Remove Banana, raw from Lunch").evaluate(
+        (element) => document.activeElement === element,
+      ),
+      true,
+      "Cancel restores focus to the trash icon",
+    );
+    await button(lunch, "Remove Banana, raw from Lunch").click();
+    await page.keyboard.press("Escape");
+    assert.equal(await button(lunch, "Confirm remove Banana, raw from Lunch").count(), 0);
     assert.equal(await page.getByRole("button", { name: /^Add food to / }).count(), 0);
+  }
+});
+
+test("compact food entries keep long names readable and confirmation cancellable in both themes", async (t) => {
+  const food = {
+    id: "long-food-name",
+    fdcId: 173944,
+    name: "Roasted chickpea salad with avocado, cucumber, cherry tomatoes and lemon dressing",
+    meal: "lunch",
+    grams: 325,
+    calories: 420,
+    carbs: 46,
+    protein: 14,
+    fat: 20,
+  };
+  const page = await open(t, { foods: [food] });
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(
+      (theme) => window.accountFixture.setItem("kinevault-track.appearance", theme),
+      theme,
+    );
+    await page.reload();
+    await heading(page, "Daily food log");
+    const entry = page.getByTestId(`food-log-entry-${food.id}`);
+    for (const width of [320, 390, 768]) {
+      await page.setViewportSize({ width, height: 844 });
+      const name = entry.getByText(food.name, { exact: true });
+      const textBox = await name.boundingBox();
+      const edit = await button(entry, `Edit ${food.name} in Lunch`).boundingBox();
+      const remove = await button(entry, `Remove ${food.name} from Lunch`).boundingBox();
+      assert.ok(textBox.x + textBox.width <= edit.x);
+      assert.ok(edit.x + edit.width <= remove.x);
+      assert.ok(edit.width >= 48 && edit.height >= 48);
+      assert.ok(remove.width >= 48 && remove.height >= 48);
+      assert.equal(await name.evaluate((node) => node.scrollWidth > node.clientWidth), false);
+      assert.equal(
+        await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+        false,
+      );
+      if (width < 400) assert.ok(textBox.height > 24, "long names wrap instead of being truncated");
+      await entry.getByText("325 g · 420 kcal", { exact: true }).waitFor();
+      await button(entry, `Remove ${food.name} from Lunch`).click();
+      const confirm = button(entry, `Confirm remove ${food.name} from Lunch`);
+      const cancel = button(entry, `Cancel removing ${food.name} from Lunch`);
+      const confirmation = await confirm.boundingBox();
+      assert.ok(confirmation.height >= 48);
+      assert.equal((await name.boundingBox()).width, textBox.width);
+      await cancel.click();
+      assert.equal(await confirm.count(), 0);
+      assert.equal((await intake(page)).length, 1);
+    }
   }
 });
 

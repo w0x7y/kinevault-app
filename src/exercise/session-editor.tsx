@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { AppText, Panel } from "../components/ui";
+import { ButtonRow, AppButton, IconButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
 import { spacing } from "../theme/tokens";
 import { durationFromMinutes, type SessionExercise, type WorkoutSession } from "./model";
 import type { WorkoutEditing } from "./workout-editing";
 import { useWorkoutEdit } from "./use-workout-editing";
-import { ExerciseButton, ExerciseError, ExerciseField, ExerciseIconButton } from "./controls";
+import { ExerciseError, ExerciseField } from "./controls";
 import { ExerciseSetTable } from "./set-table";
 import { exerciseRowLabel, WorkoutWorkspace } from "./workout-workspace";
 import { ActiveWorkoutTimer } from "./timer";
@@ -55,15 +56,18 @@ export function SessionEditor({
           <AppText variant="heading" accessibilityRole="header" style={{ flex: 1, minWidth: 0 }}>
             {row.exercise.name}
           </AppText>
-          <ExerciseIconButton
+          <IconButton
+            appearance="secondary"
             icon="plus"
             label={`Add set to ${rowLabel}`}
             disabled={busy}
             onPress={() => edit.change({ kind: "add-set", rowId: row.id })}
           />
-          <ExerciseIconButton
+          <IconButton
+            appearance="secondary"
             icon="note-sticky"
             label={`View notes for ${rowLabel}`}
+            expanded={notesId === row.id}
             disabled={busy}
             onPress={() => setNotesId((previous) => (previous === row.id ? null : row.id))}
           />
@@ -91,7 +95,7 @@ export function SessionEditor({
     <>
       <ExerciseError message={error} />
       {error && session.status !== "completed" && (
-        <ExerciseButton
+        <AppButton
           label="Retry draft save"
           onPress={() => void edit.run("retry")}
           disabled={busy}
@@ -100,31 +104,33 @@ export function SessionEditor({
     </>
   );
   const active = session.status === "active";
+  const headerActions = !active && (
+    <View style={{ flexDirection: "row", gap: spacing.sm }}>
+      <IconButton
+        appearance="secondary"
+        label="Settings"
+        icon="gear"
+        expanded={settingsOpen}
+        disabled={busy}
+        onPress={() => setSettingsOpen((previous) => !previous)}
+      />
+      <IconButton
+        appearance="secondary"
+        label="Cancel"
+        icon="xmark"
+        disabled={busy}
+        onPress={() => void edit.run("cancel")}
+      />
+    </View>
+  );
   const toolbar = !active && (
     <>
-      <View style={{ flexDirection: "row", gap: spacing.sm, alignItems: "center" }}>
-        <ExerciseIconButton
-          label="Settings"
-          icon="gear"
-          disabled={busy}
-          onPress={() => setSettingsOpen((previous) => !previous)}
-        />
-        <ExerciseIconButton
-          label="Cancel"
-          icon="xmark"
-          disabled={busy}
-          onPress={() => void edit.run("cancel")}
-        />
-        {session.status === "planned" && (
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <ExerciseButton
-              label="Start workout"
-              onPress={() => void edit.run("start")}
-              disabled={busy}
-            />
-          </View>
-        )}
-      </View>
+      <AppText variant="caption" muted accessibilityLabel="Workout duration">
+        {durationCaption(draft.minutes)}
+      </AppText>
+      {session.status === "planned" && (
+        <AppButton label="Start workout" onPress={() => void edit.run("start")} disabled={busy} />
+      )}
       {settingsOpen && (
         <View testID="workout-log-settings" style={{ gap: spacing.layout }}>
           <ExerciseField
@@ -145,36 +151,30 @@ export function SessionEditor({
     </>
   );
   const actions = (
-    <View testID="workout-log-actions" style={{ flexDirection: "row", gap: spacing.sm }}>
+    <ButtonRow testID="workout-log-actions">
       {session.status !== "completed" && (
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <DeleteButton
-            label="Discard workout"
-            confirmAccessibilityLabel="Confirm discard workout"
-            onDelete={() => edit.run("discard")}
-            disabled={busy}
-            fill
-          />
-        </View>
-      )}
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <ExerciseButton
-          label={
-            active
-              ? "End workout"
-              : session.status === "completed"
-                ? "Save changes"
-                : "Log completed workout"
-          }
-          onPress={() =>
-            void edit.run(active || session.status === "planned" ? "complete" : "save")
-          }
-          primary
+        <DeleteButton
+          label="Discard workout"
+          confirmAccessibilityLabel="Confirm discard workout"
+          onDelete={() => edit.run("discard")}
           disabled={busy}
           fill
         />
-      </View>
-    </View>
+      )}
+      <AppButton
+        label={
+          active
+            ? "End workout"
+            : session.status === "completed"
+              ? "Save changes"
+              : "Log completed workout"
+        }
+        onPress={() => void edit.run(active || session.status === "planned" ? "complete" : "save")}
+        primary
+        disabled={busy}
+        fill
+      />
+    </ButtonRow>
   );
   return (
     <Panel testID="session-editor">
@@ -186,27 +186,26 @@ export function SessionEditor({
           <AppText variant="caption" muted>
             {draft.exercises.length} exercises · {session.date}
           </AppText>
-          <View style={{ flexDirection: "row", gap: spacing.sm }}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <ExerciseButton
-                label="Start workout"
-                primary
-                onPress={() => void edit.run("start")}
-                disabled={busy}
-              />
-            </View>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <ExerciseButton
-                label="Log completed workout"
-                onPress={() =>
-                  void editing.requestView({ kind: "session", id: session.id, manual: true })
-                }
-                disabled={busy}
-              />
-            </View>
-          </View>
-          <ExerciseButton
+          <ButtonRow>
+            <AppButton
+              label="Start workout"
+              primary
+              fill
+              onPress={() => void edit.run("start")}
+              disabled={busy}
+            />
+            <AppButton
+              label="Log completed workout"
+              fill
+              onPress={() =>
+                void editing.requestView({ kind: "session", id: session.id, manual: true })
+              }
+              disabled={busy}
+            />
+          </ButtonRow>
+          <AppButton
             label="Settings"
+            expanded={settingsOpen}
             onPress={() =>
               void editing.requestView({ kind: "session", id: session.id, settings: true })
             }
@@ -226,7 +225,7 @@ export function SessionEditor({
                 />
               ))}
               <ExerciseError message={settingsError} />
-              <ExerciseButton
+              <AppButton
                 label="Save settings"
                 onPress={() => {
                   void (async () => {
@@ -249,15 +248,8 @@ export function SessionEditor({
                 ? "completed-workout-workspace"
                 : "manual-workout-workspace"
           }
-          headerRight={
-            active ? (
-              <ActiveWorkoutTimer session={session} />
-            ) : (
-              <AppText variant="caption" muted accessibilityLabel="Workout duration">
-                {durationCaption(draft.minutes)}
-              </AppText>
-            )
-          }
+          headerRight={active ? <ActiveWorkoutTimer session={session} /> : undefined}
+          headerActions={headerActions}
           toolbar={toolbar}
           exercises={draft.exercises}
           selectedId={selected?.id}

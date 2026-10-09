@@ -1,9 +1,9 @@
+import { ButtonRow, AppButton } from "../components/button";
 import { Image } from "expo-image";
 import { Platform, Pressable, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { AppText } from "../components/ui";
 import { DeleteButton } from "../components/delete-button";
-import { FoodButton } from "../food/food-button";
 import { ErrorText } from "../onboarding/controls";
 import { activities, goals } from "./answers";
 import { useProfile } from "./provider";
@@ -140,7 +140,7 @@ export function ProfileIdentity() {
             <SourceStatus name="profile media" kind={media.state.kind} retry={media.retryLoad} />
           ) : (
             <>
-              <FoodButton
+              <AppButton
                 label={
                   hasAvatar || draft
                     ? "Replace profile photo from library"
@@ -150,26 +150,10 @@ export function ProfileIdentity() {
                 onPress={() => void pick("library")}
               />
               {Platform.OS !== "web" && (
-                <FoodButton
+                <AppButton
                   label="Take profile photo"
                   disabled={busy}
                   onPress={() => void pick("camera")}
-                />
-              )}
-              {draft && (
-                <FoodButton
-                  primary
-                  label={busy && !picking ? "Saving profile photo…" : "Save profile photo"}
-                  disabled={busy}
-                  onPress={() => void editing.save()}
-                />
-              )}
-              {hasAvatar && (
-                <DeleteButton
-                  label="Remove profile photo"
-                  confirmAccessibilityLabel="Confirm remove profile photo"
-                  disabled={busy}
-                  onDelete={editing.remove}
                 />
               )}
               {busy && (
@@ -180,7 +164,26 @@ export function ProfileIdentity() {
               {error && <ErrorText message={error} />}
             </>
           )}
-          <FoodButton label="Cancel" disabled={busy} onPress={close} />
+          <ButtonRow>
+            <AppButton label="Cancel" disabled={busy} onPress={close} fill />
+            {draft && media.state.kind === "ready" && (
+              <AppButton
+                primary
+                fill
+                label={busy && !picking ? "Saving profile photo…" : "Save profile photo"}
+                disabled={busy}
+                onPress={() => void editing.save()}
+              />
+            )}
+          </ButtonRow>
+          {hasAvatar && media.state.kind === "ready" && (
+            <DeleteButton
+              label="Remove profile photo"
+              confirmAccessibilityLabel="Confirm remove profile photo"
+              disabled={busy}
+              onDelete={editing.remove}
+            />
+          )}
         </ProfileDialog>
       )}
     </View>

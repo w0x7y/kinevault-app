@@ -12,6 +12,10 @@ exercise the same seam as the account screens.
 
 The app retains one controller per stable auth adapter across root-layout remounts. Mounted providers attach and detach its lifecycle; request generations still retire abandoned work. Deletion feedback survives a remount, while a replacement identity clears the previous account's feedback.
 
+Server rendering does not create the app's Supabase client or its session refresh
+timers. The browser and native runtimes retain their existing client and refresh
+ownership.
+
 Email verification feedback carries its purpose and normalized recipient. Screens
 do not infer a successful signup from arbitrary notice text or a mutable input.
 An identity change invalidates request feedback and recovery from the prior owner.
@@ -58,6 +62,11 @@ storage. Root crash recovery sits outside the providers and can remount them
 without clearing persisted records. Optional JavaScript reporting sanitizes
 errors independently of the recovery UI; see [resilience](resilience.md).
 
+The telemetry SDK loads only when reporting is enabled in an app runtime.
+Server rendering and disabled reporting do not import it: its import-time timers
+otherwise retain rendered bundles even without SDK initialization. Crash recovery
+remains independent of telemetry startup or capture failures.
+
 ## Editing and summaries
 
 The Onboarding flow owns validation, staged answers, navigation and save ordering.
@@ -77,6 +86,16 @@ retained edit; callers cannot bypass durability to retire an edit themselves.
 Completed Workout totals derive from persisted Workout sessions and their valid
 sets. Daily activity and test fixtures use the same Exercise summary interface;
 there is no separate workout interpreter or fixture-only measurement model.
+
+Barcode lookup owns provider validation, cancellation, request budgets and its
+bounded cache. Responses are limited to 1 MiB of UTF-8 data before JSON parsing
+or caching. Web streams stop reading and cancel when oversized or abandoned.
+Native fetch buffers internally; its fallback checks decoded response size
+before parsing, so the limit does not bound native transport buffering.
+
+Food catalogs retain their original membership and build the search index once,
+on the first eligible query. Construction, food-by-ID lookup and empty queries
+do not tokenize the catalog or build an index during server rendering.
 
 ## Durable domain documents
 
@@ -112,7 +131,33 @@ earlier durable failure into the new editor.
 This ownership gives locality to lifecycle fixes and leverage to all document
 callers without adding another public abstraction layer.
 
+## Shared controls
+
+The shared button module owns action sizing, focus and press feedback, disabled
+state and selection/disclosure semantics. Food, Exercise, Profile and Water import
+its interface directly. Domain-named pass-through aliases and duplicate icon
+controls are removed, so control fixes have one place to live. Plain and secondary
+icon appearances retain the existing treatments through the same interface.
+
+The Profile chart disclosure module owns its focused lifetime. Blur closes the
+menu and removes its Back, Escape and outside-interaction listeners, even when
+the tab remains mounted. Escape and selection restore trigger focus on web;
+native menus retain their modal dismissal. These behaviors stay together with
+the disclosure rendering instead of creating another general menu abstraction.
+
 ## Verification
+
+The [October 9 final-check record](final-check-2026-10-09-ui.md) covers the complete
+UI diff and repository security review, including the barcode response limit,
+its regressions, current dependency advisories and final verification.
+
+The October 9, 2026 control follow-up passed lint, formatting, TypeScript, all
+874 unit/script tests and 169 browser tests, with one optional screenshot case
+skipped. Web, iOS and Android exports succeeded. Regressions cover chart-menu
+blur, Back/Escape dismissal, outside focus/pointer dismissal, keyboard activation
+and disclosure state through the real Profile and Workout screens. Native
+exports verify bundling; the Back regression uses the browser's injected event
+adapter rather than an installed device.
 
 The October 8, 2026 implementation concentrates Profile media ownership,
 Account management attempts and body-weight editing. See the

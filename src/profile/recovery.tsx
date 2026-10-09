@@ -17,6 +17,8 @@ export function ProfileRecovery() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
           flexGrow: 1,
           justifyContent: "center",
@@ -41,6 +43,7 @@ export function ProfileRecovery() {
             </AppText>
             <Button
               label={saving ? "Resetting…" : "Reset saved profile"}
+              destructive
               icon="trash-can"
               onPress={() => void reset()}
               disabled={saving}

@@ -161,6 +161,8 @@ function OnboardingFlow({
           cancel={() => void act({ kind: "cancel" })}
         />
         <ScrollView
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
           ref={scroll}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={[styles.content, welcome && styles.welcome]}

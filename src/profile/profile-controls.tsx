@@ -1,8 +1,8 @@
+import { AppButton } from "../components/button";
 import { type PropsWithChildren } from "react";
 import { Modal, Platform, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppText, Panel } from "../components/ui";
-import { FoodButton } from "../food/food-button";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import { JournalText } from "./journal-ui";
@@ -137,7 +137,7 @@ export function SourceStatus({
       >
         {kind === "loading" ? `Loading ${name}…` : `Couldn't load ${name}.`}
       </AppText>
-      {kind === "error" && <FoodButton label={`Retry ${name}`} onPress={retry} />}
+      {kind === "error" && <AppButton label={`Retry ${name}`} onPress={retry} />}
     </View>
   );
 }
@@ -171,6 +171,8 @@ export function ProfileDialog({
         }}
       >
         <ScrollView
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
           style={{
             width: "100%",
             maxWidth: 740,

@@ -60,7 +60,6 @@ export function Screen({
   adjustKeyboardInsets = false,
   fill = false,
   contentContainerStyle,
-  scrollStyle,
 }: PropsWithChildren<{
   title: string;
   description?: string;
@@ -70,7 +69,6 @@ export function Screen({
   adjustKeyboardInsets?: boolean;
   fill?: boolean;
   contentContainerStyle?: StyleProp<ViewStyle>;
-  scrollStyle?: StyleProp<ViewStyle>;
 }>) {
   const { colors } = useTheme();
   return (
@@ -79,8 +77,9 @@ export function Screen({
         <title>{title} · KineVault Track</title>
       </Head>
       <ScrollView
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
         ref={scrollRef}
-        style={scrollStyle}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets={adjustKeyboardInsets}
         contentContainerStyle={[styles.screen, fill && { flexGrow: 1 }, contentContainerStyle]}

@@ -1,3 +1,4 @@
+import { AppButton } from "../components/button";
 import { useEffect, useState } from "react";
 import { Keyboard, TextInput, View } from "react-native";
 import { AppText } from "../components/ui";
@@ -8,7 +9,6 @@ import type { FoodSaveTarget } from "./log-model.ts";
 import { prepareFoodLogging } from "./logging-preparation.ts";
 import type { Meal } from "../daily/model";
 import { macroCategories } from "../daily/nutrition.ts";
-import { FoodButton } from "./food-button";
 import { FoodLoggingControls } from "./logging-controls";
 import { useFoodLog } from "./log-provider";
 import type { CustomMeal } from "./meal-model.ts";
@@ -122,7 +122,7 @@ export function FoodNutritionDetail({
   const visiblePortions = servingsExpanded ? sourcePortions : sourcePortions.slice(0, 2);
   return (
     <View testID="food-nutrition-detail" style={{ gap: spacing.layout }}>
-      <FoodButton
+      <AppButton
         label={target.kind === "edit" ? "Cancel edit" : backLabel}
         disabled={busy}
         onPress={onBack}
@@ -263,7 +263,8 @@ export function FoodNutritionDetail({
           </AppText>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
             <View style={{ flexGrow: 1, flexBasis: "45%" }}>
-              <FoodButton
+              <AppButton
+                fill
                 label={hundredGramPortion ? `${hundredGramPortion.label}, 100 g` : "100 g"}
                 selected={grams === 100}
                 disabled={busy}
@@ -275,7 +276,8 @@ export function FoodNutritionDetail({
                 key={`${portion.label}-${portion.grams}`}
                 style={{ flexGrow: 1, flexBasis: "45%" }}
               >
-                <FoodButton
+                <AppButton
+                  fill
                   label={`${portion.label}, ${decimal(portion.grams)} g`}
                   selected={grams === portion.grams}
                   disabled={busy}
@@ -285,7 +287,7 @@ export function FoodNutritionDetail({
             ))}
           </View>
           {sourcePortions.length > 2 && (
-            <FoodButton
+            <AppButton
               label={servingsExpanded ? "Fewer serving sizes" : "More serving sizes"}
               expanded={servingsExpanded}
               disabled={busy}

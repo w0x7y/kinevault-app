@@ -1,3 +1,4 @@
+import { AppButton } from "../components/button";
 import { View, type ViewProps } from "react-native";
 import { parseDay } from "../calendar/dates.ts";
 import { AppText, Panel } from "../components/ui";
@@ -8,7 +9,6 @@ import { calorieState } from "../profile/calories.ts";
 import { useProfile } from "../profile/provider";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
-import { FoodButton } from "./food-button";
 import { detailedNutrients } from "./nutrients.ts";
 import { foodDatabase } from "./database";
 
@@ -59,7 +59,7 @@ export function DailyMacros({
           </AppText>
         </View>
         <View style={{ flexShrink: 1, maxWidth: "45%" }}>
-          <FoodButton label="Back to food log" onPress={onBack} />
+          <AppButton label="Back to food log" onPress={onBack} />
         </View>
       </View>
       <CalorieWidget

@@ -114,6 +114,8 @@ export function AccountScreen({
         style={{ flex: 1 }}
       >
         <ScrollView
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
           ref={scroll}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{

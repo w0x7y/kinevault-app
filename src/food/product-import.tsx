@@ -1,3 +1,4 @@
+import { AppButton } from "../components/button";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { View } from "react-native";
 import { AppText } from "../components/ui";
@@ -5,7 +6,6 @@ import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import { FoodBarcodeScanner } from "./barcode-scanner";
 import { CreateFoodForm } from "./create-form";
-import { FoodButton } from "./food-button";
 import { ProductAttribution } from "./product-attribution";
 import { productClient } from "./product-provider.ts";
 import { createProductImportFlow } from "./product-import-flow.ts";
@@ -93,7 +93,7 @@ export function FoodProductImport({
         </AppText>
       )}
       {state.kind === "error" && (
-        <FoodButton
+        <AppButton
           label="Retry barcode lookup"
           disabled={!active}
           onPress={() => {
@@ -102,13 +102,13 @@ export function FoodProductImport({
         />
       )}
       {state.kind !== "loading" && (
-        <FoodButton label="Enter food manually" onPress={flow.enterManually} />
+        <AppButton label="Enter food manually" onPress={flow.enterManually} />
       )}
       {state.kind !== "loading" && (
-        <FoodButton label="Try another barcode" onPress={flow.scanAgain} />
+        <AppButton label="Try another barcode" onPress={flow.scanAgain} />
       )}
       <ProductAttribution barcode={state.barcode} />
-      <FoodButton label="Cancel import" onPress={cancel} />
+      <AppButton label="Cancel import" onPress={cancel} />
     </View>
   );
 }

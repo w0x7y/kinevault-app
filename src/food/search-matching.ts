@@ -231,7 +231,7 @@ export type FoodSearchMatch = {
   tokenCount: number;
 };
 
-export function createFoodSearch(foods: readonly CatalogFood[]) {
+function buildFoodSearchIndex(foods: readonly CatalogFood[]) {
   const entries = new Map<number, SearchEntry>();
   const documents: { id: number; text: string }[] = [];
   for (const food of foods) {
@@ -254,10 +254,16 @@ export function createFoodSearch(foods: readonly CatalogFood[]) {
     processTerm: (term) => term,
   });
   index.addAll(documents);
+  return { entries, index };
+}
 
+export function createFoodSearch(foods: readonly CatalogFood[]) {
+  const snapshot = [...foods];
+  let ready: ReturnType<typeof buildFoodSearchIndex> | undefined;
   return (query: string): FoodSearchMatch[] => {
     const terms = searchWords(query.slice(0, 100));
     if (!terms.some((term) => term.length >= 2)) return [];
+    const { entries, index } = (ready ??= buildFoodSearchIndex(snapshot));
     // The index supplies a broad union of candidates; matchCost enforces AND
     // semantics including alternative compact spans and qualifier protection.
     const queryKeys = keysFor([terms])

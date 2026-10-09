@@ -16,6 +16,34 @@ const banana: CatalogFood = {
 };
 const food = (fdcId: number, name: string): CatalogFood => ({ ...banana, fdcId, name });
 
+test("catalog construction, ID lookups and empty queries do not build the search index", () => {
+  let nameReads = 0;
+  const item: CatalogFood = {
+    ...banana,
+    get name() {
+      nameReads++;
+      return "Banana, raw";
+    },
+  };
+  const catalog = createFoodCatalog([item]);
+  assert.equal(catalog.getById(item.fdcId!), item);
+  for (const query of ["", "   ", "!", "b", " b ! "]) assert.equal(catalog.search(query).total, 0);
+  assert.equal(nameReads, 0, "non-search use must not initialize searchable fields");
+  assert.equal(catalog.search("banana").items[0], item);
+  assert.ok(nameReads > 0, "the first searchable query indexes the catalog");
+  const indexedReads = nameReads;
+  assert.equal(catalog.search("raw").items[0], item);
+  assert.equal(nameReads, indexedReads, "later searches reuse the index");
+});
+
+test("a deferred search retains the catalog's original membership", () => {
+  const foods: CatalogFood[] = [banana];
+  const catalog = createFoodCatalog(foods);
+  foods.push(food(1, "Apple, raw"));
+  assert.equal(catalog.search("apple").total, 0);
+  assert.equal(catalog.search("banana").items[0], banana);
+});
+
 test("food search matches words in any order, case, punctuation, and partial words", () => {
   const catalog = createFoodCatalog([
     food(1, "Chicken breast, grilled"),

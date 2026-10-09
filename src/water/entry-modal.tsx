@@ -1,8 +1,8 @@
+import { ButtonRow, AppButton } from "../components/button";
 import { useEffect, useRef, useState } from "react";
 import { Modal, ScrollView, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppText, Panel } from "../components/ui";
-import { FoodButton } from "../food/food-button";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { manualWaterAmountFromText } from "./model";
@@ -88,6 +88,8 @@ export function WaterEntryModal({ date, onDismiss }: { date: string; onDismiss: 
     >
       <SafeAreaView style={{ flex: 1, backgroundColor: "rgba(0, 0, 0, 0.45)" }}>
         <ScrollView
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           automaticallyAdjustKeyboardInsets
           contentContainerStyle={{
@@ -117,7 +119,7 @@ export function WaterEntryModal({ date, onDismiss }: { date: string; onDismiss: 
                 </AppText>
               </>
             )}
-            {!ready && <FoodButton label="Retry water log" onPress={log.retryLoad} />}
+            {!ready && <AppButton label="Retry water log" onPress={log.retryLoad} />}
             <View style={{ gap: spacing.xs }}>
               <AppText variant="label">Manual water (ml)</AppText>
               <TextInput
@@ -147,30 +149,33 @@ export function WaterEntryModal({ date, onDismiss }: { date: string; onDismiss: 
                 }}
               />
             </View>
-            <View style={{ flexDirection: "row", gap: spacing.layout }}>
+            <ButtonRow>
               {[-250, 250].map((delta) => (
-                <View key={delta} style={{ flex: 1 }}>
-                  <FoodButton
-                    label={`${delta > 0 ? "+" : ""}${delta} ml`}
-                    disabled={log.saving}
-                    onPress={() => adjustAmount(delta)}
-                  />
-                </View>
+                <AppButton
+                  key={delta}
+                  fill
+                  label={`${delta > 0 ? "+" : ""}${delta} ml`}
+                  disabled={log.saving}
+                  onPress={() => adjustAmount(delta)}
+                />
               ))}
-            </View>
+            </ButtonRow>
             {(error || log.error) && (
               <AppText accessibilityRole="alert" style={{ color: colors.error }}>
                 {error || log.error}
               </AppText>
             )}
-            <FoodButton
-              primary
-              label={log.saving ? "Saving water..." : "Save water"}
-              accessibilityLabel="Save water"
-              disabled={disabled}
-              onPress={() => void save()}
-            />
-            <FoodButton label="Cancel" disabled={log.saving} onPress={onDismiss} />
+            <ButtonRow>
+              <AppButton fill label="Cancel" disabled={log.saving} onPress={onDismiss} />
+              <AppButton
+                fill
+                primary
+                label={log.saving ? "Saving water..." : "Save water"}
+                accessibilityLabel="Save water"
+                disabled={disabled}
+                onPress={() => void save()}
+              />
+            </ButtonRow>
           </Panel>
         </ScrollView>
       </SafeAreaView>

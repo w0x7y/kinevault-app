@@ -1,3 +1,4 @@
+import "../theme/global.css";
 import { Comfortaa_400Regular } from "@expo-google-fonts/comfortaa/400Regular";
 import { Comfortaa_500Medium } from "@expo-google-fonts/comfortaa/500Medium";
 import { Comfortaa_600SemiBold } from "@expo-google-fonts/comfortaa/600SemiBold";

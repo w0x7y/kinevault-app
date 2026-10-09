@@ -1,3 +1,4 @@
+import { AppButton } from "../components/button";
 import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import { AppText } from "../components/ui";
@@ -14,7 +15,6 @@ import {
 } from "./nutrients.ts";
 import { nutritionAmountText } from "./number-input.ts";
 import { FoodField } from "./form-fields";
-import { FoodButton } from "./food-button";
 
 export function DetailedNutrientFields({
   values = {},
@@ -105,7 +105,7 @@ export function DetailedNutrientFields({
             })}
           </View>
           {onReset && Object.values(values).some((value) => value?.trim()) && (
-            <FoodButton
+            <AppButton
               label="Use calculated detailed nutrients"
               onPress={onReset}
               disabled={disabled}

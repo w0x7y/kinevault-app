@@ -46,6 +46,8 @@ export default function ResetPasswordScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
             flexGrow: 1,

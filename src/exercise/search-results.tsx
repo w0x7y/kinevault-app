@@ -1,10 +1,10 @@
+import { AppButton } from "../components/button";
 import { useMemo, useState } from "react";
 import { Keyboard, Pressable, View, type ViewProps } from "react-native";
 import { Icon } from "../components/icon";
 import { AppText, Panel } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { radius, spacing } from "../theme/tokens";
-import { ExerciseButton } from "./controls";
 import type { ExerciseDefinition } from "./model";
 
 const pageSize = 20;
@@ -121,13 +121,13 @@ export function ExerciseSearchResults({
           <View
             style={{ flexDirection: "row", justifyContent: "space-between", gap: spacing.layout }}
           >
-            <ExerciseButton
+            <AppButton
               label="Previous"
               accessibilityLabel="Previous exercise results"
               disabled={resultPage === 0}
               onPress={() => changePage(resultPage - 1)}
             />
-            <ExerciseButton
+            <AppButton
               label="Next"
               accessibilityLabel="Next exercise results"
               disabled={resultPage + 1 >= pageCount}

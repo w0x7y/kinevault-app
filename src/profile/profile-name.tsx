@@ -1,5 +1,5 @@
-import { Platform, Pressable, TextInput, View } from "react-native";
-import { Icon, type IconName } from "../components/icon";
+import { Platform, TextInput, View } from "react-native";
+import { IconButton } from "../components/button";
 import { ErrorText } from "../onboarding/controls";
 import { useTheme } from "../theme/provider";
 import { fonts } from "../theme/tokens";
@@ -27,31 +27,6 @@ export function ProfileName() {
   function save() {
     return edit.save();
   }
-  function action(label: string, icon: IconName, onPress: () => void, disabled = false) {
-    return (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        accessibilityState={{ disabled }}
-        disabled={disabled}
-        onPress={onPress}
-        style={{
-          width: 44,
-          minHeight: 44,
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: disabled ? 0.5 : 1,
-        }}
-      >
-        <Icon
-          name={icon}
-          size={13}
-          color={colors.primary}
-          style={{ lineHeight: 16, includeFontPadding: false }}
-        />
-      </Pressable>
-    );
-  }
   return (
     <View style={{ maxWidth: "100%", alignItems: "center", marginBottom: 4 }}>
       <View
@@ -60,7 +35,7 @@ export function ProfileName() {
       >
         {editing ? (
           <>
-            {action("Cancel name editing", "xmark", cancel, busy)}
+            <IconButton label="Cancel name editing" icon="xmark" onPress={cancel} disabled={busy} />
             <TextInput
               accessibilityLabel="Profile name"
               value={draft}
@@ -82,7 +57,7 @@ export function ProfileName() {
                 flex: 1,
                 minWidth: 80,
                 maxWidth: 260,
-                minHeight: 44,
+                minHeight: 48,
                 paddingHorizontal: 4,
                 paddingVertical: 4,
                 fontFamily: fonts.medium,
@@ -96,16 +71,16 @@ export function ProfileName() {
                   : {}),
               }}
             />
-            {action(
-              busy ? "Saving profile name…" : "Save profile name",
-              "check",
-              () => void save(),
-              busy,
-            )}
+            <IconButton
+              label={busy ? "Saving profile name…" : "Save profile name"}
+              icon="check"
+              onPress={() => void save()}
+              disabled={busy}
+            />
           </>
         ) : (
           <>
-            <View style={{ width: 44 }} />
+            <View style={{ width: 48 }} />
             <JournalText
               size={20}
               variant="heading"
@@ -114,7 +89,7 @@ export function ProfileName() {
             >
               {name.trim() || "Your journal"}
             </JournalText>
-            {action("Edit profile name", "pen", start)}
+            <IconButton label="Edit profile name" icon="pen" onPress={start} />
           </>
         )}
       </View>

@@ -998,7 +998,8 @@ test("inline name editing stays in place, cancels cleanly, saves, and persists",
     "the visible camera drawing is centered in its badge",
   );
   const name = page.getByRole("textbox", { name: "Profile name", exact: true });
-  await button(page, "Edit profile name").click();
+  await button(page, "Edit profile name").focus();
+  await page.keyboard.press("Enter");
   assert.equal(await button(page, "Overview").getAttribute("aria-pressed"), "true");
   assert.equal(await page.getByTestId("profile-editor").count(), 0);
   assert.equal(await name.evaluate((node) => getComputedStyle(node).borderBottomWidth), "1px");
@@ -1240,6 +1241,7 @@ async function installHardwareBackBoundary(page) {
       };
     };
     window.__pressHardwareBack = () => [...listeners].reverse().some((listener) => listener());
+    window.__hardwareBackListenerCount = () => listeners.length;
   });
 }
 const hardwareBack = (page) => page.evaluate(() => window.__pressHardwareBack());
@@ -1306,6 +1308,50 @@ test("direct Profile Back uses Home fallback after dismissing an open menu", asy
   assert.equal(await hardwareBack(page), true);
   await page.waitForURL(new URL("/", page.url()).href);
   await page.getByLabel("Sunday, October 4, 2026, today", { exact: true }).waitFor();
+});
+
+test("Profile chart menus close on tab blur and do not consume another tab's Back", async (t) => {
+  const page = await open(t, { developmentRuntime: true });
+  await installHardwareBackBoundary(page);
+  for (const label of ["Workout range", "Choose exercise"]) {
+    await profile(page);
+    await page.waitForFunction(() => window.__hardwareBackListenerCount() === 1);
+    if (label === "Choose exercise") await button(page, "Exercise weight").click();
+    const trigger = button(page, label);
+    await trigger.click();
+    await page.waitForFunction(() => window.__hardwareBackListenerCount() === 2);
+    assert.equal(await trigger.getAttribute("aria-expanded"), "true");
+    // Route through the real tab without pointer/focus dismissal, as native
+    // navigation or a programmatic route change would do.
+    await page.getByRole("tab", { name: "Food", exact: true }).evaluate((el) => el.click());
+    await page.waitForURL("**/food");
+    await page.waitForFunction(() => window.__hardwareBackListenerCount() === 0);
+    assert.equal(await hardwareBack(page), false, "hidden chart menus cannot handle Back");
+    await profile(page);
+    await page.waitForFunction(() => window.__hardwareBackListenerCount() === 1);
+    assert.equal(await trigger.getAttribute("aria-expanded"), "false");
+    await trigger.click();
+    await page.waitForFunction(() => window.__hardwareBackListenerCount() === 2);
+    assert.equal(await hardwareBack(page), true);
+    await page.waitForFunction(() => window.__hardwareBackListenerCount() === 1);
+    assert.equal(await trigger.getAttribute("aria-expanded"), "false");
+    assert.equal(new URL(page.url()).pathname, "/profile");
+    assert.equal(await hardwareBack(page), true);
+    await page.waitForURL("**/food");
+  }
+});
+
+test("Profile chart menus dismiss when pointer or keyboard focus leaves them", async (t) => {
+  const page = await open(t);
+  await profile(page);
+  const trigger = button(page, "Workout range");
+  await trigger.click();
+  await button(page, "Overview").click();
+  assert.equal(await trigger.getAttribute("aria-expanded"), "false");
+  await trigger.click();
+  await button(page, "Goals").focus();
+  assert.equal(await trigger.getAttribute("aria-expanded"), "false");
+  assert.equal(await button(page, "Overview").getAttribute("aria-pressed"), "true");
 });
 
 // Opt-in screenshots use isolated browser storage, never the user's saved records.
@@ -1545,5 +1591,10 @@ test("weekly chart selection matches the plotted total and range menu closes wit
   await button(page, "Workout range").click();
   await page.keyboard.press("Escape");
   assert.equal(await button(page, "Workout range").getAttribute("aria-expanded"), "false");
+  assert.equal(
+    await button(page, "Workout range").evaluate((el) => el === document.activeElement),
+    true,
+    "Escape restores the menu trigger's keyboard focus",
+  );
   assert.ok(page.url().endsWith("/profile"));
 });

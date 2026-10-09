@@ -1,3 +1,4 @@
+import { AppButton } from "../components/button";
 import { useMemo, useState } from "react";
 import { View } from "react-native";
 import { AppText } from "../components/ui";
@@ -6,7 +7,6 @@ import { foodKey, type CatalogFood } from "./catalog.ts";
 import { useCustomFoods } from "./custom-provider";
 import { FoodField } from "./form-fields";
 import { FoodResult, genericDrinkNotice } from "./food-result";
-import { FoodButton } from "./food-button";
 
 export function IngredientSearch({
   onAdd,
@@ -73,13 +73,13 @@ export function IngredientSearch({
             <View
               style={{ flexDirection: "row", justifyContent: "space-between", gap: spacing.layout }}
             >
-              <FoodButton
+              <AppButton
                 label="Previous"
                 accessibilityLabel="Previous ingredient results"
                 disabled={disabled || result.page === 0}
                 onPress={() => setPage(result.page - 1)}
               />
-              <FoodButton
+              <AppButton
                 label="Next"
                 accessibilityLabel="Next ingredient results"
                 disabled={disabled || result.page + 1 >= result.pageCount}

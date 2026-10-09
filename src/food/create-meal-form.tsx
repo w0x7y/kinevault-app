@@ -1,3 +1,4 @@
+import { ButtonRow, AppButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
 import { useEffect, useRef } from "react";
 import { View } from "react-native";
@@ -9,7 +10,6 @@ import { previewMeal, type CustomMeal, type MealDraft } from "./meal-model.ts";
 import { nutritionAmountText } from "./number-input.ts";
 import { useCustomFoods } from "./custom-provider";
 import { FoodField, NutritionFields } from "./form-fields";
-import { FoodButton } from "./food-button";
 import { IngredientSearch } from "./ingredient-search";
 import { DetailedNutrientFields } from "./detailed-nutrient-fields";
 import { unknownNutrients } from "./nutrients.ts";
@@ -149,7 +149,7 @@ export function CreateMealForm({
         }
       />
       {Object.keys(draft.overrides).length > 0 && (
-        <FoodButton
+        <AppButton
           label="Use calculated nutrition"
           disabled={busy}
           onPress={() => change({ ...draft, overrides: {} })}
@@ -175,22 +175,26 @@ export function CreateMealForm({
           {error}
         </AppText>
       )}
-      <FoodButton
-        primary
-        label={busy ? "Saving meal..." : existing ? "Save meal changes" : "Save meal"}
-        disabled={busy || foods.state.kind !== "ready"}
-        onPress={() => {
-          void save();
-        }}
-      />
-      <FoodButton
-        label="Cancel"
-        disabled={busy}
-        onPress={() => {
-          drafts.discard(handle);
-          onCancel();
-        }}
-      />
+      <ButtonRow>
+        <AppButton
+          fill
+          label="Cancel"
+          disabled={busy}
+          onPress={() => {
+            drafts.discard(handle);
+            onCancel();
+          }}
+        />
+        <AppButton
+          fill
+          primary
+          label={busy ? "Saving meal..." : existing ? "Save meal changes" : "Save meal"}
+          disabled={busy || foods.state.kind !== "ready"}
+          onPress={() => {
+            void save();
+          }}
+        />
+      </ButtonRow>
     </View>
   );
 }
