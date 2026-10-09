@@ -1,9 +1,7 @@
+import { ButtonRow, AppButton } from "../components/button";
 import { useRef, useState } from "react";
-import { View } from "react-native";
 import { AppText, Panel } from "../components/ui";
-import { FoodButton } from "../food/food-button";
 import { Field, ErrorText } from "../onboarding/controls";
-import { spacing } from "../theme/tokens";
 import { waterGoalFromText } from "../water/goal-model";
 import { useWaterGoal } from "../water/goal-provider";
 export function WaterGoalEditor({ initial, close }: { initial: number; close: () => void }) {
@@ -43,19 +41,16 @@ export function WaterGoalEditor({ initial, close }: { initial: number; close: ()
         keyboardType="number-pad"
       />
       {(error || goal.error) && <ErrorText message={error || goal.error || ""} />}
-      <View style={{ flexDirection: "row", gap: spacing.layout }}>
-        <View style={{ flex: 1 }}>
-          <FoodButton label="Cancel" disabled={goal.saving} onPress={close} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <FoodButton
-            primary
-            label={goal.saving ? "Saving water goal…" : "Save water goal"}
-            disabled={goal.saving}
-            onPress={() => void save()}
-          />
-        </View>
-      </View>
+      <ButtonRow>
+        <AppButton fill label="Cancel" disabled={goal.saving} onPress={close} />
+        <AppButton
+          fill
+          primary
+          label={goal.saving ? "Saving water goal…" : "Save water goal"}
+          disabled={goal.saving}
+          onPress={() => void save()}
+        />
+      </ButtonRow>
     </Panel>
   );
 }

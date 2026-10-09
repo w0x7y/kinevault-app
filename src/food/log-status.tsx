@@ -1,5 +1,5 @@
+import { AppButton } from "../components/button";
 import { AppText, Panel } from "../components/ui";
-import { FoodButton } from "./food-button";
 import { useFoodLog } from "./log-provider";
 import { KineLoading } from "../components/kine-loading";
 
@@ -16,7 +16,7 @@ export function FoodLogStatus({ fill = false }: { fill?: boolean }) {
       <AppText muted>
         We couldn't read your saved entries. Retry to load them before logging food.
       </AppText>
-      <FoodButton label="Retry food log" onPress={log.retryLoad} />
+      <AppButton label="Retry food log" onPress={log.retryLoad} />
     </Panel>
   );
 }

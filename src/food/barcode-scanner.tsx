@@ -1,10 +1,10 @@
+import { ButtonRow, AppButton } from "../components/button";
 import { useEffect, useRef, useState } from "react";
 import { AppState, Linking, Platform, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { AppText } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
-import { FoodButton } from "./food-button";
 import { FoodField } from "./form-fields";
 import { normalizeProductBarcode, supportedProductBarcodeTypes } from "./barcode.ts";
 import { checkFoodCameraAvailability } from "./camera-availability.ts";
@@ -99,7 +99,7 @@ export function FoodBarcodeScanner({
         </AppText>
       )}
       {permission && !permission.granted && (
-        <FoodButton
+        <AppButton
           label={permission.canAskAgain ? "Allow camera" : "Open camera settings"}
           onPress={() => {
             if (!permission.canAskAgain) {
@@ -126,8 +126,10 @@ export function FoodBarcodeScanner({
         disabled={false}
         numeric
       />
-      <FoodButton label="Look up barcode" primary onPress={() => detect(barcode)} />
-      <FoodButton label="Cancel scan" onPress={onClose} />
+      <ButtonRow>
+        <AppButton label="Cancel scan" onPress={onClose} fill />
+        <AppButton label="Look up barcode" primary onPress={() => detect(barcode)} fill />
+      </ButtonRow>
       <AppText variant="caption" style={{ color: colors.mutedForeground }}>
         Scanning opens a draft. Review and save it to keep it in your foods.
       </AppText>

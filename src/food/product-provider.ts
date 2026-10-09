@@ -26,6 +26,7 @@ const fields = [
 ].join(",");
 const cacheDurationMs = 5 * 60_000;
 const cacheLimit = 50;
+const responseByteLimit = 1024 * 1024;
 
 function abortError(): Error {
   const error = new Error("Product request was cancelled.");
@@ -39,6 +40,58 @@ function checkAborted(signal?: AbortSignal): void {
 
 function invalidResponse(): Error {
   return new Error("Open Food Facts returned invalid product data. Please try again.");
+}
+
+async function responseText(response: Response, signal: AbortSignal): Promise<string> {
+  checkAborted(signal);
+  const declaredSize = Number(response.headers.get("content-length"));
+  if (declaredSize > responseByteLimit) {
+    void response.body?.cancel().catch(() => {});
+    throw invalidResponse();
+  }
+  const reader = response.body?.getReader();
+  if (reader) {
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    const cancel = () => {
+      void reader.cancel().catch(() => {});
+    };
+    signal.addEventListener("abort", cancel, { once: true });
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        checkAborted(signal);
+        if (done) break;
+        size += value.byteLength;
+        if (size > responseByteLimit) {
+          cancel();
+          throw invalidResponse();
+        }
+        chunks.push(value);
+      }
+      const bytes = new Uint8Array(size);
+      let offset = 0;
+      for (const chunk of chunks) {
+        bytes.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      return await new Response(bytes).text();
+    } finally {
+      signal.removeEventListener("abort", cancel);
+      reader.releaseLock();
+    }
+  }
+  // Native fetch buffers the response itself and does not expose a stream.
+  // Check UTF-8 bytes before parsing or retaining its decoded text.
+  const text = await response.text();
+  checkAborted(signal);
+  let size = 0;
+  for (const character of text) {
+    const code = character.codePointAt(0)!;
+    size += code <= 0x7f ? 1 : code <= 0x7ff ? 2 : code <= 0xffff ? 3 : 4;
+    if (size > responseByteLimit) throw invalidResponse();
+  }
+  return text;
 }
 
 /** Barcode lookup with validated nutrition, cancellation, caching and request limits. */
@@ -158,7 +211,7 @@ export class OpenFoodFactsClient {
         }
         let body: unknown;
         try {
-          body = await response.json();
+          body = JSON.parse(await responseText(response, controller.signal));
         } catch {
           throw invalidResponse();
         }

@@ -85,6 +85,8 @@ export default function AuthCallbackScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
           flexGrow: 1,
           justifyContent: "center",

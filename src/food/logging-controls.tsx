@@ -1,3 +1,4 @@
+import { AppButton } from "../components/button";
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { parseDay } from "../calendar/dates.ts";
@@ -6,7 +7,6 @@ import { meals, type Meal } from "../daily/model.ts";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import type { FoodLoggingPreparation } from "./logging-preparation.ts";
-import { FoodButton } from "./food-button";
 import { useFoodLog } from "./log-provider";
 import { useCustomFoods } from "./custom-provider";
 import type { CatalogKind } from "./meal-model.ts";
@@ -73,7 +73,8 @@ export function FoodLoggingControls({
               .filter((option) => option.key !== "drinks")
               .map((option) => (
                 <View key={option.key} style={{ flexGrow: 1, flexBasis: "45%" }}>
-                  <FoodButton
+                  <AppButton
+                    fill
                     label={option.label}
                     accessibilityLabel={option.label}
                     selected={meal === option.key}
@@ -102,7 +103,7 @@ export function FoodLoggingControls({
           Your amounts and meal are kept. Try again.
         </AppText>
       )}
-      <FoodButton
+      <AppButton
         primary
         label={
           log.saving

@@ -1,9 +1,9 @@
+import { AppButton } from "../components/button";
 import type { ReactNode } from "react";
 import { ScrollView, View } from "react-native";
 import { AppText } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
-import { ExerciseButton } from "./controls";
 export type WorkspaceExercise = { id: string; exercise: { name: string } };
 
 export function exerciseRowLabel(
@@ -19,6 +19,7 @@ export function exerciseRowLabel(
 export function WorkoutWorkspace({
   name,
   headerRight,
+  headerActions,
   toolbar,
   exercises,
   selectedId,
@@ -31,6 +32,7 @@ export function WorkoutWorkspace({
 }: {
   name: string;
   headerRight?: ReactNode;
+  headerActions?: ReactNode;
   toolbar?: ReactNode;
   exercises: WorkspaceExercise[];
   selectedId?: string;
@@ -54,6 +56,11 @@ export function WorkoutWorkspace({
         {headerRight && (
           <View style={{ flexShrink: 0, alignItems: "flex-end" }}>{headerRight}</View>
         )}
+        {headerActions && (
+          <View testID="workout-workspace-controls" style={{ flexShrink: 0 }}>
+            {headerActions}
+          </View>
+        )}
       </View>
       {toolbar}
       <View
@@ -67,9 +74,10 @@ export function WorkoutWorkspace({
         }}
       >
         <ScrollView
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
           testID="exercise-topbar"
           horizontal
-          showsHorizontalScrollIndicator
           keyboardShouldPersistTaps="handled"
           style={{ minWidth: 0, flexGrow: 0 }}
           contentContainerStyle={{
@@ -80,7 +88,8 @@ export function WorkoutWorkspace({
         >
           {exercises.map((row, index) => (
             <View key={row.id} style={{ maxWidth: 180 }}>
-              <ExerciseButton
+              <AppButton
+                fill
                 label={row.exercise.name}
                 accessibilityLabel={`Select exercise ${exerciseRowLabel(exercises, row, index)}`}
                 selected={selectedId === row.id}

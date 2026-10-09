@@ -1,3 +1,4 @@
+import { AppButton } from "../../components/button";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { AppState, Keyboard, type ScrollView } from "react-native";
 import { useFocusEffect } from "expo-router";
@@ -21,7 +22,6 @@ import { FoodProductImport } from "../../food/product-import";
 import { FoodDraftProvider, useFoodDrafts } from "../../food/draft-provider";
 import { CreateFoodForm } from "../../food/create-form";
 import { CreateMealForm } from "../../food/create-meal-form";
-import { FoodButton } from "../../food/food-button";
 
 export default function FoodScreen() {
   const activity = useDayActivity();
@@ -150,7 +150,7 @@ function FoodDay({ activity }: { activity: ReturnType<typeof useDayActivity> }) 
         view.kind !== "resume" &&
         view.kind !== "import" &&
         drafts.resumable.map((summary) => (
-          <FoodButton
+          <AppButton
             key={summary.key}
             label={`Resume draft: ${summary.name}`}
             disabled={custom.saving || log.saving}

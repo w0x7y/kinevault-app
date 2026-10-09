@@ -1,11 +1,10 @@
 import { View, type ViewProps } from "react-native";
-import { DeleteButton } from "../components/delete-button";
 import { AppText, Panel } from "../components/ui";
 import { Icon } from "../components/icon";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import { meals, type FoodDay, type FoodEntry } from "./model";
-import { FoodButton } from "../food/food-button";
+import { FoodLogEntry } from "./food-log-entry";
 
 export function MealsWidget({
   day,
@@ -63,37 +62,14 @@ export function MealsWidget({
             </View>
             {entries.length ? (
               entries.map((food) => (
-                <View
+                <FoodLogEntry
                   key={food.id}
-                  style={{ flexDirection: "row", gap: spacing.layout, alignItems: "center" }}
-                >
-                  <FoodButton
-                    label="Edit"
-                    accessibilityLabel={`Edit ${food.name} in ${label}`}
-                    disabled={saving}
-                    onPress={() => onEdit(food)}
-                  />
-                  <View style={{ flex: 1, gap: spacing.xs }}>
-                    <AppText style={{ fontSize: 14 }} selectable>
-                      {food.name}
-                    </AppText>
-                    <AppText variant="caption" muted selectable>
-                      {food.measurement === "volume"
-                        ? `${food.drinkMl.toLocaleString()} ml`
-                        : food.meal === "drinks" && food.drinkMl !== undefined
-                          ? `${food.drinkMl.toLocaleString()} ml`
-                          : `${food.grams.toLocaleString(undefined, { maximumFractionDigits: 1 })} g`}{" "}
-                      · {Math.round(food.calories).toLocaleString()} kcal
-                    </AppText>
-                  </View>
-                  <DeleteButton
-                    label="Remove"
-                    accessibilityLabel={`Remove ${food.name} from ${label}`}
-                    confirmAccessibilityLabel={`Confirm remove ${food.name} from ${label}`}
-                    disabled={saving}
-                    onDelete={() => onRemove(food.id)}
-                  />
-                </View>
+                  food={food}
+                  mealLabel={label}
+                  saving={saving}
+                  onEdit={onEdit}
+                  onRemove={onRemove}
+                />
               ))
             ) : allEntries.length === 0 ? (
               <AppText variant="caption" muted>

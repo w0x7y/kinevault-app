@@ -1,7 +1,7 @@
+import { ButtonRow, AppButton } from "../components/button";
 import { useState } from "react";
 import { View } from "react-native";
 import { useSelectedDay } from "../calendar/provider";
-import { FoodButton } from "../food/food-button";
 import { FoodField } from "../food/form-fields";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
@@ -131,19 +131,23 @@ export function WeightJournal() {
               {error}
             </JournalText>
           )}
-          <View style={{ flexDirection: "row", gap: spacing.sm }}>
-            <View style={{ flex: 1 }}>
-              <FoodButton label="Cancel weight editing" onPress={edit.cancel} disabled={busy} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <FoodButton
-                label={busy ? "Saving weight…" : "Save weight"}
-                primary
-                onPress={() => void edit.save()}
-                disabled={busy}
-              />
-            </View>
-          </View>
+          <ButtonRow>
+            <AppButton
+              fill
+              label="Cancel"
+              accessibilityLabel="Cancel weight editing"
+              onPress={edit.cancel}
+              disabled={busy}
+            />
+
+            <AppButton
+              fill
+              label={busy ? "Saving weight…" : "Save weight"}
+              primary
+              onPress={() => void edit.save()}
+              disabled={busy}
+            />
+          </ButtonRow>
         </ProfileDialog>
       )}
       {deleting && (
@@ -156,12 +160,16 @@ export function WeightJournal() {
               {error}
             </JournalText>
           )}
-          <FoodButton
-            label={busy ? "Deleting weight…" : "Delete measurement"}
-            onPress={() => void edit.remove()}
-            disabled={busy}
-          />
-          <FoodButton label="Keep measurement" onPress={edit.cancel} disabled={busy} />
+          <ButtonRow>
+            <AppButton label="Keep measurement" onPress={edit.cancel} disabled={busy} fill />
+            <AppButton
+              label={busy ? "Deleting weight…" : "Delete measurement"}
+              destructive
+              onPress={() => void edit.remove()}
+              disabled={busy}
+              fill
+            />
+          </ButtonRow>
         </ProfileDialog>
       )}
     </JournalPanel>

@@ -1,7 +1,7 @@
+import { AppButton } from "../components/button";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { Icon } from "../components/icon";
-import { FoodButton } from "../food/food-button";
 import { useFoodLog } from "../food/log-provider";
 import { useWaterLog } from "../water/provider";
 import { useWaterGoal } from "../water/goal-provider";
@@ -296,7 +296,7 @@ export function ProfileGoals({
       {choosing && (
         <ProfileDialog title="Edit details & goals" dismiss={() => setChoosing(false)}>
           {(["name", "age", "body", "goal", "activity", "calories"] as const).map((section) => (
-            <FoodButton
+            <AppButton
               key={section}
               label={`Edit ${section}`}
               onPress={() => {
@@ -305,7 +305,7 @@ export function ProfileGoals({
               }}
             />
           ))}
-          <FoodButton label="Cancel" onPress={() => setChoosing(false)} />
+          <AppButton label="Cancel" onPress={() => setChoosing(false)} />
         </ProfileDialog>
       )}
     </View>

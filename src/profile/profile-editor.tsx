@@ -1,12 +1,10 @@
-import { View } from "react-native";
+import { ButtonRow, AppButton } from "../components/button";
 import { AppText, Panel } from "../components/ui";
 import { Question } from "../onboarding/steps";
 import { ErrorText } from "../onboarding/controls";
-import { FoodButton } from "../food/food-button";
 import type { Answers } from "./answers";
 import type { ProfileEditSection } from "./section-editing";
 import { useFocusedProfileEdit } from "./use-focused-edit";
-import { spacing } from "../theme/tokens";
 export function ProfileEditor({
   section,
   initial,
@@ -55,25 +53,23 @@ export function ProfileEditor({
           <ErrorText key={field} message={message} />
         ))}
       {error && <ErrorText message={error} />}
-      <View style={{ flexDirection: "row", gap: spacing.layout }}>
-        <View style={{ flex: 1 }}>
-          <FoodButton
-            label="Cancel"
-            disabled={busy}
-            onPress={() => {
-              edit.cancel();
-            }}
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <FoodButton
-            primary
-            label={busy ? "Saving…" : `Save ${section}`}
-            disabled={busy}
-            onPress={() => void edit.save()}
-          />
-        </View>
-      </View>
+      <ButtonRow>
+        <AppButton
+          fill
+          label="Cancel"
+          disabled={busy}
+          onPress={() => {
+            edit.cancel();
+          }}
+        />
+        <AppButton
+          fill
+          primary
+          label={busy ? "Saving…" : `Save ${section}`}
+          disabled={busy}
+          onPress={() => void edit.save()}
+        />
+      </ButtonRow>
     </Panel>
   );
 }

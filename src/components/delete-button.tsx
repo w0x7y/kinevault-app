@@ -1,8 +1,53 @@
-import { useEffect, useRef, useState } from "react";
-import { Pressable } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AppButton } from "./button";
 import { AppText } from "./ui";
 import { useTheme } from "../theme/provider";
-import { radius, spacing } from "../theme/tokens";
+
+export function useDeleteConfirmation({
+  onDelete,
+  disabled = false,
+}: {
+  onDelete: () => void | Promise<unknown>;
+  disabled?: boolean;
+}) {
+  const [armed, setArmed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const pending = useRef(false),
+    mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  function arm() {
+    if (disabled || pending.current) return;
+    setArmed(true);
+  }
+  const cancel = useCallback(() => {
+    if (pending.current) return;
+    setArmed(false);
+    setFailed(false);
+  }, []);
+  const disarm = useCallback(() => setArmed(false), []);
+  async function confirm() {
+    if (!armed || disabled || pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    setFailed(false);
+    try {
+      const result = await onDelete();
+      if (mounted.current && result !== false) setArmed(false);
+    } catch {
+      if (mounted.current) setFailed(true);
+    } finally {
+      pending.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  }
+  return { armed, busy, failed, arm, cancel, disarm, confirm };
+}
 
 export function DeleteButton({
   label,
@@ -24,73 +69,24 @@ export function DeleteButton({
   fill?: boolean;
 }) {
   const { colors } = useTheme();
-  const [armed, setArmed] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const pending = useRef(false),
-    mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-  async function press() {
-    if (disabled || pending.current) return;
-    if (!armed) {
-      setArmed(true);
-      return;
-    }
-    pending.current = true;
-    setBusy(true);
-    setFailed(false);
-    try {
-      const result = await onDelete();
-      if (mounted.current && result !== false) setArmed(false);
-    } catch {
-      if (mounted.current) setFailed(true);
-    } finally {
-      pending.current = false;
-      if (mounted.current) setBusy(false);
-    }
-  }
+  const { armed, busy, failed, arm, disarm, confirm } = useDeleteConfirmation({
+    onDelete,
+    disabled,
+  });
   return (
     <>
-      <Pressable
+      <AppButton
         testID={testID}
-        accessibilityRole="button"
+        label={armed ? "Are you sure?" : label}
         accessibilityLabel={armed ? confirmAccessibilityLabel : accessibilityLabel}
         accessibilityHint={hint}
-        accessibilityState={{ disabled: disabled || busy }}
         disabled={disabled || busy}
-        onPress={() => {
-          void press();
-        }}
-        onFocus={() => setFocused(true)}
-        onBlur={() => {
-          setFocused(false);
-          setArmed(false);
-        }}
-        style={({ pressed }) => ({
-          minHeight: 44,
-          flexGrow: fill ? 1 : undefined,
-          padding: spacing.layout,
-          borderWidth: 1,
-          borderRadius: radius.control,
-          borderColor: focused ? colors.ring : colors.destructive,
-          backgroundColor: colors.destructive,
-          justifyContent: "center",
-          opacity: disabled || busy ? 0.5 : pressed ? 0.8 : 1,
-        })}
-      >
-        <AppText
-          variant="label"
-          style={{ color: colors.destructiveForeground, textAlign: "center" }}
-        >
-          {armed ? "Are you sure?" : label}
-        </AppText>
-      </Pressable>
+        busy={busy}
+        destructive
+        fill={fill}
+        onPress={() => (armed ? void confirm() : arm())}
+        onBlur={disarm}
+      />
       {failed && (
         <AppText accessibilityRole="alert" variant="caption" style={{ color: colors.error }}>
           Couldn't delete. Try again.

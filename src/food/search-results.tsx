@@ -1,3 +1,4 @@
+import { AppButton } from "../components/button";
 import type { Meal } from "../daily/model";
 import { useMemo, useState } from "react";
 import { Keyboard, View, type ViewProps } from "react-native";
@@ -7,7 +8,6 @@ import { spacing } from "../theme/tokens";
 import { foodKey, foodPageSize, type CatalogFood } from "./catalog.ts";
 import { foodSource } from "./database";
 import { useCustomFoods } from "./custom-provider";
-import { FoodButton } from "./food-button";
 import { FoodResult, genericDrinkNotice } from "./food-result";
 import { FoodNutritionDetail } from "./nutrition-detail";
 
@@ -96,13 +96,13 @@ export function FoodSearchResults({
                   gap: spacing.layout,
                 }}
               >
-                <FoodButton
+                <AppButton
                   label="Previous"
                   accessibilityLabel="Previous food results"
                   disabled={result.page === 0}
                   onPress={() => changePage(result.page - 1)}
                 />
-                <FoodButton
+                <AppButton
                   label="Next"
                   accessibilityLabel="Next food results"
                   disabled={result.page + 1 >= result.pageCount}

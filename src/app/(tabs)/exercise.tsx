@@ -1,3 +1,4 @@
+import { AppButton } from "../../components/button";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { View, type ScrollView } from "react-native";
@@ -6,7 +7,6 @@ import { AppText, Panel, Screen } from "../../components/ui";
 import { useDayActivity } from "../../daily/use-day";
 import { SearchActions } from "../../daily/search-actions";
 import { WorkoutWidget } from "../../daily/workout-widget";
-import { ExerciseButton } from "../../exercise/controls";
 import { ExerciseForm, WorkoutForm } from "../../exercise/library-forms";
 import { useExercises } from "../../exercise/provider";
 import { ExerciseSearchResults } from "../../exercise/search-results";
@@ -158,10 +158,7 @@ export default function ExerciseScreen() {
             ) : (
               <Panel>
                 <AppText>This workout is no longer available.</AppText>
-                <ExerciseButton
-                  label="Close workout"
-                  onPress={() => editing.closeView(panel.token)}
-                />
+                <AppButton label="Close workout" onPress={() => editing.closeView(panel.token)} />
               </Panel>
             ))}
         </View>

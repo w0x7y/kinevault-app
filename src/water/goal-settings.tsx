@@ -1,8 +1,8 @@
+import { AppButton } from "../components/button";
 import { useEffect, useRef, useState } from "react";
 import { TextInput, View } from "react-native";
 import { AppText, Panel } from "../components/ui";
 import { Icon } from "../components/icon";
-import { FoodButton } from "../food/food-button";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { waterGoalFromText } from "./goal-model";
@@ -57,7 +57,7 @@ export function WaterGoalSettings() {
           <AppText accessibilityRole="alert" style={{ color: colors.error }}>
             Couldn't load your water goal.
           </AppText>
-          <FoodButton label="Retry water goal" onPress={goal.retryLoad} />
+          <AppButton label="Retry water goal" onPress={goal.retryLoad} />
         </>
       )}
       {goal.state.kind === "ready" && (
@@ -101,7 +101,7 @@ export function WaterGoalSettings() {
               {error || goal.error}
             </AppText>
           )}
-          <FoodButton
+          <AppButton
             primary
             label={goal.saving ? "Saving water goal..." : "Save water goal"}
             disabled={goal.saving}

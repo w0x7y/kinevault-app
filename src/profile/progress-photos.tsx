@@ -1,10 +1,10 @@
+import { AppButton } from "../components/button";
 import { Fragment, useState } from "react";
 import { Platform, Pressable, ScrollView, View } from "react-native";
 import { Icon } from "../components/icon";
 import { useTheme } from "../theme/provider";
 import { parseDay } from "../calendar/dates";
 import { JournalHeading, JournalText } from "./journal-ui";
-import { FoodButton } from "../food/food-button";
 import { ErrorText } from "../onboarding/controls";
 import { useProfileMedia } from "./media-provider";
 import { useMediaEditing } from "./use-media-editing";
@@ -125,11 +125,12 @@ export function ProgressPhotos({
                   style={{ width: "100%", minWidth: 0, overflow: "hidden" }}
                 >
                   <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    showsHorizontalScrollIndicator={false}
                     testID="profile-photo-carousel"
                     horizontal
                     nestedScrollEnabled
                     directionalLockEnabled
-                    showsHorizontalScrollIndicator={photos.length > 1}
                     style={{ width: "100%", flexGrow: 0 }}
                     contentContainerStyle={{
                       paddingTop: 4,
@@ -205,20 +206,21 @@ export function ProgressPhotos({
       )}
       {sources && (
         <ProfileDialog title="Add progress photo" dismiss={() => setSources(false)}>
-          <FoodButton
+          <AppButton
             label="Add from library"
             onPress={() => {
               setSources(false);
               void pick("library");
             }}
           />
-          <FoodButton
+          <AppButton
             label="Add from camera"
             onPress={() => {
               setSources(false);
               void pick("camera");
             }}
           />
+          <AppButton label="Cancel" onPress={() => setSources(false)} />
         </ProfileDialog>
       )}
       {edit.attempt.kind === "photo" && (

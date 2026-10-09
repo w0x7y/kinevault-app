@@ -1,14 +1,12 @@
+import { ButtonRow, AppButton } from "../components/button";
 import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
 import { DeleteButton } from "../components/delete-button";
 import { AppText } from "../components/ui";
 import { useTheme } from "../theme/provider";
-import { spacing } from "../theme/tokens";
 import type { CustomFood } from "./custom-model.ts";
 import type { CustomMeal } from "./meal-model.ts";
 import { useCustomFoods } from "./custom-provider";
 import { useFoodDrafts } from "./draft-provider";
-import { FoodButton } from "./food-button";
 
 export function CustomItemActions({
   item,
@@ -51,23 +49,21 @@ export function CustomItemActions({
   }
   return (
     <>
-      <View style={{ flexDirection: "row", gap: spacing.layout }}>
-        <View style={{ flex: 1 }}>
-          <FoodButton
-            label={`Edit ${kind}`}
-            disabled={busy || custom.state.kind !== "ready"}
-            onPress={onEdit}
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <DeleteButton
-            label={`Delete ${kind}`}
-            disabled={busy || custom.state.kind !== "ready"}
-            confirmAccessibilityLabel={`Confirm delete ${kind}`}
-            onDelete={remove}
-          />
-        </View>
-      </View>
+      <ButtonRow>
+        <AppButton
+          fill
+          label={`Edit ${kind}`}
+          disabled={busy || custom.state.kind !== "ready"}
+          onPress={onEdit}
+        />
+        <DeleteButton
+          fill
+          label={`Delete ${kind}`}
+          disabled={busy || custom.state.kind !== "ready"}
+          confirmAccessibilityLabel={`Confirm delete ${kind}`}
+          onDelete={remove}
+        />
+      </ButtonRow>
       {failed && (
         <AppText accessibilityRole="alert" style={{ color: colors.error }}>
           {custom.error ?? "Couldn't delete this item. It is still saved. Try again."}

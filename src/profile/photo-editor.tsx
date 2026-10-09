@@ -1,8 +1,8 @@
+import { ButtonRow, AppButton } from "../components/button";
 import { Image } from "expo-image";
 import { Platform } from "react-native";
 import { AppText } from "../components/ui";
 import { DeleteButton } from "../components/delete-button";
-import { FoodButton } from "../food/food-button";
 import { Field, ErrorText } from "../onboarding/controls";
 import type { MediaEditing, MediaEditSnapshot } from "./media-editing";
 import { PhotoImage } from "./photo-image";
@@ -62,13 +62,13 @@ export function PhotoEditor({
         multiline
         maxLength={2000}
       />
-      <FoodButton
+      <AppButton
         label="Replace from library"
         disabled={disabled}
         onPress={() => void pick("library")}
       />
       {Platform.OS !== "web" && (
-        <FoodButton
+        <AppButton
           label="Replace from camera"
           disabled={disabled}
           onPress={() => void pick("camera")}
@@ -80,12 +80,16 @@ export function PhotoEditor({
           {picking ? "Opening photo picker…" : "Saving photo changes…"}
         </AppText>
       )}
-      <FoodButton
-        primary
-        label={busy && !picking ? "Saving photo…" : "Save photo"}
-        disabled={disabled}
-        onPress={() => void editing.save()}
-      />
+      <ButtonRow>
+        <AppButton label="Cancel" disabled={busy} onPress={dismiss} fill />
+        <AppButton
+          fill
+          primary
+          label={busy && !picking ? "Saving photo…" : "Save photo"}
+          disabled={disabled}
+          onPress={() => void editing.save()}
+        />
+      </ButtonRow>
       {photo && (
         <DeleteButton
           label="Remove photo"
@@ -94,7 +98,6 @@ export function PhotoEditor({
           onDelete={editing.remove}
         />
       )}
-      <FoodButton label="Cancel" disabled={busy} onPress={dismiss} />
     </ProfileDialog>
   );
 }

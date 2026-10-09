@@ -9,12 +9,14 @@ export function Button({
   label,
   onPress,
   secondary = false,
+  destructive = false,
   disabled = false,
   icon,
 }: {
   label: string;
   onPress: () => void;
   secondary?: boolean;
+  destructive?: boolean;
   disabled?: boolean;
   icon?: IconName;
 }) {
@@ -39,8 +41,20 @@ export function Button({
         gap: 8,
         borderRadius: radius.control,
         borderWidth: 2,
-        borderColor: focused ? colors.ring : secondary ? colors.border : colors.primary,
-        backgroundColor: secondary ? (pressed ? colors.accent : colors.card) : colors.primary,
+        borderColor: focused
+          ? colors.ring
+          : destructive
+            ? colors.destructive
+            : secondary
+              ? colors.border
+              : colors.primary,
+        backgroundColor: destructive
+          ? colors.destructive
+          : secondary
+            ? pressed
+              ? colors.accent
+              : colors.card
+            : colors.primary,
         opacity: disabled ? 0.55 : pressed ? 0.8 : 1,
       })}
     >
@@ -48,13 +62,23 @@ export function Button({
         <Icon
           name={icon}
           size={16}
-          color={secondary ? colors.foreground : colors.primaryForeground}
+          color={
+            destructive
+              ? colors.destructiveForeground
+              : secondary
+                ? colors.foreground
+                : colors.primaryForeground
+          }
         />
       )}
       <AppText
         variant="label"
         style={{
-          color: secondary ? colors.foreground : colors.primaryForeground,
+          color: destructive
+            ? colors.destructiveForeground
+            : secondary
+              ? colors.foreground
+              : colors.primaryForeground,
           flexShrink: 1,
         }}
       >

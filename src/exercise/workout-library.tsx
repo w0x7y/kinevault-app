@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
+import { ButtonRow, AppButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
 import { AppText, Panel } from "../components/ui";
 import { spacing } from "../theme/tokens";
 import type { WorkoutTemplate } from "./model";
 import { useExercises } from "./provider";
-import { ActionRow, ExerciseButton, ExerciseError } from "./controls";
+import { ExerciseError } from "./controls";
 
 export function WorkoutLibrary({
   date,
@@ -74,20 +75,22 @@ export function WorkoutLibrary({
           <AppText variant="caption" muted>
             {workout.exercises.map((item) => item.name).join(" · ")}
           </AppText>
-          <ActionRow>
-            <ExerciseButton
+          <ButtonRow>
+            <AppButton
+              fill
               label="Add to selected day"
               accessibilityLabel={`Add ${workout.name} to selected day`}
               onPress={() => void add(workout.id)}
               disabled={busy}
             />
-            <ExerciseButton
+            <AppButton
+              fill
               label="Edit"
               accessibilityLabel={`Edit workout ${workout.name}`}
               onPress={() => onEdit(workout)}
               disabled={busy}
             />
-          </ActionRow>
+          </ButtonRow>
         </View>
       ))}
       {records.length > 0 && (
@@ -110,14 +113,16 @@ export function WorkoutLibrary({
                 : "Completed"}{" "}
             · {workout.exercises.length} exercises
           </AppText>
-          <ActionRow>
-            <ExerciseButton
+          <ButtonRow>
+            <AppButton
+              fill
               label={workout.status === "completed" ? "Edit" : "Open"}
               accessibilityLabel={`${workout.status === "completed" ? "Edit logged workout" : "Open logged workout"} ${workout.name}`}
               onPress={() => onOpen(workout.id)}
               disabled={busy}
             />
             <DeleteButton
+              fill
               label={workout.status === "active" ? "Discard" : "Delete"}
               accessibilityLabel={`${workout.status === "active" ? "Discard workout" : "Delete logged workout"} ${workout.name}`}
               confirmAccessibilityLabel={
@@ -128,11 +133,11 @@ export function WorkoutLibrary({
               onDelete={() => remove(workout.id)}
               disabled={busy}
             />
-          </ActionRow>
+          </ButtonRow>
         </View>
       ))}
       <ExerciseError message={error} />
-      <ExerciseButton label="Close saved workouts" onPress={onClose} disabled={busy} />
+      <AppButton label="Close saved workouts" onPress={onClose} disabled={busy} />
     </Panel>
   );
 }

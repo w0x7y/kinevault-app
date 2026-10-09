@@ -187,6 +187,108 @@ test("cached imports stay independent from edited drafts and expire before refet
   assert.equal(calls, 2);
 });
 
+test("oversized product responses are rejected without caching and a normal retry still works", async () => {
+  let calls = 0;
+  const client = new OpenFoodFactsClient({
+    fetch: async () => {
+      calls++;
+      return calls === 1 ? lookup({ ...product, brands: "x".repeat(1024 * 1024) }) : lookup();
+    },
+  });
+  await assert.rejects(client.lookupProduct({ barcode }), /invalid product data/i);
+  assert.equal((await client.lookupProduct({ barcode }))?.name, "Nutella");
+  assert.equal(calls, 2, "the oversized response was never cached");
+});
+
+test("chunked responses stop reading and cancel the source at the size limit", async () => {
+  let chunks = 0;
+  let cancelled = false;
+  const body = new ReadableStream({
+    pull(controller) {
+      if (chunks++ < 32) controller.enqueue(new Uint8Array(64 * 1024).fill(32));
+      else controller.close();
+    },
+    cancel() {
+      cancelled = true;
+    },
+  });
+  const client = new OpenFoodFactsClient({ fetch: async () => new Response(body) });
+  await assert.rejects(client.lookupProduct({ barcode }), /invalid product data/i);
+  assert.equal(cancelled, true);
+  assert.ok(chunks <= 18, "reading stops before consuming the entire oversized body");
+});
+
+test("cancelling a stalled response releases its stream and leaves the next lookup uncached", async () => {
+  let markReading: () => void = () => {};
+  const reading = new Promise<void>((resolve) => {
+    markReading = resolve;
+  });
+  let cancelled = false;
+  const body = new ReadableStream(
+    {
+      pull() {
+        markReading();
+      },
+      cancel() {
+        cancelled = true;
+      },
+    },
+    { highWaterMark: 0 },
+  );
+  let calls = 0;
+  const client = new OpenFoodFactsClient({
+    fetch: async () => (calls++ === 0 ? new Response(body) : lookup()),
+  });
+  const controller = new AbortController();
+  const result = assert.rejects(client.lookupProduct({ barcode, signal: controller.signal }), {
+    name: "AbortError",
+  });
+  await reading;
+  controller.abort();
+  await result;
+  assert.equal(cancelled, true);
+  assert.equal((await client.lookupProduct({ barcode }))?.name, "Nutella");
+  assert.equal(calls, 2);
+});
+
+test("an oversized declared response is rejected before reading the body", async () => {
+  const response = lookup();
+  response.headers.set("Content-Length", String(1024 * 1024 + 1));
+  let reads = 0;
+  const body = response.body;
+  assert.ok(body);
+  const getReader = body.getReader.bind(body);
+  Object.defineProperty(body, "getReader", {
+    value: () => {
+      reads++;
+      return getReader();
+    },
+  });
+  const client = new OpenFoodFactsClient({ fetch: async () => response });
+  await assert.rejects(client.lookupProduct({ barcode }), /invalid product data/i);
+  assert.equal(reads, 0);
+});
+
+test("native responses without streams enforce UTF-8 size while retaining ordinary Unicode labels", async () => {
+  let calls = 0;
+  const client = new OpenFoodFactsClient({
+    fetch: async () => {
+      const response = lookup({
+        ...product,
+        product_name: "Crème brûlée 🍮",
+        brands: calls++ === 0 ? "é".repeat(512 * 1024) : "Café",
+      });
+      // React Native's fetch adapter exposes text(), without a readable body.
+      Object.defineProperty(response, "body", { value: null });
+      return response;
+    },
+  });
+  await assert.rejects(client.lookupProduct({ barcode }), /invalid product data/i);
+  const result = await client.lookupProduct({ barcode });
+  assert.equal(result?.name, "Crème brûlée 🍮");
+  assert.equal(result?.brand, "Café");
+});
+
 test("lookup has a rolling budget and failures consume issued requests", async () => {
   let now = 0;
   let calls = 0;

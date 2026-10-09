@@ -10,6 +10,8 @@ export const accountAuthStorageKey = "kinevault-track.auth.v1";
 let client: SupabaseClient | null | undefined;
 
 export function getSupabaseClient(): SupabaseClient | null {
+  // Server rendering has no app session and must not retain SDK refresh timers.
+  if (Platform.OS === "web" && typeof window === "undefined") return null;
   if (client !== undefined) return client;
   const url = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
   const key = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();

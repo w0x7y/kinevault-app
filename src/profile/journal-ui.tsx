@@ -1,4 +1,5 @@
-import { useEffect, useState, type PropsWithChildren } from "react";
+import { useCallback, useId, useRef, useState, type PropsWithChildren } from "react";
+import { useFocusEffect } from "expo-router";
 import {
   BackHandler,
   Platform,
@@ -116,24 +117,48 @@ export function JournalDisclosure<T extends string | number>({
 }) {
   const { colors } = useTheme();
   const [open, setOpen] = useState(false);
-  useEffect(() => {
-    if (!open) return;
-    const back = BackHandler.addEventListener("hardwareBackPress", () => {
-      setOpen(false);
-      return true;
-    });
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setOpen(false);
+  const id = useId();
+  const trigger = useRef<View>(null);
+  const close = useCallback((restoreFocus = false) => {
+    setOpen(false);
+    if (restoreFocus && Platform.OS === "web") trigger.current?.focus();
+  }, []);
+  useFocusEffect(useCallback(() => () => close(), [close]));
+  useFocusEffect(
+    useCallback(() => {
+      if (!open) return;
+      const back = BackHandler.addEventListener("hardwareBackPress", () => {
+        close();
+        return true;
+      });
+      const escape = (event: KeyboardEvent) => {
+        if (
+          event.key === "Escape" &&
+          document.getElementById(id)?.contains(document.activeElement)
+        ) {
+          event.preventDefault();
+          close(true);
+        }
+      };
+      const outside = (event: Event) => {
+        if (event.target instanceof Node && !document.getElementById(id)?.contains(event.target))
+          close();
+      };
+      if (Platform.OS === "web") {
+        document.addEventListener("keydown", escape);
+        document.addEventListener("pointerdown", outside);
+        document.addEventListener("focusin", outside);
       }
-    };
-    if (Platform.OS === "web") document.addEventListener("keydown", escape);
-    return () => {
-      back.remove();
-      if (Platform.OS === "web") document.removeEventListener("keydown", escape);
-    };
-  }, [open]);
+      return () => {
+        back.remove();
+        if (Platform.OS === "web") {
+          document.removeEventListener("keydown", escape);
+          document.removeEventListener("pointerdown", outside);
+          document.removeEventListener("focusin", outside);
+        }
+      };
+    }, [open, close, id]),
+  );
   const choices = values.map((option) => (
     <Pressable
       key={option.value}
@@ -143,7 +168,7 @@ export function JournalDisclosure<T extends string | number>({
       aria-pressed={value === option.value}
       onPress={() => {
         onChange(option.value);
-        setOpen(false);
+        close(true);
       }}
       style={{
         minHeight: 44,
@@ -157,8 +182,9 @@ export function JournalDisclosure<T extends string | number>({
     </Pressable>
   ));
   return (
-    <View style={{ zIndex: 2 }}>
+    <View nativeID={id} style={{ zIndex: 2 }}>
       <Pressable
+        ref={trigger}
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityState={{ expanded: open }}
@@ -199,12 +225,17 @@ export function JournalDisclosure<T extends string | number>({
               padding: 4,
             }}
           >
-            <ScrollView nestedScrollEnabled style={{ maxHeight: 240, flexGrow: 0 }}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              showsHorizontalScrollIndicator={false}
+              nestedScrollEnabled
+              style={{ maxHeight: 240, flexGrow: 0 }}
+            >
               {choices}
             </ScrollView>
           </View>
         ) : (
-          <Modal transparent animationType="fade" visible onRequestClose={() => setOpen(false)}>
+          <Modal transparent animationType="fade" visible onRequestClose={() => close()}>
             <View
               style={{
                 flex: 1,
@@ -215,7 +246,7 @@ export function JournalDisclosure<T extends string | number>({
             >
               <Pressable
                 accessible={false}
-                onPress={() => setOpen(false)}
+                onPress={() => close()}
                 style={{
                   position: "absolute",
                   top: 0,
@@ -242,7 +273,12 @@ export function JournalDisclosure<T extends string | number>({
                 <JournalText size={14} variant="heading" accessibilityRole="header">
                   {label}
                 </JournalText>
-                <ScrollView nestedScrollEnabled style={{ maxHeight: 360, flexGrow: 0 }}>
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  showsHorizontalScrollIndicator={false}
+                  nestedScrollEnabled
+                  style={{ maxHeight: 360, flexGrow: 0 }}
+                >
                   {choices}
                 </ScrollView>
               </View>

@@ -172,6 +172,7 @@ export function AccountSettingsPanel() {
             />
             <Button
               label={working ? "Deleting account…" : "Permanently delete my account"}
+              destructive
               disabled={
                 offline ||
                 working ||

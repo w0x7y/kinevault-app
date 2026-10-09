@@ -72,6 +72,8 @@ function ErrorFallback({ message, onReload }: { message: string; onReload: () =>
 
   return (
     <ScrollView
+      showsVerticalScrollIndicator={false}
+      showsHorizontalScrollIndicator={false}
       testID="app-error-boundary"
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={{

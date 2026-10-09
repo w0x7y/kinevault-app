@@ -1,3 +1,4 @@
+import { ButtonRow, AppButton } from "../components/button";
 import { useEffect, useRef } from "react";
 import { View } from "react-native";
 import { AppText } from "../components/ui";
@@ -5,7 +6,6 @@ import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import { type CustomFood, type CustomFoodDraft } from "./custom-model.ts";
 import { useCustomFoods } from "./custom-provider";
-import { FoodButton } from "./food-button";
 import { FoodField, NutritionFields } from "./form-fields";
 import { DetailedNutrientFields } from "./detailed-nutrient-fields";
 import { ProductAttribution } from "./product-attribution";
@@ -77,20 +77,22 @@ export function CreateFoodForm({
       {draft.importSource?.provider === "open-food-facts" && (
         <ProductAttribution barcode={draft.importSource.barcode} />
       )}
-      <View style={{ flexDirection: "row", gap: spacing.sm }}>
-        <FoodButton
+      <ButtonRow>
+        <AppButton
+          fill
           label="Solid food"
           selected={!draft.drink}
           disabled={busy}
           onPress={() => changeKind(false)}
         />
-        <FoodButton
+        <AppButton
+          fill
           label="Drink"
           selected={Boolean(draft.drink)}
           disabled={busy}
           onPress={() => changeKind(true)}
         />
-      </View>
+      </ButtonRow>
       {volumeBased && !draft.drink && (
         <AppText variant="caption" muted>
           This product lists volume amounts. Choose Drink for a beverage and confirm nutrition per
@@ -132,22 +134,26 @@ export function CreateFoodForm({
           {error}
         </AppText>
       )}
-      <FoodButton
-        primary
-        label={busy ? "Saving food..." : existing ? "Save food changes" : "Save food"}
-        disabled={busy || foods.state.kind !== "ready"}
-        onPress={() => {
-          void save();
-        }}
-      />
-      <FoodButton
-        label="Cancel"
-        disabled={busy}
-        onPress={() => {
-          drafts.discard(handle);
-          onCancel();
-        }}
-      />
+      <ButtonRow>
+        <AppButton
+          fill
+          label="Cancel"
+          disabled={busy}
+          onPress={() => {
+            drafts.discard(handle);
+            onCancel();
+          }}
+        />
+        <AppButton
+          fill
+          primary
+          label={busy ? "Saving food..." : existing ? "Save food changes" : "Save food"}
+          disabled={busy || foods.state.kind !== "ready"}
+          onPress={() => {
+            void save();
+          }}
+        />
+      </ButtonRow>
     </View>
   );
 }

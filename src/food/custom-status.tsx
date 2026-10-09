@@ -1,6 +1,6 @@
+import { AppButton } from "../components/button";
 import { AppText, Panel } from "../components/ui";
 import { useCustomFoods } from "./custom-provider";
-import { FoodButton } from "./food-button";
 import { KineLoading } from "../components/kine-loading";
 
 export function CustomFoodStatus() {
@@ -17,7 +17,7 @@ export function CustomFoodStatus() {
         Retry to access saved foods and meals and create new ones. You can still search the USDA
         database.
       </AppText>
-      <FoodButton label="Retry custom foods" onPress={foods.retryLoad} />
+      <AppButton label="Retry custom foods" onPress={foods.retryLoad} />
     </Panel>
   );
 }

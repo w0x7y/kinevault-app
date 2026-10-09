@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
-import { Platform, View, type ViewStyle } from "react-native";
-import { useTheme } from "../theme/provider";
+import { View } from "react-native";
 import { Screen } from "../components/ui";
 import { useSelectedDay } from "../calendar/provider";
 import { spacing } from "../theme/tokens";
@@ -13,7 +12,6 @@ import { ProfileGoals, TodayNutrition, type ProfileEditorInstance } from "./prof
 import { ProgressPhotos } from "./progress-photos";
 import type { ProfileEditSection } from "./section-editing";
 export function ProfileScreen() {
-  const { colors } = useTheme();
   const { today } = useSelectedDay();
   const [section, setSection] = useState<ProfileSection>("Overview");
   const [editor, setEditor] = useState<ProfileEditorInstance | null>(null);
@@ -37,14 +35,6 @@ export function ProfileScreen() {
       showTitle={false}
       adjustKeyboardInsets
       contentContainerStyle={{ gap: 0 }}
-      scrollStyle={
-        Platform.OS === "web"
-          ? ({
-              scrollbarWidth: "thin",
-              scrollbarColor: `${colors.border} transparent`,
-            } as ViewStyle)
-          : undefined
-      }
     >
       <ProfileIdentity />
       <ProfileControls section={section} select={select} />
