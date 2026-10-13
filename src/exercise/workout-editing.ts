@@ -12,7 +12,14 @@ import {
 import type { createExercisePersistence } from "./persistence.ts";
 
 export type WorkoutView =
-  | { kind: "exercise"; exercise?: ExerciseDefinition }
+  | {
+      kind: "exercise";
+      exercise?: ExerciseDefinition;
+      /** Opened from "Link demo": focus the KineVault search. */
+      linkDemo?: boolean;
+      /** The workout to return to after Save or Cancel. */
+      returnTo?: WorkoutView;
+    }
   | { kind: "workout"; workout?: WorkoutTemplate }
   | { kind: "library"; date: string }
   | { kind: "session"; id: string; manual?: boolean; settings?: boolean }

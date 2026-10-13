@@ -125,7 +125,9 @@ export default function ExerciseScreen() {
           {content?.kind === "exercise" && (
             <ExerciseForm
               exercise={content.exercise}
-              onClose={() => editing.closeView(panel.token)}
+              onClose={() =>
+                content.returnTo ? void open(content.returnTo) : editing.closeView(panel.token)
+              }
             />
           )}
           {content?.kind === "workout" && (

@@ -1,4 +1,11 @@
+import { readFile } from "node:fs/promises";
 import { browserHistoryCodec } from "./browser-history-codec.mjs";
+
+// The clip is VP9 WebM because Playwright's Chromium may lack H.264.
+const demoMedia = {
+  webp: ["image/webp", new URL("../fixtures/demo-poster.webp", import.meta.url)],
+  mp4: ["video/webm", new URL("../fixtures/demo-clip.webm", import.meta.url)],
+};
 
 export const fixtureUserId = "11111111-1111-4111-8111-111111111111";
 export const fixtureAuthKey = "kinevault-track.auth.v1";
@@ -54,6 +61,9 @@ export async function installAccountFixture(
     documents: new Map(),
     partitions: new Map(),
     requests: [],
+    catalog: [],
+    catalogFailure: false,
+    demoMediaFailure: false,
   };
   let documentReadGate = null;
   state.deferDocumentReads = () => {
@@ -206,6 +216,23 @@ export async function installAccountFixture(
       });
       state.partitions = next;
       return json(route, saved);
+    }
+    if (url.pathname === "/rest/v1/catalog_exercises") {
+      if (state.catalogFailure) return json(route, { message: "Fixture catalog unavailable" }, 503);
+      const offset = Number(url.searchParams.get("offset") ?? 0);
+      const limit = Number(url.searchParams.get("limit") ?? 1000);
+      return json(route, state.catalog.slice(offset, offset + limit));
+    }
+    if (url.pathname.startsWith("/storage/v1/object/public/exercise-demos/")) {
+      const media = demoMedia[url.pathname.split(".").pop()];
+      if (state.demoMediaFailure || !media)
+        return json(route, { message: "Object not found" }, 404);
+      return route.fulfill({
+        status: 200,
+        contentType: media[0],
+        headers: { "cache-control": "no-store" },
+        body: await readFile(media[1]),
+      });
     }
     return json(route, { message: `Unexpected fixture request: ${url.pathname}` }, 404);
   });

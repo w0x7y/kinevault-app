@@ -6,6 +6,7 @@ import { AppText, Panel } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { radius, spacing } from "../theme/tokens";
 import type { ExerciseDefinition } from "./model";
+import { DemoThumbnail } from "./demo/exercise-demo";
 
 const pageSize = 20;
 
@@ -52,6 +53,7 @@ function ExerciseResult({
             {exercise.tracking === "sides" ? "Left and right" : "Single weight"}
           </AppText>
         </View>
+        {exercise.catalog && <DemoThumbnail link={exercise.catalog} />}
         <Icon name="user-pen" size={14} color={colors.primary} />
       </View>
     </Pressable>
@@ -139,9 +141,6 @@ export function ExerciseSearchResults({
       <View style={{ borderTopWidth: 1, borderColor: colors.border, paddingTop: spacing.layout }}>
         <AppText variant="caption" muted selectable>
           Your exercise library · Saved on this device
-        </AppText>
-        <AppText variant="caption" muted>
-          Exercise videos are upcoming with KineVault studio integration.
         </AppText>
       </View>
     </Panel>

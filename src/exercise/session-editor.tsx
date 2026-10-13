@@ -5,7 +5,8 @@ import { ButtonRow, AppButton, IconButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
 import { spacing } from "../theme/tokens";
 import { durationFromMinutes, type SessionExercise, type WorkoutSession } from "./model";
-import type { WorkoutEditing } from "./workout-editing";
+import type { WorkoutEditing, WorkoutView } from "./workout-editing";
+import { ExerciseDemoSlot } from "./demo/exercise-demo";
 import { useWorkoutEdit } from "./use-workout-editing";
 import { ExerciseError, ExerciseField } from "./controls";
 import { ExerciseSetTable } from "./set-table";
@@ -45,6 +46,9 @@ export function SessionEditor({
   const [settingsOpen, setSettingsOpen] = useState(initialSettings);
   const [selectedId, setSelectedId] = useState(session.exercises[0]?.id),
     [notesId, setNotesId] = useState<string | null>(null);
+  // Active workouts reopen on the default view; others reopen their panel.
+  const returnTo: WorkoutView | undefined =
+    session.status === "active" ? undefined : { kind: "session", id: session.id, manual };
   function renderExercise(row: SessionExercise, index: number) {
     const rowLabel = exerciseRowLabel(draft.exercises, row, index);
     return (
@@ -83,9 +87,19 @@ export function SessionEditor({
             {row.exercise.notes || "No notes for this exercise."}
           </AppText>
         )}
-        <AppText variant="caption" muted>
-          Exercise videos are upcoming with KineVault studio integration.
-        </AppText>
+        <ExerciseDemoSlot
+          exercise={row.exercise}
+          label={rowLabel}
+          disabled={busy}
+          onLinkDemo={(definition) =>
+            void editing.requestView({
+              kind: "exercise",
+              exercise: definition,
+              linkDemo: true,
+              returnTo,
+            })
+          }
+        />
       </View>
     );
   }

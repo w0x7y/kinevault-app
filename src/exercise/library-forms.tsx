@@ -9,6 +9,7 @@ import { useExercises } from "./provider";
 import { ExerciseError, ExerciseField } from "./controls";
 import { exerciseRowLabel, WorkoutWorkspace } from "./workout-workspace";
 import { createWorkoutTemplateDraft } from "./workout-template-draft";
+import { ExerciseDemoSlot } from "./demo/exercise-demo";
 
 function useAlive() {
   const alive = useRef(true);
@@ -368,9 +369,8 @@ export function WorkoutForm({
                 {selectedExercise.notes || "No notes for this exercise."}
               </AppText>
             )}
-            <AppText variant="caption" muted>
-              Exercise videos are upcoming with KineVault studio integration.
-            </AppText>
+            {/* No "Link demo" here: leaving would discard unsaved template changes. */}
+            <ExerciseDemoSlot exercise={selectedExercise} label={rowLabel} disabled={busy} />
           </>
         ) : (
           <AppText muted>

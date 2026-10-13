@@ -1024,7 +1024,7 @@ test("Add workout is a button-only fallback that hides behind every Exercise vie
   assert.doesNotMatch(await homeFallback.innerText(), /Workout of the day|No workout logged/);
 });
 
-test("exercise results keep long names readable and explain upcoming studio videos once", async (t) => {
+test("exercise results keep long names readable without demo captions", async (t) => {
   const longName =
     "Split squat with a very long exercise name and independent left and right repetitions";
   const longExercise = {
@@ -1051,7 +1051,7 @@ test("exercise results keep long names readable and explain upcoming studio vide
           exact: true,
         })
         .count(),
-      1,
+      0,
     );
     assert.equal(await page.getByRole("img", { name: "No video found", exact: true }).count(), 0);
     for (const width of [320, 390, 1280]) {
@@ -1527,8 +1527,9 @@ test("completed workout editing shares the layout and keeps side edits local unt
     await editor
       .getByText("Exercise videos are upcoming with KineVault studio integration.", { exact: true })
       .count(),
-    1,
+    0,
   );
+  assert.equal(await button(editor, "Link a KineVault demo to Squat").count(), 1);
   assert.equal(await button(editor, "Add set to Squat").count(), 1);
   await button(editor, "Select exercise Curl").click();
   await field(editor, "Curl set 1 right reps").fill("9");
