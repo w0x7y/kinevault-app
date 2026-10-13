@@ -26,11 +26,14 @@ function useAlive() {
 export function ExerciseForm({
   exercise,
   linkDemo = false,
+  onDemoSectionLayout,
   onClose,
 }: {
   exercise?: ExerciseDefinition;
   /** Opened from "Link demo": focus the KineVault search. */
   linkDemo?: boolean;
+  /** Reports the KineVault section's top, relative to the form, so the screen can scroll to it. */
+  onDemoSectionLayout?: (y: number) => void;
   onClose: () => void;
 }) {
   const store = useExercises();
@@ -115,14 +118,16 @@ export function ExerciseForm({
       <AppText variant="caption" muted>
         Leave weight blank for bodyweight. Changes apply to future workouts.
       </AppText>
-      <KineVaultDemoSection
-        link={values.catalog}
-        exerciseName={values.name}
-        focusSearch={linkDemo}
-        disabled={busy}
-        onLink={(entry) => setValues((current) => applyCatalogLink(current, entry))}
-        onUnlink={() => setValues(withoutCatalogLink)}
-      />
+      <View onLayout={(event) => onDemoSectionLayout?.(event.nativeEvent.layout.y)}>
+        <KineVaultDemoSection
+          link={values.catalog}
+          exerciseName={values.name}
+          focusSearch={linkDemo}
+          disabled={busy}
+          onLink={(entry) => setValues((current) => applyCatalogLink(current, entry))}
+          onUnlink={() => setValues(withoutCatalogLink)}
+        />
+      </View>
       <ExerciseError message={error} />
       <ButtonRow>
         <AppButton label="Cancel" onPress={onClose} disabled={busy} fill />

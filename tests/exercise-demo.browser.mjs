@@ -266,6 +266,7 @@ test("Unlink removes the link and Change keeps it until another is chosen", asyn
 
 test("Link demo opens the form at its search and returns to the workout", async (t) => {
   const { page } = await open(t, documentWith([squat], { sessions: [historical([squat])] }));
+  await page.setViewportSize({ width: 390, height: 640 });
   const editor = await openHistoricalWorkout(page);
   await field(editor, "Squat set 1 reps").fill("6");
   await button(editor, "Link a KineVault demo to Squat").click();
@@ -273,6 +274,23 @@ test("Link demo opens the form at its search and returns to the workout", async 
   const search = field(form, "Find in KineVault");
   await search.waitFor();
   assert.equal(await search.evaluate((element) => element === document.activeElement), true);
+  // The search is only reachable when the screen scrolls to it; the scroll area
+  // ends above the tab bar, so compare against every clipping ancestor.
+  const inView = () =>
+    search.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      let top = 0;
+      let bottom = window.innerHeight;
+      for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+        if (!/auto|scroll|hidden/.test(getComputedStyle(parent).overflowY)) continue;
+        const bounds = parent.getBoundingClientRect();
+        top = Math.max(top, bounds.top);
+        bottom = Math.min(bottom, bounds.bottom);
+      }
+      return rect.top >= top && rect.bottom <= bottom;
+    });
+  await page.waitForTimeout(500);
+  assert.equal(await inView(), true, "The KineVault search should be scrolled into view");
   await search.fill("shoulder press");
   await button(form, "Link Dumbbell shoulder press").click();
   assert.equal(await field(form, "Exercise name").inputValue(), "Squat");

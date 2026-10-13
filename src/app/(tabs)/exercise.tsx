@@ -16,6 +16,8 @@ import { useWorkoutEditing } from "../../exercise/use-workout-editing";
 import { WorkoutLibrary } from "../../exercise/workout-library";
 import { useRouteRequest } from "../../navigation/use-route-request";
 
+type DemoScrollTarget = { token: number; panelY?: number; sectionY?: number };
+
 export default function ExerciseScreen() {
   const activity = useDayActivity(),
     store = useExercises();
@@ -24,7 +26,8 @@ export default function ExerciseScreen() {
   const [query, setQuery] = useState("");
   const scrollRef = useRef<ScrollView>(null),
     resultsTop = useRef(0),
-    scrolledPanel = useRef<number | null>(null);
+    scrolledPanel = useRef<number | null>(null),
+    demoScroll = useRef<DemoScrollTarget>({ token: -1 });
   const document = store.state.kind === "ready" ? store.state.document : null;
   useRouteRequest("workoutMenu", { ready: document !== null }, (date) => {
     try {
@@ -53,6 +56,19 @@ export default function ExerciseScreen() {
   const content = panel?.content;
   function scrollToResults() {
     scrollRef.current?.scrollTo({ y: resultsTop.current, animated: false });
+  }
+  // A form opened from "Link demo" scrolls to its KineVault search instead of the panel top,
+  // once both the panel and the section have reported their position.
+  function scrollToDemoSection(token: number, position: Omit<DemoScrollTarget, "token">) {
+    const target: DemoScrollTarget = {
+      ...(demoScroll.current.token === token ? demoScroll.current : { token }),
+      ...position,
+    };
+    demoScroll.current = target;
+    if (target.panelY === undefined || target.sectionY === undefined) return;
+    if (scrolledPanel.current === token) return;
+    scrolledPanel.current = token;
+    scrollRef.current?.scrollTo({ y: target.panelY + target.sectionY, animated: false });
   }
   return (
     <Screen title="Exercise" showTitle={false} scrollRef={scrollRef} adjustKeyboardInsets>
@@ -111,7 +127,9 @@ export default function ExerciseScreen() {
         <View
           key={panel.token}
           onLayout={(event) => {
-            if (
+            if (content?.kind === "exercise" && content.linkDemo) {
+              scrollToDemoSection(panel.token, { panelY: event.nativeEvent.layout.y });
+            } else if (
               (content?.kind === "exercise" ||
                 content?.kind === "library" ||
                 content?.kind === "import") &&
@@ -126,6 +144,9 @@ export default function ExerciseScreen() {
             <ExerciseForm
               exercise={content.exercise}
               linkDemo={content.linkDemo}
+              onDemoSectionLayout={(sectionY) =>
+                content.linkDemo && scrollToDemoSection(panel.token, { sectionY })
+              }
               onClose={() =>
                 content.returnTo ? void open(content.returnTo) : editing.closeView(panel.token)
               }
