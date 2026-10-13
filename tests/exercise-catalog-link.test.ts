@@ -34,7 +34,7 @@ test("an exercise without a link has no catalog field", () => {
   assert.equal("catalog" in parseExerciseDefinition({ ...plain, catalog: undefined }), false);
 });
 
-test("malformed KineVault links are rejected", () => {
+test("malformed KineVault links are dropped without failing the exercise", () => {
   for (const catalog of [
     null,
     "dumbbell-shoulder-press",
@@ -42,8 +42,26 @@ test("malformed KineVault links are rejected", () => {
     { id: link.id.toUpperCase(), slug: link.slug },
     { id: link.id, slug: "Bad Slug" },
     { id: link.id, slug: "a".repeat(201) },
-  ])
-    assert.throws(() => parseExerciseDefinition({ ...press, catalog }), /Invalid/);
+  ]) {
+    const parsed = parseExerciseDefinition({ ...press, catalog });
+    assert.equal("catalog" in parsed, false);
+    const { catalog: _catalog, ...rest } = press;
+    assert.deepEqual(parsed, rest);
+  }
+});
+
+test("one malformed link does not make the stored document unreadable", () => {
+  const stored = parseExerciseDocument(
+    JSON.stringify({
+      ...empty(),
+      exercises: [
+        { ...press, catalog: { id: "not-a-uuid", slug: link.slug } },
+        { ...press, id: "other" },
+      ],
+    }),
+  );
+  assert.equal("catalog" in stored.exercises[0]!, false);
+  assert.deepEqual(stored.exercises[1]!.catalog, link);
 });
 
 test("saved exercises, templates, planned workouts and stored documents carry the link", () => {

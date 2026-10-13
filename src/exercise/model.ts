@@ -95,7 +95,14 @@ export function parseExerciseDefinition(value: unknown): ExerciseDefinition {
     notes: text(item.notes, 4000),
     tracking: item.tracking,
   };
-  if (item.catalog !== undefined) definition.catalog = parseCatalogLink(item.catalog);
+  // A malformed link is dropped rather than failing the whole exercise document.
+  if (item.catalog !== undefined) {
+    try {
+      definition.catalog = parseCatalogLink(item.catalog);
+    } catch {
+      // The exercise stays usable without its demo.
+    }
+  }
   return definition;
 }
 function side(value: unknown): SetSide {
