@@ -58,3 +58,56 @@ test("withdrawn exercises, blank queries and limits", () => {
   assert.deepEqual(names("   "), []);
   assert.deepEqual(names("d", 1), ["Développé couché"]);
 });
+
+function find(entries: CatalogExercise[], query: string): string[] {
+  return createDemoCatalogSearch(entries)(query).map((item) => item.name);
+}
+
+test("hyphenated, joined and plural spellings find a hyphenated name", () => {
+  const pushUp = entry("Push-up");
+  for (const query of ["push-ups", "push ups", "pushups", "pushup", "push up", "push"])
+    assert.deepEqual(find([pushUp], query), ["Push-up"], query);
+  const others = [entry("Pull-up"), entry("Sit-up"), entry("Chin-up")];
+  for (const [query, name] of [
+    ["pull-ups", "Pull-up"],
+    ["pullups", "Pull-up"],
+    ["sit-ups", "Sit-up"],
+    ["situps", "Sit-up"],
+    ["chin-ups", "Chin-up"],
+  ] as const)
+    assert.deepEqual(find(others, query), [name], query);
+});
+
+test("a split or joined compound word finds the other spelling", () => {
+  assert.deepEqual(find([entry("Lat pulldown")], "lat pull-down"), ["Lat pulldown"]);
+  assert.deepEqual(find([entry("Lat pulldown")], "lat pull down"), ["Lat pulldown"]);
+  assert.deepEqual(find([entry("Lat pull-down")], "lat pulldown"), ["Lat pull-down"]);
+});
+
+test("aliases match hyphenated and plural spellings", () => {
+  const aliased = entry("Floor push-up", { aliases: ["Press-up"] });
+  for (const query of ["pressups", "press-ups", "press ups", "pressup"])
+    assert.deepEqual(find([aliased], query), ["Floor push-up"], query);
+});
+
+test("joined and plural matches keep their ranking tiers", () => {
+  const pushUp = entry("Push-up");
+  const pushUpRow = entry("Push-up row");
+  const byAlias = entry("Floor press", { aliases: ["Press-up"] });
+  const byAliasPrefix = entry("Wall press", { aliases: ["Press-up hold"] });
+  // Exact after normalization outranks a name prefix.
+  assert.deepEqual(find([pushUpRow, pushUp], "pushups"), ["Push-up", "Push-up row"]);
+  assert.deepEqual(find([pushUpRow, pushUp], "push ups"), ["Push-up", "Push-up row"]);
+  // A joined spelling that only prefixes the name ranks as a prefix, below an exact alias.
+  assert.deepEqual(find([pushUpRow, byAlias], "pressups"), ["Floor press"]);
+  assert.deepEqual(find([byAliasPrefix, byAlias], "pressups"), ["Floor press", "Wall press"]);
+  assert.deepEqual(find([byAlias, pushUp, pushUpRow], "pushup"), ["Push-up", "Push-up row"]);
+});
+
+test("joined matching adds no false positives", () => {
+  const entries = [entry("Push-up"), entry("Pull-up"), entry("Lat pulldown"), entry("Curl")];
+  assert.deepEqual(find(entries, "crul"), []);
+  assert.deepEqual(find(entries, "pushdown"), []);
+  assert.deepEqual(find(entries, "pullup push"), []);
+  assert.deepEqual(find(entries, "pull ups push"), []);
+});
