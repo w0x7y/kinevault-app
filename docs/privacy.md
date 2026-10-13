@@ -30,6 +30,36 @@ or uninstalling the app can lose local-only records and pending changes. Synced
 tracking is stored in the account's private Supabase documents. Photos are not
 included in cloud document sync.
 
+## Workout import
+
+On iOS and Android, importing a Tracked share link fetches the public share
+page directly from `app.tracked.gg`; no KineVault server relays the request. The
+request URL carries only the workout ID from the pasted link, the request sends
+no cookies, and no KineVault account data is attached. Tracked receives it like
+any other page visit from the device's network address.
+
+Browsers can't read Tracked's pages, so on the web the workout ID passes through
+KineVault's `tracked-workout` Supabase Edge Function. The browser sends the ID
+and the signed-in session token to the function. The function checks the
+session, fetches the share page from Tracked without cookies or account data,
+and returns the page to the browser, which reads it as the apps do. The function
+doesn't store or log the workout ID, the page or the token. The ID travels in
+the request body, not the URL. Tracked sees the request coming from Supabase's
+network instead of the device.
+
+Imported exercises and workout templates are then saved like other Account
+tracking: in the local copy and, when signed in, the account's private Supabase
+documents. See [workout import](workout-import.md).
+
+## Reminders
+
+Reminders are device settings, not Account tracking. They are stored in the
+signed-in account's local storage on this device and are never uploaded.
+Notifications are scheduled locally by the device's notification system; there
+is no push server and no push token. Signing out cancels the scheduled
+notifications and removes reminders already shown in the notification list, and
+the next sign-in schedules that account's reminders again.
+
 ## Proposed privacy-policy text
 
 > To support offline logging, KineVault Track stores a local copy of your
@@ -39,6 +69,12 @@ included in cloud document sync.
 > stores sign-in tokens in browser storage. Signing out hides your account's
 > local tracking and keeps pending changes for your next sign-in. Your synced
 > tracking is associated with your account; profile photos stay on this device.
+> When you import a workout shared from Tracked, the iOS and Android app
+> downloads the shared page directly from Tracked; only the workout ID is sent,
+> without your KineVault account details. On the web, your browser sends the
+> workout ID to KineVault's server, which downloads the page from Tracked for you
+> and does not keep it. Reminders are scheduled on your device and are not
+> uploaded.
 
 This is the storage disclosure for the current implementation. The published
 policy still needs the product's actual operator, contact details and retention

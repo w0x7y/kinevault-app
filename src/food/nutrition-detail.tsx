@@ -6,11 +6,10 @@ import { ProductAttribution } from "./product-attribution";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import type { FoodSaveTarget } from "./log-model.ts";
-import { prepareFoodLogging } from "./logging-preparation.ts";
+import { useFoodLoggingAttempt } from "./use-logging-attempt";
 import type { Meal } from "../daily/model";
 import { macroCategories } from "../daily/nutrition.ts";
 import { FoodLoggingControls } from "./logging-controls";
-import { useFoodLog } from "./log-provider";
 import type { CustomMeal } from "./meal-model.ts";
 import type { CustomFood } from "./custom-model.ts";
 import { useCustomFoods } from "./custom-provider";
@@ -18,9 +17,7 @@ import { CustomItemActions } from "./custom-item-actions";
 import { CreateFoodForm } from "./create-form";
 import { CreateMealForm } from "./create-meal-form";
 import { useFoodDrafts } from "./draft-provider";
-import { foodDatabase } from "./database";
 import { NutritionFields } from "./form-fields";
-import type { Nutrition } from "./catalog.ts";
 import { nutritionAmountText } from "./number-input.ts";
 
 const decimal = (value: number) => value.toLocaleString(undefined, { maximumFractionDigits: 1 });
@@ -45,7 +42,6 @@ export function FoodNutritionDetail({
   onCatalogEditChange?: (editing: boolean) => void;
 }) {
   const { colors } = useTheme();
-  const { saving } = useFoodLog();
   const custom = useCustomFoods();
   const drafts = useFoodDrafts();
   const customId =
@@ -54,40 +50,19 @@ export function FoodNutritionDetail({
   // Keep actions mounted until a successful delete can return to results.
   const [originalItem] = useState(() => currentItem);
   const item = currentItem ?? originalItem;
-  const target: FoodSaveTarget =
-    originalTarget.kind === "add" && item ? { kind: "add", food: item.food } : originalTarget;
+  const logging = useFoodLoggingAttempt({
+    target: originalTarget,
+    date,
+    initialMeal,
+    catalogItem: currentItem?.food,
+  });
+  const { attempt, target, fields, preparation, saving, busy } = logging;
   const customMeal = item?.kind === "meal" ? item.food : undefined;
   const [editingCatalog, setEditingCatalog] = useState(false);
   useEffect(() => () => onCatalogEditChange?.(false), [onCatalogEditChange]);
-  const [labelNutrition, setLabelNutrition] = useState<Record<keyof Nutrition, string>>({
-    calories: "",
-    carbs: "",
-    protein: "",
-    fat: "",
-  });
-  const [amount, setAmount] = useState(
-    target.kind === "edit"
-      ? nutritionAmountText(target.entry.grams ?? 100)
-      : target.food.customId
-        ? nutritionAmountText(target.food.portions[0]?.grams ?? 100)
-        : "100",
-  );
-  const [meal, setMeal] = useState<Meal>(
-    target.kind === "edit" ? target.entry.meal : (initialMeal ?? "breakfast"),
-  );
-  const [drinkAmount, setDrinkAmount] = useState(
-    target.kind === "edit" && target.entry.drinkMl !== undefined
-      ? String(target.entry.drinkMl)
-      : "",
-  );
   const [servingsExpanded, setServingsExpanded] = useState(false);
   const [catalogSaved, setCatalogSaved] = useState(savedCatalog);
   const [focused, setFocused] = useState(false);
-  const busy = saving || custom.saving;
-  function changeMeal(nextMeal: Meal) {
-    setMeal(nextMeal);
-    if (target.kind === "add") drafts.setMealIntent(nextMeal);
-  }
   function cancelEdit() {
     setEditingCatalog(false);
     onCatalogEditChange?.(false);
@@ -95,7 +70,7 @@ export function FoodNutritionDetail({
   function finishEdit(updated: CustomFood | CustomMeal) {
     Keyboard.dismiss();
     setCatalogSaved(true);
-    setAmount(nutritionAmountText(updated.portions[0]?.grams ?? 100));
+    attempt.catalogSaved(updated);
     cancelEdit();
   }
   if (editingCatalog && drafts.session)
@@ -104,13 +79,6 @@ export function FoodNutritionDetail({
     ) : (
       <CreateFoodForm session={drafts.session} onCancel={cancelEdit} onSaved={finishEdit} />
     );
-  const preparation = prepareFoodLogging({
-    target,
-    date,
-    fields: { grams: amount, drinkMl: drinkAmount, meal, labelNutrition },
-    findFood: foodDatabase.getById,
-    catalogItem: currentItem?.food,
-  });
   const grams = preparation.measurement === "grams" ? preparation.amount : null;
   const invalidDrinkAmount =
     preparation.measurement === "volume" &&
@@ -159,7 +127,7 @@ export function FoodNutritionDetail({
                 ? { kind: "edit-meal", item: item.food }
                 : { kind: "edit-food", item: item.food },
             );
-            setMeal(session.mealIntent);
+            attempt.restoreMeal(session.mealIntent);
             setEditingCatalog(true);
             onCatalogEditChange?.(true);
           }}
@@ -177,8 +145,8 @@ export function FoodNutritionDetail({
           <TextInput
             accessibilityLabel="Drink amount (ml)"
             accessibilityHint="Changes nutrition and adds this volume to the selected day's water total."
-            value={drinkAmount}
-            onChangeText={setDrinkAmount}
+            value={fields.drinkMl}
+            onChangeText={attempt.setDrinkMl}
             editable={!busy}
             inputMode="numeric"
             keyboardType="number-pad"
@@ -216,12 +184,10 @@ export function FoodNutritionDetail({
             0 only when the label lists zero.
           </AppText>
           <NutritionFields
-            values={labelNutrition}
+            values={fields.labelNutrition}
             errors={{}}
             disabled={busy}
-            onChange={(key, value) =>
-              setLabelNutrition((current) => ({ ...current, [key]: value }))
-            }
+            onChange={attempt.setLabelNutrition}
           />
         </View>
       )}
@@ -231,8 +197,8 @@ export function FoodNutritionDetail({
           <TextInput
             accessibilityLabel="Amount (g)"
             accessibilityHint="Changes the nutrition preview for this weight"
-            value={amount}
-            onChangeText={setAmount}
+            value={fields.grams}
+            onChangeText={attempt.setGrams}
             editable={!busy}
             inputMode="decimal"
             keyboardType="decimal-pad"
@@ -268,7 +234,7 @@ export function FoodNutritionDetail({
                 label={hundredGramPortion ? `${hundredGramPortion.label}, 100 g` : "100 g"}
                 selected={grams === 100}
                 disabled={busy}
-                onPress={() => setAmount("100")}
+                onPress={() => attempt.setGrams("100")}
               />
             </View>
             {visiblePortions.map((portion) => (
@@ -281,7 +247,7 @@ export function FoodNutritionDetail({
                   label={`${portion.label}, ${decimal(portion.grams)} g`}
                   selected={grams === portion.grams}
                   disabled={busy}
-                  onPress={() => setAmount(nutritionAmountText(portion.grams))}
+                  onPress={() => attempt.setGrams(nutritionAmountText(portion.grams))}
                 />
               </View>
             ))}
@@ -327,8 +293,7 @@ export function FoodNutritionDetail({
         </AppText>
       )}
       <FoodLoggingControls
-        preparation={preparation}
-        onMealChange={changeMeal}
+        attempt={logging}
         onSaved={onSaved}
         itemKind={customMeal ? "meal" : "food"}
       />

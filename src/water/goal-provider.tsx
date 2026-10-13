@@ -10,8 +10,9 @@ import {
 import { createWaterGoalPersistence, type WaterGoalSnapshot } from "./goal-persistence";
 
 type WaterGoalStore = ReturnType<typeof createWaterGoalPersistence>;
-type WaterGoalContextValue = WaterGoalSnapshot & Pick<WaterGoalStore, "setGoal" | "retryLoad">;
+type WaterGoalContextValue = WaterGoalSnapshot & Pick<WaterGoalStore, "retryLoad">;
 const WaterGoalContext = createContext<WaterGoalContextValue | null>(null);
+const WaterGoalPersistenceContext = createContext<WaterGoalStore | null>(null);
 
 export function WaterGoalProvider({ children }: PropsWithChildren) {
   const storage = useAccountStorage();
@@ -22,12 +23,18 @@ export function WaterGoalProvider({ children }: PropsWithChildren) {
     return goal.stop;
   }, [goal]);
   return (
-    <WaterGoalContext.Provider
-      value={{ ...snapshot, setGoal: goal.setGoal, retryLoad: goal.retryLoad }}
-    >
-      {children}
-    </WaterGoalContext.Provider>
+    <WaterGoalPersistenceContext.Provider value={goal}>
+      <WaterGoalContext.Provider value={{ ...snapshot, retryLoad: goal.retryLoad }}>
+        {children}
+      </WaterGoalContext.Provider>
+    </WaterGoalPersistenceContext.Provider>
   );
+}
+
+export function useWaterGoalPersistence() {
+  const value = useContext(WaterGoalPersistenceContext);
+  if (!value) throw new Error("useWaterGoalPersistence must be used inside WaterGoalProvider");
+  return value;
 }
 
 export function useWaterGoal() {

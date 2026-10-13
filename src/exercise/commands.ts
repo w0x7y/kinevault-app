@@ -12,6 +12,8 @@ import {
   type SessionExercise,
   type WorkoutSession,
 } from "./model.ts";
+import { applyWorkoutImport, type WorkoutImportResult } from "./import/mapping.ts";
+import type { ImportedWorkoutPlan } from "./import/plan.ts";
 
 export type SaveExerciseInput = Omit<ExerciseDefinition, "id"> & { id?: string };
 export type SaveWorkoutInput = {
@@ -261,6 +263,12 @@ export function createExerciseCommands({
     },
     removeSession(document: ExerciseDocument, id: string): ExerciseChange<true> {
       return { document: { ...document, sessions: remove(document.sessions, id) }, value: true };
+    },
+    importWorkoutPlan(
+      document: ExerciseDocument,
+      plan: ImportedWorkoutPlan,
+    ): ExerciseChange<WorkoutImportResult> {
+      return applyWorkoutImport(document, plan, createId);
     },
   };
 }

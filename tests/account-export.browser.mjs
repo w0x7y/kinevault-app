@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { chromium } from "playwright";
+import { launchBrowser } from "./helpers/browser.mjs";
 import ts from "typescript";
 
 test("browser exports a real downloaded JSON file containing decodable owned JPEG bytes", async (t) => {
@@ -32,7 +32,7 @@ test("browser exports a real downloaded JSON file containing decodable owned JPE
   t.after(() => new Promise((resolve) => server.close(resolve)));
   const address = server.address();
   assert.ok(address && typeof address !== "string");
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchBrowser();
   t.after(() => browser.close());
   const page = await browser.newPage();
   await page.goto(`http://127.0.0.1:${address.port}`);

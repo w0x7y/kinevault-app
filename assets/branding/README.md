@@ -16,6 +16,7 @@ and responsive size limits are recorded in the [mascot guide](../mascot/README.m
 | `icon.png` | Opaque 1024px iOS icon and Android legacy icon; OS applies corners |
 | `adaptive-foreground.png` | Transparent 1024px Android foreground with mask-safe inset |
 | `adaptive-monochrome.png` | Android themed icon; eyes and smile are transparent cutouts |
+| `notification-icon.png` | 96px white Android notification icon; the head fills 84px of it |
 | `favicon.png` | 48px web favicon |
 | `splash-light.png` | Transparent 720px square iOS launch lockup with navy wordmark |
 | `splash-dark.png` | Same layout with cream wordmark for dark mode |

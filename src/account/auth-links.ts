@@ -1,7 +1,6 @@
 export type AuthLink =
   | { kind: "code"; code: string; recovery: boolean }
   | { kind: "token-hash"; tokenHash: string; type: "email" | "recovery"; recovery: boolean }
-  | { kind: "tokens"; accessToken: string; refreshToken: string; recovery: boolean }
   | { kind: "error"; message: string }
   | { kind: "invalid" };
 
@@ -66,6 +65,7 @@ export function parseAuthLink(value: string): AuthLink {
   if (code) return { kind: "code", code, recovery };
   if (tokenHash && (type === "email" || type === "recovery"))
     return { kind: "token-hash", tokenHash, type, recovery };
-  if (accessToken && refreshToken) return { kind: "tokens", accessToken, refreshToken, recovery };
+  // Sign-in uses PKCE, so Auth never sends session tokens in a link. Only someone
+  // else's account could have produced one, so implicit-session links are refused.
   return { kind: "invalid" };
 }

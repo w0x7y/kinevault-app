@@ -85,10 +85,6 @@ function harness() {
       submitted++;
       return result;
     },
-    async setSession() {
-      submitted++;
-      return result;
-    },
   };
   const controller = createAccountController(auth, {
     redirectTo: "kinevaulttrack://auth/callback",
@@ -529,18 +525,11 @@ test("reset requests preserve the recovery marker in the redirect", async () => 
   };
   assert.equal(await h.controller.requestPasswordReset(" alex@example.com "), true);
 });
-test("token hashes and legacy implicit links send the correct credentials to auth", async () => {
+test("token hashes send the correct credentials and implicit links reach no auth call", async () => {
   const h = harness();
   await ready(h);
   h.auth.verifyOtp = async (credentials) => {
     assert.deepEqual(credentials, { token_hash: "email-hash", type: "email" });
-    return { data: { session }, error: null };
-  };
-  h.auth.setSession = async (credentials) => {
-    assert.deepEqual(credentials, {
-      access_token: "legacy-access",
-      refresh_token: "legacy-refresh",
-    });
     return { data: { session }, error: null };
   };
   assert.equal(
@@ -549,10 +538,45 @@ test("token hashes and legacy implicit links send the correct credentials to aut
     ),
     true,
   );
+  assert.equal(await h.controller.signOut(), true);
+  const before = h.submitted;
   assert.equal(
     await h.controller.completeAuthLink(
-      "kinevaulttrack://auth/callback#access_token=legacy-access&refresh_token=legacy-refresh",
+      "kinevaulttrack://auth/callback#access_token=other-access&refresh_token=other-refresh",
     ),
+    false,
+  );
+  assert.equal(h.submitted, before);
+  assert.equal(h.controller.getSnapshot().user, null);
+});
+test("links without a device-bound PKCE code never replace a signed-in account", async () => {
+  const h = harness();
+  await ready(h);
+  h.emit("SIGNED_IN", session);
+  const before = h.submitted;
+  for (const link of [
+    "kinevaulttrack://auth/callback?token_hash=attacker-hash&type=email",
+    "https://track.example/auth/callback?token_hash=attacker-hash&type=recovery",
+  ]) {
+    assert.equal(await h.controller.completeAuthLink(link), false);
+    assert.match(h.controller.getSnapshot().error ?? "", /already logged in/);
+    const resumed = h.controller.resumeAuthLink(link.replace(/[?#].*$/, ""));
+    assert.ok(resumed);
+    assert.equal(await resumed, false);
+  }
+  // Session tokens in a link are refused as invalid, signed in or not.
+  assert.equal(
+    await h.controller.completeAuthLink(
+      "kinevaulttrack://auth/callback#access_token=attacker-access&refresh_token=attacker-refresh",
+    ),
+    false,
+  );
+  assert.equal(h.submitted, before, "no credentials from the link reach Auth");
+  assert.equal(h.controller.getSnapshot().user?.id, "owner");
+  assert.equal(h.controller.getSnapshot().recovery, false);
+  // A PKCE code still completes, since only this device holds its verifier.
+  assert.equal(
+    await h.controller.completeAuthLink("kinevaulttrack://auth/callback?code=device-code"),
     true,
   );
 });

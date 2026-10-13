@@ -1,58 +1,24 @@
 import { AppButton } from "../components/button";
-import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { parseDay } from "../calendar/dates.ts";
 import { AppText } from "../components/ui";
-import { meals, type Meal } from "../daily/model.ts";
+import { meals } from "../daily/model.ts";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
-import type { FoodLoggingPreparation } from "./logging-preparation.ts";
-import { useFoodLog } from "./log-provider";
-import { useCustomFoods } from "./custom-provider";
 import type { CatalogKind } from "./meal-model.ts";
+import type { FoodLoggingAttemptView } from "./use-logging-attempt";
 
 export function FoodLoggingControls({
-  preparation,
+  attempt: { attempt, preparation, failed, submittable, saving, busy },
   onSaved,
   itemKind = "food",
-  onMealChange,
 }: {
-  preparation: FoodLoggingPreparation;
+  attempt: FoodLoggingAttemptView;
   itemKind?: CatalogKind;
-  onMealChange: (meal: Meal) => void;
   onSaved: () => void;
 }) {
   const { date, meal, operation } = preparation;
-  const log = useFoodLog();
-  const custom = useCustomFoods();
-  const busy = log.saving || custom.saving;
   const { colors } = useTheme();
-  const [failed, setFailed] = useState(false);
-  const pending = useRef(false);
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-  async function save() {
-    if (pending.current || preparation.status !== "ready" || busy || log.state.kind !== "ready")
-      return;
-    pending.current = true;
-    setFailed(false);
-    try {
-      const { write } = preparation;
-      const saved = await (write.kind === "edit" ? log.edit(write.input) : log.add(write.input));
-      if (!mounted.current) return;
-      if (saved) onSaved();
-      else setFailed(true);
-    } catch {
-      if (mounted.current) setFailed(true);
-    } finally {
-      pending.current = false;
-    }
-  }
   return (
     <View style={{ gap: spacing.layout }}>
       {preparation.measurement === "grams" && (
@@ -79,7 +45,7 @@ export function FoodLoggingControls({
                     accessibilityLabel={option.label}
                     selected={meal === option.key}
                     disabled={busy}
-                    onPress={() => onMealChange(option.key)}
+                    onPress={() => attempt.chooseMeal(option.key)}
                   />
                 </View>
               ))}
@@ -106,7 +72,7 @@ export function FoodLoggingControls({
       <AppButton
         primary
         label={
-          log.saving
+          saving
             ? `Saving ${itemKind}...`
             : operation === "edit"
               ? "Save changes"
@@ -114,9 +80,11 @@ export function FoodLoggingControls({
                 ? "Log drink to Drinks"
                 : `Log ${itemKind} to ${meals.find((option) => option.key === meal)?.label}`
         }
-        disabled={preparation.status !== "ready" || busy || log.state.kind !== "ready"}
+        disabled={!submittable}
         onPress={() => {
-          void save();
+          void attempt.submit().then((saved) => {
+            if (saved) onSaved();
+          });
         }}
       />
     </View>

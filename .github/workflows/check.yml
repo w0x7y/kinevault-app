@@ -27,8 +27,23 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.9.6
-      - run: deno check --node-modules-dir=none --no-lock supabase/functions/delete-account/index.ts
+      # --no-config keeps Deno away from the app's package.json and tsconfig.json.
+      # Otherwise it resolves every app dependency, and its 24-hour minimum
+      # dependency age fails the check for a day after any version bump.
+      - run: deno check --no-config --node-modules-dir=none --no-lock supabase/functions/delete-account/index.ts supabase/functions/tracked-workout/index.ts
       - run: npx expo-doctor
+      # Linux can generate the Xcode project without CocoaPods. A free Apple ID
+      # (Personal Team) cannot sign the push entitlement, and reminders are local.
+      - name: Generate the iOS project and check its entitlements
+        run: |
+          npx expo prebuild --platform ios --no-install --clean
+          entitlements=ios/KineVaultTrack/KineVaultTrack.entitlements
+          test -f "$entitlements"
+          cat "$entitlements"
+          if grep -q "aps-environment" "$entitlements"; then
+            echo "::error file=app.json::aps-environment is back in $entitlements. Keep ./plugins/with-local-notifications-only.cjs before expo-notifications."
+            exit 1
+          fi
 
   # Bundling for every platform, independent of the browser suite.
   export:
@@ -73,7 +88,7 @@ jobs:
           # Browse the built app; Metro serves the widget and hardware-Back fixtures.
           npm run web -- --port 8081 > /tmp/kinevault-expo.log 2>&1 &
           npx expo serve --port 8082 > /tmp/kinevault-static.log 2>&1 &
-          for attempt in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             if curl --fail --silent http://localhost:8081 > /dev/null && curl --fail --silent http://localhost:8082 > /dev/null; then
               npm run test:browser
               exit $?

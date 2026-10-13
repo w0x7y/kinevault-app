@@ -15,7 +15,8 @@ export type WorkoutView =
   | { kind: "exercise"; exercise?: ExerciseDefinition }
   | { kind: "workout"; workout?: WorkoutTemplate }
   | { kind: "library"; date: string }
-  | { kind: "session"; id: string; manual?: boolean; settings?: boolean };
+  | { kind: "session"; id: string; manual?: boolean; settings?: boolean }
+  | { kind: "import"; source?: string };
 export type WorkoutPanel = { content: WorkoutView; token: number };
 export type WorkoutFields = { name: string; exercises: SessionExercise[]; minutes: string };
 export type WorkoutEditState = {

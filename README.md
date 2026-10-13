@@ -39,6 +39,11 @@ evidence from earlier revisions, rather than current status.
 - Confirmed offline notices and automatic cloud sync retry after reconnect.
   Optional JavaScript crash reporting is described in [resilience setup](docs/resilience.md).
 - Profile body-weight history with dated measurements, editing/removal, and an accessible trend chart. Measurements sync with the profile and do not change calorie or macro goals. See [weight history](docs/weight-history.md).
+- Settings reminders for weigh-ins, water, workouts, food, progress photos, and
+  custom notes, scheduled as local notifications in the iOS and Android apps.
+  Exercise imports a workout template from a Tracked share link; on the web this
+  needs the `tracked-workout` Edge Function. See [workout import](docs/workout-import.md)
+  and [privacy storage decisions](docs/privacy.md).
 - Settings account JSON export includes device/cloud copies and local photos. Password-confirmed deletion and local cleanup are implemented; the server endpoint still requires deployment and isolated validation. See [account management](docs/account-management.md).
 - Offline food database search with 5,431 USDA foods, calories and macros per
   100 g, serving weights, and nutrition previews for a custom gram amount.
@@ -383,8 +388,32 @@ npm run ios       # iOS simulator, requires macOS and Xcode
 ```
 
 The web preview uses the same screens and components; it does not replace testing
-on native devices. No app-store build, application identifier, or EAS project is
-configured yet.
+on native devices. No app-store build or EAS project is configured yet. The iOS
+bundle identifier and Android package are `com.kinevault.track`.
+
+### Native iPhone build with Xcode
+
+To install the app on an iPhone from Xcode, follow [iOS builds with Xcode](docs/ios-xcode.md).
+It works with a free Apple ID. The short version, on a Mac with Xcode 26 or newer
+and CocoaPods:
+
+```sh
+npm ci
+npm run ios:prebuild   # generate ios/ from app.json and run pod install
+npm run ios:open       # open ios/KineVaultTrack.xcworkspace in Xcode
+```
+
+Then choose your team under Signing & Capabilities, select the iPhone, and press
+Run with `npm start` running for Debug builds. `ios/` is generated and ignored by
+Git; change native settings in `app.json` or `plugins/` and run
+`npm run ios:prebuild` again.
+
+### Native iPhone build from Linux
+
+Without a Mac, the manual `iOS unsigned build` workflow compiles an unsigned Release
+`.ipa` on a GitHub macOS runner, and [xtool](https://github.com/xtool-org/xtool) signs
+it with a free Apple ID and installs it over USB. Follow
+[iPhone installs from Linux with xtool](docs/ios-linux-xtool.md).
 
 ### iPhone connection
 
@@ -579,6 +608,8 @@ launcher icons and splash screens. It runs independently of the Expo app.
 - `src/components/motion.tsx`: reduced-motion preferences and setup transitions.
 - `scripts/expo-connection.ts`: shared manifest checks and cancelable readiness; Node 24+ runs it directly.
 - `scripts/expo-connect.mjs`: Expo Go connection diagnostics.
+- `plugins/`: local Expo config plugins for the generated iOS project (local-only
+  notification entitlements, scene life cycle); see [iOS builds with Xcode](docs/ios-xcode.md).
 - `CONTEXT.md`: profile, daily activity, and onboarding domain vocabulary.
 - `DESIGN.md`: supplied KineVault design reference, preserved as shared authority.
 - `PRODUCT.md`: confirmed product scope.

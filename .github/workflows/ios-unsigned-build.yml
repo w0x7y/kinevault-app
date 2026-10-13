@@ -1,0 +1,101 @@
+name: iOS unsigned build
+
+# Manual only: Actions > iOS unsigned build > Run workflow. Builds an unsigned
+# Release .ipa that is signed and installed from Linux with xtool and a free
+# Apple ID. See docs/ios-linux-xtool.md.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ipa:
+    # Pinned image. Xcode is pinned separately through DEVELOPER_DIR.
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      # Public client values, compiled into the JavaScript bundle by the
+      # "Bundle React Native code and images" phase. Set them under
+      # Settings > Secrets and variables > Actions.
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      EXPO_PUBLIC_SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
+      EXPO_PUBLIC_TRACK_PARTITIONS: ${{ vars.EXPO_PUBLIC_TRACK_PARTITIONS || 'false' }}
+    steps:
+      # Fail in seconds instead of after a full build without account features.
+      - name: Check required configuration
+        run: |
+          missing=0
+          for name in EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is not set. Add it as a repository variable (URL) or secret (publishable key)."
+              missing=1
+            fi
+          done
+          exit "$missing"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Show tool versions
+        run: |
+          xcodebuild -version
+          pod --version
+          node --version
+      - run: npm ci
+      # Generates ios/ from app.json and plugins/, then runs pod install.
+      - run: npx expo prebuild --platform ios --clean
+      - name: Check entitlements
+        run: |
+          entitlements=ios/KineVaultTrack/KineVaultTrack.entitlements
+          cat "$entitlements"
+          if grep -q "aps-environment" "$entitlements"; then
+            echo "::error file=app.json::aps-environment is back in $entitlements. A free Apple ID cannot sign it."
+            exit 1
+          fi
+      - name: Build Release for iPhone without signing
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace ios/KineVaultTrack.xcworkspace \
+            -scheme KineVaultTrack \
+            -configuration Release \
+            -destination generic/platform=iOS \
+            -derivedDataPath ios/build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" | xcbeautify
+      - name: Package the .ipa
+        run: |
+          app=ios/build/Build/Products/Release-iphoneos/KineVaultTrack.app
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$app/Info.plist"
+          lipo -archs "$app/KineVaultTrack"
+          # The Supabase URL is a string literal in the Hermes bundle. If it's
+          # missing, the bundle phase didn't see the environment.
+          if ! grep -qaF "$EXPO_PUBLIC_SUPABASE_URL" "$app/main.jsbundle"; then
+            echo "::error::EXPO_PUBLIC_SUPABASE_URL is not in main.jsbundle."
+            exit 1
+          fi
+          mkdir -p ipa/Payload
+          cp -R "$app" ipa/Payload/
+          (cd ipa && zip -qry KineVaultTrack-unsigned.ipa Payload)
+          ls -l ipa/KineVaultTrack-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KineVaultTrack-unsigned-ipa
+          path: ipa/KineVaultTrack-unsigned.ipa
+          if-no-files-found: error
+          # An .ipa is already a zip file.
+          compression-level: 0
+          retention-days: 7
+      - name: Upload the build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: ${{ runner.temp }}/xcodebuild.log
+          if-no-files-found: ignore
+          retention-days: 7

@@ -3,7 +3,7 @@ import {
   type DurableSnapshot,
   type DurableStorage,
 } from "../persistence/durable-write.ts";
-import { parseWaterGoal, type WaterGoalDocument } from "./goal-model.ts";
+import { isWaterGoal, parseWaterGoal, type WaterGoalDocument } from "./goal-model.ts";
 
 export const waterGoalStorageKey = "kinevault-track.water-goal.v1";
 export type WaterGoalStorage = DurableStorage;
@@ -20,13 +20,7 @@ export function createWaterGoalPersistence({ storage }: { storage: WaterGoalStor
     async setGoal(dailyMl: number): Promise<boolean> {
       return (
         (await update(() => {
-          if (
-            typeof dailyMl !== "number" ||
-            !Number.isSafeInteger(dailyMl) ||
-            dailyMl < 1 ||
-            dailyMl > 10000
-          )
-            throw new RangeError("Invalid water goal");
+          if (!isWaterGoal(dailyMl)) throw new RangeError("Invalid water goal");
           return { document: { version: 1, dailyMl }, value: true };
         }, "Couldn't save your water goal. Try again.")) === true
       );

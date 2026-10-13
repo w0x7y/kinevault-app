@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
-import { chromium } from "playwright";
+import { launchBrowser } from "./helpers/browser.mjs";
 
 const baseURL = process.env.KINE_PREVIEW_URL || "http://localhost:8081";
 const foodKey = "kinevault-track.food-log.v1";
@@ -32,7 +32,7 @@ const stored = (page, key) =>
   page.evaluate((key) => JSON.parse(window.accountFixture.getItem(key)), key);
 const entries = async (page) => (await stored(page, foodKey))?.days[date] ?? [];
 async function open(t, { food = null, water = null, waterState = "ready", custom = [] } = {}) {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchBrowser();
   t.after(() => browser.close());
   const context = await browser.newContext({
     viewport: { width: 320, height: 844 },

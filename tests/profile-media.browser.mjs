@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { chromium } from "playwright";
+import { launchBrowser } from "./helpers/browser.mjs";
 import ts from "typescript";
 async function withMediaBrowser(run) {
   const modules = new Map();
@@ -25,7 +25,7 @@ async function withMediaBrowser(run) {
   assert.ok(address && typeof address !== "string");
   let browser;
   try {
-    browser = await chromium.launch({ headless: true });
+    browser = await launchBrowser();
     const page = await browser.newPage();
     await page.goto(`http://127.0.0.1:${address.port}`);
     await run(page);

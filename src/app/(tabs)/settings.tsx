@@ -8,6 +8,7 @@ import { useTheme } from "../../theme/provider";
 import type { AppearancePreference } from "../../theme/preferences";
 import { radius, spacing } from "../../theme/tokens";
 import { WaterGoalSettings } from "../../water/goal-settings";
+import { ReminderSettings } from "../../reminders/settings";
 import { AccountSettingsPanel } from "../../account/settings-panel";
 
 const choices: {
@@ -39,6 +40,13 @@ export default function SettingsScreen() {
         </>
       )}
       <WaterGoalSettings />
+      <ReminderSettings />
+      <Destination
+        href="/exercise?workoutImport=tracked"
+        title="Import workouts"
+        description="Save a shared Tracked workout to your library."
+        icon="file-import"
+      />
       <Panel>
         <AppText variant="heading" accessibilityRole="header">
           Appearance

@@ -28,7 +28,7 @@ export default defineConfig([
     },
   },
   {
-    files: ["scripts/**/*.mjs", "tests/**/*.mjs", "eslint.config.mjs"],
+    files: ["scripts/**/*.mjs", "tests/**/*.mjs", "eslint.config.mjs", "metro.config.cjs"],
     languageOptions: { globals: globals.node },
   },
   {

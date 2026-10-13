@@ -1,68 +1,56 @@
 import { AppButton } from "../../components/button";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { View, type ScrollView } from "react-native";
 import { parseDay } from "../../calendar/dates";
 import { AppText, Panel, Screen } from "../../components/ui";
 import { useDayActivity } from "../../daily/use-day";
 import { SearchActions } from "../../daily/search-actions";
 import { WorkoutWidget } from "../../daily/workout-widget";
+import { exerciseDayLayout } from "../../exercise/day-layout";
+import { WorkoutImport } from "../../exercise/import/workout-import";
 import { ExerciseForm, WorkoutForm } from "../../exercise/library-forms";
 import { useExercises } from "../../exercise/provider";
 import { ExerciseSearchResults } from "../../exercise/search-results";
 import { SessionEditor } from "../../exercise/session-editor";
 import { useWorkoutEditing } from "../../exercise/use-workout-editing";
 import { WorkoutLibrary } from "../../exercise/workout-library";
+import { useRouteRequest } from "../../navigation/use-route-request";
 
 export default function ExerciseScreen() {
   const activity = useDayActivity(),
     store = useExercises();
-  const { workoutMenu } = useLocalSearchParams<{ workoutMenu?: string | string[] }>();
-  const router = useRouter();
-  const consumedWorkoutMenu = useRef<string | string[] | null>(null);
-  const { editing, panel } = useWorkoutEditing();
+  const { editing, panel: openPanel } = useWorkoutEditing();
   const open = editing.requestView;
   const [query, setQuery] = useState("");
   const scrollRef = useRef<ScrollView>(null),
     resultsTop = useRef(0),
     scrolledPanel = useRef<number | null>(null);
   const document = store.state.kind === "ready" ? store.state.document : null;
-  useEffect(() => {
-    if (workoutMenu === undefined) {
-      consumedWorkoutMenu.current = null;
-      return;
-    }
-    if (!document || consumedWorkoutMenu.current === workoutMenu) return;
-    consumedWorkoutMenu.current = workoutMenu;
-    router.setParams({ workoutMenu: undefined });
-    if (typeof workoutMenu !== "string") return;
+  useRouteRequest("workoutMenu", { ready: document !== null }, (date) => {
     try {
-      parseDay(workoutMenu);
+      parseDay(date);
     } catch {
       return;
     }
-    void open({ kind: "library", date: workoutMenu });
-  }, [workoutMenu, document, router, open]);
-  const active = document?.sessions.find((session) => session.status === "active");
-  const activeOnDate = active?.date === activity.date ? active : null;
-  const normalized = query.trim().toLocaleLowerCase();
+    void open({ kind: "library", date });
+  });
+  // `/exercise?workoutImport=tracked` opens the import panel, e.g. from a Settings shortcut.
+  // An import already open keeps its link, preview or pending save.
+  const importOpen = openPanel?.content.kind === "import";
+  useRouteRequest("workoutImport", { ready: document !== null }, (source) => {
+    if (importOpen) return;
+    void open({ kind: "import", source });
+  });
+  const layout = exerciseDayLayout({
+    document,
+    date: activity.date,
+    panel: openPanel,
+    query,
+    workoutState: activity.workoutState,
+    workoutName: activity.workout.name,
+  });
+  const { panel, editingSession } = layout;
   const content = panel?.content;
-  const planned =
-    document?.sessions.filter(
-      (session) => session.date === activity.date && session.status === "planned",
-    ) ?? [];
-  // The edit owner preserves fields across panel, search and calendar changes.
-  const defaultWorkspace = !panel ? active : null;
-  const showDailyWorkout =
-    activity.workoutState !== "ready" ||
-    (!panel &&
-      !normalized &&
-      !defaultWorkspace &&
-      (planned.length === 0 || activity.workout.name !== null));
-  const editingSession =
-    content?.kind === "session"
-      ? document?.sessions.find((session) => session.id === content.id)
-      : null;
   function scrollToResults() {
     scrollRef.current?.scrollTo({ y: resultsTop.current, animated: false });
   }
@@ -77,9 +65,9 @@ export default function ExerciseScreen() {
         onCreateWorkout={() => void open({ kind: "workout" })}
         onSavedWorkouts={() => void open({ kind: "library", date: activity.date })}
       />
-      {document && Boolean(normalized) && (
+      {document && layout.search && (
         <ExerciseSearchResults
-          key={normalized}
+          key={layout.search}
           query={query}
           exercises={document.exercises}
           onLayout={(event) => {
@@ -89,39 +77,44 @@ export default function ExerciseScreen() {
           onSelect={(exercise) => void open({ kind: "exercise", exercise })}
         />
       )}
-      {showDailyWorkout && (
+      {layout.showDailyWorkout && (
         <WorkoutWidget
           workout={activity.workout}
           detailed
           showEmptyGuidance
-          activeWorkoutName={activeOnDate?.name || (activeOnDate ? "Active workout" : undefined)}
+          activeWorkoutName={activity.activeWorkoutName}
           sourceState={activity.workoutState}
           onRetry={store.retryLoad}
           onAddWorkout={() => void open({ kind: "library", date: activity.date })}
         />
       )}
-      {document &&
-        !panel &&
-        !normalized &&
-        !defaultWorkspace &&
-        planned.map((session) => (
-          <View key={session.id} testID={`planned-workout-${session.id}`}>
-            <SessionEditor editing={editing} session={session} />
-          </View>
-        ))}
-      {defaultWorkspace && (
+      {layout.plannedCards.map((session) => (
+        <View key={session.id} testID={`planned-workout-${session.id}`}>
+          <SessionEditor editing={editing} session={session} />
+        </View>
+      ))}
+      {layout.workspace && (
         <SessionEditor
-          key={`workspace-${defaultWorkspace.id}`}
+          key={`workspace-${layout.workspace.id}`}
           editing={editing}
-          session={defaultWorkspace}
+          session={layout.workspace}
         />
       )}
-      {document && panel && (
+      {layout.showImport && (
+        <AppButton
+          label="Import workouts"
+          accessibilityHint="Adds a workout shared from another app to your saved workouts"
+          onPress={() => void open({ kind: "import" })}
+        />
+      )}
+      {panel && (
         <View
           key={panel.token}
           onLayout={(event) => {
             if (
-              (content?.kind === "exercise" || content?.kind === "library") &&
+              (content?.kind === "exercise" ||
+                content?.kind === "library" ||
+                content?.kind === "import") &&
               scrolledPanel.current !== panel.token
             ) {
               scrolledPanel.current = panel.token;
@@ -145,6 +138,13 @@ export default function ExerciseScreen() {
               onEdit={(workout) => void open({ kind: "workout", workout })}
               onAdded={(id) => editing.createdSession(panel.token, id)}
               onOpen={(id) => void open({ kind: "session", id })}
+            />
+          )}
+          {content?.kind === "import" && (
+            <WorkoutImport
+              initialSource={content.source}
+              onClose={() => editing.closeView(panel.token)}
+              onOpenLibrary={() => void open({ kind: "library", date: activity.date })}
             />
           )}
           {content?.kind === "session" &&

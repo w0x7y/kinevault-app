@@ -10,8 +10,9 @@ import {
 import { createWaterLogPersistence, type WaterLogSnapshot } from "./persistence";
 
 type WaterLogStore = ReturnType<typeof createWaterLogPersistence>;
-type WaterLogContextValue = WaterLogSnapshot & Pick<WaterLogStore, "set" | "retryLoad">;
+type WaterLogContextValue = WaterLogSnapshot & Pick<WaterLogStore, "retryLoad">;
 const WaterLogContext = createContext<WaterLogContextValue | null>(null);
+const WaterLogPersistenceContext = createContext<WaterLogStore | null>(null);
 
 export function WaterLogProvider({ children }: PropsWithChildren) {
   const storage = useAccountStorage();
@@ -22,10 +23,18 @@ export function WaterLogProvider({ children }: PropsWithChildren) {
     return log.stop;
   }, [log]);
   return (
-    <WaterLogContext.Provider value={{ ...snapshot, set: log.set, retryLoad: log.retryLoad }}>
-      {children}
-    </WaterLogContext.Provider>
+    <WaterLogPersistenceContext.Provider value={log}>
+      <WaterLogContext.Provider value={{ ...snapshot, retryLoad: log.retryLoad }}>
+        {children}
+      </WaterLogContext.Provider>
+    </WaterLogPersistenceContext.Provider>
   );
+}
+
+export function useWaterLogPersistence() {
+  const value = useContext(WaterLogPersistenceContext);
+  if (!value) throw new Error("useWaterLogPersistence must be used inside WaterLogProvider");
+  return value;
 }
 
 export function useWaterLog() {

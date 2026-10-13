@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { chromium } from "playwright";
+import { launchBrowser } from "./helpers/browser.mjs";
 import { installAccountFixture } from "./helpers/account-fixture.mjs";
 
 const baseURL = process.env.KINE_PREVIEW_URL || "http://localhost:8081";
@@ -24,7 +24,7 @@ const button = (page, name) => page.getByRole("button", { name, exact: true });
 const stored = async (page) =>
   JSON.parse(await page.evaluate((key) => window.accountFixture.getItem(key), profileKey));
 async function open(t, previousDay = false) {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchBrowser();
   t.after(() => browser.close());
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },

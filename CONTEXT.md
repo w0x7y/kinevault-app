@@ -258,3 +258,18 @@ basis requires user entry. Bundled drinks retain source gram nutrition for meal
 ingredients; volume-only custom drinks cannot claim gram nutrition. Legacy
 known-ml snapshots scale directly by volume. Legacy missing ml requires entered
 ml and a label basis before an edit can move the entry into Drinks.
+
+**Reminder**: A device notification at a chosen local time on selected weekdays
+that prompts a weigh-in, water, a workout, food logging, a Progress photo, or a
+custom note. Weigh-in, water, workout, and food reminders always exist and start
+off; others can be added and deleted. Reminders are device settings for the
+signed-in Account, not Account tracking: signing out cancels them and signing in
+restores them. Turning one on asks for notification permission; a refusal keeps
+it saved but off. Tapping a reminder opens its related screen.
+
+**Workout import**: Adding a workout plan shared from another app as a Workout
+template. Tracked is the first source: a pasted share link is downloaded by the
+iOS or Android app, or through KineVault's server on the web, and previewed
+before saving. Exercises reuse Exercise definitions with
+the same name; others become new definitions with the shared prescription as notes.
+Importing the same link again replaces that template; workout logs are unchanged.

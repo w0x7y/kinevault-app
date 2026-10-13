@@ -1,7 +1,7 @@
 import { installAccountFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { chromium } from "playwright";
+import { launchBrowser } from "./helpers/browser.mjs";
 
 const baseURL = process.env.KINE_PREVIEW_URL || "http://localhost:8081";
 const goalKey = "kinevault-track.water-goal.v1";
@@ -38,7 +38,7 @@ async function open(
     appearance = "light",
   } = {},
 ) {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchBrowser();
   t.after(() => browser.close());
   const context = await browser.newContext({
     viewport: { width: 320, height: 844 },

@@ -1,7 +1,7 @@
 import { installAccountFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { chromium } from "playwright";
+import { launchBrowser } from "./helpers/browser.mjs";
 
 const baseURL = process.env.KINE_PREVIEW_URL || "http://localhost:8081";
 const names = ["Profile", "Friends", "Messages", "KineVault", "Support", "Feedback"];
@@ -11,7 +11,7 @@ const trigger = (page) => button(page, "Profile menu");
 const menu = (page) => page.getByRole("menu", { name: "Profile menu", exact: true });
 
 async function open(t, viewport = { width: 390, height: 844 }) {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchBrowser();
   t.after(() => browser.close());
   const context = await browser.newContext({ viewport });
   await context.addInitScript(() => {
