@@ -10,6 +10,8 @@ import { ExerciseError, ExerciseField } from "./controls";
 import { exerciseRowLabel, WorkoutWorkspace } from "./workout-workspace";
 import { createWorkoutTemplateDraft } from "./workout-template-draft";
 import { ExerciseDemoSlot } from "./demo/exercise-demo";
+import { KineVaultDemoSection } from "./demo/demo-picker";
+import { applyCatalogLink, withoutCatalogLink } from "./demo/demo-link";
 
 function useAlive() {
   const alive = useRef(true);
@@ -23,9 +25,12 @@ function useAlive() {
 }
 export function ExerciseForm({
   exercise,
+  linkDemo = false,
   onClose,
 }: {
   exercise?: ExerciseDefinition;
+  /** Opened from "Link demo": focus the KineVault search. */
+  linkDemo?: boolean;
   onClose: () => void;
 }) {
   const store = useExercises();
@@ -110,6 +115,14 @@ export function ExerciseForm({
       <AppText variant="caption" muted>
         Leave weight blank for bodyweight. Changes apply to future workouts.
       </AppText>
+      <KineVaultDemoSection
+        link={values.catalog}
+        exerciseName={values.name}
+        focusSearch={linkDemo}
+        disabled={busy}
+        onLink={(entry) => setValues((current) => applyCatalogLink(current, entry))}
+        onUnlink={() => setValues(withoutCatalogLink)}
+      />
       <ExerciseError message={error} />
       <ButtonRow>
         <AppButton label="Cancel" onPress={onClose} disabled={busy} fill />

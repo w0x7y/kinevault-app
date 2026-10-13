@@ -125,6 +125,7 @@ export default function ExerciseScreen() {
           {content?.kind === "exercise" && (
             <ExerciseForm
               exercise={content.exercise}
+              linkDemo={content.linkDemo}
               onClose={() =>
                 content.returnTo ? void open(content.returnTo) : editing.closeView(panel.token)
               }

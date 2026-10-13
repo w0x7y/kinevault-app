@@ -223,3 +223,72 @@ test("linked exercises show a poster thumbnail in search", async (t) => {
     0,
   );
 });
+
+test("linking from the form fills blank fields and saves the link", async (t) => {
+  const { page } = await open(t, documentWith([squat]));
+  await button(page, "Create Exercise").click();
+  const form = page.getByTestId("exercise-form");
+  await field(form, "Exercise name").fill("Overhead press");
+  await field(form, "Find in KineVault").fill("db overhead");
+  await form.getByText("1 KineVault exercise found.", { exact: true }).waitFor();
+  await button(form, "Link Dumbbell shoulder press").click();
+  assert.equal(await field(form, "Exercise name").inputValue(), "Overhead press");
+  assert.equal(await field(form, "Muscle group (optional)").inputValue(), "Shoulders");
+  assert.equal(await field(form, "Equipment (optional)").inputValue(), "Dumbbell");
+  await form.getByText("Linked to Dumbbell shoulder press", { exact: true }).waitFor();
+  await button(form, "Play demonstration of Overhead press").waitFor();
+  await button(form, "Save exercise").click();
+  await page.waitForFunction(
+    (key) =>
+      JSON.parse(window.accountFixture.getItem(key)).exercises.some(
+        (exercise) => exercise.catalog?.slug === "dumbbell-shoulder-press",
+      ),
+    storageKey,
+  );
+});
+
+test("Unlink removes the link and Change keeps it until another is chosen", async (t) => {
+  const { page } = await open(t, documentWith([press]));
+  await field(page, "Search exercises").fill("shoulder");
+  await button(page, "Edit exercise Shoulder press").click();
+  const form = page.getByTestId("exercise-form");
+  await button(form, "Change KineVault demo").click();
+  await button(form, "Keep current demo").click();
+  await form.getByText("Linked to Dumbbell shoulder press", { exact: true }).waitFor();
+  await button(form, "Unlink KineVault demo").click();
+  await field(form, "Find in KineVault").waitFor();
+  await button(form, "Save exercise").click();
+  await page.waitForFunction(
+    (key) => !("catalog" in JSON.parse(window.accountFixture.getItem(key)).exercises[0]),
+    storageKey,
+  );
+});
+
+test("Link demo opens the form at its search and returns to the workout", async (t) => {
+  const { page } = await open(t, documentWith([squat], { sessions: [historical([squat])] }));
+  const editor = await openHistoricalWorkout(page);
+  await field(editor, "Squat set 1 reps").fill("6");
+  await button(editor, "Link a KineVault demo to Squat").click();
+  const form = page.getByTestId("exercise-form");
+  const search = field(form, "Find in KineVault");
+  await search.waitFor();
+  assert.equal(await search.evaluate((element) => element === document.activeElement), true);
+  await search.fill("shoulder press");
+  await button(form, "Link Dumbbell shoulder press").click();
+  assert.equal(await field(form, "Exercise name").inputValue(), "Squat");
+  await button(form, "Save exercise").click();
+  const returned = page.getByTestId("session-editor");
+  await page.getByTestId("completed-workout-workspace").waitFor();
+  assert.equal(await field(returned, "Squat set 1 reps").inputValue(), "6");
+  await button(returned, "Play demonstration of Squat").waitFor();
+});
+
+test("a failed catalog load offers Retry in the form", async (t) => {
+  const { page, fixture } = await open(t, documentWith([squat]), { catalogFailure: true });
+  await button(page, "Create Exercise").click();
+  const form = page.getByTestId("exercise-form");
+  await form.getByText("Connect to search KineVault demos.", { exact: true }).waitFor();
+  fixture.catalogFailure = false;
+  await button(form, "Retry loading KineVault demos").click();
+  await field(form, "Find in KineVault").waitFor();
+});

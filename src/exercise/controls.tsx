@@ -11,6 +11,7 @@ export function ExerciseField({
   numeric,
   disabled = false,
   multiline = false,
+  autoFocus = false,
 }: {
   label: string;
   value: string;
@@ -18,6 +19,7 @@ export function ExerciseField({
   numeric?: boolean;
   disabled?: boolean;
   multiline?: boolean;
+  autoFocus?: boolean;
 }) {
   const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
@@ -32,6 +34,7 @@ export function ExerciseField({
         inputMode={numeric ? "decimal" : "text"}
         keyboardType={numeric ? "decimal-pad" : "default"}
         multiline={multiline}
+        autoFocus={autoFocus}
         maxLength={numeric ? 32 : multiline ? 4000 : 400}
         selectTextOnFocus={numeric}
         onFocus={() => setFocused(true)}
