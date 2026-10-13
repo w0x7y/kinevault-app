@@ -202,7 +202,7 @@ export function DemoThumbnail({ link }: { link: CatalogLink }) {
       contentFit="contain"
       transition={0}
       accessible={false}
-      style={{ width: 64, height: 48, borderRadius: spacing.sm, backgroundColor: colors.muted }}
+      style={{ width: 64, height: 48, borderRadius: radius.control, backgroundColor: colors.muted }}
     />
   );
 }
