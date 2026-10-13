@@ -31,13 +31,25 @@ device for 24 hours, and links exercises through `ExerciseDefinition.catalog`.
    TRACK_SUPABASE_SERVICE_ROLE_KEY=<Track's service role key>
    ```
 
-3. `npm run catalog:publish` prints what would change and writes nothing.
+3. `npm run catalog:publish` prints the rows it would insert, update and
+   withdraw, the files it would upload and the exercises it skips. It writes
+   nothing.
 4. `npm run catalog:publish -- --apply` uploads new files, then writes rows,
    then withdraws exercises KineVault no longer publishes.
 
 Run it again after KineVault approves or re-renders exercises. Withdrawn rows
 keep their files, so linked exercises show "Demonstration unavailable." instead
 of breaking. A failed download stops the run before anything is written.
+
+An exercise KineVault still publishes but that has no complete MP4 and poster is
+listed as a skip. Its current row stays as it is. Only exercises KineVault no
+longer publishes are withdrawn. If KineVault reports no published exercises
+while Track has some, the script stops without writing, in dry runs too. That
+usually means the local stack isn't running or has no data.
+
+Each row's credit reads "Demonstration: KineVault.", then the render's source
+credit and license, then the anatomy notice. The notice is left out only when the
+source credit already names both Z-Anatomy and BodyParts3D.
 
 The script reads these KineVault tables: `exercises`, `exercise_content`,
 `exercise_aliases`, `exercise_muscles`, `muscles`, `exercise_equipment`,

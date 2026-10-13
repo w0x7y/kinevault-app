@@ -29,10 +29,13 @@ const sentence = (text) => (/[.!?]$/.test(text) ? text : `${text}.`);
 
 export function demoCredit({ licenseName, sourceCredit }) {
   const credit = sourceCredit?.trim() ?? "";
+  const license = licenseName?.trim() ?? "";
   const parts = ["Demonstration: KineVault."];
   if (credit) parts.push(sentence(credit));
-  if (!/z-anatomy/i.test(credit)) parts.push(anatomyCredit);
-  if (licenseName?.trim()) parts.push(`License: ${sentence(licenseName.trim())}`);
+  if (license) parts.push(`License: ${sentence(license)}`);
+  // The source credit stands in for the anatomy notice only when it names both
+  // anatomy sources.
+  if (!(/z-anatomy/i.test(credit) && /bodyparts3d/i.test(credit))) parts.push(anatomyCredit);
   return parts.join(" ").slice(0, 1000);
 }
 
@@ -107,6 +110,13 @@ function resolved(item, replacements) {
   };
 }
 
+export const publishedExerciseIds = (raw) =>
+  new Set(
+    raw.exercises
+      .filter((exercise) => exercise.status === "published")
+      .map((exercise) => exercise.id),
+  );
+
 export function buildSourceExercises(raw) {
   const byId = (rows) => new Map(rows.map((row) => [row.id, row]));
   const contents = byId(raw.contents);
@@ -135,6 +145,7 @@ export function buildSourceExercises(raw) {
     const aliases = [...new Set(own(raw.aliases).map((row) => row.alias.trim()))]
       .filter((alias) => alias && alias.length <= textLimit)
       .filter((alias) => alias.toLowerCase() !== name.toLowerCase())
+      .sort((a, b) => a.localeCompare(b))
       .slice(0, 50);
     sources.push({
       id: exercise.id,
@@ -177,9 +188,18 @@ export function mediaPath(id, bytes, extension) {
 const comparable = (field, value) =>
   field === "published_at" && value ? Date.parse(value) : JSON.stringify(value ?? null);
 
-export function planCatalogPublish({ sources, current, now }) {
+// `publishedIds` lists every exercise KineVault still publishes, including ones
+// skipped for missing media. Only rows outside it are withdrawn, so a skipped
+// exercise keeps its current Track row.
+export function planCatalogPublish({
+  sources,
+  current,
+  now,
+  publishedIds = new Set(sources.map((source) => source.id)),
+}) {
   const currentById = new Map(current.map((row) => [row.id, row]));
-  const upserts = [];
+  const inserts = [];
+  const updates = [];
   for (const source of sources) {
     const row = {
       id: source.id,
@@ -195,26 +215,29 @@ export function planCatalogPublish({ sources, current, now }) {
       published_at: source.publishedAt,
     };
     const existing = currentById.get(source.id);
-    const changed =
-      !existing ||
+    if (!existing) {
+      inserts.push({ ...row, updated_at: now });
+    } else if (
       comparedFields.some(
         (field) => comparable(field, existing[field]) !== comparable(field, row[field]),
-      );
-    if (changed) upserts.push({ ...row, updated_at: now });
+      )
+    ) {
+      updates.push({ ...row, updated_at: now });
+    }
   }
-  const live = new Set(sources.map((source) => source.id));
   const withdrawals = current
-    .filter((row) => row.status === "published" && !live.has(row.id))
-    .map((row) => row.id);
-  return { upserts, withdrawals };
+    .filter((row) => row.status === "published" && !publishedIds.has(row.id))
+    .map((row) => ({ id: row.id, slug: row.slug }));
+  return { inserts, updates, withdrawals };
 }
 
 export function describePlan({ plan, uploads, skipped, apply }) {
   const lines = [
-    `${apply ? "Publishing:" : "Dry run:"} ${plan.upserts.length} catalog rows to write, ${plan.withdrawals.length} to withdraw, ${uploads.length} files to upload.`,
+    `${apply ? "Publishing:" : "Dry run:"} ${plan.inserts.length} rows to insert, ${plan.updates.length} to update, ${plan.withdrawals.length} to withdraw, ${uploads.length} files to upload.`,
   ];
-  for (const row of plan.upserts) lines.push(`  write ${row.slug}`);
-  for (const id of plan.withdrawals) lines.push(`  withdraw ${id}`);
+  for (const row of plan.inserts) lines.push(`  insert ${row.slug}`);
+  for (const row of plan.updates) lines.push(`  update ${row.slug}`);
+  for (const row of plan.withdrawals) lines.push(`  withdraw ${row.slug}`);
   for (const file of uploads) lines.push(`  upload ${file.path} (${file.bytes.byteLength} bytes)`);
   for (const item of skipped) lines.push(`  skip ${item.slug}: ${item.reason}`);
   if (!apply) lines.push("Nothing was written. Run again with --apply to publish.");
@@ -228,7 +251,16 @@ export async function publishCatalog({
   now = () => new Date().toISOString(),
   log = console.log,
 }) {
-  const { sources, skipped } = buildSourceExercises(await kinevault.readRaw());
+  const raw = await kinevault.readRaw();
+  const { sources, skipped } = buildSourceExercises(raw);
+  const publishedIds = publishedExerciseIds(raw);
+  const current = await track.readRows();
+  // An empty read usually means KineVault's stack is down or unseeded, not that
+  // every demo was retired.
+  if (publishedIds.size === 0 && current.some((row) => row.status === "published"))
+    throw new Error(
+      "KineVault reports no published exercises; refusing to withdraw every Track demo. Check that KineVault's local stack is running with its data.",
+    );
   const located = [];
   const files = [];
   // A download or format failure stops the run before anything is written, so
@@ -246,16 +278,20 @@ export async function publishCatalog({
       { path: posterPath, bytes: poster, contentType: "image/webp" },
     );
   }
-  const current = await track.readRows();
   const existing = await track.listObjects(located.map((source) => source.id));
   const uploads = files.filter((file) => !existing.has(file.path));
-  const plan = planCatalogPublish({ sources: located, current, now: now() });
+  const plan = planCatalogPublish({ sources: located, current, now: now(), publishedIds });
   log(describePlan({ plan, uploads, skipped, apply }));
   if (apply) {
     // Files first, so a written row never points at a missing object.
     for (const file of uploads) await track.upload(file);
-    if (plan.upserts.length) await track.upsertRows(plan.upserts);
-    if (plan.withdrawals.length) await track.withdraw(plan.withdrawals, now());
+    const rows = [...plan.inserts, ...plan.updates];
+    if (rows.length) await track.upsertRows(rows);
+    if (plan.withdrawals.length)
+      await track.withdraw(
+        plan.withdrawals.map((row) => row.id),
+        now(),
+      );
   }
   return { plan, uploads, skipped };
 }
@@ -270,14 +306,18 @@ async function readAll(build, label) {
     if (data.length < pageSize) return rows;
   }
 }
-async function readIn(client, table, columns, column, values) {
+// Offset paging needs a total order, so every read sorts by a unique key.
+const sortBy = (query, order) => order.reduce((sorted, column) => sorted.order(column), query);
+// Short chunks keep the filter inside the request-line limit of the API gateway.
+const chunkSize = 50;
+async function readIn(client, table, columns, column, values, order) {
   const unique = [...new Set(values)];
   const rows = [];
-  for (let start = 0; start < unique.length; start += 200) {
-    const part = unique.slice(start, start + 200);
+  for (let start = 0; start < unique.length; start += chunkSize) {
+    const part = unique.slice(start, start + chunkSize);
     rows.push(
       ...(await readAll(
-        () => client.from(table).select(columns).in(column, part).order(column),
+        () => sortBy(client.from(table).select(columns).in(column, part), order),
         table,
       )),
     );
@@ -311,17 +351,29 @@ export function kinevaultPort(url, key) {
         muscles,
         equipment,
       ] = await Promise.all([
-        readIn(client, "exercise_content", "id,name", "id", ids),
-        readIn(client, "exercise_aliases", "content_id,alias", "content_id", ids),
-        readIn(client, "exercise_muscles", "content_id,muscle_id,role", "content_id", ids),
-        readIn(client, "exercise_equipment", "content_id,equipment_id,role", "content_id", ids),
-        readIn(client, "exercise_scenes", "id,content_id,default_camera_angle", "content_id", ids),
+        readIn(client, "exercise_content", "id,name", "id", ids, ["id"]),
+        readIn(client, "exercise_aliases", "content_id,alias", "content_id", ids, [
+          "content_id",
+          "normalized_alias",
+        ]),
+        readIn(client, "exercise_muscles", "content_id,muscle_id,role", "content_id", ids, [
+          "content_id",
+          "muscle_id",
+        ]),
+        readIn(client, "exercise_equipment", "content_id,equipment_id,role", "content_id", ids, [
+          "content_id",
+          "equipment_id",
+        ]),
+        readIn(client, "exercise_scenes", "id,content_id,default_camera_angle", "content_id", ids, [
+          "id",
+        ]),
         readIn(
           client,
           "exercise_media",
           "content_id,scene_id,asset_group_id,kind,storage_bucket,storage_path,camera_angle,character_presentation,license_name,source_credit,created_at",
           "content_id",
           ids,
+          ["id"],
         ),
         readAll(() => client.from("muscles").select("id,name,parent_id").order("id"), "muscles"),
         readAll(() => client.from("equipment").select("id,name").order("id"), "equipment"),
@@ -332,6 +384,7 @@ export function kinevaultPort(url, key) {
         "storage_bucket,original_path,replacement_path,license_name,source_credit,created_at",
         "original_path",
         media.map((row) => row.storage_path),
+        ["storage_bucket", "original_path", "renderer_version"],
       );
       return {
         exercises,

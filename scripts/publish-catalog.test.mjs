@@ -5,6 +5,7 @@ import {
   buildSourceExercises,
   checkMedia,
   demoCredit,
+  describePlan,
   mediaPath,
   planCatalogPublish,
   publishCatalog,
@@ -123,8 +124,7 @@ test("published exercises use the default-angle render, newest replacement and t
       publishedAt: "2026-10-05T10:00:00+00:00",
       video: { bucket: "exercise-public", path: "submissions/group-side/z-anatomy-v8/demo.mp4" },
       poster: { bucket: "exercise-public", path: "submissions/group-side/demo.webp" },
-      credit:
-        "Demonstration: KineVault. Z-Anatomy — Gauthier Kervyn and contributors. License: CC BY-SA 4.0.",
+      credit: `Demonstration: KineVault. Z-Anatomy — Gauthier Kervyn and contributors. License: CC BY-SA 4.0. ${anatomyCredit}`,
     },
   ]);
   assert.deepEqual(skipped, [
@@ -132,11 +132,44 @@ test("published exercises use the default-angle render, newest replacement and t
   ]);
 });
 
-test("credits add the anatomy notice when the source credit lacks it", () => {
+test("credits put the source credit and license before the anatomy notice", () => {
   assert.equal(
     demoCredit({ licenseName: "CC BY-SA 4.0", sourceCredit: null }),
-    `Demonstration: KineVault. ${anatomyCredit} License: CC BY-SA 4.0.`,
+    `Demonstration: KineVault. License: CC BY-SA 4.0. ${anatomyCredit}`,
   );
+  assert.equal(
+    demoCredit({ licenseName: null, sourceCredit: "Rendered by the KineVault studio" }),
+    `Demonstration: KineVault. Rendered by the KineVault studio. ${anatomyCredit}`,
+  );
+  assert.equal(
+    demoCredit({ licenseName: "CC BY-SA 4.0", sourceCredit: "Z-Anatomy — Gauthier Kervyn." }),
+    `Demonstration: KineVault. Z-Anatomy — Gauthier Kervyn. License: CC BY-SA 4.0. ${anatomyCredit}`,
+  );
+});
+
+test("credits omit the anatomy notice only when the source credit names both anatomy sources", () => {
+  const sourceCredit =
+    "Z-Anatomy — Gauthier Kervyn and contributors; BodyParts3D © The Database Center for Life Science (CC BY-SA 2.1 Japan). Adapted geometry, materials and posing.";
+  assert.equal(
+    demoCredit({ licenseName: "CC BY-SA 4.0", sourceCredit }),
+    `Demonstration: KineVault. ${sourceCredit} License: CC BY-SA 4.0.`,
+  );
+  assert.equal(
+    demoCredit({ licenseName: "CC BY-SA 4.0", sourceCredit: "BodyParts3D © DBCLS" }),
+    `Demonstration: KineVault. BodyParts3D © DBCLS. License: CC BY-SA 4.0. ${anatomyCredit}`,
+  );
+});
+
+test("aliases are cut to fifty in a stable order", () => {
+  const source = raw();
+  source.aliases = Array.from({ length: 60 }, (_, index) => ({
+    content_id: "content-press",
+    alias: `Alias ${String(59 - index).padStart(2, "0")}`,
+  }));
+  const [press] = buildSourceExercises(source).sources;
+  assert.equal(press.aliases.length, 50);
+  assert.deepEqual(press.aliases.slice(0, 2), ["Alias 00", "Alias 01"]);
+  assert.equal(press.aliases.at(-1), "Alias 49");
 });
 
 test("media checks accept MP4 and WebP and reject anything else", () => {
@@ -180,10 +213,11 @@ const stored = {
   published_at: "2026-10-05T10:00:00+00:00",
 };
 
-test("the plan writes new or changed rows and withdraws rows KineVault no longer publishes", () => {
+test("the plan inserts new rows, updates changed rows and withdraws rows KineVault no longer publishes", () => {
   const now = "2026-10-13T12:00:00.000Z";
   assert.deepEqual(planCatalogPublish({ sources: [located], current: [stored], now }), {
-    upserts: [],
+    inserts: [],
+    updates: [],
     withdrawals: [],
   });
   const renamed = planCatalogPublish({
@@ -191,12 +225,24 @@ test("the plan writes new or changed rows and withdraws rows KineVault no longer
     current: [stored],
     now,
   });
+  assert.deepEqual(renamed.inserts, []);
   assert.deepEqual(
-    renamed.upserts.map((row) => [row.name, row.updated_at]),
+    renamed.updates.map((row) => [row.name, row.updated_at]),
     [["DB shoulder press", now]],
   );
   const fresh = planCatalogPublish({ sources: [located], current: [], now });
-  assert.equal(fresh.upserts[0].status, "published");
+  assert.deepEqual(fresh.updates, []);
+  assert.equal(fresh.inserts[0].status, "published");
+  const republished = planCatalogPublish({
+    sources: [located],
+    current: [{ ...stored, status: "withdrawn" }],
+    now,
+  });
+  assert.deepEqual(republished.inserts, []);
+  assert.deepEqual(
+    republished.updates.map((row) => row.status),
+    ["published"],
+  );
   const withdrawn = {
     ...stored,
     id: retired,
@@ -210,15 +256,48 @@ test("the plan writes new or changed rows and withdraws rows KineVault no longer
     current: [stored, withdrawn],
     now,
   });
-  assert.deepEqual(gone, { upserts: [], withdrawals: [press] });
+  assert.deepEqual(gone, {
+    inserts: [],
+    updates: [],
+    withdrawals: [{ id: press, slug: "dumbbell-shoulder-press" }],
+  });
 });
 
-function ports({ current = [], existing = [] } = {}) {
+test("the plan leaves a row alone while KineVault still publishes its exercise", () => {
+  const now = "2026-10-13T12:00:00.000Z";
+  assert.deepEqual(
+    planCatalogPublish({ sources: [], current: [stored], now, publishedIds: new Set([press]) }),
+    { inserts: [], updates: [], withdrawals: [] },
+  );
+});
+
+test("the report names inserts, updates, withdrawals, uploads and skips", () => {
+  const plan = {
+    inserts: [{ slug: "new-one" }],
+    updates: [{ slug: "changed-one" }],
+    withdrawals: [{ id: retired, slug: "gone-one" }],
+  };
+  const uploads = [{ path: `${press}/0123456789abcdef.mp4`, bytes: new Uint8Array(3) }];
+  const skipped = [{ slug: "unfinished", reason: "no complete MP4 and poster" }];
+  assert.equal(
+    describePlan({ plan, uploads, skipped, apply: true }),
+    [
+      "Publishing: 1 rows to insert, 1 to update, 1 to withdraw, 1 files to upload.",
+      "  insert new-one",
+      "  update changed-one",
+      "  withdraw gone-one",
+      `  upload ${press}/0123456789abcdef.mp4 (3 bytes)`,
+      "  skip unfinished: no complete MP4 and poster",
+    ].join("\n"),
+  );
+});
+
+function ports({ current = [], existing = [], source = raw() } = {}) {
   const calls = [];
   return {
     calls,
     kinevault: {
-      readRaw: async () => raw(),
+      readRaw: async () => source,
       download: async ({ path }) => (path.endsWith(".webp") ? webp(path.length) : mp4(path.length)),
     },
     track: {
@@ -241,9 +320,14 @@ test("a dry run writes nothing and reports the plan", async () => {
     log: (text) => logs.push(text),
   });
   assert.deepEqual(fake.calls, []);
-  assert.equal(result.plan.upserts.length, 1);
+  assert.equal(result.plan.inserts.length, 1);
+  assert.equal(result.plan.updates.length, 0);
   assert.equal(result.uploads.length, 2);
-  assert.match(logs[0], /^Dry run: 1 catalog rows to write, 0 to withdraw, 2 files to upload\./);
+  assert.match(
+    logs[0],
+    /^Dry run: 1 rows to insert, 0 to update, 0 to withdraw, 2 files to upload\./,
+  );
+  assert.match(logs[0], /insert dumbbell-shoulder-press/);
   assert.match(logs[0], /skip cable-lateral-raise: no complete MP4 and poster/);
   assert.match(logs[0], /Nothing was written/);
 });
@@ -261,4 +345,53 @@ test("applying uploads missing files first, then rows, then withdrawals", async 
     ["upsert", ["dumbbell-shoulder-press"]],
     ["withdraw", [retired]],
   ]);
+});
+
+test("applying writes inserts then updates in one call", async () => {
+  const source = raw();
+  source.media.push(media("content-raise", "group-raise", "poster", { scene_id: "scene-raise" }));
+  const fake = ports({ current: [{ ...stored, name: "Old name" }], source });
+  await publishCatalog({ ...fake, apply: true, now: () => "now", log: () => {} });
+  assert.deepEqual(
+    fake.calls.filter(([kind]) => kind !== "upload"),
+    [["upsert", ["cable-lateral-raise", "dumbbell-shoulder-press"]]],
+  );
+});
+
+test("an exercise KineVault still publishes but skips keeps its Track row", async () => {
+  const source = raw();
+  source.media = source.media.filter((item) => item.content_id !== "content-press");
+  const fake = ports({ current: [stored], source });
+  const logs = [];
+  const result = await publishCatalog({
+    ...fake,
+    apply: true,
+    now: () => "now",
+    log: (text) => logs.push(text),
+  });
+  assert.deepEqual(fake.calls, []);
+  assert.deepEqual(result.plan, { inserts: [], updates: [], withdrawals: [] });
+  assert.match(logs[0], /skip dumbbell-shoulder-press: no complete MP4 and poster/);
+});
+
+test("an empty KineVault read never withdraws the Track catalog", async () => {
+  const source = { ...raw(), exercises: [] };
+  for (const apply of [false, true]) {
+    const fake = ports({ current: [stored], source });
+    const logs = [];
+    await assert.rejects(
+      publishCatalog({ ...fake, apply, now: () => "now", log: (text) => logs.push(text) }),
+      /KineVault reports no published exercises; refusing to withdraw every Track demo/,
+    );
+    assert.deepEqual(fake.calls, []);
+    assert.deepEqual(logs, []);
+  }
+});
+
+test("an empty KineVault read is fine while Track has nothing published", async () => {
+  const source = { ...raw(), exercises: [] };
+  const fake = ports({ current: [{ ...stored, status: "withdrawn" }], source });
+  const result = await publishCatalog({ ...fake, apply: true, now: () => "now", log: () => {} });
+  assert.deepEqual(fake.calls, []);
+  assert.deepEqual(result.plan, { inserts: [], updates: [], withdrawals: [] });
 });
