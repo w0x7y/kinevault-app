@@ -157,8 +157,9 @@ add both sides' reps and lifted volume. Multiple completed workouts contribute
 to Home and Exercise's shared daily totals. Missing manual duration is shown as
 not recorded. Library edits and deletions preserve historical exercise snapshots.
 Workout changes stay on the captured date, including across midnight. All
-exercise data is local and available offline; timed holds and cardio remain
-future increments.
+exercise data is local and available offline, though KineVault demos need a
+connection until the catalog has loaded and each clip has been viewed once;
+timed holds and cardio remain future increments.
 
 Delete, remove, and discard buttons use red styling. Their first tap changes
 the same button to "Are you sure?"; the second performs the deletion. Leaving
