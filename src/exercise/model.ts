@@ -1,5 +1,6 @@
 import { parseDay } from "../calendar/dates.ts";
 
+export type CatalogLink = { id: string; slug: string };
 export type ExerciseDefinition = {
   id: string;
   name: string;
@@ -7,6 +8,8 @@ export type ExerciseDefinition = {
   equipment: string;
   notes: string;
   tracking: "single" | "sides";
+  /** The KineVault exercise whose demonstration this exercise shows. */
+  catalog?: CatalogLink;
 };
 export type SetSide = { reps: string; weightKg: string };
 export type ExerciseSet =
@@ -65,11 +68,26 @@ function seconds(value: unknown): number | null {
   return value;
 }
 
+const catalogIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const catalogSlugPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+export function parseCatalogLink(value: unknown): CatalogLink {
+  const item = record(value);
+  if (typeof item.id !== "string" || !catalogIdPattern.test(item.id))
+    throw new Error("Invalid catalog link");
+  if (
+    typeof item.slug !== "string" ||
+    item.slug.length > 200 ||
+    !catalogSlugPattern.test(item.slug)
+  )
+    throw new Error("Invalid catalog link");
+  return { id: item.id, slug: item.slug };
+}
+
 export function parseExerciseDefinition(value: unknown): ExerciseDefinition {
   const item = record(value);
   if (item.tracking !== "single" && item.tracking !== "sides")
     throw new Error("Invalid exercise tracking");
-  return {
+  const definition: ExerciseDefinition = {
     id: id(item.id),
     name: text(item.name, 400, true),
     muscleGroup: text(item.muscleGroup, 400),
@@ -77,6 +95,8 @@ export function parseExerciseDefinition(value: unknown): ExerciseDefinition {
     notes: text(item.notes, 4000),
     tracking: item.tracking,
   };
+  if (item.catalog !== undefined) definition.catalog = parseCatalogLink(item.catalog);
+  return definition;
 }
 function side(value: unknown): SetSide {
   const item = record(value);
