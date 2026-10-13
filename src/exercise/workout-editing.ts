@@ -45,7 +45,13 @@ type Change =
   | { kind: "add-set"; rowId: string }
   | { kind: "set"; rowId: string; setId: string; build: (set: ExerciseSet) => ExerciseSet };
 type Action = "retry" | "settings" | "cancel" | "start" | "complete" | "save" | "discard";
-type Entry = { state: WorkoutEditState; revision: number; pending: Promise<boolean> | null };
+type Entry = {
+  state: WorkoutEditState;
+  revision: number;
+  pending: Promise<boolean> | null;
+  /** The exercise row on screen, so a remounted editor (e.g. after "Link demo") reopens on it. */
+  selectedId?: string;
+};
 
 const draftFailure =
   "Couldn't save your draft. Your fields are still here. Retry draft save before leaving the workout.";
@@ -400,7 +406,16 @@ export function createWorkoutEditing(store: Store) {
         return success;
       });
     }
-    return { getSnapshot: () => entry.state, subscribe, change, run };
+    return {
+      getSnapshot: () => entry.state,
+      subscribe,
+      change,
+      run,
+      selectedId: () => entry.selectedId,
+      select(rowId: string) {
+        if (current(id, entry)) entry.selectedId = rowId;
+      },
+    };
   }
   return {
     getSnapshot: () => snapshot,

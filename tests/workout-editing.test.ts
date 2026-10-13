@@ -107,6 +107,18 @@ test("completed edits remain local across panels; Cancel releases all retained f
   assert.equal(f.editing.edit("log").getSnapshot().fields.minutes, "2");
 });
 
+test("the selected exercise row outlives the editor until Cancel releases the edit", async () => {
+  const f = await fixture();
+  await f.editing.requestView({ kind: "session", id: "log" });
+  assert.equal(f.editing.edit("log").selectedId(), undefined);
+  f.editing.edit("log").select("row");
+  await f.editing.requestView({ kind: "library", date: "2026-10-05" });
+  await f.editing.requestView({ kind: "session", id: "log" });
+  assert.equal(f.editing.edit("log").selectedId(), "row");
+  assert.equal(await f.editing.edit("log").run("cancel"), true);
+  assert.equal(f.editing.edit("log").selectedId(), undefined);
+});
+
 test("failed active fields survive editor replacement and query/day changes until retry allows departure", async () => {
   const f = await fixture("active");
   const edit = f.editing.edit("log");

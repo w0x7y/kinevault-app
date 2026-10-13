@@ -301,6 +301,94 @@ test("Link demo opens the form at its search and returns to the workout", async 
   await button(returned, "Play demonstration of Squat").waitFor();
 });
 
+const deadlift = { ...squat, id: "deadlift", name: "Deadlift" };
+const activeWorkout = {
+  ...historical([squat, deadlift]),
+  id: "running",
+  name: "Active training",
+  status: "active",
+  startedAt: time.getTime() - 90000,
+  durationSeconds: null,
+};
+const plannedWorkout = {
+  ...historical([squat, deadlift]),
+  id: "later",
+  name: "Planned training",
+  status: "planned",
+  durationSeconds: null,
+};
+
+async function expectSelected(editor, name) {
+  await editor.getByTestId("exercise-detail-heading").getByText(name, { exact: true }).waitFor();
+  await button(editor, `Play demonstration of ${name}`).waitFor();
+}
+
+// Starts from the open workout, selects the second exercise and leaves for Link demo.
+async function linkDemoFromSecond(page, finish) {
+  const editor = page.getByTestId("session-editor");
+  await editor.getByTestId("exercise-detail-heading").getByText("Squat", { exact: true }).waitFor();
+  await button(editor, "Select exercise Deadlift").click();
+  await button(editor, "Link a KineVault demo to Deadlift").click();
+  const form = page.getByTestId("exercise-form");
+  await field(form, "Find in KineVault").fill("shoulder press");
+  await button(form, "Link Dumbbell shoulder press").click();
+  await button(form, finish).click();
+}
+
+test("a workout opens on its first exercise and reopens there after Cancel", async (t) => {
+  const { page } = await open(
+    t,
+    documentWith([squat, deadlift], { sessions: [historical([squat, deadlift])] }),
+  );
+  const editor = await openHistoricalWorkout(page);
+  const heading = editor.getByTestId("exercise-detail-heading");
+  await heading.getByText("Squat", { exact: true }).waitFor();
+  await button(editor, "Select exercise Deadlift").click();
+  await heading.getByText("Deadlift", { exact: true }).waitFor();
+  await button(editor, "Cancel").click();
+  await page.getByTestId("session-editor").waitFor({ state: "detached" });
+  const reopened = await openHistoricalWorkout(page);
+  await reopened
+    .getByTestId("exercise-detail-heading")
+    .getByText("Squat", { exact: true })
+    .waitFor();
+});
+
+for (const finish of ["Save exercise", "Cancel"]) {
+  test(`a completed workout keeps the selected exercise after Link demo and ${finish}`, async (t) => {
+    const { page } = await open(
+      t,
+      documentWith([squat, deadlift], { sessions: [historical([squat, deadlift])] }),
+    );
+    await openHistoricalWorkout(page);
+    await linkDemoFromSecond(page, finish);
+    const returned = page.getByTestId("session-editor");
+    await page.getByTestId("completed-workout-workspace").waitFor();
+    const heading = returned.getByTestId("exercise-detail-heading");
+    await heading.getByText("Deadlift", { exact: true }).waitFor();
+    assert.equal(await heading.getByText("Squat", { exact: true }).count(), 0);
+    if (finish === "Save exercise") await expectSelected(returned, "Deadlift");
+    else await button(returned, "Link a KineVault demo to Deadlift").waitFor();
+  });
+}
+
+test("a manual workout keeps the selected exercise after Link demo", async (t) => {
+  const { page } = await open(t, documentWith([squat, deadlift], { sessions: [plannedWorkout] }));
+  await button(page.getByTestId("planned-workout-later"), "Log completed workout").click();
+  await page.getByTestId("manual-workout-workspace").waitFor();
+  await linkDemoFromSecond(page, "Save exercise");
+  await page.getByTestId("manual-workout-workspace").waitFor();
+  await expectSelected(page.getByTestId("session-editor"), "Deadlift");
+});
+
+test("an active workout keeps the selected exercise after Link demo", async (t) => {
+  const { page } = await open(t, documentWith([squat, deadlift], { sessions: [activeWorkout] }));
+  await page.getByTestId("active-workout-workspace").waitFor();
+  await linkDemoFromSecond(page, "Save exercise");
+  await page.getByTestId("active-workout-workspace").waitFor();
+  await expectSelected(page.getByTestId("session-editor"), "Deadlift");
+});
+
 test("a failed catalog load offers Retry in the form", async (t) => {
   const { page, fixture } = await open(t, documentWith([squat]), { catalogFailure: true });
   await button(page, "Create Exercise").click();

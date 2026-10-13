@@ -44,7 +44,7 @@ export function SessionEditor({
     countError: settingsError,
   } = useWorkoutEdit(editing, session.id);
   const [settingsOpen, setSettingsOpen] = useState(initialSettings);
-  const [selectedId, setSelectedId] = useState(session.exercises[0]?.id),
+  const [selectedId, setSelectedId] = useState(edit.selectedId() ?? session.exercises[0]?.id),
     [notesId, setNotesId] = useState<string | null>(null);
   // Active workouts reopen on the default view; others reopen their panel.
   const returnTo: WorkoutView | undefined =
@@ -267,7 +267,10 @@ export function SessionEditor({
           toolbar={toolbar}
           exercises={draft.exercises}
           selectedId={selected?.id}
-          onSelect={setSelectedId}
+          onSelect={(rowId) => {
+            edit.select(rowId);
+            setSelectedId(rowId);
+          }}
           busy={busy}
           feedback={feedback}
           actions={actions}
