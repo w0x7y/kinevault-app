@@ -145,6 +145,16 @@ metadata changes are available under Settings.
 **Exercise snapshot**: The exercise definition retained in a template or log.
 Historical logs survive changes or deletion of their library sources.
 
+**Demo link**: An Exercise definition's optional reference to a published KineVault
+exercise, chosen in the exercise form. Linking fills only blank name, muscle group
+and equipment fields. Templates and logs show the library definition's current link,
+or their saved copy's link when the library exercise was deleted.
+
+**Exercise demo**: A linked exercise's muted KineVault clip, shown as a poster until
+tapped, with its credit. A withdrawn KineVault exercise shows "Demonstration
+unavailable." The demo list is public device data, cached for 24 hours and kept
+across sign-out.
+
 **Development exercises**: Squat, Push-up, and Dumbbell curl seeded once in a
 development preview without an Account. A saved marker prevents examples from
 returning after deletion. Signed-in Accounts and production builds leave the

@@ -23,7 +23,8 @@ and docs/ describe behavior and link here instead of repeating status.
 - [x] Build the Personal journal Profile with shared avatar, activity streaks, workout graphs, editable goals, and local progress-photo carousel.
 - [x] Shared Supabase accounts with email/password sign-in and versioned cloud document sync (PR #3).
 - [ ] Verify the new Profile camera/library, photo reopening, carousel scrolling, and accessibility on a physical iPhone. Android emulator photo flows and larger text are verified.
-- [ ] Integrate KineVault studio exercise videos. Playback in exercise search and the session editor waits on this.
+- [x] Integrate KineVault studio exercise videos: linked exercises play demos in workouts, templates and the exercise form, with search thumbnails. See docs/exercise-demos.md.
+- [ ] Apply the demo catalog migration to the hosted project, run the first catalog publish, and verify demo playback, fullscreen and offline replay on an iPhone and an Android device.
 - [ ] Configure app identifiers and store builds when ready to release: `eas.json`, iOS bundle identifier, Android package name.
 - [ ] Activate production email delivery and web hosting: Resend SMTP, a verified sender domain, and the Vercel production origin. See docs/supabase-setup.md.
 
@@ -106,4 +107,4 @@ Ranked by how much they build on existing code:
 9. [ ] Weekly nutrition summary in Profile, reusing the workout chart components.
 10. [x] Data export and account deletion implementation (deployment/device release checks listed above).
 11. [ ] Imperial units and language selection as real preferences beyond the supported English/metric formats.
-12. [ ] Exercise videos from the KineVault studio.
+12. [x] Exercise videos from the KineVault studio.

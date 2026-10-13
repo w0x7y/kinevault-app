@@ -93,8 +93,9 @@ evidence from earlier revisions, rather than current status.
 Accounts share Supabase identities with KineVault. Goals, custom exercises, workout
 history, food and water logs sync to private account storage. Membership defaults
 to Free and has no payment processing. See [Supabase setup](docs/supabase-setup.md)
-for email delivery, callback URLs, and future integration details. Video playback
-and the friend's broader program features remain future work.
+for email delivery, callback URLs, and future integration details.
+KineVault exercise demos are described in [Exercise demos](docs/exercise-demos.md);
+the friend's broader program features remain future work.
 
 ## Exercise tracking
 
@@ -116,8 +117,8 @@ Start workout requires a nonblank name; an unnamed draft stays editable in
 Settings until corrected. It runs the sole active timer. Its start time and
 entered sets are saved on the device, so switching tabs, backgrounding, or reopening keeps elapsed
 time. Starting expands the card into a horizontally scrolling exercise bar and a selected-exercise
-detail with a sets/reps/weight table and a compact upcoming-video caption. Add set and View
-notes sit beside the exercise name. Dividers frame the scrolling bar.
+detail with a sets/reps/weight table and the exercise's KineVault demo, or a Link demo button.
+Add set and View notes sit beside the exercise name. Dividers frame the scrolling bar.
 The workout name and elapsed timer share the widget's title row, with no active
 name field, date/status line or separate Open active workout panel. Active
 workouts automatically expand when returning to Exercise's default view.
@@ -148,7 +149,7 @@ another view requires a successful draft save.
 
 Exercise search shares Food's field and result-card styling. It searches from
 the first character, shows exercise metadata, and pages results in groups of 20.
-Search has a compact upcoming-studio caption; results have no fake video previews.
+Exercises linked to KineVault show a demo poster thumbnail.
 
 Bodyweight uses repetitions and blank kilograms, without inventing lifted body
 mass. Left/right sets keep each side's reps and weight, count as one set, and

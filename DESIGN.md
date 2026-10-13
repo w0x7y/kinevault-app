@@ -115,7 +115,8 @@ reference patterns, not implemented companion features.
 
 [PRODUCT.md](PRODUCT.md) defines the current feature scope; [README.md](README.md)
 records modules and verification. The studio recipes below remain useful for
-future catalog integration, which is not implemented in the Application.
+the KineVault exercise demos in [docs/exercise-demos.md](docs/exercise-demos.md);
+the wider catalog is not part of the Application.
 
 ## 1. Design identity
 

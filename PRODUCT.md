@@ -43,8 +43,8 @@ shows summaries for active or completed workouts; totals include completed
 workouts only, with sets, reps, and actual weight ranges. Exercise search opens
 library definitions for editing and matches Food's search and result styling,
 matching from the first character and showing
-20 results per page. A compact caption identifies studio videos as upcoming;
-results have no fake video tiles. The button beside search opens saved workouts and that day's drafts and
+20 results per page. Exercises linked to KineVault show a small demo poster.
+The button beside search opens saved workouts and that day's drafts and
 logs. Logging starts only from a saved workout. Empty days show a button-only
 Add workout widget opening the same menu. Exercise hides its daily widget while
 search, a form, the saved menu, or a workout editor occupies the screen. Storage
@@ -56,7 +56,8 @@ a saved workout shows a compact card with Start workout, Settings and manual log
 Templates and pre-start Settings can set exercise counts from 0 to 100; new
 template exercises default to three. Start expands the card into a horizontally
 scrolling exercise bar above the selected-exercise sets table,
-with notes and an upcoming-video caption. Add set and View notes sit on the exercise
+with notes and the exercise's KineVault demo, or a Link demo button.
+Add set and View notes sit on the exercise
 title row; dividers sit above and below the exercise bar. The workout name and
 elapsed timer share the active widget's title row. Date/status text, the separate
 timer panel, Close workout and explanatory footer are removed. Active workouts
@@ -144,7 +145,8 @@ one set, with both sides contributing reps and kg-times-reps volume. Blank weigh
 means bodyweight. Historical snapshots survive library edits and deletions.
 Development builds seed Squat, Push-up, and Dumbbell curl once; production builds
 do not inject these examples.
-Timed holds, cardio, and the broader KineVault program integration remain future work.
+KineVault demos come from published KineVault exercises (see docs/exercise-demos.md).
+Timed holds, cardio, coaching notes and the broader KineVault program integration remain future work.
 
 The agreed strength/bodyweight Exercise v1 is implemented. The user confirmed
 physical-iPhone verification, including keyboard, exercise scrolling,
