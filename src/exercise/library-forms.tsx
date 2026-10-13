@@ -116,7 +116,8 @@ export function ExerciseForm({
         ))}
       </ButtonRow>
       <AppText variant="caption" muted>
-        Leave weight blank for bodyweight. Changes apply to future workouts.
+        Leave weight blank for bodyweight. Changes apply to future workouts; a KineVault demo shows
+        in past workouts too.
       </AppText>
       <View onLayout={(event) => onDemoSectionLayout?.(event.nativeEvent.layout.y)}>
         <KineVaultDemoSection
