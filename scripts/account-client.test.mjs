@@ -69,8 +69,8 @@ test("server-rendered web requests never construct an account client or start it
 });
 
 for (const platform of ["web", "ios", "android"]) {
-  test(`${platform} app runtime retains one account client with session refresh and the correct lock`, () => {
-    const { api, calls, client, storage, lock } = runtime(platform, platform === "web");
+  test(`${platform} app runtime retains one account client with session refresh and no legacy auth lock`, () => {
+    const { api, calls, client, storage } = runtime(platform, platform === "web");
     assert.equal(api.getSupabaseClient(), client);
     assert.equal(api.getSupabaseClient(), client);
     assert.equal(api.getAccountAuthPort(), client.auth);
@@ -84,6 +84,7 @@ for (const platform of ["web", "ios", "android"]) {
     assert.equal(auth.autoRefreshToken, true);
     assert.equal(auth.detectSessionInUrl, false);
     assert.equal(auth.flowType, "pkce");
-    assert.equal(auth.lock, platform === "web" ? undefined : lock);
+    // The SDK coordinates refreshes itself; its legacy `lock` option is deprecated.
+    assert.equal("lock" in auth, false);
   });
 }

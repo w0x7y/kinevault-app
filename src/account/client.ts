@@ -1,7 +1,7 @@
 import "react-native-url-polyfill/auto";
 // Installs WebCrypto on native before any Supabase Auth flow can read it.
 import "./crypto-polyfill";
-import { createClient, processLock, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { Platform } from "react-native";
 import { sessionStorage } from "./session-storage";
 import { createAccountAuthAdapter } from "./auth-adapter";
@@ -33,7 +33,6 @@ export function getSupabaseClient(): SupabaseClient | null {
         autoRefreshToken: true,
         detectSessionInUrl: false,
         flowType: "pkce",
-        ...(Platform.OS !== "web" ? { lock: processLock } : {}),
       },
     });
     return client;
