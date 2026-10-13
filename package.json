@@ -64,6 +64,7 @@
     "android:keyboard": "node scripts/android-keyboard.mjs",
     "assets:mascot": "node scripts/optimize-mascot.mjs",
     "foods:import": "python3 scripts/import-food-catalog.py",
+    "catalog:publish": "node --env-file-if-exists=.env.catalog.local scripts/publish-catalog.mjs",
     "ios": "expo start -i",
     "ios:prebuild": "expo prebuild --platform ios --clean",
     "ios:open": "xed ios",
