@@ -1,5 +1,6 @@
 import { useEvent } from "expo";
 import { Image } from "expo-image";
+import { useIsFocused } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Platform, Pressable, View } from "react-native";
@@ -92,6 +93,11 @@ export function ExerciseDemo({ link, label }: { link: CatalogLink; label: string
   const [mediaFailed, setMediaFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const fail = useCallback(() => setMediaFailed(true), []);
+  const focused = useIsFocused();
+  // Tab screens stay mounted when blurred, so leaving the screen returns to the poster.
+  useEffect(() => {
+    if (!focused) setPlaying(false);
+  }, [focused]);
   const config = demoCatalogConfig;
   if (!config) return <DemoMessage text="Demonstration unavailable." />;
   const status = demoStatus({ state: catalog.state, link, mediaFailed, offline });

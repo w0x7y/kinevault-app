@@ -15,14 +15,27 @@ type DemoCatalogStore = ReturnType<typeof createDemoCatalogStore>;
 const DemoCatalogContext = createContext<DemoCatalogStore | null>(null);
 
 const catalogTimeoutMs = 15_000;
-// The store can't cancel requests itself; a hung request would leave demos loading forever.
+// The timer runs until the body is read; a stalled request would leave demos loading forever.
 const fetchWithTimeout: CatalogFetch = async (url, init) => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), catalogTimeoutMs);
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
-  } finally {
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    // The store never reads the body of a failed response.
+    if (!response.ok) clearTimeout(timer);
+    return {
+      ok: response.ok,
+      json: async () => {
+        try {
+          return await response.json();
+        } finally {
+          clearTimeout(timer);
+        }
+      },
+    };
+  } catch (error) {
     clearTimeout(timer);
+    throw error;
   }
 };
 
