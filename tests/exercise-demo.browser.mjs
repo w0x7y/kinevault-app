@@ -139,6 +139,14 @@ async function open(t, document, fixtureState = {}) {
   return { page, fixture };
 }
 
+// Chromium exposes navigator.connection, so NetInfo on web listens for its
+// "change" event instead of window "offline"/"online". Emulated network loss
+// updates navigator.onLine but fires no such event, so announce it here.
+async function setNetwork(page, online) {
+  await page.context().setOffline(!online);
+  await page.evaluate(() => navigator.connection?.dispatchEvent(new Event("change")));
+}
+
 async function openHistoricalWorkout(page) {
   await button(page, "Saved workouts").click();
   await button(
@@ -389,12 +397,54 @@ test("an active workout keeps the selected exercise after Link demo", async (t) 
   await expectSelected(page.getByTestId("session-editor"), "Deadlift");
 });
 
-test("a failed catalog load offers Retry in the form", async (t) => {
+test("a failed catalog load while online says demos are unavailable and offers Retry", async (t) => {
   const { page, fixture } = await open(t, documentWith([squat]), { catalogFailure: true });
   await button(page, "Create Exercise").click();
   const form = page.getByTestId("exercise-form");
-  await form.getByText("Connect to search KineVault demos.", { exact: true }).waitFor();
+  await form
+    .getByText("KineVault demos aren't available right now. Try again later.", { exact: true })
+    .waitFor();
+  assert.equal(await form.getByText("Connect to search KineVault demos.").count(), 0);
   fixture.catalogFailure = false;
   await button(form, "Retry loading KineVault demos").click();
   await field(form, "Find in KineVault").waitFor();
+});
+
+test("a failed catalog load while offline asks to connect in the form", async (t) => {
+  const { page, fixture } = await open(t, documentWith([squat]), { catalogFailure: true });
+  await button(page, "Create Exercise").click();
+  const form = page.getByTestId("exercise-form");
+  const unavailable = form.getByText(
+    "KineVault demos aren't available right now. Try again later.",
+    {
+      exact: true,
+    },
+  );
+  await unavailable.waitFor();
+  await setNetwork(page, false);
+  await form.getByText("Connect to search KineVault demos.", { exact: true }).waitFor();
+  await button(form, "Retry loading KineVault demos").waitFor();
+  await setNetwork(page, true);
+  await unavailable.waitFor();
+  fixture.catalogFailure = false;
+  await button(form, "Retry loading KineVault demos").click();
+  await field(form, "Find in KineVault").waitFor();
+});
+
+test("a failed catalog load in the player follows the connection", async (t) => {
+  const { page, fixture } = await open(
+    t,
+    documentWith([press], { sessions: [historical([press])] }),
+    { catalogFailure: true },
+  );
+  const editor = await openHistoricalWorkout(page);
+  const message = (text) => editor.getByText(text, { exact: true });
+  await message("KineVault demos aren't available right now. Try again later.").waitFor();
+  await setNetwork(page, false);
+  await message("Connect to load this demonstration.").waitFor();
+  await setNetwork(page, true);
+  await message("KineVault demos aren't available right now. Try again later.").waitFor();
+  fixture.catalogFailure = false;
+  await button(editor, "Retry loading the demonstration").click();
+  await button(editor, "Play demonstration of Shoulder press").waitFor();
 });

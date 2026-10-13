@@ -18,6 +18,7 @@ export function resolveDemoLink(
 export type DemoStatus =
   | { kind: "loading" }
   | { kind: "connect" }
+  | { kind: "catalog-unavailable" }
   | { kind: "unavailable" }
   | { kind: "failed"; offline: boolean }
   | { kind: "ready"; entry: CatalogExercise; videoPath: string; posterPath: string };
@@ -34,7 +35,8 @@ export function demoStatus({
   offline: boolean;
 }): DemoStatus {
   if (state.kind === "loading") return { kind: "loading" };
-  if (state.kind === "failed") return { kind: "connect" };
+  if (state.kind === "failed")
+    return offline ? { kind: "connect" } : { kind: "catalog-unavailable" };
   const entry = state.byId.get(link.id);
   if (!entry || entry.status !== "published" || !entry.videoPath || !entry.posterPath)
     return { kind: "unavailable" };

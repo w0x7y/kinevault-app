@@ -109,6 +109,13 @@ export function ExerciseDemo({ link, label }: { link: CatalogLink; label: string
         onRetry={() => void catalog.retry()}
       />
     );
+  if (status.kind === "catalog-unavailable")
+    return (
+      <DemoMessage
+        text="KineVault demos aren't available right now. Try again later."
+        onRetry={() => void catalog.retry()}
+      />
+    );
   if (status.kind === "unavailable") return <DemoMessage text="Demonstration unavailable." />;
   if (status.kind === "failed")
     return (

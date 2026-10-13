@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
 import { AppButton, ButtonRow } from "../../components/button";
 import { AppText } from "../../components/ui";
+import { useConnectivity } from "../../connectivity/provider";
 import { useTheme } from "../../theme/provider";
 import { radius, spacing } from "../../theme/tokens";
 import { ExerciseField } from "../controls";
@@ -71,6 +72,7 @@ export function KineVaultDemoSection({
   onUnlink: () => void;
 }) {
   const catalog = useDemoCatalog();
+  const offline = useConnectivity() === "offline";
   const { refreshIfStale } = catalog;
   const [changing, setChanging] = useState(false);
   const [query, setQuery] = useState("");
@@ -113,7 +115,9 @@ export function KineVaultDemoSection({
       ) : catalog.state.kind === "failed" ? (
         <>
           <AppText variant="caption" muted accessibilityLiveRegion="polite">
-            Connect to search KineVault demos.
+            {offline
+              ? "Connect to search KineVault demos."
+              : "KineVault demos aren't available right now. Try again later."}
           </AppText>
           <AppButton
             label="Retry"

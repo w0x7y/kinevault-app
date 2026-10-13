@@ -194,7 +194,8 @@ States and copy:
 | Catalog still loading for the first time | "Loading demonstration." in the muted panel |
 | Clip or poster fails to load while offline | "Connect to load this demonstration." with Retry |
 | Clip or poster fails to load while online | "Couldn't load this demonstration. Check your connection and try again." with Retry |
-| Catalog never loaded and the fetch failed | "Connect to load this demonstration." with Retry |
+| Catalog never loaded and the fetch failed while offline | "Connect to load this demonstration." with Retry |
+| Catalog never loaded and the fetch failed while online | "KineVault demos aren't available right now. Try again later." with Retry |
 
 Connectivity comes from the existing `useConnectivity()`.
 
@@ -223,7 +224,8 @@ Connectivity comes from the existing `useConnectivity()`.
    - The link is part of the form and is saved or discarded with it.
    - Opened through "Link demo", the form scrolls to and focuses the search.
    - With no catalog copy and no connection: "Connect to search KineVault
-     demos." with Retry.
+     demos." with Retry. With no catalog copy and a failed fetch while online:
+     "KineVault demos aren't available right now. Try again later." with Retry.
 5. **Fullscreen.** Through the player's native controls on iOS and Android, and
    the browser's fullscreen on web.
 

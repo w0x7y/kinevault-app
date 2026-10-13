@@ -51,7 +51,8 @@ test("player status follows the catalog and media state", () => {
   const status = (state: DemoCatalogState, mediaFailed = false, offline = false) =>
     demoStatus({ state, link, mediaFailed, offline }).kind;
   assert.equal(status({ kind: "loading" }), "loading");
-  assert.equal(status({ kind: "failed" }), "connect");
+  assert.equal(status({ kind: "failed" }, false, true), "connect");
+  assert.equal(status({ kind: "failed" }, false, false), "catalog-unavailable");
   assert.equal(status(ready([])), "unavailable");
   assert.equal(
     status(ready([{ ...entry, status: "withdrawn", videoPath: null, posterPath: null }])),
