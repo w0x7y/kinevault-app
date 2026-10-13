@@ -24,6 +24,14 @@ begin
   ) then
     raise exception 'Demo bucket misconfigured';
   end if;
+  -- Object writes must be stopped by RLS, not by a missing grant in the stand-in.
+  if not has_table_privilege('anon', 'storage.objects', 'INSERT')
+    or not has_table_privilege('authenticated', 'storage.objects', 'INSERT') then
+    raise exception 'Storage object grants missing from the test setup';
+  end if;
+  if not (select relrowsecurity from pg_class where oid = 'storage.objects'::regclass) then
+    raise exception 'Storage object row level security disabled';
+  end if;
 end;
 $$;
 
@@ -71,6 +79,12 @@ begin
     raise exception 'Anonymous update accepted';
   exception when insufficient_privilege then null;
   end;
+  begin
+    insert into storage.objects (bucket_id, name)
+    values ('exercise-demos', '3f1c2b9e-8a4d-4c1e-9b7a-2d5e6f708192/0123456789abcdef.mp4');
+    raise exception 'Anonymous object write accepted';
+  exception when insufficient_privilege then null;
+  end;
 end;
 $$;
 reset role;
@@ -84,6 +98,12 @@ begin
   begin
     delete from public.catalog_exercises;
     raise exception 'Authenticated delete accepted';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into storage.objects (bucket_id, name)
+    values ('exercise-demos', '3f1c2b9e-8a4d-4c1e-9b7a-2d5e6f708192/0123456789abcdef.mp4');
+    raise exception 'Authenticated object write accepted';
   exception when insufficient_privilege then null;
   end;
 end;
