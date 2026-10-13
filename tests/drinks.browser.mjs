@@ -2,7 +2,7 @@ import { installAccountFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { chromium } from "playwright";
+import { launchBrowser } from "./helpers/browser.mjs";
 
 const baseURL = process.env.KINE_PREVIEW_URL || "http://localhost:8081";
 const data = JSON.parse(
@@ -42,7 +42,7 @@ const button = (page, name) =>
 const field = (page, name) => page.getByRole("textbox", { name, exact: true });
 
 async function open(t, foods = []) {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchBrowser();
   t.after(() => browser.close());
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await context.addInitScript(

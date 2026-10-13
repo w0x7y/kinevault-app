@@ -90,7 +90,6 @@ async function setup(
     },
     exchangeCodeForSession: result,
     verifyOtp: result,
-    setSession: result,
   };
   const controller = createAccountController(auth, { redirectTo: "https://example.com/callback" });
   controller.start();

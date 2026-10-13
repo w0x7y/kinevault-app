@@ -1,18 +1,18 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useState, type PropsWithChildren } from "react";
+import { useEffect, useState, useSyncExternalStore, type PropsWithChildren } from "react";
 import * as SplashScreen from "expo-splash-screen";
 import { useSegments } from "expo-router";
 import { useAccount } from "./provider";
 import { createAccountStorage } from "./storage";
 import { AccountStorageProvider } from "./storage-context";
 import { createAccountRemote } from "./remote";
+import { createAccountScope } from "./scope";
 import { isPublicAccountRoute } from "./navigation";
 import { KineLoading } from "../components/kine-loading";
 import { AppText, Panel } from "../components/ui";
 import { Button } from "../onboarding/controls";
 import { ProfileProvider } from "../profile/provider";
 import { useConnectivityStore } from "../connectivity/provider";
-import { attachReconnectRetry } from "../connectivity/controller";
 
 export function AccountDataProvider({ children }: PropsWithChildren) {
   const { loading, user } = useAccount();
@@ -36,56 +36,20 @@ function ScopedData({ userId, children }: PropsWithChildren<{ userId: string | n
       remote: userId ? createAccountRemote(userId) : null,
     }),
   );
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState(false);
-  const [attempt, setAttempt] = useState(0);
+  const [scope] = useState(() => createAccountScope({ userId, storage, connectivity }));
+  const state = useSyncExternalStore(scope.subscribe, scope.getSnapshot, scope.getSnapshot);
   useEffect(() => {
-    let active = true;
-    const finishLoading = async () => {
-      if (!active) return;
-      if (
-        userId &&
-        storage.getSnapshot().error &&
-        (await storage.getItem("kinevault-track.profile.v1")) === null
-      )
-        throw new Error("No offline account profile");
-      if (active) {
-        setError(false);
-        setReady(true);
-      }
-    };
-    const hydrated = storage
-      .start()
-      .then(finishLoading)
-      .catch(() => {
-        if (active) {
-          setError(true);
-          void SplashScreen.hideAsync();
-        }
-      });
-    const stopReconnect = attachReconnectRetry(connectivity, hydrated, async () => {
-      if (!active || !userId) return;
-      await storage.retry();
-      // A downloaded profile remains usable even if an unrelated upload failed.
-      if (active) await finishLoading();
-    });
-    return () => {
-      active = false;
-      stopReconnect();
-      storage.stop();
-    };
-  }, [storage, attempt, connectivity, userId]);
-  if (error && !authRoute)
+    scope.start();
+    return scope.stop;
+  }, [scope]);
+  useEffect(() => {
+    if (state === "error") void SplashScreen.hideAsync();
+  }, [state]);
+  if (state === "error" && !authRoute)
     return (
       <Panel>
         <AppText accessibilityRole="alert">Couldn't load this account's saved data.</AppText>
-        <Button
-          label="Try again"
-          onPress={() => {
-            setError(false);
-            setAttempt((x) => x + 1);
-          }}
-        />
+        <Button label="Try again" onPress={scope.retry} />
         <Button
           label="Log out"
           secondary
@@ -95,7 +59,7 @@ function ScopedData({ userId, children }: PropsWithChildren<{ userId: string | n
         {account.error && <AppText accessibilityRole="alert">{account.error}</AppText>}
       </Panel>
     );
-  if (!ready && !authRoute) return <KineLoading fill />;
+  if (state === "loading" && !authRoute) return <KineLoading fill />;
   return (
     <AccountStorageProvider storage={storage}>
       <ProfileProvider>{children}</ProfileProvider>

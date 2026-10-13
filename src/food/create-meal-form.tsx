@@ -7,7 +7,7 @@ import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import type { CatalogFood, Nutrition } from "./catalog.ts";
 import { previewMeal, type CustomMeal, type MealDraft } from "./meal-model.ts";
-import { nutritionAmountText } from "./number-input.ts";
+import { defaultAmount } from "./logging-attempt.ts";
 import { useCustomFoods } from "./custom-provider";
 import { FoodField, NutritionFields } from "./form-fields";
 import { IngredientSearch } from "./ingredient-search";
@@ -60,14 +60,7 @@ export function CreateMealForm({
     } while (draft.ingredients.some((ingredient) => ingredient.id === id));
     change({
       ...draft,
-      ingredients: [
-        ...draft.ingredients,
-        {
-          id,
-          food,
-          amount: nutritionAmountText(food.customId ? (food.portions[0]?.grams ?? 100) : 100),
-        },
-      ],
+      ingredients: [...draft.ingredients, { id, food, amount: defaultAmount(food) }],
     });
   }
   async function save() {

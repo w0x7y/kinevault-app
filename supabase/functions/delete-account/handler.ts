@@ -1,3 +1,10 @@
+import {
+  jsonReply as reply,
+  preflightReply,
+  readJsonRequest,
+  type RejectedRequest,
+} from "../_shared/request.ts";
+
 type Identity = { id: string; email: string | null };
 export type DeletionPort = {
   authenticate(token: string): Promise<Identity | null>;
@@ -8,63 +15,22 @@ export type DeletionPort = {
   revokeSessions(token: string): Promise<void>;
   deleteUser(id: string): Promise<void>;
 };
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-function reply(status: number, body: Record<string, unknown>) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
+const rejections = {
+  method: [405, "Method not allowed"],
+  unauthenticated: [401, "Authentication required"],
+  "too-large": [413, "Request too large"],
+  invalid: [400, "Invalid request"],
+} as const satisfies Record<RejectedRequest, readonly [number, string]>;
 
 export function createDeleteAccountHandler(port: DeletionPort) {
   return async (request: Request): Promise<Response> => {
-    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-    if (request.method !== "POST") return reply(405, { error: "Method not allowed" });
-    const token = /^Bearer (\S+)$/i.exec(request.headers.get("Authorization") ?? "")?.[1];
-    if (!token) return reply(401, { error: "Authentication required" });
-    // Bound input before parsing and never log request bodies or credentials.
-    let text = "";
-    const reader = request.body?.getReader();
-    if (reader) {
-      const chunks: Uint8Array[] = [];
-      let size = 0;
-      try {
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          size += value.byteLength;
-          if (size > 2048) {
-            void reader.cancel().catch(() => {});
-            return reply(413, { error: "Request too large" });
-          }
-          chunks.push(value);
-        }
-        const bytes = new Uint8Array(size);
-        let offset = 0;
-        for (const chunk of chunks) {
-          bytes.set(chunk, offset);
-          offset += chunk.byteLength;
-        }
-        text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-      } catch {
-        return reply(400, { error: "Invalid request" });
-      } finally {
-        reader.releaseLock();
-      }
+    const read = await readJsonRequest(request, { byteLimit: 2048 });
+    if (read.kind === "preflight") return preflightReply();
+    if (read.kind === "rejected") {
+      const [status, error] = rejections[read.reason];
+      return reply(status, { error });
     }
-    let body: unknown;
-    try {
-      body = JSON.parse(text);
-    } catch {
-      return reply(400, { error: "Invalid request" });
-    }
-    if (!body || typeof body !== "object" || Array.isArray(body))
-      return reply(400, { error: "Invalid request" });
-    const value = body as Record<string, unknown>;
+    const { token, body: value } = read;
     if (
       Object.keys(value).some((key) => !["password", "confirmation"].includes(key)) ||
       value.confirmation !== "DELETE" ||

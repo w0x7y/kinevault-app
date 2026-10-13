@@ -1,7 +1,7 @@
 import { installAccountFixture, signInFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { chromium } from "playwright";
+import { launchBrowser } from "./helpers/browser.mjs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -736,7 +736,7 @@ test("changing calendar day preserves a custom food draft and logs it to the new
   await button(page, "View nutrition for שיבולת שועל, custom food").waitFor();
 });
 async function open(t, seed, options = {}) {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchBrowser();
   t.after(() => browser.close());
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -2442,7 +2442,7 @@ test("unset and maximum calorie goals keep a readable bar below macros and Kine"
 });
 
 test("completed workout widgets render coherent totals and filter only exercise rows", async (t) => {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchBrowser();
   t.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const fixturePath = "/tests/workout-fixture.bundle?platform=web&dev=true&hot=false&minify=false";

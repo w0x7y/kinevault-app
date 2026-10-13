@@ -36,7 +36,6 @@ export function createAccountAuthAdapter(
     signOut: (options) => auth.signOut(options),
     exchangeCodeForSession: (code) => auth.exchangeCodeForSession(code),
     verifyOtp: (options) => auth.verifyOtp(options),
-    setSession: (tokens) => auth.setSession(tokens),
     async clearDeletedSession(ownerId, isCurrent) {
       return {
         cleared: await storage.clearDeletedOwner(storageKey, ownerId, isCurrent),

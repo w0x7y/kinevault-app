@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { chromium } from "playwright";
+import { launchBrowser } from "./helpers/browser.mjs";
 const baseURL = process.env.KINE_PREVIEW_URL || "http://localhost:8081";
 const profileKey = "kinevault-track.profile.v1",
   mediaKey = "kinevault-track.profile-media.v1";
@@ -73,7 +73,7 @@ const photoButton = (page, id, action = "Edit") =>
     .getByTestId(`progress-photo-${id}`)
     .getByRole("button", { name: new RegExp(`^${action} photo `) });
 async function open(t, options = {}) {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchBrowser();
   t.after(() => browser.close());
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },

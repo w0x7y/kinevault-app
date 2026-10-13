@@ -5,8 +5,7 @@ import { AppText, Panel } from "../components/ui";
 import { CalorieWidget } from "../daily/calorie-widget";
 import { summarizeDay, type FoodDay } from "../daily/model.ts";
 import { sumDetailedNutrients } from "../daily/detailed-nutrition.ts";
-import { calorieState } from "../profile/calories.ts";
-import { useProfile } from "../profile/provider";
+import { useDayActivity } from "../daily/use-day";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import { detailedNutrients } from "./nutrients.ts";
@@ -35,13 +34,12 @@ export function DailyMacros({
   onBack: () => void;
   onLayout: ViewProps["onLayout"];
 }) {
-  const { state } = useProfile();
+  const { targets } = useDayActivity(day.date);
   const { colors } = useTheme();
-  if (state.kind !== "ready") return null;
+  if (targets.kind !== "ready") return null;
   const summary = summarizeDay(day);
   const details = sumDetailedNutrients(day.foods, foodDatabase.getById);
   const values = { ...summary, ...details };
-  const answers = state.document.answers;
   return (
     <View testID="daily-macro-view" onLayout={onLayout} style={{ gap: spacing.layout }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.layout }}>
@@ -65,7 +63,7 @@ export function DailyMacros({
       <CalorieWidget
         current={summary.calories}
         macros={summary}
-        goal={calorieState(answers).target}
+        goal={targets.calories}
         testIDPrefix="day"
       />
       <Panel testID="daily-nutrient-details" style={{ gap: 0 }}>

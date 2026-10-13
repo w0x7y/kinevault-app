@@ -6,7 +6,8 @@ import { AppText, Panel } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import { JournalText } from "./journal-ui";
-export type ProfileSection = "Overview" | "Goals" | "Photos";
+export const profileSections = ["Overview", "Goals", "Photos"] as const;
+export type ProfileSection = (typeof profileSections)[number];
 export function ProfileChoices<T extends string | number>({
   label,
   values,
@@ -88,7 +89,7 @@ export function ProfileControls({
         marginBottom: 14,
       }}
     >
-      {(["Overview", "Goals", "Photos"] as const).map((name) => (
+      {profileSections.map((name) => (
         <Pressable
           key={name}
           accessibilityRole="button"

@@ -2,7 +2,7 @@ import { installAccountFixture } from "./helpers/account-fixture.mjs";
 import { seedDevelopmentExamples } from "../src/exercise/commands.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { chromium } from "playwright";
+import { launchBrowser } from "./helpers/browser.mjs";
 
 const baseURL = process.env.KINE_PREVIEW_URL || "http://localhost:8081";
 const storageKey = "kinevault-track.exercise.v1";
@@ -82,7 +82,7 @@ async function open(
     onAccountFixture,
   } = {},
 ) {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchBrowser();
   t.after(() => browser.close());
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },

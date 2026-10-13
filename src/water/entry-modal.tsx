@@ -1,79 +1,23 @@
 import { ButtonRow, AppButton } from "../components/button";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Modal, ScrollView, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppText, Panel } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
-import { manualWaterAmountFromText } from "./model";
 import { useWaterLog } from "./provider";
+import { useManualWaterEdit } from "./use-manual-editing";
 import { KineLoading } from "../components/kine-loading";
 
+// Home keys this modal by date, so each open day gets its own Manual water edit.
 export function WaterEntryModal({ date, onDismiss }: { date: string; onDismiss: () => void }) {
   const { colors } = useTheme();
   const log = useWaterLog();
-  const [draft, setDraft] = useState(() => ({
-    date,
-    initialized: log.state.kind === "ready",
-    text: log.state.kind === "ready" ? String(log.state.document.days[date] ?? 0) : "",
-  }));
-  const amount = draft.date === date ? draft.text : "";
-  const currentDate = useRef(date);
-  currentDate.current = date;
-  useEffect(() => {
-    setDraft((previous) => {
-      if (previous.date === date && previous.initialized) return previous;
-      return {
-        date,
-        initialized: log.state.kind === "ready",
-        text: log.state.kind === "ready" ? String(log.state.document.days[date] ?? 0) : "",
-      };
-    });
-  }, [date, log.state]);
-  const [error, setError] = useState<string | null>(null);
+  const { edit, draft, error, busy, ready } = useManualWaterEdit(date);
   const [focused, setFocused] = useState(false);
-  const submitting = useRef(false);
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-  const ready = log.state.kind === "ready";
-  const disabled = log.saving || !ready || draft.date !== date;
-
-  function adjustAmount(delta: number) {
-    if (submitting.current || log.saving) return;
-    setDraft((previous) => {
-      const text = previous.date === date ? previous.text : "";
-      const parsed = /^\d+$/.test(text.trim()) ? Number(text.trim()) : 0;
-      const current = Number.isSafeInteger(parsed) ? parsed : 0;
-      return {
-        date,
-        initialized: true,
-        text: String(Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, current + delta))),
-      };
-    });
-    setError(null);
-  }
 
   async function save() {
-    if (submitting.current || disabled) return;
-    const ml = manualWaterAmountFromText(amount);
-    if (ml === null) {
-      setError("Enter a whole number of millilitres, 0 or more.");
-      return;
-    }
-    submitting.current = true;
-    setError(null);
-    // Capture this form's date before the asynchronous write.
-    try {
-      const saved = await log.set({ date, ml });
-      if (saved && mounted.current && currentDate.current === date) onDismiss();
-    } finally {
-      submitting.current = false;
-    }
+    if (await edit.save()) onDismiss();
   }
 
   return (
@@ -83,7 +27,7 @@ export function WaterEntryModal({ date, onDismiss }: { date: string; onDismiss: 
       animationType="none"
       accessibilityLabel="Edit water"
       onRequestClose={() => {
-        if (!log.saving) onDismiss();
+        if (!busy) onDismiss();
       }}
     >
       <SafeAreaView style={{ flex: 1, backgroundColor: "rgba(0, 0, 0, 0.45)" }}>
@@ -124,13 +68,12 @@ export function WaterEntryModal({ date, onDismiss }: { date: string; onDismiss: 
               <AppText variant="label">Manual water (ml)</AppText>
               <TextInput
                 accessibilityLabel="Manual water (ml)"
-                value={amount}
+                value={draft}
                 keyboardType="number-pad"
                 selectTextOnFocus
-                editable={!log.saving}
+                editable={!busy}
                 onChangeText={(text) => {
-                  setDraft({ date, text, initialized: true });
-                  setError(null);
+                  edit.change(text);
                 }}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
@@ -155,24 +98,26 @@ export function WaterEntryModal({ date, onDismiss }: { date: string; onDismiss: 
                   key={delta}
                   fill
                   label={`${delta > 0 ? "+" : ""}${delta} ml`}
-                  disabled={log.saving}
-                  onPress={() => adjustAmount(delta)}
+                  disabled={busy}
+                  onPress={() => {
+                    edit.adjust(delta);
+                  }}
                 />
               ))}
             </ButtonRow>
-            {(error || log.error) && (
+            {error && (
               <AppText accessibilityRole="alert" style={{ color: colors.error }}>
-                {error || log.error}
+                {error}
               </AppText>
             )}
             <ButtonRow>
-              <AppButton fill label="Cancel" disabled={log.saving} onPress={onDismiss} />
+              <AppButton fill label="Cancel" disabled={busy} onPress={onDismiss} />
               <AppButton
                 fill
                 primary
-                label={log.saving ? "Saving water..." : "Save water"}
+                label={busy ? "Saving water..." : "Save water"}
                 accessibilityLabel="Save water"
-                disabled={disabled}
+                disabled={busy || !ready}
                 onPress={() => void save()}
               />
             </ButtonRow>

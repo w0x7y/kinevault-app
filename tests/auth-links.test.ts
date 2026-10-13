@@ -33,12 +33,12 @@ test("email token hashes only allow email confirmation and recovery types", () =
     "invalid",
   );
 });
-test("implicit callbacks need both tokens and recognize recovery in the hash", () => {
-  assert.deepEqual(
+test("implicit-session callbacks are refused, since PKCE sign-in never sends tokens", () => {
+  assert.equal(
     parseAuthLink(
       "kinevaulttrack://auth/callback#access_token=access&refresh_token=refresh&type=recovery",
-    ),
-    { kind: "tokens", accessToken: "access", refreshToken: "refresh", recovery: true },
+    ).kind,
+    "invalid",
   );
   assert.equal(parseAuthLink("kinevaulttrack://auth/callback#access_token=access").kind, "invalid");
 });

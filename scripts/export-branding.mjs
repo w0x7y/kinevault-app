@@ -63,6 +63,28 @@ image(
   ],
   "adaptive-monochrome.png",
 );
+// Android draws the 24dp status-bar icon from its alpha channel alone. Crop the
+// monochrome head so it fills most of the square; 96px covers xxxhdpi.
+image(
+  [
+    output("adaptive-monochrome.png"),
+    "-trim",
+    "+repage",
+    "-resize",
+    "84x84",
+    "-background",
+    "none",
+    "-gravity",
+    "center",
+    "-extent",
+    "96x96",
+    "-fill",
+    "white",
+    "-colorize",
+    "100",
+  ],
+  "notification-icon.png",
+);
 
 // Android's launch API supplies a square icon container. A head mark fits there
 // better than the tall iOS mascot/wordmark, and avoids clipping the lettering.

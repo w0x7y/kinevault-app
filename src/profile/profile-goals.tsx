@@ -6,13 +6,10 @@ import { useFoodLog } from "../food/log-provider";
 import { useWaterLog } from "../water/provider";
 import { useWaterGoal } from "../water/goal-provider";
 import { WaterGoalEditor } from "./water-goal-editor";
-import { useExercises } from "../exercise/provider";
-import { summarizeDay } from "../daily/model";
-import { interpretDayActivity } from "../daily/activity";
+import { progressFraction } from "../daily/model";
+import { useDayActivity } from "../daily/use-day";
 import { useTheme } from "../theme/provider";
 import { activities, goals } from "./answers";
-import { calorieState } from "./calories";
-import { macroTargets } from "./macros";
 import { useProfile } from "./provider";
 import { ProfileEditor } from "./profile-editor";
 import type { ProfileEditSection } from "./section-editing";
@@ -48,24 +45,17 @@ function ProgressBar({
           height: 5,
           borderRadius: 3,
           backgroundColor: color,
-          width: `${consumed !== null && target !== null && target > 0 ? Math.min(100, (consumed / target) * 100) : 0}%`,
+          width: `${progressFraction(consumed ?? 0, target) * 100}%`,
         }}
       />
     </View>
   );
 }
 export function TodayNutrition({ today, onPress }: { today: string; onPress: () => void }) {
-  const profile = useProfile(),
-    food = useFoodLog();
+  const activity = useDayActivity(today);
   const { colors } = useTheme();
-  const calories =
-    food.state.kind === "ready"
-      ? summarizeDay({
-          foods: food.state.document.days[today] ?? [],
-        }).calories
-      : null;
-  const target =
-    profile.state.kind === "ready" ? calorieState(profile.state.document.answers).target : null;
+  const calories = activity.food.kind === "ready" ? activity.food.summary.calories : null;
+  const target = activity.targets.kind === "ready" ? activity.targets.calories : null;
   return (
     <Pressable
       accessibilityRole="button"
@@ -108,22 +98,12 @@ export function ProfileGoals({
     food = useFoodLog(),
     water = useWaterLog(),
     goal = useWaterGoal(),
-    exercise = useExercises();
+    activity = useDayActivity(today);
   const { colors } = useTheme();
   const [choosing, setChoosing] = useState(false);
-  if (profile.state.kind !== "ready") return null;
+  const { targets } = activity;
+  if (profile.state.kind !== "ready" || targets.kind !== "ready") return null;
   const answers = profile.state.document.answers;
-  const activity = interpretDayActivity({
-    selectedDay: today,
-    food: food.state,
-    water: water.state,
-    goal: goal.state,
-    exercise: exercise.state,
-  });
-  const targets = {
-    calories: calorieState(answers).target,
-    ...macroTargets(answers),
-  };
   const summary = activity.food.kind === "ready" ? activity.food.summary : null;
   const waterMl = activity.water.total.kind === "ready" ? activity.water.total.ml : null;
   const waterTarget = activity.water.goal.kind === "ready" ? activity.water.goal.ml : null;
@@ -247,11 +227,7 @@ export function ProfileGoals({
           />
         )}
         {editor?.section === "water" && goal.state.kind === "ready" && (
-          <WaterGoalEditor
-            key={editor.id}
-            initial={goal.state.document.dailyMl}
-            close={() => close(editor.id)}
-          />
+          <WaterGoalEditor key={editor.id} close={() => close(editor.id)} />
         )}
       </JournalPanel>
       <JournalPanel>

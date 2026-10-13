@@ -15,16 +15,21 @@ import { useProfile } from "../profile/provider";
 import { ProfileRecovery } from "../profile/recovery";
 import { MotionProvider, useReducedMotion } from "../components/motion";
 import { KineLoading } from "../components/kine-loading";
-import { AccountProvider } from "../account/provider";
+import { AccountProvider, useAccount } from "../account/provider";
 import { AccountDataProvider } from "../account/data-provider";
 import { isPublicAccountRoute } from "../account/navigation";
+import { trackingAccess } from "../account/tracking-access";
 import { RefreshNotice } from "../persistence/refresh-notice";
 import { AppErrorBoundary } from "../components/error-boundary";
 import { initializeCrashReporting } from "../components/crash-reporting";
 import { ConnectivityProvider } from "../connectivity/provider";
 import { OfflineNotice } from "../connectivity/notice";
+import { initializeReminderNotifications } from "../reminders/notifications";
+import { ReminderProvider } from "../reminders/provider";
+import { useReminderTapRouting } from "../reminders/tap-routing";
 
 initializeCrashReporting();
+initializeReminderNotifications();
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootNavigator() {
@@ -32,6 +37,7 @@ function RootNavigator() {
   const { colors, appearance, ready } = useTheme();
   const profile = useProfile();
   const { state } = profile;
+  const { user, recovery } = useAccount();
   const segments = useSegments();
   const authRoute = isPublicAccountRoute(segments);
   const [fontsLoaded, fontError] = useFonts({
@@ -42,6 +48,16 @@ function RootNavigator() {
   });
   const loaded =
     ready && (fontsLoaded || Boolean(fontError)) && (authRoute || state.kind !== "loading");
+  // Reminder taps wait for startup, then open tracking only where the tab
+  // layout would allow it.
+  const tracking = trackingAccess({ recovery, signedIn: user !== null, profile: state });
+  useReminderTapRouting(
+    !loaded || state.kind === "loading"
+      ? "wait"
+      : !authRoute && tracking.kind === "open"
+        ? "open"
+        : "ignore",
+  );
 
   useEffect(() => {
     if (loaded) void SplashScreen.hideAsync();
@@ -84,7 +100,9 @@ export default function RootLayout() {
               <View style={{ flex: 1 }}>
                 <OfflineNotice />
                 <AccountDataProvider>
-                  <RootNavigator />
+                  <ReminderProvider>
+                    <RootNavigator />
+                  </ReminderProvider>
                 </AccountDataProvider>
               </View>
             </AccountProvider>

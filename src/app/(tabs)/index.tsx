@@ -2,9 +2,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import { Screen } from "../../components/ui";
 import { KineSplitRow } from "../../components/kine-split-row";
-import { useProfile } from "../../profile/provider";
-import { calorieState } from "../../profile/calories";
-import { macroTargets } from "../../profile/macros";
 import { useDayActivity } from "../../daily/use-day";
 import { NutritionWidget } from "../../daily/nutrition-widget";
 import { CalorieWidget } from "../../daily/calorie-widget";
@@ -16,40 +13,25 @@ import { useExercises } from "../../exercise/provider";
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { state } = useProfile();
   const activity = useDayActivity();
-  const { state: exerciseState, retryLoad: retryWorkouts } = useExercises();
+  const { retryLoad: retryWorkouts } = useExercises();
   const [waterEntryDay, setWaterEntryDay] = useState<string | null>(null);
   useEffect(() => {
     setWaterEntryDay(null);
   }, [activity.date]);
-  if (state.kind !== "ready") return null;
-  const answers = state.document.answers;
+  const { targets } = activity;
+  if (targets.kind !== "ready") return null;
   const summary = activity.food.kind === "ready" ? activity.food.summary : null;
-  const activeWorkout =
-    exerciseState.kind === "ready"
-      ? exerciseState.document.sessions.find(
-          (workout) => workout.date === activity.date && workout.status === "active",
-        )
-      : undefined;
   return (
     <Screen title="Home" showTitle={false}>
       {summary ? (
         <>
           <KineSplitRow pose="today" testIDPrefix="home" rowTestID="home-nutrition-row">
             {(columnWidth) => (
-              <NutritionWidget
-                width={columnWidth}
-                targets={macroTargets(answers)}
-                summary={summary}
-              />
+              <NutritionWidget width={columnWidth} targets={targets} summary={summary} />
             )}
           </KineSplitRow>
-          <CalorieWidget
-            current={summary.calories}
-            goal={calorieState(answers).target}
-            macros={summary}
-          />
+          <CalorieWidget current={summary.calories} goal={targets.calories} macros={summary} />
         </>
       ) : (
         <FoodLogStatus />
@@ -59,7 +41,7 @@ export default function HomeScreen() {
         sourceState={activity.workoutState}
         onRetry={retryWorkouts}
         showEmptyGuidance
-        activeWorkoutName={activeWorkout?.name || (activeWorkout ? "Active workout" : undefined)}
+        activeWorkoutName={activity.activeWorkoutName}
         onAddWorkout={() =>
           router.push({ pathname: "/exercise", params: { workoutMenu: activity.date } })
         }

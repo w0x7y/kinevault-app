@@ -17,6 +17,7 @@ import { ProfileMediaProvider } from "../../profile/media-provider";
 import { ExerciseProvider } from "../../exercise/provider";
 import { useAccount } from "../../account/provider";
 import { TrackingRefreshNotices } from "../../account/refresh-notices";
+import { trackingAccess } from "../../account/tracking-access";
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
@@ -25,11 +26,9 @@ export default function TabLayout() {
   const { colors } = useTheme();
   const { state } = useProfile();
   const { user, recovery } = useAccount();
-  if (recovery) return <Redirect href="/auth/reset-password" />;
-  if (state.kind !== "ready") return null;
-  if (!user)
-    return <Redirect href={state.document.kind === "draft" ? "/onboarding" : "/account"} />;
-  if (state.document.kind === "draft") return <Redirect href="/onboarding" />;
+  const access = trackingAccess({ recovery, signedIn: user !== null, profile: state });
+  if (access.kind === "redirect") return <Redirect href={access.href} />;
+  if (access.kind === "wait") return null;
   return (
     <ProfileMediaProvider>
       <CustomFoodProvider>

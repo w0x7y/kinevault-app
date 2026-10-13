@@ -14,6 +14,7 @@ import {
   type UpdateSessionInput,
   type CompleteSessionInput,
 } from "./commands.ts";
+import type { ImportedWorkoutPlan } from "./import/plan.ts";
 
 export const exerciseStorageKey = "kinevault-track.exercise.v1";
 export type ExerciseSnapshot = DurableSnapshot<ExerciseDocument>;
@@ -150,5 +151,7 @@ export function createExercisePersistence({
     async removeSession(id: string): Promise<boolean> {
       return (await queue((document) => commands.removeSession(document, id))) === true;
     },
+    // The plan maps against the latest saved library when its turn in the queue arrives.
+    importWorkoutPlan: (plan: ImportedWorkoutPlan) => capture(plan, commands.importWorkoutPlan),
   };
 }

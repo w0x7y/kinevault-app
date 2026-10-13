@@ -27,12 +27,12 @@ the values are missing or invalid.
 The migration in `supabase/migrations/20261005150934_account_cloud_storage.sql`
 creates four tables:
 
-| Table | Purpose | Signed-in client access |
-| --- | --- | --- |
-| `profiles` | Shared account name and identity | Read own row; update own display name |
-| `roles` | Shared `user`, `reviewer`, or `admin` role | Read own row |
-| `subscriptions` | Server-managed membership | Read own row |
-| `track_documents` | Versioned tracking documents | Read and write own documents |
+| Table             | Purpose                                    | Signed-in client access               |
+| ----------------- | ------------------------------------------ | ------------------------------------- |
+| `profiles`        | Shared account name and identity           | Read own row; update own display name |
+| `roles`           | Shared `user`, `reviewer`, or `admin` role | Read own row                          |
+| `subscriptions`   | Server-managed membership                  | Read own row                          |
+| `track_documents` | Versioned tracking documents               | Read and write own documents          |
 
 Signup creates a profile, a `user` role and a free active membership. Paid plan
 names are reserved for future server-managed membership. There is no payment
@@ -64,10 +64,39 @@ new public tables no longer receive consistent default API access. See
 [Supabase's Data API grant change](https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically)
 and [row-level security documentation](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
+## Edge Functions
+
+| Function          | Purpose                                                        | Status                                                                        |
+| ----------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `delete-account`  | Deletes the signed-in account                                  | Not deployed. See [account management](account-management.md#server-rollout). |
+| `tracked-workout` | Downloads Tracked share pages for the web app's workout import | Not deployed yet                                                              |
+
+`tracked-workout` exists because browsers can't read Tracked's pages. It needs no
+secrets and no service-role key: it uses the platform's `SUPABASE_URL` and
+`SUPABASE_ANON_KEY` only to check the caller's session with Auth. Keep
+`verify_jwt = true` from `supabase/config.toml`. Deploy it from `Application/`
+with the Supabase CLI:
+
+```bash
+supabase functions deploy tracked-workout --project-ref kkywpvkckxniriatelta
+```
+
+Until it's deployed, link import on the web says it isn't set up for the web yet
+(or, in most browsers, that it isn't available right now), and the iOS and
+Android apps keep importing directly from Tracked. After deploying, import a
+share link in the web app while signed in. A request whose bearer token is the
+project's legacy anon key passes the platform's JWT check but has no user, so it
+should get a 401 reply that includes `"service": "tracked-workout"`. A 401
+without that field comes from the platform, before the function runs. See
+[workout import](workout-import.md#web) for the request and reply format.
+
 ## Email delivery and redirects
 
 Leaked-password protection can be configured independently of email delivery.
-Put only `SUPABASE_ACCESS_TOKEN` in ignored `.env.auth.local`, then run:
+Put only `SUPABASE_ACCESS_TOKEN` in ignored `.env.auth.local`, then run the
+commands below. `metro.config.cjs` hides root `.env*` files other than Expo's
+standard names from Metro; without it, development bundles would include this
+token.
 
 ```bash
 node --env-file=.env.auth.local scripts/configure-auth.mjs --security-only
@@ -144,8 +173,10 @@ actually use. Recovery continues to the application's `/auth/reset-password` scr
 Keep the confirmation and reset templates' `{{ .ConfirmationURL }}` link, or use a
 reviewed token-hash template that honors `{{ .RedirectTo }}`. A hardcoded redirect
 to the friend's website would send Track's users to the wrong application. The
-application primarily uses PKCE and handles legacy token-hash and implicit-session
-callbacks for compatible existing templates.
+application uses PKCE and also accepts token-hash links from such a template. It
+refuses links that carry session tokens, since PKCE sign-in never sends them, and it
+ignores token-hash links while someone is signed in, because anyone can take one
+from their own account's email.
 
 Test confirmation and password reset through links sent to a real inbox. Open each
 link in both the installed app and the deployed web app before releasing. A successful

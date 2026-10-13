@@ -11,6 +11,7 @@ const compiled = ts.transpileModule(source, {
 
 function runtime(platform, browser = false) {
   const calls = [];
+  const required = [];
   const client = { auth: {} };
   const storage = {};
   const lock = () => {};
@@ -25,8 +26,10 @@ function runtime(platform, browser = false) {
       },
     },
     require(specifier) {
+      required.push(specifier);
       switch (specifier) {
         case "react-native-url-polyfill/auto":
+        case "./crypto-polyfill":
           return {};
         case "react-native":
           return { Platform: { OS: platform } };
@@ -48,8 +51,14 @@ function runtime(platform, browser = false) {
     },
   };
   runInNewContext(compiled, context, { filename: "account-client.js" });
-  return { api: context.exports, calls, client, storage, lock };
+  return { api: context.exports, calls, client, storage, lock, required };
 }
+
+test("WebCrypto is installed before the Supabase SDK loads", () => {
+  const { required } = runtime("ios");
+  assert.ok(required.includes("./crypto-polyfill"));
+  assert.ok(required.indexOf("./crypto-polyfill") < required.indexOf("@supabase/supabase-js"));
+});
 
 test("server-rendered web requests never construct an account client or start its refresh lifecycle", () => {
   const { api, calls } = runtime("web");

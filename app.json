@@ -4,10 +4,16 @@
     "slug": "kinevault-track",
     "version": "1.0.0",
     "icon": "./assets/branding/icon.png",
+    "orientation": "portrait",
     "scheme": "kinevaulttrack",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kinevault.track",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "predictiveBackGestureEnabled": true,
@@ -16,7 +22,8 @@
         "monochromeImage": "./assets/branding/adaptive-monochrome.png",
         "backgroundColor": "#f8f2e3"
       },
-      "blockedPermissions": ["android.permission.RECORD_AUDIO"]
+      "blockedPermissions": ["android.permission.RECORD_AUDIO"],
+      "package": "com.kinevault.track"
     },
     "web": {
       "output": "static",
@@ -63,8 +70,17 @@
           "microphonePermission": false
         }
       ],
-      "expo-secure-store",
-      "expo-sharing"
+      ["expo-secure-store", { "faceIDPermission": false }],
+      "expo-sharing",
+      "./plugins/with-ios-scene-lifecycle.cjs",
+      "./plugins/with-local-notifications-only.cjs",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/branding/notification-icon.png",
+          "color": "#314e65"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
