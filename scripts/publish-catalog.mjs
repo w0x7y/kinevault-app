@@ -311,18 +311,23 @@ export async function publishCatalog({
 }
 
 const pageSize = 1000;
+// A server that ignores `range` would return rows forever, so reads give up after this many pages.
+const maxPages = 1000;
 // The server may cap a page below `pageSize`, so the next page starts after the rows actually
 // returned and only an empty page ends the read.
 export async function readAll(build, label) {
   const rows = [];
   let from = 0;
-  for (;;) {
+  for (let page = 0; page < maxPages; page++) {
     const { data, error } = await build().range(from, from + pageSize - 1);
     if (error) throw new Error(`Couldn't read ${label}: ${error.message}`);
     if (data.length === 0) return rows;
     rows.push(...data);
     from += data.length;
   }
+  throw new Error(
+    `Couldn't read ${label}: the server still returned rows after ${maxPages.toLocaleString("en-US")} pages. It may be ignoring range requests.`,
+  );
 }
 // Offset paging needs a total order, so every read sorts by a unique key.
 const sortBy = (query, order) => order.reduce((sorted, column) => sorted.order(column), query);

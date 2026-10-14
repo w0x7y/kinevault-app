@@ -435,6 +435,23 @@ test("paging stops on the first empty page", async () => {
   ]);
 });
 
+test("paging stops with a clear error when the server ignores range", async () => {
+  const ranges = [];
+  const build = () => ({
+    range: async (from, to) => {
+      ranges.push([from, to]);
+      return { data: [{ id: 1 }], error: null };
+    },
+  });
+  await assert.rejects(readAll(build, "widgets"), /Couldn't read widgets.*1,000 pages.*range/);
+  assert.equal(ranges.length, 1000);
+});
+
+test("paging reads a table just under the page cap", async () => {
+  const rows = Array.from({ length: 998 }, (_, index) => ({ id: index }));
+  assert.equal((await readAll(fakeTable(rows, 1).build, "widgets")).length, 998);
+});
+
 test("a failed page names what couldn't be read", async () => {
   const build = () => ({ range: async () => ({ data: null, error: { message: "boom" } }) });
   await assert.rejects(readAll(build, "widgets"), /Couldn't read widgets: boom/);
