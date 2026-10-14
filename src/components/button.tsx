@@ -49,6 +49,7 @@ export function AppButton({
       accessibilityState={{ disabled, busy, selected, expanded }}
       aria-pressed={selected}
       aria-expanded={expanded}
+      aria-busy={busy || undefined}
       disabled={disabled}
       onPress={onPress}
       onFocus={() => setFocused(true)}
