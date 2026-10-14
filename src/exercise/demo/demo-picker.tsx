@@ -76,6 +76,9 @@ export function KineVaultDemoSection({
   const { refreshIfStale } = catalog;
   const [changing, setChanging] = useState(false);
   const [query, setQuery] = useState("");
+  // Change and Unlink replace the button that was pressed with the search, so
+  // the search takes focus rather than leaving it nowhere.
+  const [focusOnMount, setFocusOnMount] = useState(focusSearch);
   useEffect(() => {
     void refreshIfStale();
   }, [refreshIfStale]);
@@ -101,14 +104,20 @@ export function KineVaultDemoSection({
               accessibilityLabel="Change KineVault demo"
               fill
               disabled={disabled}
-              onPress={() => setChanging(true)}
+              onPress={() => {
+                setFocusOnMount(true);
+                setChanging(true);
+              }}
             />
             <AppButton
               label="Unlink"
               accessibilityLabel="Unlink KineVault demo"
               fill
               disabled={disabled}
-              onPress={onUnlink}
+              onPress={() => {
+                setFocusOnMount(true);
+                onUnlink();
+              }}
             />
           </ButtonRow>
         </>
@@ -132,7 +141,7 @@ export function KineVaultDemoSection({
             value={query}
             onChange={setQuery}
             disabled={disabled || catalog.state.kind === "loading"}
-            autoFocus={focusSearch}
+            autoFocus={focusOnMount}
           />
           {query.trim() !== "" && (
             <AppText variant="caption" muted accessibilityLiveRegion="polite">

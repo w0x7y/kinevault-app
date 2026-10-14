@@ -292,6 +292,18 @@ test("Unlink removes the link and Change keeps it until another is chosen", asyn
   );
 });
 
+for (const action of ["Change", "Unlink"]) {
+  test(`${action} moves focus to the KineVault search`, async (t) => {
+    const { page } = await open(t, documentWith([press]));
+    await field(page, "Search exercises").fill("shoulder");
+    await button(page, "Edit exercise Shoulder press").click();
+    const form = page.getByTestId("exercise-form");
+    await button(form, `${action} KineVault demo`).click();
+    await field(form, "Find in KineVault").waitFor();
+    await expectFocused(page, "Find in KineVault");
+  });
+}
+
 test("Link demo opens the form at its search and returns to the workout", async (t) => {
   const { page } = await open(t, documentWith([squat], { sessions: [historical([squat])] }));
   await page.setViewportSize({ width: 390, height: 640 });
