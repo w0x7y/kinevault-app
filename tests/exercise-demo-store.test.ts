@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createDemoCatalogStore,
   demoCatalogMaxAgeMs,
+  demoCatalogMaxCacheChars,
   demoCatalogStorageKey,
   type CatalogFetch,
 } from "../src/exercise/demo/catalog-store.ts";
@@ -50,6 +51,13 @@ function store({
   storage = memoryStorage(),
   now = 1_000_000,
   configured = true,
+  maxCacheChars,
+}: {
+  pages?: unknown[][] | "fail";
+  storage?: ReturnType<typeof memoryStorage>;
+  now?: number;
+  configured?: boolean;
+  maxCacheChars?: number;
 } = {}) {
   const transport = fakeFetch(pages);
   const clock = { now };
@@ -58,6 +66,7 @@ function store({
     fetch: transport.fetch,
     storage,
     now: () => clock.now,
+    ...(maxCacheChars === undefined ? {} : { maxCacheChars }),
   });
   return { catalog, transport, storage, clock };
 }
@@ -152,4 +161,110 @@ test("subscribers hear state changes", async () => {
   await catalog.refreshIfStale();
   unsubscribe();
   assert.deepEqual(kinds, ["ready"]);
+});
+
+test("a row returned twice appears once, keeping its first occurrence and position", async () => {
+  const changed = { ...row(1), name: "Changed" };
+  const { catalog } = store({ pages: [[row(1), row(2), changed, row(3), row(2)]] });
+  await catalog.refreshIfStale();
+  const state = catalog.getSnapshot();
+  assert.equal(state.kind, "ready");
+  if (state.kind !== "ready") return;
+  assert.deepEqual(
+    state.entries.map((entry) => entry.name),
+    ["Exercise 1", "Exercise 2", "Exercise 3"],
+  );
+  assert.equal(state.byId.size, 3);
+  assert.equal(state.byId.get(row(1).id), state.entries[0]);
+});
+
+test("a row repeated across pages appears once", async () => {
+  const full = Array.from({ length: 500 }, (_, index) => row(index + 1));
+  const { catalog } = store({ pages: [full, [row(500), row(501)]] });
+  await catalog.refreshIfStale();
+  const state = catalog.getSnapshot();
+  assert.equal(state.kind === "ready" && state.entries.length, 501);
+  assert.equal(state.kind === "ready" && new Set(state.entries.map((entry) => entry.id)).size, 501);
+});
+
+test("a repeated row in the saved copy appears once", async () => {
+  const cached = JSON.stringify({ version: 1, fetchedAt: 1_000_000, rows: [row(2), row(2)] });
+  const { catalog } = store({ storage: memoryStorage({ [demoCatalogStorageKey]: cached }) });
+  await catalog.start();
+  const state = catalog.getSnapshot();
+  assert.equal(state.kind === "ready" && state.entries.length, 1);
+});
+
+test("a cache over the size limit stays in memory only", async () => {
+  assert.equal(demoCatalogMaxCacheChars, 2_000_000);
+  const pages = [[row(1), row(2)]];
+  const serialized = JSON.stringify({ version: 1, fetchedAt: 1_000_000, rows: pages[0] });
+  const exact = store({ pages, maxCacheChars: serialized.length });
+  await exact.catalog.refreshIfStale();
+  assert.equal(exact.storage.values.get(demoCatalogStorageKey), serialized);
+  const over = store({ pages, maxCacheChars: serialized.length - 1 });
+  await over.catalog.refreshIfStale();
+  const state = over.catalog.getSnapshot();
+  assert.equal(state.kind === "ready" && state.entries.length, 2);
+  assert.equal(over.storage.values.has(demoCatalogStorageKey), false);
+});
+
+test("the default size limit skips a cache of about two million characters", async () => {
+  const alias = "a".repeat(400);
+  const heavy = (index: number) => ({ ...row(index), aliases: Array(50).fill(alias) });
+  const rows = Array.from({ length: 101 }, (_, index) => heavy(index + 1));
+  assert.ok(JSON.stringify({ version: 1, fetchedAt: 1_000_000, rows }).length > 2_000_000);
+  const { catalog, storage } = store({ pages: [rows] });
+  await catalog.refreshIfStale();
+  assert.equal(catalog.getSnapshot().kind, "ready");
+  assert.equal(storage.values.has(demoCatalogStorageKey), false);
+  const small = store({ pages: [rows.slice(0, 50)] });
+  await small.catalog.refreshIfStale();
+  assert.equal(small.storage.values.has(demoCatalogStorageKey), true);
+});
+
+test("an oversized refresh leaves the earlier saved copy in place", async () => {
+  const cached = JSON.stringify({ version: 1, fetchedAt: 0, rows: [row(3)] });
+  const storage = memoryStorage({ [demoCatalogStorageKey]: cached });
+  const { catalog } = store({
+    pages: [[row(1)]],
+    storage,
+    now: demoCatalogMaxAgeMs + 1,
+    maxCacheChars: 10,
+  });
+  await catalog.refreshIfStale();
+  const state = catalog.getSnapshot();
+  assert.equal(state.kind === "ready" && state.entries[0]?.name, "Exercise 1");
+  assert.equal(storage.values.get(demoCatalogStorageKey), cached);
+});
+
+test("a refresh that fails while already failed does not notify again", async () => {
+  const { catalog } = store({ pages: "fail" });
+  let calls = 0;
+  catalog.subscribe(() => calls++);
+  await catalog.refreshIfStale();
+  const failed = catalog.getSnapshot();
+  assert.equal(failed.kind, "failed");
+  assert.equal(calls, 1);
+  await catalog.retry();
+  await catalog.retry();
+  assert.equal(calls, 1);
+  assert.equal(catalog.getSnapshot(), failed);
+});
+
+test("a retry that succeeds after a failure still notifies", async () => {
+  let failing = true;
+  const catalog = createDemoCatalogStore({
+    config,
+    fetch: async () =>
+      failing ? { ok: false, json: async () => ({}) } : { ok: true, json: async () => [row(1)] },
+    storage: memoryStorage(),
+    now: () => 1_000_000,
+  });
+  const kinds: string[] = [];
+  catalog.subscribe(() => kinds.push(catalog.getSnapshot().kind));
+  await catalog.refreshIfStale();
+  failing = false;
+  await catalog.retry();
+  assert.deepEqual(kinds, ["failed", "ready"]);
 });

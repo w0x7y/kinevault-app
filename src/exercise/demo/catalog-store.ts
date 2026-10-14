@@ -22,17 +22,16 @@ export type CatalogStorage = {
 // A device cache of public data, kept across sign-out.
 export const demoCatalogStorageKey = "kinevault-track.demo-catalog.v1";
 export const demoCatalogMaxAgeMs = 24 * 60 * 60 * 1000;
+/** AsyncStorage on Android holds about 6 MB shared with user data, so a larger cache isn't saved. */
+export const demoCatalogMaxCacheChars = 2_000_000;
 const pageSize = 500;
 const rowLimit = 5000;
 
 function readyState(rows: unknown[], fetchedAt: number): DemoCatalogState {
-  const entries = parseCatalogRows(rows);
-  return {
-    kind: "ready",
-    entries,
-    byId: new Map(entries.map((entry) => [entry.id, entry])),
-    fetchedAt,
-  };
+  // Offset paging can return a row twice when the table changes during the download.
+  const byId = new Map<string, CatalogExercise>();
+  for (const entry of parseCatalogRows(rows)) if (!byId.has(entry.id)) byId.set(entry.id, entry);
+  return { kind: "ready", entries: [...byId.values()], byId, fetchedAt };
 }
 
 function parseCache(raw: string | null): { rows: unknown[]; fetchedAt: number } | null {
@@ -53,11 +52,13 @@ export function createDemoCatalogStore({
   fetch,
   storage,
   now,
+  maxCacheChars = demoCatalogMaxCacheChars,
 }: {
   config: DemoCatalogConfig | null;
   fetch: CatalogFetch;
   storage: CatalogStorage;
   now: () => number;
+  maxCacheChars?: number;
 }) {
   let state: DemoCatalogState = { kind: "loading" };
   let started: Promise<void> | null = null;
@@ -105,15 +106,15 @@ export function createDemoCatalogStore({
         const fetchedAt = now();
         set(readyState(rows, fetchedAt));
         try {
-          await storage.setItem(
-            demoCatalogStorageKey,
-            JSON.stringify({ version: 1, fetchedAt, rows }),
-          );
+          const cache = JSON.stringify({ version: 1, fetchedAt, rows });
+          // An oversized cache would crowd out the user's own data, so it stays in memory.
+          if (cache.length <= maxCacheChars) await storage.setItem(demoCatalogStorageKey, cache);
         } catch {
           // The in-memory copy still works; the next launch downloads again.
         }
       } catch {
-        if (state.kind !== "ready") set({ kind: "failed" });
+        // A second failure in a row has nothing new to report.
+        if (state.kind === "loading") set({ kind: "failed" });
       } finally {
         inFlight = null;
       }
