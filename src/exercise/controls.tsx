@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TextInput, View } from "react-native";
 import { AppText } from "../components/ui";
 import { useTheme } from "../theme/provider";
@@ -19,14 +19,25 @@ export function ExerciseField({
   numeric?: boolean;
   disabled?: boolean;
   multiline?: boolean;
+  /** Focus on mount, or as soon as the field becomes editable if it starts disabled. */
   autoFocus?: boolean;
 }) {
   const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
+  const input = useRef<TextInput>(null);
+  const focusPending = useRef(autoFocus);
+  // Phones refuse to focus a field that isn't editable, so the platform's own
+  // autoFocus would be lost while the field is disabled at mount.
+  useEffect(() => {
+    if (!focusPending.current || disabled) return;
+    focusPending.current = false;
+    input.current?.focus();
+  }, [disabled]);
   return (
     <View style={{ gap: spacing.xs, minWidth: 0 }}>
       <AppText variant="label">{label}</AppText>
       <TextInput
+        ref={input}
         accessibilityLabel={label}
         value={value}
         onChangeText={onChange}
@@ -34,7 +45,6 @@ export function ExerciseField({
         inputMode={numeric ? "decimal" : "text"}
         keyboardType={numeric ? "decimal-pad" : "default"}
         multiline={multiline}
-        autoFocus={autoFocus}
         maxLength={numeric ? 32 : multiline ? 4000 : 400}
         selectTextOnFocus={numeric}
         onFocus={() => setFocused(true)}

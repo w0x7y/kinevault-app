@@ -64,6 +64,7 @@ export async function installAccountFixture(
     catalog: [],
     catalogFailure: false,
     demoMediaFailure: false,
+    catalogHeld: false,
   };
   let documentReadGate = null;
   state.deferDocumentReads = () => {
@@ -80,6 +81,17 @@ export async function installAccountFixture(
     documentReadGate = { gate, started, completed };
     return { started: startedPromise, completed: completedPromise, release };
   };
+  // While a `...Held` flag is set, requests for that resource wait until the
+  // matching `release...()` runs, so tests can observe loading and busy states.
+  const waiting = { catalogHeld: [] };
+  const waitWhileHeld = async (flag) => {
+    if (state[flag]) await new Promise((resolve) => waiting[flag].push(resolve));
+  };
+  const release = (flag) => {
+    state[flag] = false;
+    waiting[flag].splice(0).forEach((resolve) => resolve());
+  };
+  state.releaseCatalog = () => release("catalogHeld");
   const json = (route, value, status = 200) =>
     route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
   await context.route("https://kkywpvkckxniriatelta.supabase.co/**", async (route) => {
@@ -218,6 +230,7 @@ export async function installAccountFixture(
       return json(route, saved);
     }
     if (url.pathname === "/rest/v1/catalog_exercises") {
+      await waitWhileHeld("catalogHeld");
       if (state.catalogFailure) return json(route, { message: "Fixture catalog unavailable" }, 503);
       const offset = Number(url.searchParams.get("offset") ?? 0);
       const limit = Number(url.searchParams.get("limit") ?? 1000);

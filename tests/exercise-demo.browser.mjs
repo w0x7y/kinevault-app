@@ -147,6 +147,26 @@ async function setNetwork(page, online) {
   await page.evaluate(() => navigator.connection?.dispatchEvent(new Event("change")));
 }
 
+async function expectFocused(page, label) {
+  await page.waitForFunction(
+    (label) => document.activeElement?.getAttribute("aria-label") === label,
+    label,
+  );
+}
+
+// Browsers focus read-only inputs, but iOS and Android refuse to focus a text
+// input that isn't editable, so autoFocus at mount does nothing there. Make
+// the web build behave the same way.
+async function refuseFocusWhileReadOnly(page) {
+  await page.evaluate(() => {
+    const focus = HTMLElement.prototype.focus;
+    HTMLElement.prototype.focus = function (...args) {
+      if (this.readOnly) return undefined;
+      return focus.apply(this, args);
+    };
+  });
+}
+
 async function openHistoricalWorkout(page) {
   await button(page, "Saved workouts").click();
   await button(
@@ -307,6 +327,23 @@ test("Link demo opens the form at its search and returns to the workout", async 
   await page.getByTestId("completed-workout-workspace").waitFor();
   assert.equal(await field(returned, "Squat set 1 reps").inputValue(), "6");
   await button(returned, "Play demonstration of Squat").waitFor();
+});
+
+test("Link demo focuses the search once the catalog finishes loading", async (t) => {
+  const { page, fixture } = await open(
+    t,
+    documentWith([squat], { sessions: [historical([squat])] }),
+    { catalogHeld: true },
+  );
+  await refuseFocusWhileReadOnly(page);
+  const editor = await openHistoricalWorkout(page);
+  await button(editor, "Link a KineVault demo to Squat").click();
+  const search = field(page.getByTestId("exercise-form"), "Find in KineVault");
+  await search.waitFor();
+  assert.equal(await search.isEditable(), false);
+  fixture.releaseCatalog();
+  await expectFocused(page, "Find in KineVault");
+  assert.equal(await search.isEditable(), true);
 });
 
 const deadlift = { ...squat, id: "deadlift", name: "Deadlift" };
