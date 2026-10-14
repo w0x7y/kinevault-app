@@ -211,17 +211,33 @@ test("the typo gate needs five letters in the query and in the word", () => {
   assert.deepEqual(find(curlOnly, "curly"), []);
   assert.deepEqual(find([entry("Squat")], "squad"), ["Squat"]);
   assert.deepEqual(find([entry("Squad")], "squat"), ["Squad"]);
+  assert.deepEqual(find([entry("Lunge")], "lungo"), ["Lunge"]);
+});
+
+test("a plural s on a word longer than three letters is dropped", () => {
+  assert.deepEqual(demoSearchWords("Biceps"), ["bicep"]);
+  assert.deepEqual(demoSearchWords("Bicep"), ["bicep"]);
+  assert.deepEqual(demoSearchWords("Lats"), ["lat"]);
+  assert.deepEqual(demoSearchWords("Rows"), ["row"]);
   assert.deepEqual(find([entry("Lunge")], "lungs"), ["Lunge"]);
+});
+
+test("a word of three letters or fewer keeps its s", () => {
+  assert.deepEqual(demoSearchWords("Abs"), ["abs"]);
+  assert.deepEqual(demoSearchWords("Ups"), ["ups"]);
+  assert.deepEqual(find([entry("Abs")], "abs"), ["Abs"]);
 });
 
 test("words ending in ss, us or is keep their ending", () => {
   assert.deepEqual(demoSearchWords("Press"), ["press"]);
   assert.deepEqual(demoSearchWords("Gluteus medius"), ["gluteus", "medius"]);
   assert.deepEqual(demoSearchWords("Analysis"), ["analysis"]);
-  assert.deepEqual(demoSearchWords("Abs"), ["abs"]);
+  assert.deepEqual(find([entry("Gluteus medius")], "gluteus"), ["Gluteus medius"]);
+});
+
+test("a hyphen splits a name into words", () => {
   assert.deepEqual(demoSearchWords("Lift-off"), ["lift", "off"]);
-  assert.deepEqual(demoSearchWords("Biceps"), ["bicep"]);
-  assert.deepEqual(demoSearchWords("Bicep"), ["bicep"]);
+  assert.deepEqual(demoSearchWords("Push-up"), ["push", "up"]);
 });
 
 test("press and presses still find Press, and biceps matches either spelling", () => {
@@ -230,6 +246,4 @@ test("press and presses still find Press, and biceps matches either spelling", (
   assert.deepEqual(find(press, "presses"), ["Press"]);
   assert.deepEqual(find([entry("Biceps curl")], "bicep"), ["Biceps curl"]);
   assert.deepEqual(find([entry("Bicep curl")], "biceps"), ["Bicep curl"]);
-  assert.deepEqual(find([entry("Abs")], "abs"), ["Abs"]);
-  assert.deepEqual(find([entry("Gluteus medius")], "gluteus"), ["Gluteus medius"]);
 });
