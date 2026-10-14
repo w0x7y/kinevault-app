@@ -64,8 +64,9 @@ timer panel, Close workout and explanatory footer are removed. Active workouts
 automatically expand on the default Exercise view. Discard and End workout share
 equal halves of the bottom row. Ending saves completion before stopping the timer.
 Template and completed editing use the same bar and selected exercise detail,
-with name/search/order or name/duration under Settings. Completed edits require
-Save changes. Exercise selection, search and
+with name/search/order or name/duration under Settings. Templates show a linked
+demo without a Link demo button, because leaving would discard unsaved changes.
+Completed edits require Save changes. Exercise selection, search and
 calendar changes preserve entered sets. Set counts cannot remove entered data.
 Workout logging has no remove-set or remove-exercise buttons. Entirely blank
 sets and unlogged exercises do not contribute to completion totals; partially
@@ -146,6 +147,9 @@ means bodyweight. Historical snapshots survive library edits and deletions.
 Development builds seed Squat, Push-up, and Dumbbell curl once; production builds
 do not inject these examples.
 KineVault demos come from published KineVault exercises (see docs/exercise-demos.md).
+In the exercise form, the Find in KineVault search links a published exercise and
+fills only blank name, muscle group and equipment fields. Change opens the search
+again, and Unlink removes the link. Demos show a poster until tapped.
 Timed holds, cardio, coaching notes and the broader KineVault program integration remain future work.
 
 The agreed strength/bodyweight Exercise v1 is implemented. The user confirmed

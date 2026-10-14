@@ -24,7 +24,7 @@ and docs/ describe behavior and link here instead of repeating status.
 - [x] Shared Supabase accounts with email/password sign-in and versioned cloud document sync (PR #3).
 - [ ] Verify the new Profile camera/library, photo reopening, carousel scrolling, and accessibility on a physical iPhone. Android emulator photo flows and larger text are verified.
 - [x] Integrate KineVault studio exercise videos: linked exercises play demos in workouts, templates and the exercise form, with search thumbnails. See docs/exercise-demos.md.
-- [ ] Apply the demo catalog migration to the hosted project, run the first catalog publish, and verify demo playback, fullscreen and offline replay on an iPhone and an Android device.
+- [ ] Run the first catalog publish to the hosted project (the demo catalog migration was applied there on 2026-10-13), then verify demo playback, fullscreen, offline replay and Android rounded video corners on an iPhone and an Android device.
 - [ ] Configure app identifiers and store builds when ready to release: `eas.json`, iOS bundle identifier, Android package name.
 - [ ] Activate production email delivery and web hosting: Resend SMTP, a verified sender domain, and the Vercel production origin. See docs/supabase-setup.md.
 

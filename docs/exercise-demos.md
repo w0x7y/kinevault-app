@@ -4,6 +4,12 @@ Track shows KineVault's demonstration clips for exercises the user links to a
 KineVault exercise. The design is in
 [the spec](superpowers/specs/2026-10-13-kinevault-exercise-demos-design.md).
 
+## Status
+
+The migration `20261013120000_exercise_demo_catalog` was applied to the hosted
+project on 2026-10-13 and is recorded in `supabase_migrations.schema_migrations`.
+The catalog stays empty until the first publish.
+
 ## How the clips reach Track
 
 KineVault renders each approved exercise to MP4, WebM and WebP files on its own
@@ -16,8 +22,12 @@ into Track's hosted project:
   and `<exercise id>/<hash>.webp`. Each name is a content hash, so a new render
   gets a new link and device caches stay correct.
 
-The app (`src/exercise/demo/`) downloads the catalog list, keeps it on the
-device for 24 hours, and links exercises through `ExerciseDefinition.catalog`.
+The app (`src/exercise/demo/`) downloads the catalog list, keeps a copy on the
+device, refreshes it once that copy is 24 hours old or older, and links exercises
+through `ExerciseDefinition.catalog`. The device copy isn't saved when the
+serialized catalog exceeds 2,000,000 characters (roughly 2,400 exercises). The app
+then downloads the list on each launch and saves no offline copy; an older saved
+copy is left in place.
 
 ## Publishing
 

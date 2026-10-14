@@ -114,9 +114,10 @@ reference patterns, not implemented companion features.
   [the mascot guide](assets/mascot/README.md).
 
 [PRODUCT.md](PRODUCT.md) defines the current feature scope; [README.md](README.md)
-records modules and verification. The studio recipes below remain useful for
-the KineVault exercise demos in [docs/exercise-demos.md](docs/exercise-demos.md);
-the wider catalog is not part of the Application.
+records modules and verification. The studio recipes below describe the KineVault
+studio. Demo integration in Track is documented in
+[docs/exercise-demos.md](docs/exercise-demos.md); the wider KineVault catalog is not
+part of the Application.
 
 ## 1. Design identity
 

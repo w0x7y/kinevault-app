@@ -152,8 +152,9 @@ or their saved copy's link when the library exercise was deleted.
 
 **Exercise demo**: A linked exercise's muted KineVault clip, shown as a poster until
 tapped, with its credit. A withdrawn KineVault exercise shows "Demonstration
-unavailable." The demo list is public device data, cached for 24 hours and kept
-across sign-out.
+unavailable." The demo list is public device data. Track refreshes it once the saved
+copy is 24 hours old or older, uses the saved copy when offline, and keeps it across
+sign-out.
 
 **Development exercises**: Squat, Push-up, and Dumbbell curl seeded once in a
 development preview without an Account. A saved marker prevents examples from

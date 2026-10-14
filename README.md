@@ -583,6 +583,8 @@ launcher icons and splash screens. It runs independently of the Expo app.
   and guarded panel replacement; `use-workout-editing.ts` binds the owner to React.
 - `src/exercise/workout-template-draft.ts`: template selection/order, raw counts,
   retained definitions, and ready-to-save preparation for both form layouts.
+- `src/exercise/demo/`: KineVault demo catalog parsing, device cache, search, link
+  rules, player, and the exercise form section.
 - `src/daily/activity.ts`: selected-day food availability, combined manual/Drink
   water availability, completed workout totals, and goal progress; unavailable
   sources stay distinct from zero.
@@ -610,6 +612,9 @@ launcher icons and splash screens. It runs independently of the Expo app.
 - `src/components/motion.tsx`: reduced-motion preferences and setup transitions.
 - `scripts/expo-connection.ts`: shared manifest checks and cancelable readiness; Node 24+ runs it directly.
 - `scripts/expo-connect.mjs`: Expo Go connection diagnostics.
+- `scripts/publish-catalog.mjs`: mirrors published KineVault exercises into the hosted
+  project; dry run by default.
+- `scripts/validate-demo-catalog-postgres.sh`: SQL checks on a private cluster.
 - `plugins/`: local Expo config plugins for the generated iOS project (local-only
   notification entitlements, scene life cycle); see [iOS builds with Xcode](docs/ios-xcode.md).
 - `CONTEXT.md`: profile, daily activity, and onboarding domain vocabulary.
