@@ -16,6 +16,7 @@ import { demoCatalogConfig, demoObjectUrl } from "./config";
 import { demoStatus, resolveDemoLink } from "./demo-link";
 import { useDemoCatalog } from "./provider";
 import { RetryButton } from "./retry-button";
+import { StatusLine } from "./status-line";
 
 function Frame({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
@@ -30,28 +31,6 @@ function Frame({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </View>
-  );
-}
-
-function DemoMessage({ text, onRetry }: { text: string; onRetry?: () => void | Promise<void> }) {
-  const { colors } = useTheme();
-  return (
-    <View
-      testID="exercise-demo-message"
-      style={{
-        borderRadius: radius.panel,
-        backgroundColor: colors.muted,
-        padding: spacing.layout,
-        gap: spacing.sm,
-      }}
-    >
-      <AppText variant="caption" muted accessibilityLiveRegion="polite">
-        {text}
-      </AppText>
-      {onRetry && (
-        <RetryButton accessibilityLabel="Retry loading the demonstration" onRetry={onRetry} />
-      )}
     </View>
   );
 }
@@ -96,92 +75,112 @@ export function ExerciseDemo({ link, label }: { link: CatalogLink; label: string
     if (!focused) setPlaying(false);
   }, [focused]);
   const config = demoCatalogConfig;
-  if (!config) return <DemoMessage text="Demonstration unavailable." />;
-  const status = demoStatus({ state: catalog.state, link, mediaFailed, offline });
-  if (status.kind === "loading") return <DemoMessage text="Loading demonstration." />;
-  if (status.kind === "connect")
-    return <DemoMessage text="Connect to load this demonstration." onRetry={catalog.retry} />;
-  if (status.kind === "catalog-unavailable")
-    return (
-      <DemoMessage
-        text="KineVault demos aren't available right now. Try again later."
-        onRetry={catalog.retry}
-      />
-    );
-  if (status.kind === "unavailable") return <DemoMessage text="Demonstration unavailable." />;
-  if (status.kind === "failed")
-    return (
-      <DemoMessage
-        text={
-          status.offline
-            ? "Connect to load this demonstration."
-            : "Couldn't load this demonstration. Check your connection and try again."
-        }
-        onRetry={() => {
-          setMediaFailed(false);
-          setPlaying(false);
-          setAttempt((value) => value + 1);
-        }}
-      />
-    );
+  const status = config ? demoStatus({ state: catalog.state, link, mediaFailed, offline }) : null;
+  const ready = status?.kind === "ready" ? status : null;
+  // One container and one status line stay mounted whatever the state, so
+  // screen readers announce the status text as it changes.
+  let notice: { text: string; onRetry?: () => void | Promise<void> } | null = null;
+  if (!status || status.kind === "unavailable") notice = { text: "Demonstration unavailable." };
+  else if (status.kind === "loading") notice = { text: "Loading demonstration." };
+  else if (status.kind === "connect")
+    notice = { text: "Connect to load this demonstration.", onRetry: catalog.retry };
+  else if (status.kind === "catalog-unavailable")
+    notice = {
+      text: "KineVault demos aren't available right now. Try again later.",
+      onRetry: catalog.retry,
+    };
+  else if (status.kind === "failed")
+    notice = {
+      text: status.offline
+        ? "Connect to load this demonstration."
+        : "Couldn't load this demonstration. Check your connection and try again.",
+      onRetry: () => {
+        setMediaFailed(false);
+        setPlaying(false);
+        setAttempt((value) => value + 1);
+      },
+    };
   return (
-    <View testID="exercise-demo" style={{ gap: spacing.xs }}>
-      <Frame>
-        {playing ? (
-          <DemoVideo
-            key={`video-${attempt}`}
-            uri={demoObjectUrl(config, status.videoPath)}
-            label={label}
-            onError={fail}
-          />
-        ) : (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Play demonstration of ${label}`}
-            onPress={() => setPlaying(true)}
-            style={{ flex: 1 }}
-          >
-            <Image
-              key={`poster-${attempt}`}
-              source={{ uri: demoObjectUrl(config, status.posterPath) }}
-              cachePolicy="memory-disk"
-              contentFit="contain"
-              transition={0}
-              accessible={false}
-              onError={fail}
-              style={{ flex: 1 }}
-            />
-            <View
-              style={{
-                position: "absolute",
-                top: 0,
-                right: 0,
-                bottom: 0,
-                left: 0,
-                alignItems: "center",
-                justifyContent: "center",
-                pointerEvents: "none",
-              }}
-            >
-              <View
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
-                  backgroundColor: colors.primary,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
+    <View
+      testID={ready ? "exercise-demo" : "exercise-demo-message"}
+      style={
+        ready
+          ? { gap: spacing.xs }
+          : {
+              borderRadius: radius.panel,
+              backgroundColor: colors.muted,
+              padding: spacing.layout,
+              gap: spacing.sm,
+            }
+      }
+    >
+      <StatusLine text={notice?.text ?? ""} />
+      {notice?.onRetry && (
+        <RetryButton
+          accessibilityLabel="Retry loading the demonstration"
+          onRetry={notice.onRetry}
+        />
+      )}
+      {config && ready && (
+        <>
+          <Frame>
+            {playing ? (
+              <DemoVideo
+                key={`video-${attempt}`}
+                uri={demoObjectUrl(config, ready.videoPath)}
+                label={label}
+                onError={fail}
+              />
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Play demonstration of ${label}`}
+                onPress={() => setPlaying(true)}
+                style={{ flex: 1 }}
               >
-                <Icon name="play" size={18} color={colors.primaryForeground} />
-              </View>
-            </View>
-          </Pressable>
-        )}
-      </Frame>
-      <AppText variant="caption" muted>
-        {status.entry.credit}
-      </AppText>
+                <Image
+                  key={`poster-${attempt}`}
+                  source={{ uri: demoObjectUrl(config, ready.posterPath) }}
+                  cachePolicy="memory-disk"
+                  contentFit="contain"
+                  transition={0}
+                  accessible={false}
+                  onError={fail}
+                  style={{ flex: 1 }}
+                />
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                    left: 0,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    pointerEvents: "none",
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: colors.primary,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Icon name="play" size={18} color={colors.primaryForeground} />
+                  </View>
+                </View>
+              </Pressable>
+            )}
+          </Frame>
+          <AppText variant="caption" muted>
+            {ready.entry.credit}
+          </AppText>
+        </>
+      )}
     </View>
   );
 }

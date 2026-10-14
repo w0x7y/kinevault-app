@@ -563,3 +563,83 @@ test("the form caption names the exercise once the catalog loads", async (t) => 
   await form.getByText("Linked to Dumbbell shoulder press", { exact: true }).waitFor();
   assert.equal(await form.getByText("Linked to a KineVault exercise").count(), 0);
 });
+
+// Screen readers announce a live region's changes, not a region that arrives
+// with its text, so the region has to be the same node before and after.
+async function liveRegion(scope) {
+  const region = scope.locator('[aria-live="polite"]');
+  await region.waitFor({ state: "attached" });
+  assert.equal(await region.count(), 1);
+  return region.elementHandle();
+}
+
+async function expectLiveText(page, region, text) {
+  await page.waitForFunction(
+    ([element, expected]) => element.isConnected && element.textContent === expected,
+    [region, text],
+  );
+}
+
+test("the form's status line is one live region whose text changes", async (t) => {
+  const { page } = await open(t, documentWith([squat]));
+  await button(page, "Create Exercise").click();
+  const form = page.getByTestId("exercise-form");
+  const region = await liveRegion(form);
+  await expectLiveText(page, region, "");
+  const search = field(form, "Find in KineVault");
+  await search.fill("db overhead");
+  await expectLiveText(page, region, "1 KineVault exercise found.");
+  await search.fill("zzzz");
+  await expectLiveText(page, region, "No KineVault exercises found. Try another name.");
+  await search.fill("");
+  await expectLiveText(page, region, "");
+});
+
+test("the form announces catalog messages in the same live region", async (t) => {
+  const { page, fixture } = await open(t, documentWith([squat]), {
+    catalogHeld: true,
+    catalogFailure: true,
+  });
+  await button(page, "Create Exercise").click();
+  const form = page.getByTestId("exercise-form");
+  const region = await liveRegion(form);
+  await expectLiveText(page, region, "");
+  fixture.releaseCatalog();
+  await expectLiveText(
+    page,
+    region,
+    "KineVault demos aren't available right now. Try again later.",
+  );
+  await setNetwork(page, false);
+  await expectLiveText(page, region, "Connect to search KineVault demos.");
+  await setNetwork(page, true);
+  fixture.catalogFailure = false;
+  await button(form, "Retry loading KineVault demos").click();
+  await field(form, "Find in KineVault").waitFor();
+  await expectLiveText(page, region, "");
+});
+
+test("the player announces its status in the same live region", async (t) => {
+  const { page, fixture } = await open(
+    t,
+    documentWith([press], { sessions: [historical([press])] }),
+    { catalogHeld: true, catalogFailure: true },
+  );
+  const editor = await openHistoricalWorkout(page);
+  const player = editor.getByTestId(/^exercise-demo(-message)?$/);
+  const region = await liveRegion(player);
+  await expectLiveText(page, region, "Loading demonstration.");
+  fixture.releaseCatalog();
+  await expectLiveText(
+    page,
+    region,
+    "KineVault demos aren't available right now. Try again later.",
+  );
+  await setNetwork(page, false);
+  await expectLiveText(page, region, "Connect to load this demonstration.");
+  await setNetwork(page, true);
+  fixture.catalogFailure = false;
+  await button(editor, "Retry loading the demonstration").click();
+  await button(editor, "Play demonstration of Shoulder press").waitFor();
+  await expectLiveText(page, region, "");
+});

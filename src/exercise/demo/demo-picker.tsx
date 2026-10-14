@@ -12,6 +12,7 @@ import { createDemoCatalogSearch } from "./catalog-search";
 import { DemoThumbnail, ExerciseDemo } from "./exercise-demo";
 import { useDemoCatalog } from "./provider";
 import { RetryButton } from "./retry-button";
+import { StatusLine } from "./status-line";
 
 function DemoResult({
   entry,
@@ -56,6 +57,26 @@ function DemoResult({
   );
 }
 
+function searchStatus({
+  failed,
+  offline,
+  searching,
+  results,
+}: {
+  failed: boolean;
+  offline: boolean;
+  searching: boolean;
+  results: readonly CatalogExercise[];
+}) {
+  if (failed)
+    return offline
+      ? "Connect to search KineVault demos."
+      : "KineVault demos aren't available right now. Try again later.";
+  if (!searching) return "";
+  if (!results.length) return "No KineVault exercises found. Try another name.";
+  return `${results.length} KineVault ${results.length === 1 ? "exercise" : "exercises"} found.`;
+}
+
 /** The exercise form's KineVault demo: search and link, or preview and unlink. */
 export function KineVaultDemoSection({
   link,
@@ -88,6 +109,8 @@ export function KineVaultDemoSection({
   const results = query.trim() ? search(query) : [];
   const linked =
     link && catalog.state.kind === "ready" ? catalog.state.byId.get(link.id) : undefined;
+  const failed = catalog.state.kind === "failed";
+  const statusText = searchStatus({ failed, offline, searching: query.trim() !== "", results });
   const label = exerciseName.trim() || "this exercise";
   const showLinked = link !== undefined && !changing;
   return (
@@ -122,43 +145,37 @@ export function KineVaultDemoSection({
             />
           </ButtonRow>
         </>
-      ) : catalog.state.kind === "failed" ? (
-        <>
-          <AppText variant="caption" muted accessibilityLiveRegion="polite">
-            {offline
-              ? "Connect to search KineVault demos."
-              : "KineVault demos aren't available right now. Try again later."}
-          </AppText>
-          <RetryButton accessibilityLabel="Retry loading KineVault demos" onRetry={catalog.retry} />
-        </>
       ) : (
         <>
-          <ExerciseField
-            label="Find in KineVault"
-            value={query}
-            onChange={setQuery}
-            disabled={disabled || catalog.state.kind === "loading"}
-            autoFocus={focusOnMount}
-          />
-          {query.trim() !== "" && (
-            <AppText variant="caption" muted accessibilityLiveRegion="polite">
-              {results.length
-                ? `${results.length} KineVault ${results.length === 1 ? "exercise" : "exercises"} found.`
-                : "No KineVault exercises found. Try another name."}
-            </AppText>
-          )}
-          {results.map((entry) => (
-            <DemoResult
-              key={entry.id}
-              entry={entry}
-              disabled={disabled}
-              onPress={() => {
-                onLink(entry);
-                setChanging(false);
-                setQuery("");
-              }}
+          {!failed && (
+            <ExerciseField
+              label="Find in KineVault"
+              value={query}
+              onChange={setQuery}
+              disabled={disabled || catalog.state.kind === "loading"}
+              autoFocus={focusOnMount}
             />
-          ))}
+          )}
+          <StatusLine text={statusText} />
+          {failed ? (
+            <RetryButton
+              accessibilityLabel="Retry loading KineVault demos"
+              onRetry={catalog.retry}
+            />
+          ) : (
+            results.map((entry) => (
+              <DemoResult
+                key={entry.id}
+                entry={entry}
+                disabled={disabled}
+                onPress={() => {
+                  onLink(entry);
+                  setChanging(false);
+                  setQuery("");
+                }}
+              />
+            ))
+          )}
         </>
       )}
       {link !== undefined && changing && (
