@@ -6,14 +6,29 @@ function dropPlural(word: string, minLength: number): string {
     : word;
 }
 
-/** Accent-folded lowercase words; a trailing plural "s" is dropped so "curls" finds "curl". */
+// Letters that Unicode does not decompose into a base letter plus a mark.
+const FOLDED_LETTERS: Record<string, string> = {
+  ø: "o",
+  ł: "l",
+  đ: "d",
+  ı: "i",
+  æ: "ae",
+  œ: "oe",
+  ß: "ss",
+};
+
+/**
+ * Accent-folded lowercase words without apostrophes; a trailing plural "s" is dropped so "curls"
+ * finds "curl".
+ */
 export function demoSearchWords(text: string): string[] {
   return (
     text
       .normalize("NFKD")
       .replace(/\p{M}/gu, "")
       .toLowerCase()
-      .replace(/['’]/gu, "")
+      .replace(/[øłđıæœß]/gu, (letter) => FOLDED_LETTERS[letter]!)
+      .replace(/['’‘ʼʻ`]/gu, "")
       .match(/[\p{L}\p{N}]+/gu) ?? []
   ).map((word) => dropPlural(word, 3));
 }
@@ -44,6 +59,8 @@ interface Target {
   words: string[];
   /** The words run together, so "Push-up" is also "pushup". */
   joined: string;
+  /** The words run together from each word on, so "Lat pull-down" also has "pulldown". */
+  runs: string[];
 }
 interface Query {
   terms: string[];
@@ -52,7 +69,11 @@ interface Query {
 }
 
 function target(words: string[]): Target {
-  return { words, joined: words.join("") };
+  return {
+    words,
+    joined: words.join(""),
+    runs: words.map((_, index) => words.slice(index).join("")),
+  };
 }
 
 function query(terms: string[]): Query {
@@ -66,8 +87,8 @@ function query(terms: string[]): Query {
 
 // Lower is better: exact name 0, exact alias 1, name prefix 2, alias prefix 3,
 // name with a typo 4, alias with a typo 5. A spelling that only differs by hyphens, spaces or
-// a plural "s" is exact when the words match, otherwise a prefix.
-function rank(search: Query, { words, joined }: Target, alias: boolean): number | null {
+// a plural "s" is exact when the words match, otherwise a prefix, whichever word it starts at.
+function rank(search: Query, { words, joined, runs }: Target, alias: boolean): number | null {
   const offset = alias ? 1 : 0;
   const { terms } = search;
   if (
@@ -75,7 +96,7 @@ function rank(search: Query, { words, joined }: Target, alias: boolean): number 
     search.joined.includes(joined)
   )
     return offset;
-  const prefix = search.joined.some((key) => joined.startsWith(key));
+  const prefix = search.joined.some((key) => runs.some((run) => run.startsWith(key)));
   let typo = false;
   for (const term of terms) {
     if (words.some((word) => word.startsWith(term) || term === `${word}s`)) continue;
@@ -97,6 +118,7 @@ export function createDemoCatalogSearch(entries: readonly CatalogExercise[]) {
       aliases: entry.aliases.map((alias) => target(demoSearchWords(alias))),
     }));
   return (text: string, limit = 8): CatalogExercise[] => {
+    const max = Math.max(0, limit);
     const terms = demoSearchWords(text);
     if (!terms.length) return [];
     const search = query(terms);
@@ -110,7 +132,7 @@ export function createDemoCatalogSearch(entries: readonly CatalogExercise[]) {
     }
     return matches
       .sort((a, b) => a.rank - b.rank || a.entry.name.localeCompare(b.entry.name))
-      .slice(0, limit)
+      .slice(0, max)
       .map((match) => match.entry);
   };
 }
