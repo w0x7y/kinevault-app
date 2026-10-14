@@ -45,7 +45,9 @@ An exercise KineVault still publishes but that has no complete MP4 and poster is
 listed as a skip. Its current row stays as it is. Only exercises KineVault no
 longer publishes are withdrawn. If KineVault reports no published exercises
 while Track has some, the script stops without writing, in dry runs too. That
-usually means the local stack isn't running or has no data.
+usually means the local stack isn't running or has no data. If KineVault
+publishes a slug that a different Track row already holds, withdrawn rows
+included, the script stops the same way and names the slug and both IDs.
 
 Each row's credit reads "Demonstration: KineVault.", then the render's source
 credit and license, then the anatomy notice. The notice is left out only when the

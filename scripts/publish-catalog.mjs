@@ -185,6 +185,19 @@ export function mediaPath(id, bytes, extension) {
   return `${id}/${hash}.${extension}`;
 }
 
+// Track's slugs are unique across every row, withdrawn ones included, so a clash would fail the
+// whole batch upsert with an opaque constraint error. Naming it first leaves nothing half written.
+export function assertNoSlugConflicts(sources, current) {
+  const holders = new Map(current.map((row) => [row.slug, row]));
+  for (const source of sources) {
+    const holder = holders.get(source.slug);
+    if (holder && holder.id !== source.id)
+      throw new Error(
+        `The slug "${source.slug}" belongs to Track row ${holder.id}, but KineVault publishes it for exercise ${source.id}. Rename or remove one of them, then run again.`,
+      );
+  }
+}
+
 const comparable = (field, value) =>
   field === "published_at" && value ? Date.parse(value) : JSON.stringify(value ?? null);
 
@@ -261,6 +274,7 @@ export async function publishCatalog({
     throw new Error(
       "KineVault reports no published exercises; refusing to withdraw every Track demo. Check that KineVault's local stack is running with its data.",
     );
+  assertNoSlugConflicts(sources, current);
   const located = [];
   const files = [];
   // A download or format failure stops the run before anything is written, so
@@ -297,13 +311,17 @@ export async function publishCatalog({
 }
 
 const pageSize = 1000;
-async function readAll(build, label) {
+// The server may cap a page below `pageSize`, so the next page starts after the rows actually
+// returned and only an empty page ends the read.
+export async function readAll(build, label) {
   const rows = [];
-  for (let from = 0; ; from += pageSize) {
+  let from = 0;
+  for (;;) {
     const { data, error } = await build().range(from, from + pageSize - 1);
     if (error) throw new Error(`Couldn't read ${label}: ${error.message}`);
+    if (data.length === 0) return rows;
     rows.push(...data);
-    if (data.length < pageSize) return rows;
+    from += data.length;
   }
 }
 // Offset paging needs a total order, so every read sorts by a unique key.

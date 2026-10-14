@@ -9,6 +9,7 @@ import {
   mediaPath,
   planCatalogPublish,
   publishCatalog,
+  readAll,
 } from "./publish-catalog.mjs";
 
 const press = "3f1c2b9e-8a4d-4c1e-9b7a-2d5e6f708192";
@@ -394,4 +395,133 @@ test("an empty KineVault read is fine while Track has nothing published", async 
   const result = await publishCatalog({ ...fake, apply: true, now: () => "now", log: () => {} });
   assert.deepEqual(fake.calls, []);
   assert.deepEqual(result.plan, { inserts: [], updates: [], withdrawals: [] });
+});
+
+function fakeTable(rows, cap) {
+  const ranges = [];
+  return {
+    ranges,
+    build: () => ({
+      range: async (from, to) => {
+        ranges.push([from, to]);
+        return { data: rows.slice(from, Math.min(to + 1, from + cap)), error: null };
+      },
+    }),
+  };
+}
+
+test("paging reads every row even when the server caps a page below the page size", async () => {
+  const rows = Array.from({ length: 7 }, (_, index) => ({ id: index }));
+  const table = fakeTable(rows, 3);
+  assert.deepEqual(await readAll(table.build, "widgets"), rows);
+  assert.deepEqual(table.ranges, [
+    [0, 999],
+    [3, 1002],
+    [6, 1005],
+    [7, 1006],
+  ]);
+});
+
+test("paging stops on the first empty page", async () => {
+  const empty = fakeTable([], 1000);
+  assert.deepEqual(await readAll(empty.build, "widgets"), []);
+  assert.equal(empty.ranges.length, 1);
+  const rows = Array.from({ length: 1000 }, (_, index) => ({ id: index }));
+  const full = fakeTable(rows, 1000);
+  assert.equal((await readAll(full.build, "widgets")).length, 1000);
+  assert.deepEqual(full.ranges, [
+    [0, 999],
+    [1000, 1999],
+  ]);
+});
+
+test("a failed page names what couldn't be read", async () => {
+  const build = () => ({ range: async () => ({ data: null, error: { message: "boom" } }) });
+  await assert.rejects(readAll(build, "widgets"), /Couldn't read widgets: boom/);
+});
+
+test("a slug held by another Track row stops the run before any write", async () => {
+  const clash = { ...stored, id: retired };
+  for (const apply of [false, true]) {
+    const fake = ports({ current: [clash] });
+    const logs = [];
+    let downloads = 0;
+    const download = fake.kinevault.download;
+    fake.kinevault.download = async (item) => {
+      downloads++;
+      return download(item);
+    };
+    await assert.rejects(
+      publishCatalog({ ...fake, apply, now: () => "now", log: (text) => logs.push(text) }),
+      (error) => {
+        assert.match(error.message, /dumbbell-shoulder-press/);
+        assert.ok(error.message.includes(press), "names the KineVault exercise ID");
+        assert.ok(error.message.includes(retired), "names the Track row ID");
+        return true;
+      },
+    );
+    assert.deepEqual(fake.calls, []);
+    assert.deepEqual(logs, []);
+    assert.equal(downloads, 0);
+  }
+});
+
+test("a Track row that holds the slug under the same ID is not a conflict", async () => {
+  for (const current of [[stored], [{ ...stored, status: "withdrawn" }]]) {
+    const fake = ports({ current });
+    await publishCatalog({ ...fake, apply: true, now: () => "now", log: () => {} });
+  }
+});
+
+test("a withdrawn Track row still holds its slug", async () => {
+  const fake = ports({ current: [{ ...stored, id: retired, status: "withdrawn" }] });
+  await assert.rejects(
+    publishCatalog({ ...fake, apply: true, now: () => "now", log: () => {} }),
+    /dumbbell-shoulder-press/,
+  );
+  assert.deepEqual(fake.calls, []);
+});
+
+function twoExercises() {
+  const source = raw();
+  source.media.push(media("content-raise", "group-raise", "poster", { scene_id: "scene-raise" }));
+  return source;
+}
+
+test("a download failure for one exercise writes nothing", async () => {
+  for (const apply of [false, true]) {
+    const fake = ports({ source: twoExercises() });
+    const download = fake.kinevault.download;
+    fake.kinevault.download = async (item) => {
+      if (item.path.includes("group-raise")) throw new Error("Couldn't download raise");
+      return download(item);
+    };
+    const logs = [];
+    await assert.rejects(
+      publishCatalog({ ...fake, apply, now: () => "now", log: (text) => logs.push(text) }),
+      /Couldn't download raise/,
+    );
+    assert.deepEqual(fake.calls, []);
+    assert.deepEqual(logs, []);
+  }
+});
+
+test("a media format failure for one exercise writes nothing", async () => {
+  for (const [name, bytes, message] of [
+    ["demo.mp4", webp(1), /not an MP4/],
+    ["demo.webp", mp4(1), /not a WebP/],
+    ["demo.mp4", new Uint8Array(), /size/],
+  ]) {
+    const fake = ports({ source: twoExercises() });
+    const download = fake.kinevault.download;
+    fake.kinevault.download = async (item) =>
+      item.path.includes("group-raise") && item.path.endsWith(name) ? bytes : download(item);
+    const logs = [];
+    await assert.rejects(
+      publishCatalog({ ...fake, apply: true, now: () => "now", log: (text) => logs.push(text) }),
+      message,
+    );
+    assert.deepEqual(fake.calls, []);
+    assert.deepEqual(logs, []);
+  }
 });
