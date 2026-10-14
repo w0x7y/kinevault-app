@@ -315,6 +315,40 @@ for (const action of ["Change", "Unlink"]) {
   });
 }
 
+test("Keep current demo moves focus back to Change", async (t) => {
+  const { page } = await open(t, documentWith([press]));
+  await field(page, "Search exercises").fill("shoulder");
+  await button(page, "Edit exercise Shoulder press").click();
+  const form = page.getByTestId("exercise-form");
+  await button(form, "Change KineVault demo").click();
+  await expectFocused(page, "Find in KineVault");
+  await button(form, "Keep current demo").click();
+  await form.getByText("Linked to Dumbbell shoulder press", { exact: true }).waitFor();
+  await expectFocused(page, "Change KineVault demo");
+});
+
+test("choosing a result moves focus to Change", async (t) => {
+  const { page } = await open(t, documentWith([press, squat]));
+  await field(page, "Search exercises").fill("shoulder");
+  await button(page, "Edit exercise Shoulder press").click();
+  const form = page.getByTestId("exercise-form");
+  await button(form, "Change KineVault demo").click();
+  await field(form, "Find in KineVault").fill("db overhead");
+  await button(form, "Link Dumbbell shoulder press").click();
+  await form.getByText("Linked to Dumbbell shoulder press", { exact: true }).waitFor();
+  await expectFocused(page, "Change KineVault demo");
+});
+
+test("linking a first demo moves focus to Change", async (t) => {
+  const { page } = await open(t, documentWith([squat]));
+  await button(page, "Create Exercise").click();
+  const form = page.getByTestId("exercise-form");
+  await field(form, "Find in KineVault").fill("db overhead");
+  await button(form, "Link Dumbbell shoulder press").click();
+  await form.getByText("Linked to Dumbbell shoulder press", { exact: true }).waitFor();
+  await expectFocused(page, "Change KineVault demo");
+});
+
 test("Link demo opens the form at its search and returns to the workout", async (t) => {
   const { page } = await open(t, documentWith([squat], { sessions: [historical([squat])] }));
   await page.setViewportSize({ width: 390, height: 640 });

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Pressable, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Platform, Pressable, View } from "react-native";
 import { AppButton, ButtonRow } from "../../components/button";
 import { AppText } from "../../components/ui";
 import { useConnectivity } from "../../connectivity/provider";
@@ -101,6 +101,10 @@ export function KineVaultDemoSection({
   // Change and Unlink replace the button that was pressed with the search, so
   // the search takes focus rather than leaving it nowhere.
   const [focusOnMount, setFocusOnMount] = useState(focusSearch);
+  // Keeping the current demo or choosing a result swaps the pressed control for the linked
+  // view, so Change takes focus there.
+  const changeButton = useRef<View>(null);
+  const focusChange = useRef(false);
   useEffect(() => {
     void refreshIfStale();
   }, [refreshIfStale]);
@@ -113,6 +117,11 @@ export function KineVaultDemoSection({
   const statusText = searchStatus({ failed, offline, searching: query.trim() !== "", results });
   const label = exerciseName.trim() || "this exercise";
   const showLinked = link !== undefined && !changing;
+  useEffect(() => {
+    if (!showLinked || !focusChange.current) return;
+    focusChange.current = false;
+    if (Platform.OS === "web") changeButton.current?.focus();
+  }, [showLinked]);
   return (
     <View testID="kinevault-demo" style={{ gap: spacing.layout }}>
       <AppText variant="label">KineVault demo</AppText>
@@ -124,6 +133,7 @@ export function KineVaultDemoSection({
           </AppText>
           <ButtonRow>
             <AppButton
+              ref={changeButton}
               label="Change"
               accessibilityLabel="Change KineVault demo"
               fill
@@ -169,6 +179,7 @@ export function KineVaultDemoSection({
                 entry={entry}
                 disabled={disabled}
                 onPress={() => {
+                  focusChange.current = true;
                   onLink(entry);
                   setChanging(false);
                   setQuery("");
@@ -182,7 +193,10 @@ export function KineVaultDemoSection({
         <AppButton
           label="Keep current demo"
           disabled={disabled}
-          onPress={() => setChanging(false)}
+          onPress={() => {
+            focusChange.current = true;
+            setChanging(false);
+          }}
         />
       )}
     </View>
