@@ -13,8 +13,9 @@ The catalog stays empty until the first publish.
 ## How the clips reach Track
 
 KineVault renders each approved exercise to MP4, WebM and WebP files on its own
-local Supabase stack. `scripts/publish-catalog.mjs` copies the published ones
-into Track's hosted project:
+local Supabase stack. Track copies only the MP4 and the WebP poster.
+`scripts/publish-catalog.mjs` copies the published ones into Track's hosted
+project:
 
 - `public.catalog_exercises`: one row per KineVault exercise. Anyone with the
   publishable key can read it; only the service role writes.
@@ -24,10 +25,13 @@ into Track's hosted project:
 
 The app (`src/exercise/demo/`) downloads the catalog list, keeps a copy on the
 device, refreshes it once that copy is 24 hours old or older, and links exercises
-through `ExerciseDefinition.catalog`. The device copy isn't saved when the
-serialized catalog exceeds 2,000,000 characters (roughly 2,400 exercises). The app
-then downloads the list on each launch and saves no offline copy; an older saved
-copy is left in place.
+through `ExerciseDefinition.catalog`. A saved copy loads at launch whatever its age;
+while it is under 24 hours old, the app uses it without downloading.
+
+When the serialized catalog exceeds 2,000,000 characters, the app stops saving new
+copies. An older saved copy, if any, stays in storage and still loads at launch.
+The app downloads the list when no saved copy exists or the saved one is 24 hours
+old or more. Without a saved copy it has no offline list.
 
 ## Publishing
 
