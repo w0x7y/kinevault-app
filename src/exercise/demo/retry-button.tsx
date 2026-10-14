@@ -21,6 +21,8 @@ export function RetryButton({
     setBusy(true);
     try {
       await onRetry();
+    } catch {
+      // A failed retry leaves the notice in place; the button just becomes available again.
     } finally {
       // A successful retry usually replaces this button.
       if (mounted.current) setBusy(false);
