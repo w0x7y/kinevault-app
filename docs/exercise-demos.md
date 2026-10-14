@@ -8,7 +8,16 @@ KineVault exercise. The design is in
 
 The migration `20261013120000_exercise_demo_catalog` was applied to the hosted
 project on 2026-10-13 and is recorded in `supabase_migrations.schema_migrations`.
-The catalog stays empty until the first publish.
+The first publish on 2026-10-14 added 10 demos curated in the local KineVault
+stack with `scripts/curate-local-demos.mjs` (five dumbbell/cable movements and,
+with `--full-body`, five full-body movements).
+
+On the current local Supabase, that curation script also needs
+`grant select on public.render_jobs to service_role;` in KineVault's local
+database: newer Supabase stacks no longer give the service role default table
+grants, and the script reads render claims directly. KineVault's render step
+needs `FFMPEG_PATH=/usr/bin/ffmpeg` when the bundled `ffmpeg-static` binary is
+missing, and its `preview` step needs Google Chrome.
 
 ## How the clips reach Track
 
