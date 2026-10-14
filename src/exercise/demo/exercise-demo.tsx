@@ -35,6 +35,9 @@ function Frame({ children }: { children: ReactNode }) {
   );
 }
 
+/** How long a tapped clip may take to become ready before it counts as failed. */
+const clipStartTimeoutMs = 20_000;
+
 function DemoVideo({ uri, label, onError }: { uri: string; label: string; onError: () => void }) {
   // Clips are cached on iOS and Android after the first view; the web build
   // relies on the browser's HTTP cache.
@@ -47,6 +50,19 @@ function DemoVideo({ uri, label, onError }: { uri: string; label: string; onErro
   useEffect(() => {
     if (status === "error") onError();
   }, [status, onError]);
+  // A request that never answers raises no error, so give up if the clip
+  // hasn't reached readyToPlay in time. Later buffering doesn't count.
+  useEffect(() => {
+    if (player.status === "readyToPlay") return;
+    const timer = setTimeout(onError, clipStartTimeoutMs);
+    const subscription = player.addListener("statusChange", ({ status: next }) => {
+      if (next === "readyToPlay") clearTimeout(timer);
+    });
+    return () => {
+      clearTimeout(timer);
+      subscription.remove();
+    };
+  }, [player, onError]);
   return (
     <VideoView
       testID="exercise-demo-video"

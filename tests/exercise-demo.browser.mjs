@@ -643,3 +643,40 @@ test("the player announces its status in the same live region", async (t) => {
   await button(editor, "Play demonstration of Shoulder press").waitFor();
   await expectLiveText(page, region, "");
 });
+
+const mediaFailedText = "Couldn't load this demonstration. Check your connection and try again.";
+const startedClip = () => {
+  const video = document.querySelector("video");
+  return video !== null && video.readyState >= 3;
+};
+
+test("a clip that never starts fails after 20 seconds and can be retried", async (t) => {
+  const { page, fixture } = await open(
+    t,
+    documentWith([press], { sessions: [historical([press])] }),
+    { demoClipHeld: true },
+  );
+  const editor = await openHistoricalWorkout(page);
+  const requested = page.waitForRequest((request) => request.url().endsWith(".mp4"));
+  await button(editor, "Play demonstration of Shoulder press").click();
+  await requested;
+  await page.clock.fastForward(15_000);
+  assert.equal(await editor.getByText(mediaFailedText).count(), 0);
+  await page.clock.fastForward(5_000);
+  await editor.getByText(mediaFailedText, { exact: true }).waitFor();
+  fixture.releaseDemoClip();
+  await button(editor, "Retry loading the demonstration").click();
+  await button(editor, "Play demonstration of Shoulder press").click();
+  await page.waitForFunction(startedClip);
+  assert.equal(await editor.getByText(mediaFailedText).count(), 0);
+});
+
+test("a clip that starts is not failed by the start timeout", async (t) => {
+  const { page } = await open(t, documentWith([press], { sessions: [historical([press])] }));
+  const editor = await openHistoricalWorkout(page);
+  await button(editor, "Play demonstration of Shoulder press").click();
+  await page.waitForFunction(startedClip);
+  await page.clock.fastForward(30_000);
+  assert.equal(await editor.getByText(mediaFailedText).count(), 0);
+  assert.equal(await page.locator("video").count(), 1);
+});

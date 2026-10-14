@@ -65,6 +65,7 @@ export async function installAccountFixture(
     catalogFailure: false,
     demoMediaFailure: false,
     catalogHeld: false,
+    demoClipHeld: false,
   };
   let documentReadGate = null;
   state.deferDocumentReads = () => {
@@ -83,7 +84,8 @@ export async function installAccountFixture(
   };
   // While a `...Held` flag is set, requests for that resource wait until the
   // matching `release...()` runs, so tests can observe loading and busy states.
-  const waiting = { catalogHeld: [] };
+  // `demoClipHeld` holds the .mp4 clips only; posters still load.
+  const waiting = { catalogHeld: [], demoClipHeld: [] };
   const waitWhileHeld = async (flag) => {
     if (state[flag]) await new Promise((resolve) => waiting[flag].push(resolve));
   };
@@ -92,6 +94,7 @@ export async function installAccountFixture(
     waiting[flag].splice(0).forEach((resolve) => resolve());
   };
   state.releaseCatalog = () => release("catalogHeld");
+  state.releaseDemoClip = () => release("demoClipHeld");
   const json = (route, value, status = 200) =>
     route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
   await context.route("https://kkywpvkckxniriatelta.supabase.co/**", async (route) => {
@@ -238,6 +241,7 @@ export async function installAccountFixture(
     }
     if (url.pathname.startsWith("/storage/v1/object/public/exercise-demos/")) {
       const media = demoMedia[url.pathname.split(".").pop()];
+      if (media === demoMedia.mp4) await waitWhileHeld("demoClipHeld");
       if (state.demoMediaFailure || !media)
         return json(route, { message: "Object not found" }, 404);
       return route.fulfill({
