@@ -15,6 +15,7 @@ import { useExercises } from "../provider";
 import { demoCatalogConfig, demoObjectUrl } from "./config";
 import { demoStatus, resolveDemoLink } from "./demo-link";
 import { useDemoCatalog } from "./provider";
+import { RetryButton } from "./retry-button";
 
 function Frame({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
@@ -33,7 +34,7 @@ function Frame({ children }: { children: ReactNode }) {
   );
 }
 
-function DemoMessage({ text, onRetry }: { text: string; onRetry?: () => void }) {
+function DemoMessage({ text, onRetry }: { text: string; onRetry?: () => void | Promise<void> }) {
   const { colors } = useTheme();
   return (
     <View
@@ -49,11 +50,7 @@ function DemoMessage({ text, onRetry }: { text: string; onRetry?: () => void }) 
         {text}
       </AppText>
       {onRetry && (
-        <AppButton
-          label="Retry"
-          accessibilityLabel="Retry loading the demonstration"
-          onPress={onRetry}
-        />
+        <RetryButton accessibilityLabel="Retry loading the demonstration" onRetry={onRetry} />
       )}
     </View>
   );
@@ -103,17 +100,12 @@ export function ExerciseDemo({ link, label }: { link: CatalogLink; label: string
   const status = demoStatus({ state: catalog.state, link, mediaFailed, offline });
   if (status.kind === "loading") return <DemoMessage text="Loading demonstration." />;
   if (status.kind === "connect")
-    return (
-      <DemoMessage
-        text="Connect to load this demonstration."
-        onRetry={() => void catalog.retry()}
-      />
-    );
+    return <DemoMessage text="Connect to load this demonstration." onRetry={catalog.retry} />;
   if (status.kind === "catalog-unavailable")
     return (
       <DemoMessage
         text="KineVault demos aren't available right now. Try again later."
-        onRetry={() => void catalog.retry()}
+        onRetry={catalog.retry}
       />
     );
   if (status.kind === "unavailable") return <DemoMessage text="Demonstration unavailable." />;

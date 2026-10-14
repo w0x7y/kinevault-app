@@ -11,6 +11,7 @@ import type { CatalogExercise } from "./catalog";
 import { createDemoCatalogSearch } from "./catalog-search";
 import { DemoThumbnail, ExerciseDemo } from "./exercise-demo";
 import { useDemoCatalog } from "./provider";
+import { RetryButton } from "./retry-button";
 
 function DemoResult({
   entry,
@@ -128,11 +129,7 @@ export function KineVaultDemoSection({
               ? "Connect to search KineVault demos."
               : "KineVault demos aren't available right now. Try again later."}
           </AppText>
-          <AppButton
-            label="Retry"
-            accessibilityLabel="Retry loading KineVault demos"
-            onPress={() => void catalog.retry()}
-          />
+          <RetryButton accessibilityLabel="Retry loading KineVault demos" onRetry={catalog.retry} />
         </>
       ) : (
         <>

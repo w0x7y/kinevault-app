@@ -497,3 +497,43 @@ test("a failed catalog load in the player follows the connection", async (t) => 
   await button(editor, "Retry loading the demonstration").click();
   await button(editor, "Play demonstration of Shoulder press").waitFor();
 });
+
+// The held catalog request keeps the retry running. AppButton exposes `busy`
+// through accessibilityState, which the web build doesn't render, so the
+// disabled state is what the browser can observe.
+async function expectRetrying(retry) {
+  await retry.waitFor();
+  assert.equal(await retry.isDisabled(), true);
+}
+
+test("Retry in the form stays disabled until the catalog loads", async (t) => {
+  const { page, fixture } = await open(t, documentWith([squat]), { catalogFailure: true });
+  await button(page, "Create Exercise").click();
+  const form = page.getByTestId("exercise-form");
+  const retry = button(form, "Retry loading KineVault demos");
+  await retry.waitFor();
+  fixture.catalogFailure = false;
+  fixture.catalogHeld = true;
+  await retry.click();
+  await expectRetrying(retry);
+  fixture.releaseCatalog();
+  await field(form, "Find in KineVault").waitFor();
+  assert.equal(await retry.count(), 0);
+});
+
+test("Retry in the player stays disabled until the catalog loads", async (t) => {
+  const { page, fixture } = await open(
+    t,
+    documentWith([press], { sessions: [historical([press])] }),
+    { catalogFailure: true },
+  );
+  const editor = await openHistoricalWorkout(page);
+  const retry = button(editor, "Retry loading the demonstration");
+  await retry.waitFor();
+  fixture.catalogFailure = false;
+  fixture.catalogHeld = true;
+  await retry.click();
+  await expectRetrying(retry);
+  fixture.releaseCatalog();
+  await button(editor, "Play demonstration of Shoulder press").waitFor();
+});
