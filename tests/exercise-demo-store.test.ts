@@ -268,3 +268,15 @@ test("a retry that succeeds after a failure still notifies", async () => {
   await catalog.retry();
   assert.deepEqual(kinds, ["failed", "ready"]);
 });
+
+test("an empty saved catalog is refreshed even when it is recent", async () => {
+  // A list saved before the first publish must not hide newly published demos for a day.
+  const cached = JSON.stringify({ version: 1, fetchedAt: 1_000_000, rows: [] });
+  const { catalog, transport } = store({
+    storage: memoryStorage({ [demoCatalogStorageKey]: cached }),
+  });
+  await catalog.refreshIfStale();
+  assert.equal(transport.urls.length, 1);
+  const state = catalog.getSnapshot();
+  assert.equal(state.kind === "ready" && state.entries.length, 1);
+});

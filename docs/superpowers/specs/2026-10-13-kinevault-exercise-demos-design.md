@@ -152,7 +152,7 @@ because `CONTEXT.md` already uses that word for Custom foods and meals.
   in pages of 500, capped at 5,000 rows, and keeps the result in AsyncStorage
   under `kinevault-track.demo-catalog.v1` with its fetch time. This is a device
   cache, not Account tracking, and is kept across sign-out. When the cache is
-  more than 24 hours old it refreshes as the tabs open, when the connection
+  more than 24 hours old, or empty, it refreshes as the tabs open, when the connection
   returns, and when the exercise form's KineVault section opens. Offline, the
   saved copy is used. Fetch, storage and clock are injected.
 - **`provider.tsx`**: `DemoCatalogProvider` and `useDemoCatalog()`, mounted

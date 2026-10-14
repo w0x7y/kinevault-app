@@ -124,7 +124,8 @@ export function createDemoCatalogStore({
 
   async function refreshIfStale(): Promise<void> {
     await start();
-    if (state.kind === "ready") {
+    // An empty list (saved before the first publish) is always refreshed.
+    if (state.kind === "ready" && state.entries.length > 0) {
       const age = now() - state.fetchedAt;
       if (age >= 0 && age < demoCatalogMaxAgeMs) return;
     }

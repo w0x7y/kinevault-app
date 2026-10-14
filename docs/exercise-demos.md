@@ -24,9 +24,9 @@ project:
   gets a new link and device caches stay correct.
 
 The app (`src/exercise/demo/`) downloads the catalog list, keeps a copy on the
-device, refreshes it once that copy is 24 hours old or older, and links exercises
+device, refreshes it once that copy is 24 hours old or older (or empty), and links exercises
 through `ExerciseDefinition.catalog`. A saved copy loads at launch whatever its age;
-while it is under 24 hours old, the app uses it without downloading.
+while it is under 24 hours old and not empty, the app uses it without downloading.
 
 When the serialized catalog exceeds 2,000,000 characters, the app stops saving new
 copies. An older saved copy, if any, stays in storage and still loads at launch.
