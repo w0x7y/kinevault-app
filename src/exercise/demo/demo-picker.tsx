@@ -97,7 +97,7 @@ export function KineVaultDemoSection({
         <>
           <ExerciseDemo key={link.id} link={link} label={label} />
           <AppText variant="caption" muted>
-            {`Linked to ${linked?.name ?? link.slug}`}
+            {`Linked to ${linked?.name ?? "a KineVault exercise"}`}
           </AppText>
           <ButtonRow>
             <AppButton

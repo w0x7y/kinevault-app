@@ -537,3 +537,29 @@ test("Retry in the player stays disabled until the catalog loads", async (t) => 
   fixture.releaseCatalog();
   await button(editor, "Play demonstration of Shoulder press").waitFor();
 });
+
+for (const [situation, fixtureState] of [
+  ["is still loading", { catalogHeld: true }],
+  ["failed to load", { catalogFailure: true }],
+  ["has no entry for the link", { catalog: [] }],
+]) {
+  test(`the form caption hides the slug while the catalog ${situation}`, async (t) => {
+    const { page } = await open(t, documentWith([press]), fixtureState);
+    await field(page, "Search exercises").fill("shoulder");
+    await button(page, "Edit exercise Shoulder press").click();
+    const form = page.getByTestId("exercise-form");
+    await form.getByText("Linked to a KineVault exercise", { exact: true }).waitFor();
+    assert.equal(await form.getByText("dumbbell-shoulder-press").count(), 0);
+  });
+}
+
+test("the form caption names the exercise once the catalog loads", async (t) => {
+  const { page, fixture } = await open(t, documentWith([press]), { catalogHeld: true });
+  await field(page, "Search exercises").fill("shoulder");
+  await button(page, "Edit exercise Shoulder press").click();
+  const form = page.getByTestId("exercise-form");
+  await form.getByText("Linked to a KineVault exercise", { exact: true }).waitFor();
+  fixture.releaseCatalog();
+  await form.getByText("Linked to Dumbbell shoulder press", { exact: true }).waitFor();
+  assert.equal(await form.getByText("Linked to a KineVault exercise").count(), 0);
+});
