@@ -147,6 +147,17 @@ async function setNetwork(page, online) {
   await page.evaluate(() => navigator.connection?.dispatchEvent(new Event("change")));
 }
 
+// Coming back online makes the provider reload a failed catalog by itself. Let that reload be
+// answered, still failing, before a test lets Retry succeed; otherwise it can land after the
+// fixture recovers and replace the Retry button the test is about to click.
+async function goOnlineAndWaitForReload(page) {
+  const reloaded = page.waitForResponse((response) =>
+    response.url().includes("/rest/v1/catalog_exercises"),
+  );
+  await setNetwork(page, true);
+  await reloaded;
+}
+
 async function expectFocused(page, label) {
   await page.waitForFunction(
     (label) => document.activeElement?.getAttribute("aria-label") === label,
@@ -473,7 +484,7 @@ test("a failed catalog load while offline asks to connect in the form", async (t
   await setNetwork(page, false);
   await form.getByText("Connect to search KineVault demos.", { exact: true }).waitFor();
   await button(form, "Retry loading KineVault demos").waitFor();
-  await setNetwork(page, true);
+  await goOnlineAndWaitForReload(page);
   await unavailable.waitFor();
   fixture.catalogFailure = false;
   await button(form, "Retry loading KineVault demos").click();
@@ -491,7 +502,7 @@ test("a failed catalog load in the player follows the connection", async (t) => 
   await message("KineVault demos aren't available right now. Try again later.").waitFor();
   await setNetwork(page, false);
   await message("Connect to load this demonstration.").waitFor();
-  await setNetwork(page, true);
+  await goOnlineAndWaitForReload(page);
   await message("KineVault demos aren't available right now. Try again later.").waitFor();
   fixture.catalogFailure = false;
   await button(editor, "Retry loading the demonstration").click();
@@ -612,7 +623,12 @@ test("the form announces catalog messages in the same live region", async (t) =>
   );
   await setNetwork(page, false);
   await expectLiveText(page, region, "Connect to search KineVault demos.");
-  await setNetwork(page, true);
+  await goOnlineAndWaitForReload(page);
+  await expectLiveText(
+    page,
+    region,
+    "KineVault demos aren't available right now. Try again later.",
+  );
   fixture.catalogFailure = false;
   await button(form, "Retry loading KineVault demos").click();
   await field(form, "Find in KineVault").waitFor();
@@ -637,7 +653,12 @@ test("the player announces its status in the same live region", async (t) => {
   );
   await setNetwork(page, false);
   await expectLiveText(page, region, "Connect to load this demonstration.");
-  await setNetwork(page, true);
+  await goOnlineAndWaitForReload(page);
+  await expectLiveText(
+    page,
+    region,
+    "KineVault demos aren't available right now. Try again later.",
+  );
   fixture.catalogFailure = false;
   await button(editor, "Retry loading the demonstration").click();
   await button(editor, "Play demonstration of Shoulder press").waitFor();
