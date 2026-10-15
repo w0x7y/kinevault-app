@@ -160,7 +160,7 @@ test("food and meal ingredient rows label generic Pepsi matches without labeling
     0,
   );
 
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   await page
     .getByTestId("food-creation-switch")
     .getByRole("button", { name: "Meal", exact: true })
@@ -218,7 +218,7 @@ test("ingredient pages fill with eligible foods and explain matching volume-only
     ),
   );
 
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   await page
     .getByTestId("food-creation-switch")
     .getByRole("button", { name: "Meal", exact: true })

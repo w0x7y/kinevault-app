@@ -1,4 +1,5 @@
 import { Redirect, Tabs } from "expo-router";
+import { BottomTabBar } from "expo-router/js-tabs";
 import { useState } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -45,6 +46,14 @@ export default function TabLayout() {
                         <Tabs
                           initialRouteName="index"
                           backBehavior="initialRoute"
+                          // Tab items stay within the screens' 768px column on wide windows.
+                          tabBar={(props) => (
+                            <View style={{ backgroundColor: colors.card }}>
+                              <View style={{ width: "100%", maxWidth: 768, alignSelf: "center" }}>
+                                <BottomTabBar {...props} />
+                              </View>
+                            </View>
+                          )}
                           screenOptions={{
                             animation: reduced ? "none" : "fade",
                             transitionSpec: { animation: "timing", config: { duration: 160 } },
@@ -53,11 +62,13 @@ export default function TabLayout() {
                             tabBarInactiveTintColor: colors.mutedForeground,
                             tabBarStyle: {
                               backgroundColor: colors.card,
-                              borderTopColor: colors.border,
+                              borderTopWidth: 0,
+                              elevation: 0,
+                              boxShadow: "none",
                               minHeight: 64,
                             },
                             tabBarItemStyle: { minHeight: 48 },
-                            tabBarLabelStyle: { fontFamily: fonts.medium, fontSize: 12 },
+                            tabBarLabelStyle: { fontFamily: fonts.semibold, fontSize: 12 },
                             sceneStyle: { backgroundColor: colors.background },
                           }}
                         >

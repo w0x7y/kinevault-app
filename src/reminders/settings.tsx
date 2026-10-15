@@ -33,14 +33,14 @@ import { useReminders } from "./provider";
 export function ReminderSettings() {
   const reminders = useReminders();
   const { colors } = useTheme();
+  // Reminders exist only in the installed app, so the web build leaves the section out.
+  if (Platform.OS === "web") return null;
   return (
     <Panel testID="reminder-settings">
       <AppText variant="heading" accessibilityRole="header">
         Reminders
       </AppText>
-      {Platform.OS === "web" ? (
-        <AppText muted>Reminders work in the iOS and Android app.</AppText>
-      ) : !reminders.supported ? (
+      {!reminders.supported ? (
         <AppText muted>
           Reminders need the installed KineVault Track app. Expo Go for Android can't schedule them.
         </AppText>
@@ -114,10 +114,10 @@ function ReminderList({ reminders: list }: { reminders: readonly Reminder[] }) {
             <View
               key={reminder.id}
               style={{
-                borderWidth: 1,
+                borderWidth: 2,
                 borderRadius: radius.control,
-                borderColor: open ? colors.primary : colors.border,
-                backgroundColor: colors.card,
+                borderColor: open ? colors.primary : "transparent",
+                backgroundColor: colors.secondary,
               }}
             >
               <View style={{ flexDirection: "row", alignItems: "center", paddingRight: 4 }}>
@@ -159,9 +159,8 @@ function ReminderList({ reminders: list }: { reminders: readonly Reminder[] }) {
         <View
           style={{
             padding: spacing.layout,
-            borderWidth: 1,
             borderRadius: radius.control,
-            borderColor: colors.primary,
+            backgroundColor: colors.secondary,
           }}
         >
           <ReminderEditor clock={clock} onClose={() => setAdding(false)} />
@@ -223,9 +222,7 @@ function Callout({
       style={{
         gap: spacing.sm,
         padding: spacing.layout,
-        borderWidth: 1,
         borderRadius: radius.control,
-        borderColor: colors.border,
         backgroundColor: colors.muted,
       }}
     >

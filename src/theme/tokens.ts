@@ -1,5 +1,5 @@
 export const lightColors = {
-  background: "#f6f7f9",
+  background: "#eef1f4",
   foreground: "#192026",
   card: "#ffffff",
   primary: "#314e65",
@@ -7,16 +7,17 @@ export const lightColors = {
   carbs: "#96591b",
   protein: "#27689b",
   fat: "#7751a1",
-  secondary: "#e9edf1",
+  secondary: "#e2e8ee",
   secondaryForeground: "#314e65",
   muted: "#e9edf1",
   mutedForeground: "#52606d",
-  accent: "#e3ebf1",
+  accent: "#d6e0e8",
   border: "#ced6de",
   input: "#ced6de",
   ring: "#638ba6",
   destructive: "#b42318",
   destructiveForeground: "#ffffff",
+  danger: "#b42318",
   error: "#991b1b",
 };
 
@@ -39,8 +40,9 @@ export const darkColors: ThemeColors = {
   border: "#3b4a59",
   input: "#3b4a59",
   ring: "#94bdd7",
-  destructive: "#b42318",
-  destructiveForeground: "#ffffff",
+  destructive: "#f08a80",
+  destructiveForeground: "#10181f",
+  danger: "#fca5a5",
   error: "#fca5a5",
 };
 
@@ -54,8 +56,11 @@ export const spacing = {
   sm: 8,
   md: 12,
 };
+/** Comfortaa sets titles and headings; Nunito sets everything else, and its figures are tabular. */
 export const fonts = {
-  regular: "Comfortaa_400Regular",
-  medium: "Comfortaa_500Medium",
-  semibold: "Comfortaa_600SemiBold",
+  display: "Comfortaa_600SemiBold",
+  regular: "Nunito_400Regular",
+  medium: "Nunito_500Medium",
+  semibold: "Nunito_600SemiBold",
+  bold: "Nunito_700Bold",
 };

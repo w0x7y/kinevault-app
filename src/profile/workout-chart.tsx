@@ -65,6 +65,9 @@ export function WorkoutChart({ today }: { today: string }) {
         ]
       : [{ field: "total" as const, color: colors.primary }];
   const latest = points.at(-1)!;
+  const weeksWithData = points.filter(
+    (point) => point.total !== null || point.left !== null || point.right !== null,
+  ).length;
   const shortDate = (day: string) =>
     parseDay(day).toLocaleDateString("en-US", {
       month: "short",
@@ -164,114 +167,135 @@ export function WorkoutChart({ today }: { today: string }) {
           </JournalText>
         </View>
       )}
-      <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
-        <Svg
-          width="100%"
-          height={(width * 149) / 320}
-          viewBox="0 0 320 149"
-          accessibilityLabel={`Workout ${metric} in ${graph.unit}. Tap the graph for weekly values.`}
+      {/* One week of data draws a lone dot, so the chart waits for a second week. */}
+      {weeksWithData < 2 ? (
+        <JournalText
+          testID="profile-workout-chart-pending"
+          size={14}
+          muted
+          style={{ marginTop: 4 }}
         >
-          {[top, top / 2, 0].map((value) => (
-            <Line key={value} x1={42} x2={308} y1={y(value)} y2={y(value)} stroke={colors.border} />
-          ))}
-          {[top, top / 2, 0].map((value) => (
-            <SvgText
-              key={value}
-              x={2}
-              y={y(value) + 3}
-              fill={colors.mutedForeground}
-              fontFamily={fonts.regular}
-              fontSize={9}
-            >
-              {value
-                .toLocaleString(undefined, {
-                  notation: "compact",
-                  maximumFractionDigits: 1,
-                })
-                .toLowerCase()}
-            </SvgText>
-          ))}
-          {series.map(({ field, color }) => {
-            const segments: { index: number; value: number }[][] = [];
-            points.forEach((point, index) => {
-              const value = point[field];
-              if (value === null) return;
-              if (!index || points[index - 1][field] === null) segments.push([]);
-              segments.at(-1)!.push({ index, value });
-            });
-            return segments.map((segment, index) => {
-              const first = segment[0],
-                last = segment.at(-1)!;
-              const line = segment
-                .map((p, i) => `${i ? "L" : "M"}${x(p.index)},${y(p.value)}`)
-                .join(" ");
-              return (
-                <ChartSeries
-                  key={`${field}-${index}`}
-                  line={line}
-                  area={`${line} L${x(last.index)},121 L${x(first.index)},121 Z`}
-                  color={color}
-                  fill={graph.tracking === "single" ? colors.accent : color}
-                  lastX={x(last.index)}
-                  lastY={y(last.value)}
-                  showDot={last.index === points.findLastIndex((p) => p[field] !== null)}
-                  card={colors.card}
-                />
+          {weeksWithData === 0
+            ? `No ${metric === "weight" ? "exercise weight" : metric} logged in the last ${weeks} weeks.`
+            : "Your trend appears after workouts in two different weeks."}
+        </JournalText>
+      ) : (
+        <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
+          <Svg
+            width="100%"
+            height={(width * 149) / 320}
+            viewBox="0 0 320 149"
+            accessibilityLabel={`Workout ${metric} in ${graph.unit}. Tap the graph for weekly values.`}
+          >
+            {[top, top / 2, 0].map((value) => (
+              <Line
+                key={value}
+                x1={42}
+                x2={308}
+                y1={y(value)}
+                y2={y(value)}
+                stroke={colors.border}
+              />
+            ))}
+            {[top, top / 2, 0].map((value) => (
+              <SvgText
+                key={value}
+                x={2}
+                y={y(value) + 3}
+                fill={colors.mutedForeground}
+                fontFamily={fonts.regular}
+                fontSize={12}
+              >
+                {value
+                  .toLocaleString(undefined, {
+                    notation: "compact",
+                    maximumFractionDigits: 1,
+                  })
+                  .toLowerCase()}
+              </SvgText>
+            ))}
+            {series.map(({ field, color }) => {
+              const segments: { index: number; value: number }[][] = [];
+              points.forEach((point, index) => {
+                const value = point[field];
+                if (value === null) return;
+                if (!index || points[index - 1][field] === null) segments.push([]);
+                segments.at(-1)!.push({ index, value });
+              });
+              return segments.map((segment, index) => {
+                const first = segment[0],
+                  last = segment.at(-1)!;
+                const line = segment
+                  .map((p, i) => `${i ? "L" : "M"}${x(p.index)},${y(p.value)}`)
+                  .join(" ");
+                return (
+                  <ChartSeries
+                    key={`${field}-${index}`}
+                    line={line}
+                    area={`${line} L${x(last.index)},121 L${x(first.index)},121 Z`}
+                    color={color}
+                    fill={graph.tracking === "single" ? colors.accent : color}
+                    lastX={x(last.index)}
+                    lastY={y(last.value)}
+                    showDot={last.index === points.findLastIndex((p) => p[field] !== null)}
+                    card={colors.card}
+                  />
+                );
+              });
+            })}
+            {[
+              { date: points[0].date, x: 42, anchor: "start" as const },
+              {
+                date: points[Math.floor(points.length / 2)].date,
+                x: 174,
+                anchor: "middle" as const,
+              },
+              { date: today, x: 308, anchor: "end" as const },
+            ].map((item) => (
+              <SvgText
+                key={item.x}
+                x={item.x}
+                y={144}
+                textAnchor={item.anchor}
+                fill={colors.mutedForeground}
+                fontFamily={fonts.regular}
+                fontSize={12}
+              >
+                {shortDate(item.date)}
+              </SvgText>
+            ))}
+          </Svg>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Select workout graph point"
+            accessibilityHint="Tap the graph for the selected week's date and unit labels."
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: (width * 124) / 320,
+            }}
+            onPressIn={(event) => {
+              pressX.current = Number.isFinite(event.nativeEvent.locationX)
+                ? event.nativeEvent.locationX
+                : null;
+            }}
+            onPress={(event) => {
+              const touchX = Number.isFinite(event.nativeEvent.locationX)
+                ? event.nativeEvent.locationX
+                : (pressX.current ?? width);
+              pressX.current = null;
+              const fraction = ((touchX / width) * 320 - 42) / 264;
+              const index = Math.max(
+                0,
+                Math.min(points.length - 1, Math.round(fraction * (points.length - 1))),
               );
-            });
-          })}
-          {[
-            { date: points[0].date, x: 42, anchor: "start" as const },
-            {
-              date: points[Math.floor(points.length / 2)].date,
-              x: 174,
-              anchor: "middle" as const,
-            },
-            { date: today, x: 308, anchor: "end" as const },
-          ].map((item) => (
-            <SvgText
-              key={item.x}
-              x={item.x}
-              y={144}
-              textAnchor={item.anchor}
-              fill={colors.mutedForeground}
-              fontFamily={fonts.regular}
-              fontSize={9}
-            >
-              {shortDate(item.date)}
-            </SvgText>
-          ))}
-        </Svg>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Select workout graph point"
-          accessibilityHint="Tap the graph for the selected week's date and unit labels."
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: (width * 124) / 320,
-          }}
-          onPressIn={(event) => {
-            pressX.current = Number.isFinite(event.nativeEvent.locationX)
-              ? event.nativeEvent.locationX
-              : null;
-          }}
-          onPress={(event) => {
-            const touchX = Number.isFinite(event.nativeEvent.locationX)
-              ? event.nativeEvent.locationX
-              : (pressX.current ?? width);
-            pressX.current = null;
-            const fraction = ((touchX / width) * 320 - 42) / 264;
-            const index = Math.max(
-              0,
-              Math.min(points.length - 1, Math.round(fraction * (points.length - 1))),
-            );
-            setSelectedWeek(points[index].date);
-          }}
-        />
-      </View>
+              setSelectedWeek(points[index].date);
+            }}
+          />
+        </View>
+      )}
       {selected && (
         <JournalText size={10} selectable accessibilityLiveRegion="polite" style={{ marginTop: 8 }}>
           {`Week ending ${label(selected)}`}

@@ -2,7 +2,6 @@ import { AppButton } from "../components/button";
 import type { ReactNode } from "react";
 import { ScrollView, View } from "react-native";
 import { AppText } from "../components/ui";
-import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 export type WorkspaceExercise = { id: string; exercise: { name: string } };
 
@@ -31,6 +30,7 @@ export function WorkoutWorkspace({
   actions,
 }: {
   name: string;
+  /** Shown under the name, at full width: the active workout's timer. */
   headerRight?: ReactNode;
   headerActions?: ReactNode;
   toolbar?: ReactNode;
@@ -43,7 +43,6 @@ export function WorkoutWorkspace({
   feedback?: ReactNode;
   actions: ReactNode;
 }) {
-  const { colors } = useTheme();
   return (
     <View testID={testID} style={{ gap: spacing.layout, minWidth: 0 }}>
       <View
@@ -53,26 +52,15 @@ export function WorkoutWorkspace({
         <AppText variant="heading" accessibilityRole="header" style={{ flex: 1, minWidth: 0 }}>
           {name || "Workout"}
         </AppText>
-        {headerRight && (
-          <View style={{ flexShrink: 0, alignItems: "flex-end" }}>{headerRight}</View>
-        )}
         {headerActions && (
           <View testID="workout-workspace-controls" style={{ flexShrink: 0 }}>
             {headerActions}
           </View>
         )}
       </View>
+      {headerRight}
       {toolbar}
-      <View
-        testID="exercise-topbar-frame"
-        style={{
-          borderTopWidth: 1,
-          borderBottomWidth: 1,
-          borderColor: colors.border,
-          paddingVertical: spacing.sm,
-          minWidth: 0,
-        }}
-      >
+      <View testID="exercise-topbar-frame" style={{ minWidth: 0 }}>
         <ScrollView
           showsVerticalScrollIndicator={false}
           showsHorizontalScrollIndicator={false}

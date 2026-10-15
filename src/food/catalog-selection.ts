@@ -1,4 +1,4 @@
-import { foodPageSize, type CatalogFood } from "./catalog.ts";
+import { foodKey, foodPageSize, type CatalogFood } from "./catalog.ts";
 import type { CustomFood } from "./custom-model.ts";
 import type { CustomMeal, CatalogKind } from "./meal-model.ts";
 import { createFoodSearch } from "./search-matching.ts";
@@ -33,12 +33,21 @@ export function createFoodSelection({
       purpose,
       query,
       page = 0,
+      logged,
     }: {
       purpose: "logging" | "ingredient";
       query: string;
       page?: number;
+      /** How often each food key appears in the user's log; logged foods lead the results. */
+      logged?: ReadonlyMap<string, number>;
     }) {
-      const ranked = matches[purpose](query);
+      const matched = matches[purpose](query);
+      const ranked = logged?.size
+        ? matched
+            .map((match, index) => ({ match, index, count: logged.get(foodKey(match.food)) ?? 0 }))
+            .sort((a, b) => b.count - a.count || a.index - b.index)
+            .map(({ match }) => match)
+        : matched;
       const eligible =
         purpose === "ingredient"
           ? ranked.filter((match) => match.food.per100g !== undefined)

@@ -1,4 +1,4 @@
-import { ButtonRow, AppButton } from "../components/button";
+import { AppButton } from "../components/button";
 import { useEffect, useRef, useState } from "react";
 import { AppState, Linking, Platform, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -73,6 +73,7 @@ export function FoodBarcodeScanner({
   }
   return (
     <View testID="food-barcode-scanner" style={{ gap: spacing.layout }}>
+      <AppButton link icon="chevron-left" label="Cancel scan" onPress={onClose} />
       <AppText variant="heading" accessibilityRole="header">
         Scan food barcode
       </AppText>
@@ -126,10 +127,7 @@ export function FoodBarcodeScanner({
         disabled={false}
         numeric
       />
-      <ButtonRow>
-        <AppButton label="Cancel scan" onPress={onClose} fill />
-        <AppButton label="Look up barcode" primary onPress={() => detect(barcode)} fill />
-      </ButtonRow>
+      <AppButton label="Look up barcode" primary onPress={() => detect(barcode)} />
       <AppText variant="caption" style={{ color: colors.mutedForeground }}>
         Scanning opens a draft. Review and save it to keep it in your foods.
       </AppText>

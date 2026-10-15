@@ -87,7 +87,9 @@ export function CreateMealForm({
         Ingredients
       </AppText>
       {draft.ingredients.length === 0 && (
-        <AppText muted>No foods added yet. Search below to add your first ingredient.</AppText>
+        <AppText variant="caption" muted>
+          No foods added yet. Search below to add your first ingredient.
+        </AppText>
       )}
       {draft.ingredients.map((ingredient) => (
         <View key={ingredient.id} style={{ gap: spacing.sm }}>

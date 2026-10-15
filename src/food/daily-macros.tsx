@@ -1,4 +1,5 @@
 import { AppButton } from "../components/button";
+import { useState } from "react";
 import { View, type ViewProps } from "react-native";
 import { parseDay } from "../calendar/dates.ts";
 import { AppText, Panel } from "../components/ui";
@@ -36,12 +37,17 @@ export function DailyMacros({
 }) {
   const { targets } = useDayActivity(day.date);
   const { colors } = useTheme();
+  const [showMissing, setShowMissing] = useState(false);
   if (targets.kind !== "ready") return null;
   const summary = summarizeDay(day);
   const details = sumDetailedNutrients(day.foods, foodDatabase.getById);
   const values = { ...summary, ...details };
+  // Nutrients without data fold away behind one control instead of a column of placeholders.
+  const missing = nutrientRows.filter(({ key }) => values[key] === null);
+  const rows = showMissing ? nutrientRows : nutrientRows.filter(({ key }) => values[key] !== null);
   return (
     <View testID="daily-macro-view" onLayout={onLayout} style={{ gap: spacing.layout }}>
+      <AppButton link icon="chevron-left" label="Back to food log" onPress={onBack} />
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.layout }}>
         <View style={{ flex: 1, minWidth: 0, gap: spacing.xs }}>
           <AppText variant="heading" accessibilityRole="header">
@@ -56,9 +62,6 @@ export function DailyMacros({
             })}
           </AppText>
         </View>
-        <View style={{ flexShrink: 1, maxWidth: "45%" }}>
-          <AppButton label="Back to food log" onPress={onBack} />
-        </View>
       </View>
       <CalorieWidget
         current={summary.calories}
@@ -67,7 +70,7 @@ export function DailyMacros({
         testIDPrefix="day"
       />
       <Panel testID="daily-nutrient-details" style={{ gap: 0 }}>
-        {nutrientRows.map(({ key, label, unit, indented }, index) => (
+        {rows.map(({ key, label, unit, indented }, index) => (
           <View
             key={key}
             testID={`daily-nutrient-${key}`}
@@ -109,6 +112,21 @@ export function DailyMacros({
             </AppText>
           </View>
         ))}
+        {missing.length > 0 && (
+          <View style={{ paddingTop: spacing.sm }}>
+            <AppButton
+              link
+              icon={showMissing ? "chevron-up" : "chevron-down"}
+              label={
+                showMissing
+                  ? "Hide nutrients without data"
+                  : `Show ${missing.length} ${missing.length === 1 ? "nutrient" : "nutrients"} without data`
+              }
+              expanded={showMissing}
+              onPress={() => setShowMissing((shown) => !shown)}
+            />
+          </View>
+        )}
       </Panel>
       {day.foods.length === 0 && <AppText muted>No food has been logged yet</AppText>}
     </View>

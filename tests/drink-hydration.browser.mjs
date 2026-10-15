@@ -325,7 +325,7 @@ test("catalog import and editor preserve explicit volume without logging hydrati
       body: JSON.stringify({ status: 1, product: projectedProduct(route, product) }),
     });
   });
-  await button(page, "Scan food barcode").click();
+  await button(page, "Scan barcode").click();
   await field(page, "Product barcode").fill(product.code);
   await button(page, "Look up barcode").click();
   await heading(page, "Review imported food");
@@ -485,7 +485,7 @@ test("legacy custom beverages stay Snacks until an explicit ml and label edit su
 test("custom nutrition modes keep separate label values and volume packaging alone requires a drink choice", async (t) => {
   const page = await open(t);
   await tab(page, "Food");
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   await field(page, "Food name").fill("Fresh label drink");
   await field(page, "Calories (kcal)").fill("80");
   await button(page, "Drink").click();
@@ -493,12 +493,12 @@ test("custom nutrition modes keep separate label values and volume packaging alo
   assert.equal(await field(page, "Calories (kcal)").inputValue(), "");
   await field(page, "Calories (kcal)").fill("40");
   await field(page, "Search foods").fill("banana");
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   assert.equal(await field(page, "Calories (kcal)").inputValue(), "40");
   await button(page, "Solid food").click();
   assert.equal(await field(page, "Calories (kcal)").inputValue(), "80");
   await field(page, "Search foods").fill("banana");
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   assert.equal(await field(page, "Calories (kcal)").inputValue(), "80");
   await button(page, "Drink").click();
   assert.equal(await field(page, "Calories (kcal)").inputValue(), "40");
@@ -534,7 +534,7 @@ test("legacy milk volume edits preserve source details at the same amount, scale
   const page = await open(t, { food: { version: 1, days: { [date]: [legacy] } } });
   async function dailyCalcium(expected) {
     await tab(page, "Food");
-    await button(page, "View macros for the day").click();
+    await button(page, "Daily macros").click();
     await page
       .getByTestId("daily-nutrient-calcium")
       .getByTestId("nutrient-value")

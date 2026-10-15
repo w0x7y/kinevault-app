@@ -116,7 +116,7 @@ async function dismissCreated(page) {
   assert.equal(await page.getByRole("dialog").count(), 0);
 }
 async function scan(page, code) {
-  await button(page, "Scan food barcode").click();
+  await button(page, "Scan barcode").click();
   await heading(page, "Scan food barcode");
   await field(page, "Product barcode").fill(code);
   await button(page, "Look up barcode").click();
@@ -135,7 +135,7 @@ const json = (route, body, status = 200) =>
 
 test("detailed nutrients preserve collapsed drafts, validate, save/edit/reload and calculate meal overrides", async (t) => {
   const page = await open(t);
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   await field(page, "Food name").fill("Detailed oats");
   await fillMacros(page);
   await button(page, "More nutrients").click();
@@ -164,7 +164,7 @@ test("detailed nutrients preserve collapsed drafts, validate, save/edit/reload a
   await heading(page, "Detailed oats");
   await button(page, "Log food").click();
   await heading(page, "Daily food log");
-  await button(page, "View macros for the day").click();
+  await button(page, "Daily macros").click();
   assert.match(await page.getByTestId("daily-nutrient-carbs").innerText(), /30/);
   await page.reload();
   await field(page, "Search foods").fill("Detailed oats");
@@ -172,7 +172,7 @@ test("detailed nutrients preserve collapsed drafts, validate, save/edit/reload a
   await button(page, "Edit food").click();
   assert.equal(await field(page, "Sodium (mg)").inputValue(), "200");
   await button(page, "Cancel").click();
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   await page
     .getByTestId("food-creation-switch")
     .getByRole("button", { name: "Meal", exact: true })
@@ -318,7 +318,7 @@ test("barcode missing/error/retry/manual entry and cancellation never save or re
   await page.getByTestId("food-result").first().waitFor();
   assert.equal(await page.getByTestId("food-import-draft").count(), 0);
   assert.equal((await catalog(page)).foods.length, 1);
-  await button(page, "Scan food barcode").click();
+  await button(page, "Scan barcode").click();
   await page.getByRole("tab", { name: "Home", exact: true }).click();
   await page.getByRole("tab", { name: "Food", exact: true }).click();
   assert.equal(await page.getByTestId("food-barcode-scanner").count(), 0);
@@ -417,7 +417,7 @@ test("deferred camera permission never mounts in background, resumes safely and 
       Object.defineProperty(document, "visibilityState", { configurable: true, get: () => value });
       document.dispatchEvent(new Event("visibilitychange"));
     }, value);
-  await button(page, "Scan food barcode").click();
+  await button(page, "Scan barcode").click();
   await heading(page, "Scan food barcode");
   await page.waitForFunction(() => window.__foodCameraFixture.requests === 1);
   await visibility("hidden");
@@ -440,7 +440,7 @@ test("deferred camera permission never mounts in background, resumes safely and 
   );
   assert.equal(await page.locator("video").count(), 0);
 
-  await button(page, "Scan food barcode").click();
+  await button(page, "Scan barcode").click();
   await page.locator("video").waitFor({ state: "attached" });
   await visibility("hidden");
   await page.getByTestId("food-barcode-scanner").waitFor({ state: "detached" });
@@ -459,7 +459,7 @@ test("a real camera mount failure retains manual barcode lookup and does not iss
     requests++;
     return json(route, { status: 1, product });
   });
-  await button(page, "Scan food barcode").click();
+  await button(page, "Scan barcode").click();
   await page.waitForFunction(() => window.__foodCameraFixture.resolvePermission);
   await page.evaluate(() => window.__foodCameraFixture.resolvePermission());
   await page
@@ -539,7 +539,7 @@ test("Scan reopens from review and cancels the previous lookup", async (t) => {
   await scan(page, product.code);
   await heading(page, "Review imported food");
   await field(page, "Food name").fill("Discarded scan draft");
-  await button(page, "Scan food barcode").click();
+  await button(page, "Scan barcode").click();
   await heading(page, "Scan food barcode");
   assert.equal(await page.getByTestId("food-import-draft").count(), 0);
   assert.equal(await field(page, "Product barcode").inputValue(), "");
@@ -550,7 +550,7 @@ test("Scan reopens from review and cancels the previous lookup", async (t) => {
   await scan(page, "7290004131074");
   await started;
   await page.getByRole("progressbar", { name: "Looking up barcode...", exact: true }).waitFor();
-  await button(page, "Scan food barcode").click();
+  await button(page, "Scan barcode").click();
   await heading(page, "Scan food barcode");
   const failedRequest = await aborted;
   assert.match(failedRequest.failure().errorText, /ABORTED|cancel/i);
@@ -566,7 +566,7 @@ test("Scan reopens from review and cancels the previous lookup", async (t) => {
   );
 });
 
-test("Search and Scan use 75/25 widths and local results offer no online search actions", async (t) => {
+test("Search spans the row above the Scan tile and local results offer no online search actions", async (t) => {
   const page = await open(t);
   const requests = [];
   await page.route("https://world.openfoodfacts.org/**", (route) => {
@@ -574,8 +574,12 @@ test("Search and Scan use 75/25 widths and local results offer no online search 
     return json(route, { status: 1, product });
   });
   const searchBox = await page.getByTestId("food-search-box").boundingBox();
-  const scanBox = await button(page, "Scan food barcode").boundingBox();
-  assert.ok(Math.abs(searchBox.width / scanBox.width - 3) < 0.04);
+  const actionsBox = await page.getByTestId("food-search-actions").boundingBox();
+  const scanBox = await button(page, "Scan barcode").boundingBox();
+  assert.ok(Math.abs(searchBox.width - actionsBox.width) <= 1);
+  assert.ok(scanBox.y >= searchBox.y + searchBox.height);
+  // Three tiles share the row below search, 8px apart.
+  assert.ok(Math.abs(scanBox.width - (searchBox.width - 16) / 3) <= 1);
   assert.ok(scanBox.height >= 44);
   assert.equal(await button(page, "Search brands online").count(), 0);
   assert.equal(await page.getByText("Brands", { exact: true }).count(), 0);
@@ -632,7 +636,7 @@ test("legacy stored imports stay unbadged through edits, reload and offline ingr
   assert.equal(await field(page, "Calories (kcal)").inputValue(), "2");
   assert.equal(await field(page, "Carbs (g)").inputValue(), "0");
   await button(page, "Cancel").click();
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   await page
     .getByTestId("food-creation-switch")
     .getByRole("button", { name: "Meal", exact: true })

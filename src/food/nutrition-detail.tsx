@@ -91,6 +91,8 @@ export function FoodNutritionDetail({
   return (
     <View testID="food-nutrition-detail" style={{ gap: spacing.layout }}>
       <AppButton
+        link
+        icon="chevron-left"
         label={target.kind === "edit" ? "Cancel edit" : backLabel}
         disabled={busy}
         onPress={onBack}
@@ -144,7 +146,9 @@ export function FoodNutritionDetail({
           <AppText variant="label">Drink amount (ml)</AppText>
           <TextInput
             accessibilityLabel="Drink amount (ml)"
-            accessibilityHint="Changes nutrition and adds this volume to the selected day's water total."
+            accessibilityHint="Enter whole millilitres. Changes nutrition and adds this volume to the selected day's water total."
+            placeholder="330"
+            placeholderTextColor={colors.mutedForeground}
             value={fields.drinkMl}
             onChangeText={attempt.setDrinkMl}
             editable={!busy}
@@ -159,16 +163,13 @@ export function FoodNutritionDetail({
               padding: spacing.layout,
               borderWidth: 1,
               borderRadius: radius.control,
-              borderColor: invalidDrinkAmount ? colors.error : colors.border,
+              borderColor: invalidDrinkAmount ? colors.error : colors.input,
               backgroundColor: colors.background,
               color: colors.foreground,
               fontFamily: fonts.regular,
               fontSize: 16,
             }}
           />
-          <AppText variant="caption" muted>
-            Enter whole millilitres. Nutrition and your water total use this amount.
-          </AppText>
           {invalidDrinkAmount && (
             <AppText variant="caption" accessibilityRole="alert" style={{ color: colors.error }}>
               Enter a whole number from 1 to 10,000 ml.
@@ -213,7 +214,7 @@ export function FoodNutritionDetail({
               padding: spacing.layout,
               borderWidth: 1,
               borderRadius: radius.control,
-              borderColor: grams === null ? colors.error : focused ? colors.ring : colors.border,
+              borderColor: grams === null ? colors.error : focused ? colors.ring : colors.input,
               backgroundColor: colors.background,
               color: colors.foreground,
               fontFamily: fonts.regular,
@@ -268,7 +269,7 @@ export function FoodNutritionDetail({
             Nutrition for {decimal(preparation.amount)}{" "}
             {preparation.measurement === "volume" ? "ml" : "g"}
           </AppText>
-          <AppText variant="heading" selectable>
+          <AppText variant="heading" numeric selectable>
             {Math.round(preparation.nutrition.calories).toLocaleString()} kcal
           </AppText>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.layout }}>

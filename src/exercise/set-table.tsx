@@ -8,11 +8,13 @@ import type { ExerciseSet } from "./model";
 function NumberInput({
   label,
   value,
+  placeholder,
   onChange,
   disabled,
 }: {
   label: string;
   value: string;
+  placeholder?: string;
   onChange: (value: string) => void;
   disabled: boolean;
 }) {
@@ -22,6 +24,8 @@ function NumberInput({
     <TextInput
       accessibilityLabel={label}
       value={value}
+      placeholder={placeholder}
+      placeholderTextColor={colors.mutedForeground}
       onChangeText={onChange}
       editable={!disabled}
       inputMode="decimal"
@@ -36,26 +40,41 @@ function NumberInput({
         minWidth: 0,
         minHeight: 44,
         padding: spacing.xs,
-        borderWidth: 1,
         borderRadius: radius.control,
-        borderColor: focused ? colors.ring : colors.border,
+        borderWidth: focused ? 2 : 1,
+        borderColor: focused ? colors.ring : colors.input,
         backgroundColor: colors.background,
         color: colors.foreground,
         fontFamily: fonts.regular,
-        fontSize: 16,
+        fontSize: 18,
         textAlign: "center",
       }}
     />
   );
 }
 
+/** A blank set shows what was lifted last time, or failing that the set above, as a hint. */
+function hint(
+  sets: ExerciseSet[],
+  previous: ExerciseSet[],
+  index: number,
+  side: "single" | "left" | "right",
+) {
+  const source = previous[index] ?? sets[index - 1];
+  if (!source) return { reps: undefined, weightKg: undefined };
+  const values = source.kind === "single" ? source : source[side === "single" ? "left" : side];
+  return { reps: values.reps || undefined, weightKg: values.weightKg || undefined };
+}
+
 export function ExerciseSetTable({
   sets,
+  previous = [],
   rowLabel,
   busy,
   onChange,
 }: {
   sets: ExerciseSet[];
+  previous?: ExerciseSet[];
   rowLabel: string;
   busy: boolean;
   onChange: (setId: string, build: (set: ExerciseSet) => ExerciseSet) => void;
@@ -63,13 +82,13 @@ export function ExerciseSetTable({
   return (
     <View style={{ gap: spacing.sm }}>
       <View style={{ flexDirection: "row", gap: spacing.xs, alignItems: "center" }}>
-        <AppText variant="caption" style={{ width: 32 }}>
+        <AppText variant="label" muted style={{ width: 40 }}>
           Set
         </AppText>
-        <AppText variant="label" style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+        <AppText variant="label" muted style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
           Reps
         </AppText>
-        <AppText variant="label" style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+        <AppText variant="label" muted style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
           Weight (kg)
         </AppText>
       </View>
@@ -84,12 +103,13 @@ export function ExerciseSetTable({
           <View key={set.id} style={{ gap: spacing.xs }}>
             {set.kind === "single" ? (
               <View style={{ flexDirection: "row", gap: spacing.xs, alignItems: "center" }}>
-                <AppText variant="caption" style={{ width: 32 }}>
+                <AppText variant="label" style={{ width: 40, fontSize: 16 }}>
                   {index + 1}
                 </AppText>
                 <NumberInput
                   label={`${prefix} reps`}
                   value={set.reps}
+                  placeholder={hint(sets, previous, index, "single").reps}
                   disabled={busy}
                   onChange={(reps) =>
                     onChange(set.id, (previous) =>
@@ -100,6 +120,7 @@ export function ExerciseSetTable({
                 <NumberInput
                   label={`${prefix} weight (kg)`}
                   value={set.weightKg}
+                  placeholder={hint(sets, previous, index, "single").weightKg}
                   disabled={busy}
                   onChange={(weightKg) =>
                     onChange(set.id, (previous) =>
@@ -110,18 +131,19 @@ export function ExerciseSetTable({
               </View>
             ) : (
               <>
-                <AppText variant="caption">Set {index + 1}</AppText>
+                <AppText variant="label">Set {index + 1}</AppText>
                 {(["left", "right"] as const).map((side) => (
                   <View
                     key={side}
                     style={{ flexDirection: "row", gap: spacing.xs, alignItems: "center" }}
                   >
-                    <AppText variant="caption" style={{ width: 32 }}>
+                    <AppText variant="caption" muted style={{ width: 40 }}>
                       {side === "left" ? "Left" : "Right"}
                     </AppText>
                     <NumberInput
                       label={`${prefix} ${side} reps`}
                       value={set[side].reps}
+                      placeholder={hint(sets, previous, index, side).reps}
                       disabled={busy}
                       onChange={(reps) =>
                         onChange(set.id, (previous) =>
@@ -134,6 +156,7 @@ export function ExerciseSetTable({
                     <NumberInput
                       label={`${prefix} ${side} weight (kg)`}
                       value={set[side].weightKg}
+                      placeholder={hint(sets, previous, index, side).weightKg}
                       disabled={busy}
                       onChange={(weightKg) =>
                         onChange(set.id, (previous) =>

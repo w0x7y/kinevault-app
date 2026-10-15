@@ -4,7 +4,13 @@ import { AppText, Panel } from "../components/ui";
 import { ButtonRow, AppButton, IconButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
 import { spacing } from "../theme/tokens";
-import { durationFromMinutes, type SessionExercise, type WorkoutSession } from "./model";
+import {
+  durationFromMinutes,
+  previousSets,
+  type SessionExercise,
+  type WorkoutSession,
+} from "./model";
+import { useExercises } from "./provider";
 import type { WorkoutEditing, WorkoutView } from "./workout-editing";
 import { ExerciseDemoSlot } from "./demo/exercise-demo";
 import { useWorkoutEdit } from "./use-workout-editing";
@@ -43,6 +49,8 @@ export function SessionEditor({
     error,
     countError: settingsError,
   } = useWorkoutEdit(editing, session.id);
+  const store = useExercises();
+  const sessions = store.state.kind === "ready" ? store.state.document.sessions : [];
   const [settingsOpen, setSettingsOpen] = useState(initialSettings);
   const [selectedId, setSelectedId] = useState(edit.selectedId() ?? session.exercises[0]?.id),
     [notesId, setNotesId] = useState<string | null>(null);
@@ -78,6 +86,7 @@ export function SessionEditor({
         </View>
         <ExerciseSetTable
           sets={row.sets}
+          previous={previousSets(sessions, session, row.exercise.id)}
           rowLabel={rowLabel}
           busy={busy}
           onChange={(setId, build) => edit.change({ kind: "set", rowId: row.id, setId, build })}
@@ -120,10 +129,10 @@ export function SessionEditor({
   const active = session.status === "active";
   const headerActions = !active && (
     <View style={{ flexDirection: "row", gap: spacing.sm }}>
-      <IconButton
-        appearance="secondary"
-        label="Settings"
-        icon="gear"
+      <AppButton
+        icon="pen"
+        label="Details"
+        accessibilityLabel="Workout name and duration"
         expanded={settingsOpen}
         disabled={busy}
         onPress={() => setSettingsOpen((previous) => !previous)}
@@ -164,17 +173,9 @@ export function SessionEditor({
       )}
     </>
   );
+  // The main action fills the row; discarding sits apart as red text, away from the thumb.
   const actions = (
-    <ButtonRow testID="workout-log-actions">
-      {session.status !== "completed" && (
-        <DeleteButton
-          label="Discard workout"
-          confirmAccessibilityLabel="Confirm discard workout"
-          onDelete={() => edit.run("discard")}
-          disabled={busy}
-          fill
-        />
-      )}
+    <View testID="workout-log-actions" style={{ gap: spacing.sm }}>
       <AppButton
         label={
           active
@@ -186,9 +187,19 @@ export function SessionEditor({
         onPress={() => void edit.run(active || session.status === "planned" ? "complete" : "save")}
         primary
         disabled={busy}
-        fill
       />
-    </ButtonRow>
+      {session.status !== "completed" && (
+        <View style={{ alignItems: "center" }}>
+          <DeleteButton
+            label="Discard workout"
+            confirmAccessibilityLabel="Confirm discard workout"
+            onDelete={() => edit.run("discard")}
+            disabled={busy}
+            link
+          />
+        </View>
+      )}
+    </View>
   );
   return (
     <Panel testID="session-editor">
@@ -198,7 +209,8 @@ export function SessionEditor({
             {draft.name}
           </AppText>
           <AppText variant="caption" muted>
-            {draft.exercises.length} exercises · {session.date}
+            {draft.exercises.length} {draft.exercises.length === 1 ? "exercise" : "exercises"} ·
+            Planned
           </AppText>
           <ButtonRow>
             <AppButton
@@ -218,7 +230,9 @@ export function SessionEditor({
             />
           </ButtonRow>
           <AppButton
-            label="Settings"
+            link
+            icon="gear"
+            label="Workout settings"
             expanded={settingsOpen}
             onPress={() =>
               void editing.requestView({ kind: "session", id: session.id, settings: true })

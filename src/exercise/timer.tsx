@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { View } from "react-native";
 import { AppText } from "../components/ui";
 import { elapsedSeconds, type WorkoutSession } from "./model";
 
@@ -11,13 +12,17 @@ export function ActiveWorkoutTimer({ session }: { session: WorkoutSession }) {
   }, [session.id]);
   const elapsed = elapsedSeconds(session, now);
   return (
-    <AppText
-      testID="active-workout-timer"
-      variant="heading"
-      accessibilityLabel="Elapsed workout time"
-      style={{ fontVariant: ["tabular-nums"], textAlign: "right" }}
-    >
-      {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}
-    </AppText>
+    <View>
+      <AppText variant="label" muted>
+        Elapsed
+      </AppText>
+      <AppText
+        testID="active-workout-timer"
+        variant="hero"
+        accessibilityLabel="Elapsed workout time"
+      >
+        {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}
+      </AppText>
+    </View>
   );
 }

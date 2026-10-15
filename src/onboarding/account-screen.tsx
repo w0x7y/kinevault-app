@@ -127,6 +127,17 @@ export function AccountScreen({
             gap: spacing.layout,
           }}
         >
+          {mode !== "recover" && (
+            <View style={{ alignItems: "flex-start" }}>
+              <Button
+                label="Back"
+                link
+                icon="chevron-left"
+                disabled={busy}
+                onPress={() => leave(onBack)}
+              />
+            </View>
+          )}
           <View style={{ alignItems: "center", gap: spacing.layout }}>
             <Kine size={120} pose="welcome" />
             <AppText
@@ -156,9 +167,7 @@ export function AccountScreen({
                 style={{
                   gap: spacing.layout,
                   padding: spacing.layout,
-                  borderRadius: radius.control,
-                  borderWidth: 1,
-                  borderColor: colors.primary,
+                  borderRadius: radius.panel,
                   backgroundColor: colors.card,
                 }}
               >
@@ -189,7 +198,7 @@ export function AccountScreen({
               />
               <Button
                 label="Use a different email"
-                secondary
+                link
                 disabled={busy}
                 onPress={() => changeMode("create")}
               />
@@ -200,7 +209,13 @@ export function AccountScreen({
                 <View
                   accessibilityRole="tablist"
                   accessibilityLabel="Account options"
-                  style={{ flexDirection: "row", gap: spacing.sm }}
+                  style={{
+                    flexDirection: "row",
+                    gap: spacing.xs,
+                    padding: spacing.xs,
+                    borderRadius: radius.control,
+                    backgroundColor: colors.secondary,
+                  }}
                 >
                   {(["create", "login"] as const).map((option) => (
                     <Pressable
@@ -211,19 +226,17 @@ export function AccountScreen({
                       onPress={() => changeMode(option)}
                       style={({ pressed }) => ({
                         flex: 1,
-                        minHeight: 48,
-                        padding: spacing.layout,
+                        minHeight: 44,
+                        padding: spacing.sm,
                         justifyContent: "center",
                         alignItems: "center",
-                        borderRadius: radius.control,
-                        borderWidth: 1,
-                        borderColor: mode === option ? colors.primary : colors.border,
-                        backgroundColor: mode === option ? colors.accent : colors.card,
+                        borderRadius: radius.control - 4,
+                        backgroundColor: mode === option ? colors.card : "transparent",
                         opacity: busy ? 0.55 : pressed ? 0.8 : 1,
                       })}
                     >
                       <AppText variant="label" style={{ textAlign: "center" }}>
-                        {option === "create" ? "Create account" : "Log in"}
+                        {option === "create" ? "Sign up" : "Log in"}
                       </AppText>
                     </Pressable>
                   ))}
@@ -325,7 +338,7 @@ export function AccountScreen({
                 {mode === "recover" && (
                   <Button
                     label="Back to log in"
-                    secondary
+                    link
                     disabled={busy}
                     onPress={() => changeMode("login")}
                   />
@@ -349,15 +362,6 @@ export function AccountScreen({
               <AppText accessibilityRole="alert">
                 Account connection is unavailable. Please configure Supabase and restart Track.
               </AppText>
-            )}
-            {mode !== "recover" && (
-              <Button
-                label="Back"
-                secondary
-                icon="arrow-left"
-                disabled={busy}
-                onPress={() => leave(onBack)}
-              />
             )}
           </View>
         </ScrollView>

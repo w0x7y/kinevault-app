@@ -221,11 +221,17 @@ export function WorkoutForm({
         disabled={busy}
       />
       {exercises.length === 0 ? (
-        <AppText muted>Create an exercise first, then return to build your workout.</AppText>
+        <AppText variant="caption" muted>
+          Create an exercise first, then return to build your workout.
+        </AppText>
       ) : !search ? (
-        <AppText muted>Search by name, muscle group, equipment, or notes to add exercises.</AppText>
+        <AppText variant="caption" muted>
+          Search by name, muscle group, equipment, or notes to add exercises.
+        </AppText>
       ) : available.length === 0 ? (
-        <AppText muted>No available exercises match your search.</AppText>
+        <AppText variant="caption" muted>
+          No available exercises match your search.
+        </AppText>
       ) : null}
       {available.slice(0, limit).map((item) => (
         <AppButton
@@ -248,7 +254,7 @@ export function WorkoutForm({
       )}
       <AppText variant="label">Exercise order</AppText>
       {draft.rows.length === 0 && (
-        <AppText muted>
+        <AppText variant="caption" muted>
           Search above to choose exercises, then set how many sets you plan to do.
         </AppText>
       )}
@@ -300,10 +306,10 @@ export function WorkoutForm({
         testID={workout ? "template-workout-workspace" : "create-workout-workspace"}
         headerActions={
           <View style={{ flexDirection: "row", gap: spacing.sm }}>
-            <IconButton
-              appearance="secondary"
-              label="Settings"
-              icon="gear"
+            <AppButton
+              icon="list"
+              label="Exercises"
+              accessibilityLabel="Name and exercises"
               expanded={settingsOpen}
               onPress={() => setSettingsOpen((value) => !value)}
               disabled={busy}
@@ -392,10 +398,10 @@ export function WorkoutForm({
             <ExerciseDemoSlot exercise={selectedExercise} label={rowLabel} disabled={busy} />
           </>
         ) : (
-          <AppText muted>
+          <AppText variant="caption" muted>
             {settingsOpen
               ? "Choose exercises above to set their planned sets."
-              : "Open Settings to add exercises to this workout."}
+              : "Open Exercises to add exercises to this workout."}
           </AppText>
         )}
       </WorkoutWorkspace>

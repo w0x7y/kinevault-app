@@ -21,18 +21,18 @@ evidence from earlier revisions, rather than current status.
   Support and Feedback. Profile opens the personal journal; the other entries
   are disabled and marked Upcoming.
 - Daily layouts for nutrition, workouts, steps, water, and five meal sections.
-  Kine uses the same even split and size beside Home macros, Food/Exercise
-  action buttons, and the Settings title. Macro counts sit beside their labels.
-  A full-width calorie count and progress bar sit below Home’s macro/Kine row.
-  Carbs use amber, protein blue, and fat purple in the macro breakdown and
-  stacked calorie bar. The macro rows center vertically beside Kine.
-  Food and Exercise place their search fields below their action/Kine rows.
+  Kine appears on Home only, in an even split beside the macros. Macro counts sit
+  beside their labels. A full-width calorie count and progress bar sit below
+  Home’s macro/Kine row. Carbs use amber, protein blue, and fat purple in the
+  macro breakdown and stacked calorie bar.
+  Food and Exercise start with search, then three labelled action tiles.
   Workout details list completed exercises with sets, reps, and actual weight ranges.
   Food records can be logged to a meal on the selected day. Exercise supports
   user-created exercises, reusable workouts, and multiple workout logs per day.
   Steps displays Not connected until a step source is implemented.
 - Shared 12px screen margins, panel padding, and gaps across tabs and onboarding.
-- Comfortaa typography, Font Awesome 6 icons, and shared themed components.
+- Comfortaa titles, Nunito text and tabular figures, Font Awesome 6 icons, and
+  shared themed components.
 - System, Light, and Dark appearance, saved locally on the device.
 - English copy, metric units, safe-area layout, and scalable text.
 - Empty states, a missing-route recovery screen, and root crash recovery with Reload.

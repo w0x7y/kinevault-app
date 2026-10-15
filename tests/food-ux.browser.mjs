@@ -97,7 +97,7 @@ async function expectCatalogSaved(page) {
   assert.equal(await page.getByRole("dialog").count(), 0);
 }
 async function scan(page, code) {
-  await button(page, "Scan food barcode").click();
+  await button(page, "Scan barcode").click();
   await heading(page, "Scan food barcode");
   await field(page, "Product barcode").fill(code);
   await button(page, "Look up barcode").click();
@@ -116,13 +116,13 @@ const json = (route, body, status = 200) =>
 
 test("food and meal drafts survive global navigation, discard and successful save", async (t) => {
   const page = await open(t);
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   await field(page, "Food name").fill("Retained oats");
   await fillMacros(page);
   await button(page, "More nutrients").click();
   await field(page, "Sodium (mg)").fill("123");
   await field(page, "Search foods").fill("apple");
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   assert.equal(await field(page, "Food name").inputValue(), "Retained oats");
   if (!(await field(page, "Sodium (mg)").count())) await button(page, "More nutrients").click();
   assert.equal(await field(page, "Sodium (mg)").inputValue(), "123");
@@ -135,7 +135,7 @@ test("food and meal drafts survive global navigation, discard and successful sav
   assert.equal(await field(page, "Food name").inputValue(), "Edited draft oats");
   await button(page, "Cancel").click();
   assert.equal(await button(page, "Resume draft: Edited draft oats").count(), 0);
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   assert.equal(await field(page, "Food name").inputValue(), "");
   await page
     .getByTestId("food-creation-switch")
@@ -149,14 +149,14 @@ test("food and meal drafts survive global navigation, discard and successful sav
   await button(page, "More nutrients").click();
   await field(page, "Sodium (mg)").fill("45");
   await field(page, "Search foods").fill("apple");
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   assert.equal(await field(page, "Meal name").inputValue(), "Retained bowl");
   assert.equal(await field(page, "Amount for Retained oats (g)").inputValue(), "75");
   assert.equal(await field(page, "Calories (kcal)").inputValue(), "321");
   if (!(await field(page, "Sodium (mg)").count())) await button(page, "More nutrients").click();
   assert.equal(await field(page, "Sodium (mg)").inputValue(), "45");
   await button(page, "Cancel").click();
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   assert.equal(await field(page, "Meal name").inputValue(), "");
   assert.equal(await field(page, "Amount for Retained oats (g)").count(), 0);
 });
@@ -393,11 +393,11 @@ test("detail meal choice retains Snacks through barcode review resume and catalo
 test("Lunch creation saves inline without intake and destination remains changeable", async (t) => {
   const page = await open(t);
   await chooseDestination(page, "Lunch");
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   await field(page, "Food name").fill("Lunch oats");
   await fillMacros(page);
   await field(page, "Search foods").fill("banana");
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   await button(page, "Save food").click();
   await expectCatalogSaved(page);
   assert.deepEqual(await intake(page), []);
@@ -473,7 +473,7 @@ for (const mode of ["barcode", "manual barcode"]) {
 
 async function createLunchFood(page) {
   await chooseDestination(page, "Lunch");
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   await field(page, "Food name").fill("Destination oats");
   await fillMacros(page);
   await button(page, "Save food").click();
@@ -654,11 +654,11 @@ for (const kind of ["food", "meal"]) {
 test("saving each creation retires only that draft across food and meal switches", async (t) => {
   const page = await open(t);
   await chooseDestination(page, "Lunch");
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   await field(page, "Food name").fill("Independent lunch oats");
   await fillMacros(page);
   await chooseDestination(page, "Dinner");
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   await page
     .getByTestId("food-creation-switch")
     .getByRole("button", { name: "Meal", exact: true })
@@ -675,7 +675,7 @@ test("saving each creation retires only that draft across food and meal switches
   await button(page, "Save food").click();
   await expectCatalogSaved(page);
   assert.equal(await button(page, "Lunch").getAttribute("aria-pressed"), "true");
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   assert.equal(await field(page, "Food name").inputValue(), "");
   await page
     .getByTestId("food-creation-switch")
@@ -688,6 +688,6 @@ test("saving each creation retires only that draft across food and meal switches
   assert.equal((await catalog(page)).foods.length, 1);
   assert.equal((await catalog(page)).meals.length, 1);
   assert.deepEqual(await intake(page), []);
-  await button(page, "Create food/meal").click();
+  await button(page, "Create food or meal").click();
   assert.equal(await field(page, "Meal name").inputValue(), "");
 });

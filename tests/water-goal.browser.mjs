@@ -539,7 +539,7 @@ test("Food and daily macros remain usable while water and goal sources are unava
     assert.equal(await page.getByTestId("home-water-amount").textContent(), "—");
     await tab(page, "Food");
     await page.getByTestId("meal-breakfast").getByText(entry.name, { exact: true }).waitFor();
-    await button(page, "View macros for the day").click();
+    await button(page, "Daily macros").click();
     await page
       .getByTestId("daily-nutrient-calories")
       .getByTestId("nutrient-value")

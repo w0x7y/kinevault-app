@@ -1,3 +1,4 @@
+import { useFocusRing } from "../components/focus-ring";
 import { AppButton } from "../components/button";
 import { useMemo, useState } from "react";
 import { Keyboard, Pressable, View, type ViewProps } from "react-native";
@@ -18,7 +19,7 @@ function ExerciseResult({
   onSelect: () => void;
 }) {
   const { colors } = useTheme();
-  const [focused, setFocused] = useState(false);
+  const { focused, onFocus, onBlur } = useFocusRing();
   const metadata = [exercise.muscleGroup, exercise.equipment].filter(Boolean).join(" · ");
   return (
     <Pressable
@@ -27,16 +28,18 @@ function ExerciseResult({
       accessibilityLabel={`Edit exercise ${exercise.name}`}
       accessibilityHint="Edit this exercise in your library"
       onPress={onSelect}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      onFocus={onFocus}
+      onBlur={onBlur}
       style={({ pressed }) => ({
-        minHeight: 88,
-        padding: spacing.layout,
-        gap: spacing.xs,
-        borderWidth: 1,
+        minHeight: 72,
+        marginHorizontal: -spacing.sm,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.sm,
+        gap: 2,
+        borderWidth: 2,
         borderRadius: radius.control,
-        borderColor: focused ? colors.ring : colors.border,
-        backgroundColor: pressed ? colors.accent : colors.background,
+        borderColor: focused ? colors.ring : "transparent",
+        backgroundColor: pressed ? colors.accent : "transparent",
       })}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
@@ -73,7 +76,6 @@ export function ExerciseSearchResults({
   onLayout: ViewProps["onLayout"];
   onNavigate: () => void;
 }) {
-  const { colors } = useTheme();
   const [page, setPage] = useState(0);
   const normalized = query.trim().toLocaleLowerCase();
   const matches = useMemo(
@@ -138,7 +140,7 @@ export function ExerciseSearchResults({
           </View>
         </View>
       )}
-      <View style={{ borderTopWidth: 1, borderColor: colors.border, paddingTop: spacing.layout }}>
+      <View>
         <AppText variant="caption" muted selectable>
           Your exercise library · Saved on this device
         </AppText>

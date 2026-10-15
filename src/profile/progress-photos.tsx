@@ -83,7 +83,30 @@ export function ProgressPhotos({
         <SourceStatus name="profile media" kind={media.state.kind} retry={media.retryLoad} />
       ) : (
         <>
-          {recent ? (
+          {recent && !first && !latest ? (
+            <Pressable
+              testID="profile-comparison-empty"
+              accessibilityRole="button"
+              accessibilityLabel="Add progress photos in your photo journal"
+              onPress={openPhotos}
+              disabled={!openPhotos}
+              style={({ pressed }) => ({
+                minHeight: 56,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                padding: 12,
+                borderRadius: 14,
+                backgroundColor: pressed ? colors.accent : colors.card,
+              })}
+            >
+              <Icon name="image" size={18} color={colors.primary} />
+              <JournalText size={14} style={{ flex: 1 }}>
+                Add progress photos to compare your first and latest.
+              </JournalText>
+              <Icon name="chevron-right" size={14} color={colors.mutedForeground} />
+            </Pressable>
+          ) : recent ? (
             <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
               {[
                 { label: "First", photo: first, testID: "profile-comparison-first" },
@@ -113,9 +136,19 @@ export function ProgressPhotos({
           ) : (
             <>
               {photos.length === 0 ? (
-                <View style={{ marginTop: 4, marginBottom: 15 }}>
-                  {photoWell(undefined, true)}
-                  <JournalText size={10} muted style={{ marginTop: 7 }}>
+                <View
+                  style={{
+                    marginTop: 4,
+                    marginBottom: 12,
+                    paddingVertical: 24,
+                    alignItems: "center",
+                    gap: 8,
+                    borderRadius: 14,
+                    backgroundColor: colors.card,
+                  }}
+                >
+                  <Icon name="image" size={22} color={colors.mutedForeground} />
+                  <JournalText size={14} muted style={{ textAlign: "center" }}>
                     Your photo journal starts here.
                   </JournalText>
                 </View>

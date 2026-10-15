@@ -2,7 +2,6 @@ import { useState, type Ref } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import { AppText } from "../components/ui";
 import { Icon, type IconName } from "../components/icon";
-import { KineSplitRow } from "../components/kine-split-row";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 
@@ -37,21 +36,28 @@ export function SearchActions(props: SearchActionsProps) {
   const actions: {
     label: string;
     icon: IconName;
-    hint?: string;
-    onPress?: () => void;
-    disabled?: boolean;
+    hint: string;
+    onPress: () => void;
+    disabled: boolean;
   }[] =
     props.kind === "food"
       ? [
           {
-            label: "Create food/meal",
+            label: "Scan barcode",
+            icon: "barcode",
+            onPress: props.onScanBarcode,
+            disabled: props.createDisabled,
+            hint: "Opens the camera or manual barcode entry",
+          },
+          {
+            label: "Create food or meal",
             icon: "circle-plus",
             onPress: props.onCreateItem,
             disabled: props.createDisabled,
             hint: "Create a reusable food or a meal made from foods",
           },
           {
-            label: "View macros for the day",
+            label: "Daily macros",
             icon: "chart-pie",
             onPress: props.onViewMacros,
             disabled: props.macrosDisabled,
@@ -60,18 +66,25 @@ export function SearchActions(props: SearchActionsProps) {
         ]
       : [
           {
-            label: "Create Exercise",
-            icon: "circle-plus",
-            onPress: props.onCreateExercise,
+            label: "Saved workouts",
+            icon: "clipboard-list",
+            onPress: props.onSavedWorkouts,
             disabled: props.disabled,
-            hint: "Create an exercise in your local library",
+            hint: "Choose a saved workout to plan on the selected day",
           },
           {
-            label: "Create Workouts",
-            icon: "clipboard-list",
+            label: "Create workout",
+            icon: "circle-plus",
             onPress: props.onCreateWorkout,
             disabled: props.disabled,
             hint: "Create an ordered reusable workout",
+          },
+          {
+            label: "Create exercise",
+            icon: "dumbbell",
+            onPress: props.onCreateExercise,
+            disabled: props.disabled,
+            hint: "Create an exercise in your local library",
           },
         ];
   const searchBox = (
@@ -82,9 +95,9 @@ export function SearchActions(props: SearchActionsProps) {
         alignItems: "center",
         gap: spacing.xs,
         paddingHorizontal: spacing.sm,
-        borderWidth: 1,
+        borderWidth: focused ? 2 : 1,
         borderRadius: radius.control,
-        borderColor: focused ? colors.ring : colors.border,
+        borderColor: focused ? colors.ring : colors.input,
         backgroundColor: colors.card,
       }}
     >
@@ -114,7 +127,7 @@ export function SearchActions(props: SearchActionsProps) {
           paddingVertical: spacing.layout,
           color: colors.foreground,
           fontFamily: fonts.regular,
-          fontSize: 15,
+          fontSize: 16,
           outlineWidth: 0,
           outlineStyle: "solid",
         }}
@@ -141,97 +154,38 @@ export function SearchActions(props: SearchActionsProps) {
   );
   return (
     <View testID={`${kind}-search-actions`} style={{ gap: spacing.layout }}>
-      <KineSplitRow pose={kind} testIDPrefix={kind}>
-        <View style={{ flexGrow: 1, flexShrink: 0, gap: spacing.layout }}>
-          {actions.map((action) => (
-            <Pressable
-              key={action.label}
-              accessibilityRole="button"
-              accessibilityLabel={action.label}
-              accessibilityState={{ disabled: !action.onPress || action.disabled }}
-              accessibilityHint={action.hint ?? "Coming soon"}
-              disabled={!action.onPress || action.disabled}
-              onPress={action.onPress}
-              style={({ pressed }) => ({
-                flexGrow: 1,
-                minHeight: 72,
-                paddingHorizontal: spacing.layout,
-                paddingTop: spacing.layout * 2,
-                paddingBottom: spacing.layout * 2,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: radius.control,
-                borderWidth: 1,
-                borderColor: colors.border,
-                backgroundColor: pressed ? colors.accent : colors.secondary,
-              })}
-            >
-              <View style={{ position: "absolute", left: 8, top: 8 }}>
-                <Icon name={action.icon} size={12} color={colors.secondaryForeground} />
-              </View>
-              <AppText
-                variant="label"
-                style={{ color: colors.secondaryForeground, textAlign: "center", width: "100%" }}
-              >
-                {action.label}
-              </AppText>
-            </Pressable>
-          ))}
-        </View>
-      </KineSplitRow>
-      {props.kind === "food" ? (
-        <View style={{ flexDirection: "row", alignItems: "stretch", gap: spacing.layout }}>
-          <View style={{ flex: 3, minWidth: 0 }}>{searchBox}</View>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Scan food barcode"
-              accessibilityHint="Opens the camera or manual barcode entry"
-              accessibilityState={{ disabled: props.createDisabled }}
-              disabled={props.createDisabled}
-              onPress={props.onScanBarcode}
-              style={({ pressed }) => ({
-                flex: 1,
-                minHeight: 52,
-                alignItems: "center",
-                justifyContent: "center",
-                borderWidth: 1,
-                borderColor: colors.border,
-                borderRadius: radius.control,
-                backgroundColor: pressed ? colors.accent : colors.secondary,
-              })}
-            >
-              <Icon name="barcode" size={18} color={colors.secondaryForeground} />
-            </Pressable>
-          </View>
-        </View>
-      ) : (
-        <View style={{ flexDirection: "row", alignItems: "stretch", gap: spacing.layout }}>
-          <View style={{ flex: 3, minWidth: 0 }}>{searchBox}</View>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Saved workouts"
-              accessibilityHint="Choose a saved workout to plan on the selected day"
-              accessibilityState={{ disabled: props.disabled }}
-              disabled={props.disabled}
-              onPress={props.onSavedWorkouts}
-              style={({ pressed }) => ({
-                flex: 1,
-                minHeight: 52,
-                alignItems: "center",
-                justifyContent: "center",
-                borderWidth: 1,
-                borderColor: colors.border,
-                borderRadius: radius.control,
-                backgroundColor: pressed ? colors.accent : colors.secondary,
-              })}
-            >
-              <Icon name="clipboard-list" size={18} color={colors.secondaryForeground} />
-            </Pressable>
-          </View>
-        </View>
-      )}
+      {searchBox}
+      <View style={{ flexDirection: "row", gap: spacing.sm }}>
+        {actions.map((action) => (
+          <Pressable
+            key={action.label}
+            accessibilityRole="button"
+            accessibilityLabel={action.label}
+            accessibilityState={{ disabled: action.disabled }}
+            accessibilityHint={action.hint}
+            disabled={action.disabled}
+            onPress={action.onPress}
+            style={({ pressed }) => ({
+              flex: 1,
+              minWidth: 0,
+              minHeight: 76,
+              paddingHorizontal: spacing.sm,
+              paddingVertical: spacing.layout,
+              alignItems: "center",
+              justifyContent: "flex-start",
+              gap: spacing.sm,
+              borderRadius: radius.control,
+              backgroundColor: pressed ? colors.accent : colors.card,
+              opacity: action.disabled ? 0.5 : 1,
+            })}
+          >
+            <Icon name={action.icon} size={18} color={colors.primary} />
+            <AppText variant="label" style={{ color: colors.foreground, textAlign: "center" }}>
+              {action.label}
+            </AppText>
+          </Pressable>
+        ))}
+      </View>
     </View>
   );
 }

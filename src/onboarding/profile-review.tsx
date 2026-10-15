@@ -1,11 +1,11 @@
 import { calorieState } from "../profile/calories";
 import { macroTargets } from "../profile/macros";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Icon } from "../components/icon";
 import { AppText } from "../components/ui";
 import { activities, goals, type Answers, type EditableStep } from "../profile/answers";
 import { useTheme } from "../theme/provider";
-import { spacing } from "../theme/tokens";
-import { Button } from "./controls";
+import { radius, spacing } from "../theme/tokens";
 
 export function ProfileReview({
   answers,
@@ -68,41 +68,49 @@ export function ProfileReview({
   ];
   const { colors } = useTheme();
   return (
-    <View>
-      {rows.map(({ label, value, step }, index) => (
-        <View
-          key={label}
-          style={{
-            paddingVertical: spacing.layout,
-            borderBottomWidth: index === rows.length - 1 ? 0 : 1,
-            borderColor: colors.border,
-            gap: 8,
-          }}
-        >
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: spacing.layout,
-            }}
-          >
-            <View style={{ flex: 1, gap: 4 }}>
+    <View style={{ gap: spacing.sm }}>
+      {rows.map(({ label, value, step }) => {
+        const content = (
+          <>
+            <View style={{ flex: 1, gap: 2 }}>
               <AppText variant="label">{label}</AppText>
               <AppText muted>{value}</AppText>
             </View>
-            {edit && (
-              <Button
-                label={`Edit ${label.toLowerCase()}`}
-                icon="pen"
-                secondary
-                onPress={() => edit(step)}
-                disabled={disabled}
-              />
-            )}
+            {edit && <Icon name="chevron-right" size={14} color={colors.mutedForeground} />}
+          </>
+        );
+        return edit ? (
+          <Pressable
+            key={label}
+            accessibilityRole="button"
+            accessibilityLabel={`Edit ${label.toLowerCase()}`}
+            accessibilityHint={value}
+            accessibilityState={{ disabled }}
+            disabled={disabled}
+            onPress={() => edit(step)}
+            style={({ pressed }) => ({
+              ...rowStyle,
+              backgroundColor: pressed ? colors.accent : colors.card,
+              opacity: disabled ? 0.55 : 1,
+            })}
+          >
+            {content}
+          </Pressable>
+        ) : (
+          <View key={label} style={{ ...rowStyle, backgroundColor: colors.card }}>
+            {content}
           </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
+
+const rowStyle = {
+  minHeight: 56,
+  padding: spacing.layout,
+  borderRadius: radius.control,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: spacing.layout,
+} as const;

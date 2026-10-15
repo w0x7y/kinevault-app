@@ -4,7 +4,7 @@ Design reference for KineVault Track, the Expo app in `Application/`, and its
 separate [KineVault studio](https://github.com/arielhagay10-ui/KineVault).
 The supplied studio reference below describes its working source on
 **30 September 2026**; its measurements assume a 16px root font size.
-The Application summary records the implementation on **4 October 2026**.
+The Application summary records the implementation on **15 October 2026**.
 Preserve scalable text in both products.
 
 Outside the Application summary and explicitly labeled companion notes,
@@ -17,17 +17,29 @@ reference patterns, not implemented companion features.
 ## Current Application implementation
 
 - Use the shared light/dark palette and radii from
-  [theme tokens](src/theme/tokens.ts). Comfortaa 400/500/600 covers text,
-  inputs, and navigation. The shared [Icon](src/components/icon.tsx) uses
-  Font Awesome 6; decorative icons are hidden and icon-only controls are named.
+  [theme tokens](src/theme/tokens.ts). Comfortaa 600 sets titles and headings only;
+  Nunito 400–700 sets body text, labels, inputs, navigation and every figure, and its
+  digits are tabular so numbers line up. Five sizes do the visible work: 44 for the one
+  leading figure on a screen, 28 titles, 20 headings, 16 body and 14 labels and captions.
+  The shared [Icon](src/components/icon.tsx) uses Font Awesome 6; decorative icons are
+  hidden and icon-only controls are named.
+- Cards have no outline. White cards sit on a slightly darker ground and separate by
+  tone; cards are not nested inside cards, and lists inside a card are flat rows. Lines
+  remain only in real data tables (the daily nutrient list and completed exercises).
+  Inputs keep a 1px outline as controls. Focus rings follow keyboard focus only.
+- One button hierarchy: primary is filled slate; secondary is tinted with no outline;
+  a destructive action starts as red text and becomes a filled red button only on its
+  confirming tap; Back, Cancel and Close are text links with a chevron, placed first.
 - Screen margins, panel padding, and gaps between cards or form groups are 12px.
   Local label/caption gaps remain 4–8px. Content is centered at a maximum 768px,
   including screen padding; touch targets remain at least 44px.
 - The compact top bar omits the app name. Its left chevron expands an inline
   seven-column, five-row calendar with the current week in the middle row.
   Home, Food, and Exercise share the selected local date; Settings and Profile
-  have no picker. The right slot uses the saved avatar or initials. Profile has
-  a back control and title. Bottom tabs retain their four names.
+  have no picker and show their name as the only title. The right slot uses the saved
+  avatar or initials on slate and opens the profile menu. Profile has a back control and
+  title. Bottom tabs retain their four names and stay within the 768px column on wide
+  windows.
 - Profile uses version 3, Personal journal, in
   [the layout reference](design/profile-prototype.html): centered avatar/name,
   goal/activity summary, and Overview, Goals, and Photos section controls.
@@ -40,10 +52,9 @@ reference patterns, not implemented companion features.
   Charts use the existing theme, distinct labelled Left/Right series, honest
   missing-data gaps, and equivalent readable values. Empty state has an optional
   add action; it never fills the gallery or chart with illustrative records.
-- Home, Food, Exercise, and Settings use the same [KineSplitRow](src/components/kine-split-row.tsx): two
-  equal columns separated by 12px, content left and Kine right. Kine has the same
-  responsive size for a given content width. Home uses the internal `today` pose;
-  Food, Exercise, and Settings use their matching poses.
+- Only Home shows Kine, in a [KineSplitRow](src/components/kine-split-row.tsx): two
+  equal columns separated by 12px, content left and Kine right, using the internal
+  `today` pose. Food, Exercise and Settings start with their content.
 - The [loading pose](src/components/kine-loading.tsx) holds a large hourglass
   with both hands. Center it while Home loads, and use compact instances for
   saved foods, water entry, and barcode lookup. Web startup uses the same pose.
@@ -51,31 +62,33 @@ reference patterns, not implemented companion features.
   errors retain their explanatory text and retry actions.
 - Home starts with carbs, protein, and fat progress to Kine's left, followed by
   a full-width calorie count and horizontal progress bar. Each macro count
-  shares its label's line above the bar. Workout volume, duration, sets, and reps
-  follow, then steps and water side by side. Widget header icons sit on the right.
+  shares its label's line above the bar. The workout card leads with total lifted,
+  then duration, sets and reps. Steps and water follow side by side.
   Water shows manual water plus saved Drinks volumes for the selected day.
   The tile says Includes Drinks; the manual entry form explains that Drinks
   are already included. Loading or unreadable water storage hides the total.
   Macro rows center vertically within their panel. Carbs, protein, and fat use
   their amber, blue, and purple theme tokens in labels, icons, progress fills,
   and the calorie bar's stacked segments. The unconsumed track stays neutral.
-- Food and Exercise begin with two centered-label action buttons to Kine's left,
-  followed by search. Food uses two controls, Search and Scan, with a 75/25 width split.
-  Scan keeps the existing secondary colors and touch target. Food and Meal buttons inside Create food/meal
-  switch creation forms. Create food/meal opens an inline panel for
+- Food and Exercise begin with search, then three equal tiles with the icon centred
+  above a sentence-case label: Scan barcode, Create food or meal and Daily macros on
+  Food; Saved workouts, Create workout and Create exercise on Exercise. Food and Meal
+  buttons inside Create food or meal switch creation forms. Create food or meal opens an inline panel for
   a food name, serving weight, and calories/macros per serving. Nutrition inputs
   form a wrapping two-column grid with the existing macro colors; Save food and
   Cancel are full-width controls. Validation and failed saves appear inline and
   preserve the draft. Saving opens the serving screen with an inline
   Saved to your foods message. Custom foods join
   search results with a Custom food category and a small person-and-pen icon
-  beside the name. Create Exercise and Create Workouts
+  beside the name. Create exercise and Create workout
   open working exercise and workout forms.
-  View macros for the day opens calories and progress above the
-  selected date's ordered nutrient list. The meal form adds foods through ingredient
+  Daily macros opens calories and progress above the
+  selected date's nutrient list; nutrients without data fold behind one control. The meal form adds foods through ingredient
   search, shows editable gram amounts and removal controls, and calculates whole-meal
   nutrition in the same input grid. Edited nutrition stays overridden until Use
-  calculated nutrition is chosen. Saved meals show Saved to your meals inline, with the same custom-item icon. Food searches the offline USDA, custom-food and saved-meal catalog; Exercise
+  calculated nutrition is chosen. Saved meals show Saved to your meals inline, with the same custom-item icon. Food searches the offline USDA, custom-food and saved-meal catalog. Foods from the
+  user's log come first, then [everyday foods](src/food/common-foods.ts), and animal
+  by-products such as feet or skin rank last unless typed; Exercise
   search filters the selected day's existing exercise rows.
 - Custom food and meal details place Edit and Delete controls below the name and
   category. Edit opens the matching prefilled form with Save food/meal changes
@@ -104,7 +117,9 @@ reference patterns, not implemented companion features.
   Exercise adds completed exercises with sets, reps, and actual load ranges;
   planned sets do not count as completed activity. Only saved food contributes
   to nutrition totals; other activity remains empty until its logging exists.
-- Settings places its title to Kine's left and keeps profile and appearance controls.
+- Settings starts with the account summary and ends with Account and data: export, log
+  out and delete account, apart from routine settings. Reminders are hidden on web.
+  Language, units and version share one caption at the bottom.
   Onboarding begins with welcome and goals before age confirmation, then profile
   questions and editable calorie/macro targets. Required account screens follow
   saving the final review. Automatic macros use 50% carbs,
@@ -239,9 +254,9 @@ The surrounding controls follow the app theme.
 Current studio font: **Geist**, loaded through `next/font/google`, Latin subset.
 Headings and body share the same sans-serif family. There is no separate display font.
 
-**Companion app:** as of 1 October 2026, use bundled Comfortaa at weights
-400, 500, and 600 for text, inputs, and navigation. Launcher and splash branding
-uses Comfortaa 700. The studio reference above retains Geist. Native platform
+**Companion app:** as of 15 October 2026, bundled Comfortaa 600 sets titles and
+headings, and bundled Nunito 400–700 sets text, inputs, navigation and figures.
+Launcher and splash branding uses Comfortaa 700. The studio reference above retains Geist. Native platform
 fonts are a fallback only if loading fails.
 The companion uses Font Awesome 6 through its shared Icon component.
 Decorative icons stay hidden from assistive technology; icon-only controls need labels.

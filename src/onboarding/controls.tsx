@@ -1,3 +1,4 @@
+import { useFocusRing } from "../components/focus-ring";
 import { Icon, type IconName } from "../components/icon";
 import { useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from "react-native";
@@ -5,11 +6,15 @@ import { AppText } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 
+/** Same hierarchy as AppButton: filled primary, tinted `secondary`, red-text `danger`,
+ * filled `destructive` for the confirming tap and text-only `link`. */
 export function Button({
   label,
   onPress,
   secondary = false,
   destructive = false,
+  danger = false,
+  link = false,
   disabled = false,
   icon,
 }: {
@@ -17,11 +22,23 @@ export function Button({
   onPress: () => void;
   secondary?: boolean;
   destructive?: boolean;
+  danger?: boolean;
+  link?: boolean;
   disabled?: boolean;
   icon?: IconName;
 }) {
   const { colors } = useTheme();
-  const [focused, setFocused] = useState(false);
+  const { focused, onFocus, onBlur } = useFocusRing();
+  const tinted = secondary || danger;
+  const foreground = destructive
+    ? colors.destructiveForeground
+    : danger
+      ? colors.danger
+      : link
+        ? colors.primary
+        : secondary
+          ? colors.secondaryForeground
+          : colors.primaryForeground;
   return (
     <Pressable
       accessibilityRole="button"
@@ -30,58 +47,34 @@ export function Button({
       aria-disabled={disabled}
       disabled={disabled}
       onPress={onPress}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      onFocus={onFocus}
+      onBlur={onBlur}
       style={({ pressed }) => ({
-        minHeight: 52,
-        padding: spacing.layout,
+        minHeight: link ? 44 : 52,
+        padding: link ? spacing.sm : spacing.layout,
         justifyContent: "center",
         alignItems: "center",
         flexDirection: "row",
         gap: 8,
         borderRadius: radius.control,
         borderWidth: 2,
-        borderColor: focused
-          ? colors.ring
-          : destructive
-            ? colors.destructive
-            : secondary
-              ? colors.border
-              : colors.primary,
+        borderColor: focused ? colors.ring : "transparent",
         backgroundColor: destructive
           ? colors.destructive
-          : secondary
+          : link
             ? pressed
               ? colors.accent
-              : colors.card
-            : colors.primary,
-        opacity: disabled ? 0.55 : pressed ? 0.8 : 1,
+              : "transparent"
+            : tinted
+              ? pressed
+                ? colors.accent
+                : colors.secondary
+              : colors.primary,
+        opacity: disabled ? 0.55 : pressed && !tinted && !link ? 0.8 : 1,
       })}
     >
-      {icon && (
-        <Icon
-          name={icon}
-          size={16}
-          color={
-            destructive
-              ? colors.destructiveForeground
-              : secondary
-                ? colors.foreground
-                : colors.primaryForeground
-          }
-        />
-      )}
-      <AppText
-        variant="label"
-        style={{
-          color: destructive
-            ? colors.destructiveForeground
-            : secondary
-              ? colors.foreground
-              : colors.primaryForeground,
-          flexShrink: 1,
-        }}
-      >
+      {icon && <Icon name={icon} size={16} color={foreground} />}
+      <AppText variant="label" style={{ color: foreground, flexShrink: 1 }}>
         {label}
       </AppText>
     </Pressable>
@@ -173,7 +166,7 @@ export function Choice({
   disabled?: boolean;
 }) {
   const { colors } = useTheme();
-  const [focused, setFocused] = useState(false);
+  const { focused, onFocus, onBlur } = useFocusRing();
   return (
     <Pressable
       accessibilityRole="radio"
@@ -183,8 +176,8 @@ export function Choice({
       aria-disabled={disabled}
       disabled={disabled}
       onPress={onPress}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      onFocus={onFocus}
+      onBlur={onBlur}
       style={({ pressed }) => ({
         minHeight: 58,
         padding: spacing.layout,

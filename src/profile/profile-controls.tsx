@@ -82,8 +82,7 @@ export function ProfileControls({
       accessibilityLabel="Profile sections"
       style={{
         flexDirection: "row",
-        borderBottomWidth: 1,
-        borderColor: colors.border,
+
         marginHorizontal: -12,
         paddingHorizontal: 12,
         marginBottom: 14,

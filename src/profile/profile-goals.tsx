@@ -63,18 +63,16 @@ export function TodayNutrition({ today, onPress }: { today: string; onPress: () 
       onPress={onPress}
       style={{
         padding: 12,
-        borderWidth: 1,
-        borderColor: colors.border,
         backgroundColor: colors.card,
-        borderRadius: 14,
+        borderRadius: 18,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
       }}
     >
       <View>
-        <JournalText size={11}>Today’s nutrition</JournalText>
-        <JournalText size={12} style={{ marginTop: 3 }}>
+        <JournalText variant="label">Today’s nutrition</JournalText>
+        <JournalText size={14} muted style={{ marginTop: 2 }}>
           {calories === null ? "Unavailable" : number(calories)} /{" "}
           {target === null ? "Not set" : number(target)} kcal
         </JournalText>
@@ -181,11 +179,7 @@ export function ProfileGoals({
         <View
           testID="profile-goal-water"
           accessibilityLabel={`${waterMl === null ? "Unavailable" : number(waterMl)} / ${waterTarget === null ? "Not set" : number(waterTarget)} ml`}
-          style={{
-            borderTopWidth: 1,
-            borderColor: colors.border,
-            paddingTop: 12,
-          }}
+          style={{ paddingTop: 12 }}
         >
           <Pressable
             accessibilityRole="button"
@@ -204,10 +198,10 @@ export function ProfileGoals({
               <JournalText size={11}>Water</JournalText>
             </View>
             <JournalText size={10}>
-              {waterMl === null ? "—" : number(waterMl / 1000)}
+              {waterMl === null ? "—" : number(waterMl)}
               <JournalText size={10} muted>
                 {" "}
-                / {waterTarget === null ? "Not set" : number(waterTarget / 1000)} L
+                / {waterTarget === null ? "Not set" : `${number(waterTarget)} ml`}
               </JournalText>
             </JournalText>
           </Pressable>
@@ -239,7 +233,7 @@ export function ProfileGoals({
             onPress={() => setChoosing(true)}
           />
         </JournalHeading>
-        {rows.map(([label, value], i) => (
+        {rows.map(([label, value]) => (
           <View
             key={label}
             style={{
@@ -247,9 +241,7 @@ export function ProfileGoals({
               alignItems: "center",
               justifyContent: "space-between",
               gap: 12,
-              paddingVertical: 9,
-              borderBottomWidth: i === rows.length - 1 ? 0 : 1,
-              borderColor: colors.border,
+              paddingVertical: 6,
             }}
           >
             <JournalText size={11} muted>

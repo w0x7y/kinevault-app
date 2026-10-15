@@ -3,6 +3,30 @@ import { drinkAliasesFor } from "./drink-aliases.ts";
 import type { CatalogFood } from "./catalog.ts";
 import { foodKey } from "./food-identity.ts";
 import { canonicalFoodSearchQuery } from "./search-query.ts";
+import { commonFoodNames } from "./common-foods.ts";
+
+const commonRank = new Map(commonFoodNames.map((name, index) => [name, index]));
+// Parts most people don't mean when they search for the animal.
+const byProducts = new Set(
+  ["feet", "foot", "skin", "tail", "back", "neck", "giblet", "gizzard", "liver", "heart"].concat([
+    "kidney",
+    "tongue",
+    "tripe",
+    "chitterling",
+    "ear",
+    "snout",
+    "hock",
+  ]),
+);
+
+/** True for "Chicken skin" or "Chicken, back", not for "Chicken breast, skin not eaten". */
+function isByProduct(name: string): boolean {
+  const [head = "", next = ""] = name.split(",");
+  const words = searchWords(head);
+  return (words.length > 1 ? words.slice(1) : searchWords(next)).some((word) =>
+    byProducts.has(word),
+  );
+}
 
 // Completed variants carry nutrition/preparation meaning. They cannot become
 // prefixes of a different word or participate in fuzzy matching.
@@ -304,9 +328,16 @@ export function createFoodSearch(foods: readonly CatalogFood[]) {
           tokenCount: entry.tokenCount,
         });
     }
+    const common = (match: FoodSearchMatch) =>
+      match.food.customId === undefined ? (commonRank.get(match.food.name) ?? Infinity) : Infinity;
+    // A common food that contains the query ranks with foods that start with it.
+    const tier = (match: FoodSearchMatch) =>
+      match.rank === 2 && common(match) !== Infinity ? 1 : match.rank;
     return [...matches.values()].sort(
       (a, b) =>
-        a.rank - b.rank ||
+        tier(a) - tier(b) ||
+        (common(a) === common(b) ? 0 : common(a) < common(b) ? -1 : 1) ||
+        Number(isByProduct(a.food.name)) - Number(isByProduct(b.food.name)) ||
         a.tokenCount - b.tokenCount ||
         a.food.name.length - b.food.name.length ||
         a.food.name.localeCompare(b.food.name) ||

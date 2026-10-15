@@ -3,11 +3,11 @@ import type { Meal } from "../daily/model";
 import { useMemo, useState } from "react";
 import { Keyboard, View, type ViewProps } from "react-native";
 import { AppText, Panel } from "../components/ui";
-import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import { foodKey, foodPageSize, type CatalogFood } from "./catalog.ts";
 import { foodSource } from "./database";
 import { useCustomFoods } from "./custom-provider";
+import { useFoodLog } from "./log-provider";
 import { FoodResult, genericDrinkNotice } from "./food-result";
 import { FoodNutritionDetail } from "./nutrition-detail";
 
@@ -28,13 +28,21 @@ export function FoodSearchResults({
   onLogged: () => void;
   onCatalogEditChange?: (editing: boolean) => void;
 }) {
-  const { colors } = useTheme();
   const { selection } = useCustomFoods();
+  const log = useFoodLog();
+  const days = log.state.kind === "ready" ? log.state.document.days : null;
+  const logged = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const entries of Object.values(days ?? {}))
+      for (const entry of entries)
+        counts.set(foodKey(entry), (counts.get(foodKey(entry)) ?? 0) + 1);
+    return counts;
+  }, [days]);
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<CatalogFood | null>(null);
   const result = useMemo(
-    () => selection.search({ purpose: "logging", query, page }),
-    [selection, query, page],
+    () => selection.search({ purpose: "logging", query, page, logged }),
+    [selection, query, page, logged],
   );
   const hasGenericMatches = result.rows.some((row) => row.genericMatch);
   if (page !== result.page) setPage(result.page);
@@ -49,7 +57,7 @@ export function FoodSearchResults({
     onNavigate();
   }
   return (
-    <Panel testID="food-catalog-results" onLayout={onLayout} style={{ gap: spacing.layout }}>
+    <Panel testID="food-catalog-results" onLayout={onLayout} style={{ gap: spacing.sm }}>
       {selected ? (
         <FoodNutritionDetail
           initialMeal={initialMeal}
@@ -113,7 +121,7 @@ export function FoodSearchResults({
           )}
         </>
       )}
-      <View style={{ borderTopWidth: 1, borderColor: colors.border, paddingTop: spacing.layout }}>
+      <View>
         <AppText variant="caption" muted selectable>
           {selectedItem?.kind === "meal"
             ? "Custom meal · Nutrition from ingredients and your overrides"

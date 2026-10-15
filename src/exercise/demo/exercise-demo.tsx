@@ -245,6 +245,8 @@ export function ExerciseDemoSlot({
   if (!onLinkDemo || !definition) return null;
   return (
     <AppButton
+      link
+      icon="link"
       label="Link demo"
       accessibilityLabel={`Link a KineVault demo to ${label}`}
       accessibilityHint="Opens this exercise's form at its KineVault search"

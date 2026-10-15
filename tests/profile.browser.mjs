@@ -109,7 +109,8 @@ async function open(t, options = {}) {
             version: 1,
             exercises: [],
             workouts: [],
-            sessions: [session],
+            // An earlier week gives the workout chart a trend to draw.
+            sessions: [{ ...session, id: "earlier-week", date: "2026-09-13" }, session],
             developmentExamplesSeeded: true,
           }),
         );
@@ -256,6 +257,12 @@ async function expectDateBelowPhoto(container, date) {
 async function expectComparison(page, firstDate, latestDate) {
   const comparison = page.getByTestId("profile-recent-photos");
   await comparison.getByRole("heading", { name: "Progress comparison", exact: true }).waitFor();
+  if (!firstDate && !latestDate) {
+    // With no photos the comparison collapses to one prompt instead of two empty panes.
+    await comparison.getByTestId("profile-comparison-empty").waitFor();
+    assert.equal(await comparison.getByRole("img").count(), 0);
+    return;
+  }
   assert.deepEqual(
     await comparison
       .getByRole("button")
@@ -439,7 +446,7 @@ test("focused editing validates, retains failed saves, merges latest values and 
   assert.equal(next.customCalories, "");
   assert.equal(next.sex, null);
   await page.getByRole("tab", { name: "Settings", exact: true }).click();
-  await page.getByText("Your profile", { exact: true }).waitFor();
+  await page.getByText("Edit profile", { exact: true }).waitFor();
 });
 test("real library uploads support dated notes, replacement, oldest/latest comparison, reload and confirmed removal", async (t) => {
   const page = await open(t);
@@ -1549,6 +1556,25 @@ test(
     await page.screenshot({ path: path.join(dir, "photos-scrolled.png") });
   },
 );
+
+test("one week of workouts explains the pending trend instead of plotting a lone point", async (t) => {
+  const page = await open(t);
+  await profile(page);
+  await page.evaluate(() => {
+    const key = "kinevault-track.exercise.v1",
+      doc = JSON.parse(window.accountFixture.getItem(key));
+    doc.sessions = doc.sessions.filter((session) => session.id !== "earlier-week");
+    window.accountFixture.setItem(key, JSON.stringify(doc));
+  });
+  await page.reload();
+  const pending = page.getByTestId("profile-workout-chart-pending");
+  await pending.waitFor();
+  assert.equal(
+    await pending.innerText(),
+    "Your trend appears after workouts in two different weeks.",
+  );
+  assert.equal(await button(page, "Select workout graph point").count(), 0);
+});
 
 test("weekly chart selection matches the plotted total and range menu closes with Escape", async (t) => {
   const page = await open(t);

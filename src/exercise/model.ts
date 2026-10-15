@@ -281,3 +281,20 @@ export function elapsedSeconds(session: WorkoutSession, now: number): number {
   if (!Number.isFinite(now)) throw new Error("Invalid current time");
   return Math.max(0, Math.floor((now - session.startedAt) / 1000));
 }
+
+/** Sets from the latest other completed workout with this exercise, on or before `session`'s day. */
+export function previousSets(
+  sessions: readonly WorkoutSession[],
+  session: Pick<WorkoutSession, "id" | "date">,
+  exerciseId: string,
+): ExerciseSet[] {
+  let latest: { date: string; sets: ExerciseSet[] } | null = null;
+  for (const other of sessions) {
+    if (other.id === session.id || other.status !== "completed" || other.date > session.date)
+      continue;
+    const row = other.exercises.find((item) => item.exercise.id === exerciseId);
+    if (row?.sets.length && (!latest || other.date > latest.date))
+      latest = { date: other.date, sets: row.sets };
+  }
+  return latest?.sets ?? [];
+}

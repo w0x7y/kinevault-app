@@ -1,7 +1,9 @@
 import "../theme/global.css";
-import { Comfortaa_400Regular } from "@expo-google-fonts/comfortaa/400Regular";
-import { Comfortaa_500Medium } from "@expo-google-fonts/comfortaa/500Medium";
 import { Comfortaa_600SemiBold } from "@expo-google-fonts/comfortaa/600SemiBold";
+import { Nunito_400Regular } from "@expo-google-fonts/nunito/400Regular";
+import { Nunito_500Medium } from "@expo-google-fonts/nunito/500Medium";
+import { Nunito_600SemiBold } from "@expo-google-fonts/nunito/600SemiBold";
+import { Nunito_700Bold } from "@expo-google-fonts/nunito/700Bold";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { useFonts } from "expo-font";
 import { Stack, useSegments } from "expo-router";
@@ -41,9 +43,11 @@ function RootNavigator() {
   const segments = useSegments();
   const authRoute = isPublicAccountRoute(segments);
   const [fontsLoaded, fontError] = useFonts({
-    Comfortaa_400Regular,
-    Comfortaa_500Medium,
     Comfortaa_600SemiBold,
+    Nunito_400Regular,
+    Nunito_500Medium,
+    Nunito_600SemiBold,
+    Nunito_700Bold,
     ...FontAwesome6.font,
   });
   const loaded =

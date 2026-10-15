@@ -58,6 +58,7 @@ export function DeleteButton({
   testID,
   hint,
   fill = false,
+  link = false,
 }: {
   label: string;
   accessibilityLabel?: string;
@@ -67,6 +68,8 @@ export function DeleteButton({
   testID?: string;
   hint?: string;
   fill?: boolean;
+  /** Starts as red text, for a destructive action that sits beside the main one. */
+  link?: boolean;
 }) {
   const { colors } = useTheme();
   const { armed, busy, failed, arm, disarm, confirm } = useDeleteConfirmation({
@@ -82,7 +85,9 @@ export function DeleteButton({
         accessibilityHint={hint}
         disabled={disabled || busy}
         busy={busy}
-        destructive
+        destructive={armed}
+        danger={!armed}
+        link={link && !armed}
         fill={fill}
         onPress={() => (armed ? void confirm() : arm())}
         onBlur={disarm}

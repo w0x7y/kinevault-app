@@ -38,10 +38,8 @@ function DemoResult({
         flexDirection: "row",
         alignItems: "center",
         gap: spacing.sm,
-        borderWidth: 1,
         borderRadius: radius.control,
-        borderColor: colors.border,
-        backgroundColor: pressed ? colors.accent : colors.background,
+        backgroundColor: pressed ? colors.accent : colors.secondary,
       })}
     >
       <DemoThumbnail link={entry} />

@@ -147,7 +147,7 @@ test("the entire water widget opens direct entry, cancel/invalid values never wr
   await water.getByRole("heading", { name: "Water", exact: true }).waitFor();
   // Use the edge of the widget so the whole tile's hit target is checked.
   await water.click({ position: { x: 5, y: 5 } });
-  await dialog(page).getByText("For 2026-10-01", { exact: true }).waitFor();
+  await dialog(page).getByText("For Thu, Oct 1", { exact: true }).waitFor();
   await field(page).fill("250");
   await button(dialog(page), "Cancel").click();
   assert.equal(await stored(page), null);
@@ -177,7 +177,7 @@ test("the entire water widget opens direct entry, cancel/invalid values never wr
   await button(page, "Select previous day").click();
   await button(page, "Collapse calendar").click();
   await enter(page);
-  await dialog(page).getByText("For 2026-09-30", { exact: true }).waitFor();
+  await dialog(page).getByText("For Wed, Sep 30", { exact: true }).waitFor();
   await field(page).fill("300");
   await save(page);
   assert.deepEqual(JSON.parse(await stored(page)).days, { "2026-10-01": 750, "2026-09-30": 300 });
@@ -273,7 +273,7 @@ test("a selected-day change closes the old draft and preloads the manual total f
   await button(page, "Collapse calendar").click();
   await enter(page);
   assert.equal(await field(page).inputValue(), "300");
-  await dialog(page).getByText("For 2026-09-30", { exact: true }).waitFor();
+  await dialog(page).getByText("For Wed, Sep 30", { exact: true }).waitFor();
   await button(dialog(page), "Cancel").click();
   assert.equal(await stored(page), initial);
 });
@@ -341,7 +341,7 @@ test("duplicate save taps stay blocked and a pending save targets its original d
   await dialog(page).waitFor({ state: "detached" });
   await button(page, "Collapse calendar").click();
   await enter(page);
-  await dialog(page).getByText("For 2026-09-30", { exact: true }).waitFor();
+  await dialog(page).getByText("For Wed, Sep 30", { exact: true }).waitFor();
   assert.equal(await field(page).inputValue(), "0");
   assert.equal(await button(dialog(page), "Save water").isDisabled(), true);
   await page.evaluate(() => window.__releaseWaterWrite());
@@ -352,7 +352,7 @@ test("duplicate save taps stay blocked and a pending save targets its original d
         .getAttribute("aria-disabled") !== "true",
   );
   // The old form's save completion must not dismiss the newly opened form.
-  await dialog(page).getByText("For 2026-09-30", { exact: true }).waitFor();
+  await dialog(page).getByText("For Wed, Sep 30", { exact: true }).waitFor();
   assert.deepEqual(JSON.parse(await stored(page)).days, { "2026-10-01": 500 });
   await button(dialog(page), "Cancel").click();
 });

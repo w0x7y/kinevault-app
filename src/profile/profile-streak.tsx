@@ -57,13 +57,6 @@ export function ProfileStreak({ today }: { today: string }) {
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 10,
-                  ...(i
-                    ? {
-                        borderLeftWidth: 1,
-                        borderColor: colors.border,
-                        paddingLeft: 12,
-                      }
-                    : {}),
                 }}
               >
                 <Icon name={item.icon} size={18} color={colors.primary} />
@@ -125,11 +118,7 @@ export function ProfileStreak({ today }: { today: string }) {
                       backgroundColor: day.logged ? colors.primary : colors.secondary,
                     }}
                   >
-                    <Icon
-                      name={day.logged ? "check" : "minus"}
-                      size={10}
-                      color={day.logged ? colors.primaryForeground : colors.mutedForeground}
-                    />
+                    {day.logged && <Icon name="check" size={12} color={colors.primaryForeground} />}
                   </View>
                 </View>
               </View>

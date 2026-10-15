@@ -265,7 +265,7 @@ test("linked exercises show a poster thumbnail in search", async (t) => {
 
 test("linking from the form fills blank fields and saves the link", async (t) => {
   const { page } = await open(t, documentWith([squat]));
-  await button(page, "Create Exercise").click();
+  await button(page, "Create exercise").click();
   const form = page.getByTestId("exercise-form");
   await field(form, "Exercise name").fill("Overhead press");
   await field(form, "Find in KineVault").fill("db overhead");
@@ -341,7 +341,7 @@ test("choosing a result moves focus to Change", async (t) => {
 
 test("linking a first demo moves focus to Change", async (t) => {
   const { page } = await open(t, documentWith([squat]));
-  await button(page, "Create Exercise").click();
+  await button(page, "Create exercise").click();
   const form = page.getByTestId("exercise-form");
   await field(form, "Find in KineVault").fill("db overhead");
   await button(form, "Link Dumbbell shoulder press").click();
@@ -493,7 +493,7 @@ test("an active workout keeps the selected exercise after Link demo", async (t) 
 
 test("a failed catalog load while online says demos are unavailable and offers Retry", async (t) => {
   const { page, fixture } = await open(t, documentWith([squat]), { catalogFailure: true });
-  await button(page, "Create Exercise").click();
+  await button(page, "Create exercise").click();
   const form = page.getByTestId("exercise-form");
   await form
     .getByText("KineVault demos aren't available right now. Try again later.", { exact: true })
@@ -506,7 +506,7 @@ test("a failed catalog load while online says demos are unavailable and offers R
 
 test("a failed catalog load while offline asks to connect in the form", async (t) => {
   const { page, fixture } = await open(t, documentWith([squat]), { catalogFailure: true });
-  await button(page, "Create Exercise").click();
+  await button(page, "Create exercise").click();
   const form = page.getByTestId("exercise-form");
   const unavailable = form.getByText(
     "KineVault demos aren't available right now. Try again later.",
@@ -553,7 +553,7 @@ async function expectRetrying(retry) {
 
 test("Retry in the form stays disabled until the catalog loads", async (t) => {
   const { page, fixture } = await open(t, documentWith([squat]), { catalogFailure: true });
-  await button(page, "Create Exercise").click();
+  await button(page, "Create exercise").click();
   const form = page.getByTestId("exercise-form");
   const retry = button(form, "Retry loading KineVault demos");
   await retry.waitFor();
@@ -629,7 +629,7 @@ async function expectLiveText(page, region, text) {
 
 test("the form's status line is one live region whose text changes", async (t) => {
   const { page } = await open(t, documentWith([squat]));
-  await button(page, "Create Exercise").click();
+  await button(page, "Create exercise").click();
   const form = page.getByTestId("exercise-form");
   const region = await liveRegion(form);
   await expectLiveText(page, region, "");
@@ -647,7 +647,7 @@ test("the form announces catalog messages in the same live region", async (t) =>
     catalogHeld: true,
     catalogFailure: true,
   });
-  await button(page, "Create Exercise").click();
+  await button(page, "Create exercise").click();
   const form = page.getByTestId("exercise-form");
   const region = await liveRegion(form);
   await expectLiveText(page, region, "");

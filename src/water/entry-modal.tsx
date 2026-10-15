@@ -1,3 +1,4 @@
+import { shortDayLabel } from "../calendar/dates";
 import { ButtonRow, AppButton } from "../components/button";
 import { useState } from "react";
 import { Modal, ScrollView, TextInput, View } from "react-native";
@@ -51,7 +52,7 @@ export function WaterEntryModal({ date, onDismiss }: { date: string; onDismiss: 
             <AppText variant="heading" accessibilityRole="header">
               Edit water
             </AppText>
-            <AppText muted>For {date}</AppText>
+            <AppText muted>For {shortDayLabel(date)}</AppText>
             <AppText variant="caption" muted>
               Edit manual water for this day. Drinks count separately in your Home total.
             </AppText>

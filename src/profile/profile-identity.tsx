@@ -17,7 +17,7 @@ import { Icon } from "../components/icon";
 import { JournalText } from "./journal-ui";
 import { ProfileName } from "./profile-name";
 
-export function ProfileAvatar({ size = 28, person = false }: { size?: number; person?: boolean }) {
+export function ProfileAvatar({ size = 32, person = false }: { size?: number; person?: boolean }) {
   const media = useProfileMedia(),
     profile = useProfile();
   const { colors } = useTheme();
@@ -45,7 +45,7 @@ export function ProfileAvatar({ size = 28, person = false }: { size?: number; pe
       style={[
         style,
         {
-          backgroundColor: colors.accent,
+          backgroundColor: person ? colors.accent : colors.primary,
           alignItems: "center",
           justifyContent: "center",
         },
@@ -54,7 +54,11 @@ export function ProfileAvatar({ size = 28, person = false }: { size?: number; pe
       {person ? (
         <Icon name="user" size={29} color={colors.primary} />
       ) : (
-        <JournalText size={size < 40 ? 11 : 24} style={{ color: colors.primary }}>
+        <JournalText
+          size={size < 40 ? 13 : 24}
+          variant="label"
+          style={{ color: colors.primaryForeground }}
+        >
           {initials}
         </JournalText>
       )}

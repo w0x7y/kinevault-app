@@ -66,7 +66,8 @@ async function openLoggedWorkout(page, name, completed = false, settings = true)
   ).click();
   const compact = page.getByTestId("session-editor").getByTestId("planned-workout-card");
   if (await compact.count()) await button(compact, "Log completed workout").click();
-  if (settings) await button(page.getByTestId("session-editor"), "Settings").click();
+  if (settings)
+    await button(page.getByTestId("session-editor"), "Workout name and duration").click();
 }
 
 async function open(
@@ -323,12 +324,12 @@ test("active timer restores elapsed time and drafts after reload and remains vis
 
 test("create exercises and ordered workouts, then add a planned session without starting a timer", async (t) => {
   const page = await open(t);
-  assert.equal(await button(page, "Create Exercise").isEnabled(), true);
+  assert.equal(await button(page, "Create exercise").isEnabled(), true);
   for (const [name, tracking] of [
     ["Curl", "Left and right"],
     ["Squat", "Single weight"],
   ]) {
-    await button(page, "Create Exercise").click();
+    await button(page, "Create exercise").click();
     const form = page.getByTestId("exercise-form");
     await field(form, "Exercise name").fill(name);
     await button(form, tracking).click();
@@ -339,7 +340,7 @@ test("create exercises and ordered workouts, then add a planned session without 
       name,
     );
   }
-  await button(page, "Create Workouts").click();
+  await button(page, "Create workout").click();
   const form = page.getByTestId("workout-form");
   await field(form, "Workout name").fill("Upper day");
   await field(form, "Search workout exercises").fill("Squat");
@@ -786,7 +787,7 @@ test("signed-in accounts retain exactly the supplied demo fixtures and preserve 
   assert.equal(seeded.exercises[2].tracking, "sides");
   assert.equal(seeded.workouts.length, 0);
   assert.equal(seeded.sessions.length, 0);
-  await button(page, "Create Workouts").click();
+  await button(page, "Create workout").click();
   for (const name of ["Squat", "Push-up", "Dumbbell curl"]) {
     await field(page, "Search workout exercises").fill(name);
     await button(page, `Add ${name} to workout`).waitFor();
@@ -876,7 +877,7 @@ test("Home Add workout opens the saved menu once with the selected date", async 
   });
   assert.match(page.url(), /\/exercise/);
   await button(menu, "Close saved workouts").click();
-  await button(page, "Create Exercise").click();
+  await button(page, "Create exercise").click();
   await field(page, "Exercise name").fill("Bench press");
   await button(page, "Save exercise").click();
   await storedWhen(page, (document) => document.exercises.length === 22);
@@ -976,8 +977,8 @@ test("Add workout is a button-only fallback that hides behind every Exercise vie
   assert.equal(await fallback.getByRole("heading").count(), 0);
   assert.doesNotMatch(await fallback.innerText(), /Workout of the day|No workout logged/);
   for (const [action, form] of [
-    ["Create Exercise", "exercise-form"],
-    ["Create Workouts", "workout-form"],
+    ["Create exercise", "exercise-form"],
+    ["Create workout", "workout-form"],
   ]) {
     await button(page, action).click();
     await page.getByTestId(form).waitFor();
@@ -1083,7 +1084,7 @@ test("workout creation searches above its ordered list and confirms removal insi
     name: `Squat ${index + 1}`,
   }));
   const page = await open(t, { document: { ...empty(), exercises } });
-  await button(page, "Create Workouts").click();
+  await button(page, "Create workout").click();
   const form = page.getByTestId("workout-form");
   const search = field(form, "Search workout exercises");
   assert.equal(await form.getByRole("button", { name: /^Add Squat/ }).count(), 0);
@@ -1149,15 +1150,15 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
   assert.equal(await page.getByTestId("active-workout-timer").count(), 0);
   await page.reload();
   await compact.waitFor();
-  assert.equal(await button(compact, "Settings").getAttribute("aria-expanded"), "false");
-  await button(compact, "Settings").click();
-  assert.equal(await button(compact, "Settings").getAttribute("aria-expanded"), "true");
+  assert.equal(await button(compact, "Workout settings").getAttribute("aria-expanded"), "false");
+  await button(compact, "Workout settings").click();
+  assert.equal(await button(compact, "Workout settings").getAttribute("aria-expanded"), "true");
   const settings = page.getByTestId("planned-workout-settings");
   assert.equal(await field(settings, "Planned sets for Squat").inputValue(), "3");
   await field(settings, "Planned sets for Squat").fill("2");
   await field(settings, "Planned sets for Curl").fill("3");
   await button(settings, "Save settings").click();
-  assert.equal(await button(compact, "Settings").getAttribute("aria-expanded"), "false");
+  assert.equal(await button(compact, "Workout settings").getAttribute("aria-expanded"), "false");
   await storedWhen(
     page,
     (document) =>
@@ -1194,18 +1195,15 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
     await workspace.innerText(),
     /2026-10-04|In progress|Blank weight means|Close workout|Open active workout/,
   );
-  assert.equal(
-    await workspace
-      .getByTestId("workout-workspace-heading")
-      .getByTestId("active-workout-timer")
-      .count(),
-    1,
-  );
+  // The timer leads the workout at full width below its name; the exercise bar has no rules.
+  const timerBox = await workspace.getByTestId("active-workout-timer").boundingBox();
+  const headingBox = await workspace.getByTestId("workout-workspace-heading").boundingBox();
+  assert.ok(timerBox.y >= headingBox.y + headingBox.height);
   const borders = await workspace.getByTestId("exercise-topbar-frame").evaluate((node) => {
     const style = getComputedStyle(node);
     return [parseFloat(style.borderTopWidth), parseFloat(style.borderBottomWidth)];
   });
-  assert.ok(borders.every((width) => width >= 1));
+  assert.ok(borders.every((width) => width === 0));
   assert.equal(
     await button(details, "View notes for Squat").getAttribute("aria-expanded"),
     "false",
@@ -1264,9 +1262,8 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
           Math.abs(
             actions.getBoundingClientRect().bottom - workspace.getBoundingClientRect().bottom,
           ) < 2 &&
-          Math.abs(endBox.width - discardBox.width) < 2 &&
-          Math.abs(endBox.height - discardBox.height) < 2 &&
-          Math.abs(endBox.top - discardBox.top) < 2 &&
+          discardBox.top >= endBox.bottom &&
+          endBox.width > discardBox.width &&
           headingButtons.length === 2 &&
           headingButtons.every((button) => {
             const box = button.getBoundingClientRect();
@@ -1319,7 +1316,7 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
     await summary
       .getByText("Sets", { exact: true })
       .first()
-      .locator("../..")
+      .locator("..")
       .getByText("2", { exact: true })
       .count(),
     1,
@@ -1353,7 +1350,7 @@ test("planned workout settings preserve entered sets and block start on invalid 
     document: { ...empty(), exercises: [single], sessions: [planned] },
   });
   const compact = page.getByTestId("planned-workout-card");
-  await button(compact, "Settings").click();
+  await button(compact, "Workout settings").click();
   const settings = page.getByTestId("planned-workout-settings");
   const count = field(settings, "Planned sets for Squat");
   await count.fill("1");
@@ -1367,7 +1364,7 @@ test("planned workout settings preserve entered sets and block start on invalid 
   await count.fill("2");
   await button(settings, "Save settings").click();
   await storedWhen(page, (document) => document.sessions[0].exercises[0].sets.length === 2);
-  await button(compact, "Settings").click();
+  await button(compact, "Workout settings").click();
   assert.equal(await count.inputValue(), "2");
   await page.evaluate(() => {
     window.__exerciseWriteFailure = true;
@@ -1378,7 +1375,7 @@ test("planned workout settings preserve entered sets and block start on invalid 
   assert.equal((await documentFrom(page)).sessions[0].status, "planned");
   assert.equal((await documentFrom(page)).sessions[0].exercises[0].sets.length, 2);
   assert.equal(await count.inputValue(), "4");
-  await button(page, "Create Exercise").click();
+  await button(page, "Create exercise").click();
   assert.equal(await page.getByTestId("exercise-form").count(), 0);
   assert.equal(await count.inputValue(), "4");
   await page.evaluate(() => {
@@ -1442,8 +1439,8 @@ test("saved workout editing uses the exercise bar and preserves settings through
       if (buttons.length !== 2) return false;
       const [left, right] = [...buttons].map((node) => node.getBoundingClientRect());
       return (
-        parseFloat(style.borderTopWidth) >= 1 &&
-        parseFloat(style.borderBottomWidth) >= 1 &&
+        parseFloat(style.borderTopWidth) === 0 &&
+        parseFloat(style.borderBottomWidth) === 0 &&
         Math.abs(left.width - right.width) < 2 &&
         Math.abs(left.height - right.height) < 2
       );
@@ -1453,8 +1450,8 @@ test("saved workout editing uses the exercise bar and preserves settings through
       false,
     );
   }
-  await button(form, "Settings").click();
-  assert.equal(await button(form, "Settings").getAttribute("aria-expanded"), "true");
+  await button(form, "Name and exercises").click();
+  assert.equal(await button(form, "Name and exercises").getAttribute("aria-expanded"), "true");
   const searchBox = await field(form, "Search workout exercises").boundingBox();
   const orderBox = await form.getByText("Exercise order", { exact: true }).boundingBox();
   assert.ok(searchBox.y + searchBox.height < orderBox.y);
@@ -1518,7 +1515,10 @@ test("completed workout editing shares the layout and keeps side edits local unt
   const editor = page.getByTestId("session-editor"),
     workspace = page.getByTestId("completed-workout-workspace");
   await workspace.waitFor();
-  assert.equal(await button(editor, "Settings").getAttribute("aria-expanded"), "false");
+  assert.equal(
+    await button(editor, "Workout name and duration").getAttribute("aria-expanded"),
+    "false",
+  );
   assert.equal(await editor.getByLabel("Workout duration", { exact: true }).innerText(), "0:17");
   assert.equal(await field(editor, "Workout name").count(), 0);
   assert.equal(await button(editor, "Close workout").count(), 0);
@@ -1536,8 +1536,11 @@ test("completed workout editing shares the layout and keeps side edits local unt
   await button(editor, "Add set to Curl").click();
   await button(editor, "Select exercise Squat").click();
   await field(editor, "Squat set 1 reps").fill("7");
-  await button(editor, "Settings").click();
-  assert.equal(await button(editor, "Settings").getAttribute("aria-expanded"), "true");
+  await button(editor, "Workout name and duration").click();
+  assert.equal(
+    await button(editor, "Workout name and duration").getAttribute("aria-expanded"),
+    "true",
+  );
   await field(editor, "Workout name").fill("Edited historical workout");
   const invalidDuration = "99999999999999999999999999999999";
   await field(editor, "Duration in minutes (optional)").fill(invalidDuration);
@@ -1564,7 +1567,7 @@ test("completed workout editing shares the layout and keeps side edits local unt
   await button(editor, "Save changes").click();
   await editor.getByRole("alert").waitFor();
   assert.deepEqual((await documentFrom(page)).sessions[0], complete);
-  await button(page, "Create Exercise").click();
+  await button(page, "Create exercise").click();
   await button(page.getByTestId("exercise-form"), "Cancel").click();
   await openLoggedWorkout(page, "Historical workout", true);
   assert.equal(await field(editor, "Workout name").inputValue(), "Edited historical workout");
@@ -1655,7 +1658,11 @@ test("cloud sync preserves an unfinished workout across failure, unchanged succe
     revision: previous.revision + 1,
   });
   await button(page, "Sync now").click();
-  await page.getByText("31 years", { exact: true }).waitFor();
+  // Settings links to the profile instead of repeating it, so check the synced record.
+  await page.waitForFunction(
+    (key) => JSON.parse(window.accountFixture.getItem(key) ?? "{}").answers?.age === "31",
+    profileKey,
+  );
   await verifyDraft();
 });
 

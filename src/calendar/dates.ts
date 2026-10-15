@@ -35,3 +35,12 @@ export function millisecondsUntilTomorrow(now: Date): number {
   tomorrow.setHours(0, 0, 0, 0);
   return tomorrow.getTime() - now.getTime();
 }
+
+/** The short form the header uses, e.g. "Thu, Oct 15". */
+export function shortDayLabel(day: string): string {
+  return parseDay(day).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}

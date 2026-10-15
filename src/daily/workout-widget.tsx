@@ -1,6 +1,6 @@
 import { Pressable, View } from "react-native";
 import { AppText, Panel } from "../components/ui";
-import { Icon, type IconName } from "../components/icon";
+import { Icon } from "../components/icon";
 import { useTheme } from "../theme/provider";
 import { radius, spacing } from "../theme/tokens";
 import type { CompletedWorkout } from "./workout";
@@ -25,35 +25,31 @@ export function WorkoutWidget({
   onAddWorkout?: () => void;
 }) {
   const { colors } = useTheme();
-  const stats: { label: string; value: string; icon: IconName }[] = [
+  const stats: { label: string; value: string }[] = [
     {
       label: "Total lifted",
       value: `${workout.volume.toLocaleString()} kg`,
-      icon: "weight-hanging",
     },
     {
-      label: "Recorded duration",
+      label: "Duration",
       value:
         activeWorkoutName && workout.name === null
           ? "In progress"
           : workout.durationKnown === false
             ? "Not recorded"
             : `${Math.floor(workout.durationSeconds / 60)} min`,
-      icon: "stopwatch",
     },
-    { label: "Sets", value: String(workout.sets), icon: "layer-group" },
-    { label: "Reps", value: String(workout.reps), icon: "repeat" },
+    { label: "Sets", value: String(workout.sets) },
+    { label: "Reps", value: String(workout.reps) },
     ...(detailed
       ? [
           {
             label: "Exercises",
             value: String(workout.exercises.length),
-            icon: "dumbbell" as const,
           },
           {
             label: "Avg. per set",
             value: `${workout.averageRepsPerSet} reps`,
-            icon: "chart-simple" as const,
           },
         ]
       : []),
@@ -96,9 +92,7 @@ export function WorkoutWidget({
           style={({ pressed }) => ({
             minHeight: 44,
             padding: spacing.layout,
-            borderWidth: 1,
             borderRadius: radius.control,
-            borderColor: colors.border,
             backgroundColor: pressed ? colors.accent : colors.secondary,
             flexDirection: "row",
             alignItems: "center",
@@ -113,41 +107,37 @@ export function WorkoutWidget({
         </Pressable>
       </Panel>
     );
+  const [lead, ...rest] = stats;
   return (
     <Panel
       testID={detailed ? "exercise-workout" : "home-workout"}
       style={{ padding: spacing.layout, gap: spacing.layout }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.layout }}>
-        <View style={{ flex: 1, gap: 4 }}>
-          <AppText variant="heading" accessibilityRole="header">
-            {workout.name ?? activeWorkoutName ?? "Workout of the day"}
-          </AppText>
+      <View style={{ gap: 2 }}>
+        <AppText variant="heading" accessibilityRole="header">
+          {workout.name ?? activeWorkoutName ?? "Workout of the day"}
+        </AppText>
+        {workout.name === null && (
           <AppText variant="caption" muted>
-            {workout.name !== null
-              ? "Your workout summary"
-              : activeWorkoutName
-                ? "Workout in progress"
-                : "No workout logged"}
+            {activeWorkoutName ? "Workout in progress" : "No workout logged"}
           </AppText>
-        </View>
-        <Icon
-          name="dumbbell"
-          size={20}
-          color={colors.primary}
-          style={{ alignSelf: "flex-start", marginTop: 4 }}
-        />
+        )}
+      </View>
+      <View style={{ gap: 2 }}>
+        <AppText variant="caption" muted>
+          {lead.label}
+        </AppText>
+        <AppText selectable variant="title" numeric>
+          {lead.value}
+        </AppText>
       </View>
       <View style={{ flexDirection: "row", flexWrap: "wrap", rowGap: spacing.layout }}>
-        {stats.map(({ label, value, icon }) => (
-          <View key={label} style={{ width: "50%", gap: 4, paddingRight: 6 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Icon name={icon} size={12} color={colors.mutedForeground} />
-              <AppText variant="caption" muted>
-                {label}
-              </AppText>
-            </View>
-            <AppText selectable variant="heading" style={{ fontVariant: ["tabular-nums"] }}>
+        {rest.map(({ label, value }) => (
+          <View key={label} style={{ width: "33.33%", gap: 2, paddingRight: 6 }}>
+            <AppText variant="caption" muted>
+              {label}
+            </AppText>
+            <AppText selectable variant="label" style={{ fontSize: 16, lineHeight: 22 }}>
               {value}
             </AppText>
           </View>

@@ -72,6 +72,7 @@ export function FoodProductImport({
   if (state.kind === "draft") return null;
   return (
     <View testID="food-barcode-lookup" style={{ gap: spacing.layout }}>
+      <AppButton link icon="chevron-left" label="Cancel import" onPress={cancel} />
       {state.kind === "loading" ? (
         <KineLoading compact label="Looking up barcode..." />
       ) : (
@@ -108,7 +109,6 @@ export function FoodProductImport({
         <AppButton label="Try another barcode" onPress={flow.scanAgain} />
       )}
       <ProductAttribution barcode={state.barcode} />
-      <AppButton label="Cancel import" onPress={cancel} />
     </View>
   );
 }

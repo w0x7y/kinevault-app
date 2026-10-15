@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useFocusRing } from "../components/focus-ring";
 import { Pressable, View } from "react-native";
 import { AppText } from "../components/ui";
 import { Icon } from "../components/icon";
@@ -27,7 +27,7 @@ export function FoodResult({
   genericMatch?: boolean;
 }) {
   const { colors } = useTheme();
-  const [focused, setFocused] = useState(false);
+  const { focused, onFocus, onBlur } = useFocusRing();
   const beverage = beverageForFood(food);
   const macros =
     action === "add"
@@ -48,20 +48,22 @@ export function FoodResult({
       disabled={disabled}
       accessibilityState={{ disabled }}
       onPress={onSelect}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      onFocus={onFocus}
+      onBlur={onBlur}
       style={({ pressed }) => ({
-        minHeight: 88,
-        padding: spacing.layout,
-        gap: spacing.xs,
-        borderWidth: 1,
+        minHeight: 72,
+        marginHorizontal: -spacing.sm,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.sm,
+        gap: 2,
+        borderWidth: 2,
         borderRadius: radius.control,
-        borderColor: focused ? colors.ring : colors.border,
-        backgroundColor: pressed ? colors.accent : colors.background,
+        borderColor: focused ? colors.ring : "transparent",
+        backgroundColor: pressed ? colors.accent : "transparent",
       })}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-        <AppText variant="label" style={{ flex: 1 }}>
+        <AppText variant="label" style={{ flex: 1, fontSize: 16, lineHeight: 22 }}>
           {food.name}
         </AppText>
         {food.customId && (

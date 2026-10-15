@@ -26,9 +26,15 @@ export function MealsWidget({
   const { colors } = useTheme();
   return (
     <Panel testID="daily-food-log" onLayout={onLayout} style={{ padding: spacing.layout, gap: 0 }}>
-      <AppText variant="heading" accessibilityRole="header">
-        Daily food log
-      </AppText>
+      <View style={{ flexDirection: "row", alignItems: "baseline", gap: spacing.layout }}>
+        <AppText variant="heading" accessibilityRole="header" style={{ flex: 1 }}>
+          Daily food log
+        </AppText>
+        <AppText variant="label" selectable style={{ fontSize: 16, lineHeight: 22 }}>
+          {Math.round(day.foods.reduce((total, food) => total + food.calories, 0)).toLocaleString()}{" "}
+          kcal
+        </AppText>
+      </View>
       {error && (
         <AppText variant="caption" accessibilityRole="alert" style={{ color: colors.error }}>
           {error}
@@ -45,10 +51,8 @@ export function MealsWidget({
             key={key}
             testID={`meal-${key}`}
             style={{
-              paddingVertical: spacing.layout,
-              gap: spacing.layout,
-              borderTopWidth: index ? 1 : 0,
-              borderColor: colors.border,
+              paddingTop: index ? spacing.layout * 2 : spacing.layout,
+              gap: spacing.sm,
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.layout }}>

@@ -20,11 +20,14 @@ export function SetupTopBar({
   editing,
   saving,
   cancel,
+  back,
 }: {
   stepIndex: number;
   editing: boolean;
   saving: boolean;
   cancel: () => void;
+  /** Present when the step can go back; shown as the bar's leading control. */
+  back?: () => void;
 }) {
   const { colors } = useTheme();
   const reduced = useReducedMotion();
@@ -44,9 +47,13 @@ export function SetupTopBar({
   return (
     <>
       <PageTransition direction={0} style={styles.bar}>
-        <AppText variant="label">{editing ? "Edit profile" : "Setup"}</AppText>
+        {back ? (
+          <Button label="Back" icon="chevron-left" link disabled={saving} onPress={back} />
+        ) : (
+          <AppText variant="label">{editing ? "Edit profile" : ""}</AppText>
+        )}
         {editing ? (
-          <Button label="Cancel" icon="xmark" secondary disabled={saving} onPress={cancel} />
+          <Button label="Cancel" icon="xmark" link disabled={saving} onPress={cancel} />
         ) : (
           stepIndex > 0 && (
             <PageTransition key={stepIndex} direction={0}>
@@ -92,8 +99,9 @@ export function SetupTopBar({
 
 const styles = StyleSheet.create({
   bar: {
-    minHeight: 72,
-    padding: spacing.layout,
+    minHeight: 60,
+    paddingHorizontal: spacing.layout,
+    paddingVertical: spacing.sm,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",

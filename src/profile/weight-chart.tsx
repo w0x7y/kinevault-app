@@ -83,7 +83,7 @@ export function WeightChart({ entries }: { entries: readonly WeightEntry[] }) {
               textAnchor="end"
               fill={colors.mutedForeground}
               fontFamily={fonts.regular}
-              fontSize={9}
+              fontSize={12}
             >
               {weightLabel(value ? trend.maximum : trend.minimum)}
             </SvgText>
@@ -113,7 +113,7 @@ export function WeightChart({ entries }: { entries: readonly WeightEntry[] }) {
             y={141}
             fill={colors.mutedForeground}
             fontFamily={fonts.regular}
-            fontSize={9}
+            fontSize={12}
           >
             {first.date}
           </SvgText>
@@ -124,7 +124,7 @@ export function WeightChart({ entries }: { entries: readonly WeightEntry[] }) {
               textAnchor="end"
               fill={colors.mutedForeground}
               fontFamily={fonts.regular}
-              fontSize={9}
+              fontSize={12}
             >
               {latest.date}
             </SvgText>

@@ -16,9 +16,10 @@ import { AppText, Panel } from "../components/ui";
 import { Icon, type IconName } from "../components/icon";
 import { useTheme } from "../theme/provider";
 
+/** Profile text follows the app's scale: 16 by default and never below 14. */
 export function JournalText({
-  size = 13,
-  lineHeight = size * 1.55,
+  size: requested = 16,
+  lineHeight,
   ...props
 }: TextProps & {
   size?: number;
@@ -26,7 +27,13 @@ export function JournalText({
   muted?: boolean;
   variant?: "body" | "heading" | "label" | "caption";
 }) {
-  return <AppText {...props} style={[{ fontSize: size, lineHeight }, props.style]} />;
+  const size = Math.max(14, requested);
+  return (
+    <AppText
+      {...props}
+      style={[{ fontSize: size, lineHeight: lineHeight ?? Math.round(size * 1.45) }, props.style]}
+    />
+  );
 }
 export function JournalPanel(props: ViewProps) {
   return <Panel {...props} style={[{ gap: 0 }, props.style]} />;
@@ -38,7 +45,7 @@ export function JournalAction({
   onPress,
   disabled,
   style,
-  size = 11,
+  size = 14,
 }: {
   size?: number;
   label: string;
@@ -97,7 +104,7 @@ export function JournalHeading({
         style,
       ]}
     >
-      <JournalText size={14} variant="heading" accessibilityRole="header" style={{ flexShrink: 1 }}>
+      <JournalText size={20} variant="heading" accessibilityRole="header" style={{ flexShrink: 1 }}>
         {title}
       </JournalText>
       {children}
@@ -207,7 +214,7 @@ export function JournalDisclosure<T extends string | number>({
           }}
         >
           <JournalText size={9}>{values.find((v) => v.value === value)?.label}</JournalText>
-          <Icon name="chevron-down" size={6} color={colors.foreground} />
+          <Icon name="chevron-down" size={10} color={colors.foreground} />
         </View>
       </Pressable>
       {open &&

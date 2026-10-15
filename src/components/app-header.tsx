@@ -1,3 +1,4 @@
+import { useFocusRing } from "./focus-ring";
 import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from "react";
 import { usePathname, useRouter, type Href } from "expo-router";
 import {
@@ -47,7 +48,7 @@ function HeaderButton({
   nativeID?: string;
 }>) {
   const { colors } = useTheme();
-  const [focused, setFocused] = useState(false);
+  const { focused, onFocus, onBlur } = useFocusRing();
   return (
     <Pressable
       nativeID={nativeID}
@@ -58,8 +59,8 @@ function HeaderButton({
       aria-current={current ? "date" : undefined}
       aria-expanded={expanded}
       onPress={onPress}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      onFocus={onFocus}
+      onBlur={onBlur}
       style={({ pressed }) => [
         styles.button,
         { backgroundColor: pressed ? colors.accent : "transparent" },
@@ -265,7 +266,7 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
           onHeightChange(height);
         }}
       >
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <View style={styles.header}>
           <View style={[styles.bar, isProfile && { minHeight: 52 }]}>
             {isProfile ? (
               <HeaderButton label="Back from Profile" onPress={returnFromProfile}>
@@ -316,10 +317,7 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
       {!isProfile && !isSettings && expanded && (
         <SafeAreaView
           edges={["left", "right"]}
-          style={[
-            styles.calendarOverlay,
-            { top: headerHeight, backgroundColor: colors.card, borderColor: colors.border },
-          ]}
+          style={[styles.calendarOverlay, { top: headerHeight, backgroundColor: colors.card }]}
         >
           <DayCalendar />
         </SafeAreaView>
@@ -352,7 +350,6 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 600,
     alignSelf: "center",
-    borderBottomWidth: 1,
     borderBottomLeftRadius: 14,
     borderBottomRightRadius: 14,
     boxShadow: "0 4px 12px rgba(0, 0, 0, 0.12)",
@@ -365,7 +362,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     paddingHorizontal: spacing.layout,
   },
-  header: { borderBottomWidth: 1 },
+  header: {},
   bar: {
     minHeight: 50,
     flexDirection: "row",
@@ -385,7 +382,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  selectedDate: { flex: 1, textAlign: "center", fontSize: 13 },
+  selectedDate: { flex: 1, textAlign: "center" },
   avatar: {
     width: 32,
     height: 32,
@@ -413,6 +410,6 @@ const styles = StyleSheet.create({
   week: { flexDirection: "row" },
   daySlot: { flex: 1, minWidth: 44, alignItems: "center", justifyContent: "center" },
   weekday: { textAlign: "center", paddingVertical: 4 },
-  month: { fontSize: 9, lineHeight: 10 },
+  month: { fontSize: 10, lineHeight: 11 },
   todayDot: { position: "absolute", bottom: 3, width: 3, height: 3, borderRadius: 2 },
 });

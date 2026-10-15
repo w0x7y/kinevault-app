@@ -183,7 +183,7 @@ requirements remain undecided.
 ## Brand commitments
 
 Follow the supplied DESIGN.md palette and flat panels. The companion uses
-Comfortaa throughout and Font Awesome 6 icons. Preserve mobile spacing and
+Comfortaa for titles, Nunito for text and figures, and Font Awesome 6 icons. Preserve mobile spacing and
 accessible touch targets. Screens use 12px outer margins, panel padding, and
 gaps between cards or form groups. Local label spacing stays compact.
 The compact top bar has a calendar chevron on the left,

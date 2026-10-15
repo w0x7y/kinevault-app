@@ -159,6 +159,7 @@ function OnboardingFlow({
           editing={editing}
           saving={saving}
           cancel={() => void act({ kind: "cancel" })}
+          back={showBack ? () => void act({ kind: "back" }) : undefined}
         />
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -189,7 +190,11 @@ function OnboardingFlow({
                 ]}
               >
                 <Kine pose={step} />
-                <AppText muted style={width < 380 ? { textAlign: "center" } : { flex: 1 }}>
+                <AppText
+                  variant="caption"
+                  muted
+                  style={width < 380 ? { textAlign: "center" } : { flex: 1 }}
+                >
                   {mode.kind !== "estimate" && step === "body"
                     ? "A few details for your profile. Height and weight are optional."
                     : mode.kind !== "estimate" && step === "calories"
@@ -198,23 +203,16 @@ function OnboardingFlow({
                 </AppText>
               </View>
             )}
-            <View style={{ gap: spacing.layout, alignItems: welcome ? "center" : "stretch" }}>
+            <View style={{ gap: spacing.sm }}>
               <AppText
                 nativeID="onboarding-title"
                 variant="title"
                 accessibilityRole="header"
-                style={[
-                  { outlineWidth: 0, outlineStyle: "solid" },
-                  welcome ? { textAlign: "center" } : undefined,
-                ]}
+                style={{ outlineWidth: 0, outlineStyle: "solid" }}
               >
                 {title}
               </AppText>
-              {welcome && (
-                <AppText muted style={{ textAlign: "center" }}>
-                  {message}
-                </AppText>
-              )}
+              {welcome && <AppText muted>{message}</AppText>}
             </View>
             <Question
               step={step}
@@ -241,20 +239,10 @@ function OnboardingFlow({
                 onPress={() => void act({ kind: "next" })}
                 disabled={saving}
               />
-              {showBack && (
-                <Button
-                  label="Back"
-                  icon="arrow-left"
-                  secondary
-                  onPress={() => void act({ kind: "back" })}
-                  disabled={saving}
-                />
-              )}
               {showSkip && (
                 <Button
                   label="Set up later"
-                  icon="clock"
-                  secondary
+                  link
                   onPress={() => void act({ kind: "skip" })}
                   disabled={saving}
                 />
@@ -263,12 +251,12 @@ function OnboardingFlow({
             {welcome && (
               <Button
                 label="I already have an account"
-                secondary
+                link
                 onPress={() => router.push("/account")}
               />
             )}
             {welcome && (
-              <AppText variant="caption" muted style={{ textAlign: "center" }}>
+              <AppText variant="caption" muted>
                 Your answers are saved to your account after you sign in. You can edit them anytime.
               </AppText>
             )}

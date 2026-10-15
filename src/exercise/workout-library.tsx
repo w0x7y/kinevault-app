@@ -4,6 +4,7 @@ import { ButtonRow, AppButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
 import { AppText, Panel } from "../components/ui";
 import { spacing } from "../theme/tokens";
+import { shortDayLabel } from "../calendar/dates";
 import type { WorkoutTemplate } from "./model";
 import { useExercises } from "./provider";
 import { ExerciseError } from "./controls";
@@ -63,6 +64,13 @@ export function WorkoutLibrary({
   }
   return (
     <Panel testID="workout-library">
+      <AppButton
+        link
+        icon="chevron-left"
+        label="Close saved workouts"
+        onPress={onClose}
+        disabled={busy}
+      />
       <AppText variant="heading" accessibilityRole="header">
         Saved workouts
       </AppText>
@@ -95,7 +103,7 @@ export function WorkoutLibrary({
       ))}
       {records.length > 0 && (
         <AppText variant="heading" accessibilityRole="header">
-          Workouts for {date}
+          Workouts for {shortDayLabel(date)}
         </AppText>
       )}
       {records.map((workout) => (
@@ -111,7 +119,7 @@ export function WorkoutLibrary({
               : workout.status === "planned"
                 ? "Planned"
                 : "Completed"}{" "}
-            · {workout.exercises.length} exercises
+            · {workout.exercises.length} {workout.exercises.length === 1 ? "exercise" : "exercises"}
           </AppText>
           <ButtonRow>
             <AppButton
@@ -137,7 +145,6 @@ export function WorkoutLibrary({
         </View>
       ))}
       <ExerciseError message={error} />
-      <AppButton label="Close saved workouts" onPress={onClose} disabled={busy} />
     </Panel>
   );
 }

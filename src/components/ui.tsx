@@ -1,3 +1,4 @@
+import { useFocusRing } from "./focus-ring";
 import { Link, type Href } from "expo-router";
 import Head from "expo-router/head";
 import {
@@ -15,24 +16,25 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, type PropsWithChildren, type Ref } from "react";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
-import type { KinePose } from "../onboarding/kine";
-import { KineSplitRow } from "./kine-split-row";
 import { Icon, type IconName } from "./icon";
 
-type TextVariant = "body" | "title" | "heading" | "label" | "caption";
+type TextVariant = "hero" | "title" | "heading" | "body" | "label" | "caption";
 
+/** `numeric` sets title and heading sizes in the data face, so figures line up. */
 export function AppText({
   variant = "body",
   muted = false,
+  numeric = false,
   style,
   ...props
-}: TextProps & { variant?: TextVariant; muted?: boolean }) {
+}: TextProps & { variant?: TextVariant; muted?: boolean; numeric?: boolean }) {
   const { colors } = useTheme();
   return (
     <Text
       {...props}
       style={[
         typeStyles[variant],
+        numeric && styles.numeric,
         { color: muted ? colors.mutedForeground : colors.foreground },
         style,
       ]}
@@ -42,19 +44,13 @@ export function AppText({
 
 export function Panel({ style, ...props }: ViewProps) {
   const { colors } = useTheme();
-  return (
-    <View
-      {...props}
-      style={[styles.panel, { backgroundColor: colors.card, borderColor: colors.border }, style]}
-    />
-  );
+  return <View {...props} style={[styles.panel, { backgroundColor: colors.card }, style]} />;
 }
 
 export function Screen({
   title,
   description,
   children,
-  pose,
   showTitle = true,
   scrollRef,
   adjustKeyboardInsets = false,
@@ -63,7 +59,6 @@ export function Screen({
 }: PropsWithChildren<{
   title: string;
   description?: string;
-  pose?: KinePose;
   showTitle?: boolean;
   scrollRef?: Ref<ScrollView>;
   adjustKeyboardInsets?: boolean;
@@ -86,23 +81,9 @@ export function Screen({
       >
         {showTitle && (
           <View style={styles.intro}>
-            {pose ? (
-              <KineSplitRow pose={pose} testIDPrefix={pose}>
-                {(columnWidth) => (
-                  <AppText
-                    variant="title"
-                    accessibilityRole="header"
-                    style={columnWidth < 180 ? { fontSize: 24, lineHeight: 32 } : undefined}
-                  >
-                    {title}
-                  </AppText>
-                )}
-              </KineSplitRow>
-            ) : (
-              <AppText variant="title" accessibilityRole="header" style={{ flexShrink: 1 }}>
-                {title}
-              </AppText>
-            )}
+            <AppText variant="title" accessibilityRole="header" style={{ flexShrink: 1 }}>
+              {title}
+            </AppText>
             {description && (
               <AppText muted style={{ maxWidth: 600 }}>
                 {description}
@@ -128,50 +109,66 @@ export function Destination({
   icon: IconName;
 }) {
   const { colors } = useTheme();
-  const [focused, setFocused] = useState(false);
+  const { focused, onFocus, onBlur } = useFocusRing();
   const [pressed, setPressed] = useState(false);
   return (
     <Link href={href} asChild>
       <Pressable
         accessibilityRole="link"
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
+        onFocus={onFocus}
+        onBlur={onBlur}
         onPressIn={() => setPressed(true)}
         onPressOut={() => setPressed(false)}
         style={StyleSheet.flatten([
           styles.destination,
           {
-            borderColor: focused ? colors.ring : colors.border,
+            borderColor: focused ? colors.ring : "transparent",
             backgroundColor: pressed ? colors.accent : colors.card,
-            borderWidth: focused ? 2 : 1,
+            borderWidth: 2,
           },
         ])}
       >
-        <Icon name={icon} size={22} color={colors.primary} />
-        <View style={{ flex: 1, gap: spacing.xs }}>
-          <AppText variant="heading">{title}</AppText>
-          {description && <AppText muted>{description}</AppText>}
+        <Icon name={icon} size={20} color={colors.primary} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <AppText variant="label" style={{ fontSize: 16, lineHeight: 22 }}>
+            {title}
+          </AppText>
+          {description && (
+            <AppText variant="caption" muted>
+              {description}
+            </AppText>
+          )}
         </View>
-        <Icon name="arrow-right" size={18} color={colors.primary} />
+        <Icon name="chevron-right" size={16} color={colors.mutedForeground} />
       </Pressable>
     </Link>
   );
 }
 
+// Five sizes do the visible work: 44 for one figure per screen, 28 titles, 20 headings,
+// 16 body and 14 for labels and captions.
 const typeStyles = StyleSheet.create({
-  body: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 24 },
-  title: {
-    fontFamily: fonts.semibold,
-    fontSize: 32,
-    lineHeight: 40,
-    letterSpacing: -1.2,
+  hero: {
+    fontFamily: fonts.bold,
+    fontSize: 44,
+    lineHeight: 50,
+    letterSpacing: -1,
+    fontVariant: ["tabular-nums"],
   },
-  heading: { fontFamily: fonts.semibold, fontSize: 20, lineHeight: 28 },
+  title: {
+    fontFamily: fonts.display,
+    fontSize: 28,
+    lineHeight: 36,
+    letterSpacing: -0.8,
+  },
+  heading: { fontFamily: fonts.display, fontSize: 20, lineHeight: 28 },
+  body: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 24 },
   label: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20 },
-  caption: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 20 },
+  caption: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
 });
 
 const styles = StyleSheet.create({
+  numeric: { fontFamily: fonts.bold, letterSpacing: 0, fontVariant: ["tabular-nums"] },
   screen: {
     width: "100%",
     maxWidth: 768,
@@ -183,14 +180,13 @@ const styles = StyleSheet.create({
   intro: { gap: spacing.layout },
   panel: {
     padding: spacing.layout,
-    borderWidth: 1,
     borderRadius: radius.panel,
     gap: spacing.md,
   },
   destination: {
     borderRadius: radius.panel,
     padding: spacing.layout,
-    minHeight: 96,
+    minHeight: 64,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.layout,
