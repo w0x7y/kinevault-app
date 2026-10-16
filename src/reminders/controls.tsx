@@ -1,10 +1,15 @@
-import { useState, type ReactNode } from "react";
-import { Pressable, View } from "react-native";
+import { type ReactNode } from "react";
+import { View } from "react-native";
+import Animated from "react-native-reanimated";
+import { useStateTransition } from "../components/motion";
 import { IconButton } from "../components/button";
-import { Icon, type IconName } from "../components/icon";
+import { Chip } from "../components/chip";
+import type { IconName } from "../components/icon";
+import { IconWell } from "../components/icon-well";
+import { Tappable } from "../components/tappable";
 import { AppText } from "../components/ui";
 import { useTheme } from "../theme/provider";
-import { radius, spacing } from "../theme/tokens";
+import { fonts, radius, spacing } from "../theme/tokens";
 import {
   everyDay,
   formatHour,
@@ -61,61 +66,84 @@ export function ReminderSwitch({
   disabled: boolean;
   onChange: (value: boolean) => void;
 }) {
-  const { colors } = useTheme();
-  const [focused, setFocused] = useState(false);
+  const { colors, appearance } = useTheme();
+  // The thumb slides and the track tints, like the platform switch.
+  const trackTransition = useStateTransition(["backgroundColor"]);
+  const thumbTransition = useStateTransition(["transform", "backgroundColor"]);
   return (
-    <Pressable
-      accessibilityRole="switch"
-      accessibilityLabel={`${name} reminder, ${time}, ${days}`}
-      aria-checked={value}
-      aria-disabled={disabled}
-      accessibilityState={{ checked: value, disabled }}
+    <Tappable
+      role="switch"
+      label={`${name} reminder, ${time}, ${days}`}
+      checked={value}
       disabled={disabled}
       onPress={() => onChange(!value)}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      style={({ pressed }) => ({
+      feedback="fill"
+      style={{
         flex: 1,
-        minHeight: 56,
+        minWidth: 0,
+        minHeight: 64,
         flexDirection: "row",
         alignItems: "center",
-        gap: spacing.layout,
-        padding: spacing.layout,
+        gap: spacing.md,
+        paddingVertical: spacing.sm,
+        paddingLeft: 14,
+        paddingRight: spacing.sm,
         borderRadius: radius.control,
-        borderWidth: 2,
-        borderColor: focused ? colors.ring : "transparent",
-        backgroundColor: pressed ? colors.accent : "transparent",
-        opacity: disabled ? 0.6 : 1,
-      })}
+      }}
     >
-      <Icon name={icon} size={20} color={value ? colors.primary : colors.mutedForeground} />
-      <View style={{ flex: 1, gap: 2 }}>
-        <AppText variant="label">{name}</AppText>
-        <AppText variant="caption" muted>
-          {`${time} · ${days}`}
+      <IconWell icon={icon} color={value ? colors.foreground : colors.mutedForeground} />
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+        <AppText variant="label" style={{ fontSize: 15, lineHeight: 21 }}>
+          {name}
+        </AppText>
+        <AppText variant="caption" muted numberOfLines={2}>
+          <AppText
+            variant="caption"
+            style={{
+              fontFamily: fonts.bold,
+              fontVariant: ["tabular-nums"],
+              color: value ? colors.foreground : colors.mutedForeground,
+            }}
+          >
+            {time}
+          </AppText>
+          {` · ${days}`}
         </AppText>
       </View>
-      <View
-        style={{
-          width: 44,
-          height: 26,
-          padding: 3,
-          borderRadius: 13,
-          justifyContent: "center",
-          alignItems: value ? "flex-end" : "flex-start",
-          backgroundColor: value ? colors.primary : colors.border,
-        }}
+      <Animated.View
+        style={[
+          {
+            width: 48,
+            height: 28,
+            padding: 3,
+            borderRadius: 14,
+            justifyContent: "center",
+            alignItems: "flex-start",
+            backgroundColor: value ? colors.primary : colors.input,
+          },
+          trackTransition,
+        ]}
       >
-        <View
-          style={{
-            width: 20,
-            height: 20,
-            borderRadius: 10,
-            backgroundColor: value ? colors.primaryForeground : colors.card,
-          }}
+        <Animated.View
+          style={[
+            {
+              width: 22,
+              height: 22,
+              borderRadius: 11,
+              backgroundColor: value
+                ? colors.primaryForeground
+                : appearance === "dark"
+                  ? colors.mutedForeground
+                  : colors.card,
+              boxShadow: "0px 1px 2px rgba(0, 0, 0, 0.18)",
+              // 48 wide, less 3 padding each side and the 22 thumb.
+              transform: [{ translateX: value ? 20 : 0 }],
+            },
+            thumbTransition,
+          ]}
         />
-      </View>
-    </Pressable>
+      </Animated.View>
+    </Tappable>
   );
 }
 
@@ -145,7 +173,7 @@ function Stepper({
         borderWidth: 1,
         borderRadius: radius.control,
         borderColor: colors.input,
-        backgroundColor: colors.card,
+        backgroundColor: colors.background,
       }}
     >
       <IconButton
@@ -171,7 +199,7 @@ function Stepper({
         <AppText variant="caption" muted>
           {label}
         </AppText>
-        <AppText variant="label" style={{ fontSize: 18, lineHeight: 24 }}>
+        <AppText variant="label" numeric style={{ fontSize: 20, lineHeight: 26 }}>
           {shown}
         </AppText>
       </View>
@@ -226,66 +254,6 @@ export function TimeField({
   );
 }
 
-function Chip({
-  role,
-  label,
-  accessibilityLabel = label,
-  selected,
-  disabled,
-  icon,
-  onPress,
-}: {
-  role: "checkbox" | "radio" | "button";
-  label: string;
-  accessibilityLabel?: string;
-  selected: boolean;
-  disabled: boolean;
-  icon?: IconName;
-  onPress: () => void;
-}) {
-  const { colors } = useTheme();
-  const [focused, setFocused] = useState(false);
-  return (
-    <Pressable
-      accessibilityRole={role}
-      accessibilityLabel={accessibilityLabel}
-      aria-checked={role === "button" ? undefined : selected}
-      aria-pressed={role === "button" ? selected : undefined}
-      accessibilityState={
-        role === "button" ? { selected, disabled } : { checked: selected, disabled }
-      }
-      disabled={disabled}
-      onPress={onPress}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      style={({ pressed }) => ({
-        minHeight: 48,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: icon ? "flex-start" : "center",
-        gap: spacing.sm,
-        paddingHorizontal: spacing.sm,
-        borderRadius: radius.control,
-        borderWidth: focused ? 2 : 1,
-        borderColor: focused ? colors.ring : selected ? colors.primary : colors.border,
-        backgroundColor: selected || pressed ? colors.accent : colors.card,
-        opacity: disabled ? 0.6 : 1,
-      })}
-    >
-      {icon && (
-        <Icon name={icon} size={16} color={selected ? colors.primary : colors.mutedForeground} />
-      )}
-      <AppText
-        variant="label"
-        numberOfLines={2}
-        style={{ flexShrink: 1, color: selected ? colors.primary : colors.foreground }}
-      >
-        {label}
-      </AppText>
-    </Pressable>
-  );
-}
-
 function Grid({ columns, children }: { columns: number; children: ReactNode[] }) {
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", margin: -spacing.xs }}>
@@ -318,6 +286,7 @@ export function WeekdayField({
             return (
               <Chip
                 key={day}
+                size="small"
                 role="checkbox"
                 label={weekdayName(day)}
                 accessibilityLabel={weekdayName(day, "long")}
@@ -335,7 +304,7 @@ export function WeekdayField({
           }),
           <Chip
             key="all"
-            role="button"
+            size="small"
             label="Every day"
             selected={all}
             disabled={disabled}
@@ -366,6 +335,7 @@ export function KindField({
           {kinds.map((kind) => (
             <Chip
               key={kind}
+              size="small"
               role="radio"
               label={reminderLabels[kind]}
               icon={reminderIcons[kind]}

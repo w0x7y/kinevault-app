@@ -1,93 +1,103 @@
 import { AppButton } from "../components/button";
-import { useState } from "react";
-import { TextInput, View } from "react-native";
-import { AppText, Panel } from "../components/ui";
-import { Icon } from "../components/icon";
+import { View } from "react-native";
+import { InlineMessage } from "../components/inline-message";
+import { LoadFailure } from "../components/load-failure";
+import { TextField } from "../components/text-field";
+import { IconWell } from "../components/icon-well";
+import { AppText } from "../components/ui";
+import { RowContent, SettingsGroup } from "../account/settings-list";
 import { useTheme } from "../theme/provider";
-import { fonts, radius, spacing } from "../theme/tokens";
-import { useWaterGoal } from "./goal-provider";
-import { useWaterGoalEdit } from "./use-goal-editing";
+import { spacing } from "../theme/tokens";
+import { useDocumentEdit } from "../persistence/use-document-edit";
+import { createWaterGoalEdit } from "./goal-editing";
+import { useWaterGoalPersistence } from "./goal-provider";
 
 export function WaterGoalSettings() {
-  const goal = useWaterGoal();
-  const { edit, draft, error, busy, saved } = useWaterGoalEdit();
+  const goal = useWaterGoalPersistence();
+  const { edit, draft, error, busy, saving, saved, load } = useDocumentEdit(() =>
+    createWaterGoalEdit(goal),
+  );
   const { colors } = useTheme();
-  const [focused, setFocused] = useState(false);
-  const savedMl = goal.state.kind === "ready" ? goal.state.document.dailyMl : undefined;
+  const savedMl = load.kind === "ready" ? load.document.dailyMl : undefined;
 
   return (
-    <Panel testID="water-goal-settings">
-      <AppText variant="heading" accessibilityRole="header">
-        Daily water goal
-      </AppText>
-      <AppText muted>Your daily goal fills the cup on Home. Water and Drinks both count.</AppText>
-      {goal.state.kind === "loading" && (
-        <AppText accessibilityLiveRegion="polite" muted>
-          Loading water goal...
-        </AppText>
-      )}
-      {goal.state.kind === "error" && (
-        <>
-          <AppText accessibilityRole="alert" style={{ color: colors.error }}>
-            Couldn't load your water goal.
-          </AppText>
-          <AppButton label="Retry water goal" onPress={goal.retryLoad} />
-        </>
-      )}
-      {goal.state.kind === "ready" && (
-        <>
-          <AppText variant="caption" muted accessibilityLiveRegion="polite">
-            {`Current goal: ${savedMl?.toLocaleString()} ml per day.`}
-          </AppText>
-          <View style={{ gap: spacing.xs }}>
-            <AppText variant="label">Daily water goal (ml)</AppText>
-            <TextInput
-              testID="water-goal-input"
-              accessibilityLabel="Daily water goal (ml)"
-              value={draft}
-              keyboardType="number-pad"
-              returnKeyType="done"
-              editable={!busy}
-              onChangeText={(text) => {
-                edit.change(text);
-              }}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              onSubmitEditing={() => void edit.save()}
-              style={{
-                minHeight: 48,
-                padding: spacing.layout,
-                borderWidth: 1,
-                borderRadius: radius.control,
-                borderColor: focused ? colors.ring : colors.input,
-                color: colors.foreground,
-                backgroundColor: colors.card,
-                fontFamily: fonts.regular,
-                fontSize: 16,
-              }}
-            />
-          </View>
-          {error && (
-            <AppText accessibilityRole="alert" style={{ color: colors.error }}>
-              {error}
+    <SettingsGroup title="Water" cardTestID="water-goal-settings">
+      <RowContent>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+          <IconWell icon="droplet" color={colors.water} />
+          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+            <AppText
+              variant="label"
+              accessibilityRole="header"
+              style={{ fontSize: 15, lineHeight: 21 }}
+            >
+              Daily water goal
             </AppText>
-          )}
-          <AppButton
-            primary
-            label={busy ? "Saving water goal..." : "Save water goal"}
-            disabled={busy}
-            onPress={() => void edit.save()}
-          />
-          {saved && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-              <Icon name="check" size={16} color={colors.primary} />
-              <AppText testID="water-goal-saved" role="status" accessibilityLiveRegion="polite">
-                Water goal saved.
+            {load.kind === "ready" && (
+              <AppText variant="caption" muted accessibilityLiveRegion="polite">
+                {`Current goal: ${savedMl?.toLocaleString()} ml per day.`}
               </AppText>
+            )}
+            {load.kind === "loading" && (
+              <AppText variant="caption" accessibilityLiveRegion="polite" muted>
+                Loading water goal...
+              </AppText>
+            )}
+          </View>
+        </View>
+        {load.kind === "error" && (
+          <LoadFailure
+            message="Couldn't load your water goal."
+            retryLabel="Retry water goal"
+            onRetry={edit.retryLoad}
+          />
+        )}
+        {load.kind === "ready" && (
+          <>
+            <View
+              style={{
+                flexDirection: "row",
+                flexWrap: "wrap",
+                alignItems: "stretch",
+                gap: spacing.sm,
+              }}
+            >
+              <View style={{ flexGrow: 1, flexBasis: 140, minWidth: 0 }}>
+                <TextField
+                  testID="water-goal-input"
+                  label="Daily water goal (ml)"
+                  labelHidden
+                  kind="integer"
+                  size="figure"
+                  unit="ml"
+                  value={draft}
+                  disabled={busy}
+                  invalid={Boolean(error)}
+                  onChange={(text) => {
+                    edit.change(text);
+                  }}
+                  onSubmit={() => void edit.save()}
+                />
+              </View>
+              <AppButton
+                tone="primary"
+                label={saving ? "Saving water goal..." : "Save water goal"}
+                disabled={busy}
+                onPress={() => void edit.save()}
+              />
             </View>
-          )}
-        </>
-      )}
-    </Panel>
+            <InlineMessage>{error}</InlineMessage>
+            {saved && (
+              <InlineMessage tone="success" testID="water-goal-saved">
+                Water goal saved.
+              </InlineMessage>
+            )}
+            <AppText variant="caption" muted>
+              Fills the cup on Home. Water and Drinks both count.
+            </AppText>
+          </>
+        )}
+      </RowContent>
+    </SettingsGroup>
   );
 }

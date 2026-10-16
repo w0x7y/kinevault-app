@@ -1,36 +1,39 @@
 import { AppButton } from "../components/button";
 import { View } from "react-native";
 import { parseDay } from "../calendar/dates.ts";
-import { AppText } from "../components/ui";
+import { AppText, Overline } from "../components/ui";
+import { Icon } from "../components/icon";
+import { InlineMessage } from "../components/inline-message";
+import { Chip } from "../components/chip";
 import { meals } from "../daily/model.ts";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import type { CatalogKind } from "./meal-model.ts";
-import type { FoodLoggingAttemptView } from "./use-logging-attempt";
+import type { FoodLoggingAttempt, FoodLoggingAttemptSnapshot } from "./logging-attempt.ts";
 
 export function FoodLoggingControls({
-  attempt: { attempt, preparation, failed, submittable, saving, busy },
-  onSaved,
+  attempt,
+  snapshot: { preparation, failed, submittable, saving, busy },
+  onLog,
   itemKind = "food",
 }: {
-  attempt: FoodLoggingAttemptView;
+  attempt: FoodLoggingAttempt;
+  snapshot: FoodLoggingAttemptSnapshot;
   itemKind?: CatalogKind;
-  onSaved: () => void;
+  onLog: () => void;
 }) {
   const { date, meal, operation } = preparation;
   const { colors } = useTheme();
+  const day = parseDay(date).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
   return (
     <View style={{ gap: spacing.layout }}>
       {preparation.measurement === "grams" && (
-        <>
-          <AppText variant="label" accessibilityRole="header">
-            Meal for{" "}
-            {parseDay(date).toLocaleDateString(undefined, {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </AppText>
+        <View style={{ gap: spacing.sm }}>
+          <Overline accessibilityRole="header">Meal · {day}</Overline>
           <View
             accessibilityLabel="Meal"
             style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}
@@ -38,11 +41,11 @@ export function FoodLoggingControls({
             {meals
               .filter((option) => option.key !== "drinks")
               .map((option) => (
-                <View key={option.key} style={{ flexGrow: 1, flexBasis: "45%" }}>
-                  <AppButton
+                <View key={option.key} style={{ flexGrow: 1, flexBasis: "40%", minWidth: 0 }}>
+                  <Chip
                     fill
+                    icon={option.icon}
                     label={option.label}
-                    accessibilityLabel={option.label}
                     selected={meal === option.key}
                     disabled={busy}
                     onPress={() => attempt.chooseMeal(option.key)}
@@ -50,28 +53,25 @@ export function FoodLoggingControls({
                 </View>
               ))}
           </View>
-        </>
+        </View>
       )}
       {preparation.measurement === "volume" && (
-        <AppText variant="caption" muted>
-          Logs to Drinks for{" "}
-          {parseDay(date).toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}{" "}
-          and adds this amount to your water total.
-        </AppText>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+          <Icon name="droplet" size={16} color={colors.water} />
+          <AppText variant="caption" muted style={{ flex: 1 }}>
+            Logs to Drinks for {day} and adds this amount to your water total.
+          </AppText>
+        </View>
       )}
       {failed && (
-        <AppText variant="caption" accessibilityRole="alert" style={{ color: colors.error }}>
-          {operation === "edit" ? "Couldn't save your changes." : `Couldn't log this ${itemKind}.`}{" "}
-          Your amounts and meal are kept. Try again.
-        </AppText>
+        <InlineMessage>
+          {`${operation === "edit" ? "Couldn't save your changes." : `Couldn't log this ${itemKind}.`} Your amounts and meal are kept. Try again.`}
+        </InlineMessage>
       )}
       <AppButton
-        primary
+        tone="primary"
         label={
+          // Only this attempt's own write reads as saving; a food-log refresh doesn't.
           saving
             ? `Saving ${itemKind}...`
             : operation === "edit"
@@ -81,11 +81,7 @@ export function FoodLoggingControls({
                 : `Log ${itemKind} to ${meals.find((option) => option.key === meal)?.label}`
         }
         disabled={!submittable}
-        onPress={() => {
-          void attempt.submit().then((saved) => {
-            if (saved) onSaved();
-          });
-        }}
+        onPress={onLog}
       />
     </View>
   );

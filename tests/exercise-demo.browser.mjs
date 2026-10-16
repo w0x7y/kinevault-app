@@ -239,6 +239,8 @@ test("an unlinked exercise offers Link demo in the workout but not in the templa
   );
   const editor = await openHistoricalWorkout(page);
   await button(editor, "Link a KineVault demo to Squat").waitFor();
+  // The workout's sheet covers the tab; close it before opening the saved workout menu.
+  await button(editor, "Cancel").click();
   await button(page, "Saved workouts").click();
   await button(page.getByTestId("workout-library"), "Edit workout Upper").click();
   const form = page.getByTestId("workout-form");

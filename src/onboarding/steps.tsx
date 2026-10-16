@@ -3,7 +3,9 @@ import { View } from "react-native";
 import { AppText } from "../components/ui";
 import { activities, goals, type Step } from "../profile/answers";
 import { spacing } from "../theme/tokens";
-import { Choice, ErrorText, Field } from "./controls";
+import { InlineMessage } from "../components/inline-message";
+import { TextField } from "../components/text-field";
+import { Choice } from "./controls";
 import { BodyQuestion } from "./body-question";
 import { CaloriesQuestion } from "./calories-question";
 import { ProfileReview } from "./profile-review";
@@ -51,30 +53,30 @@ export function Question({ step, ...props }: QuestionProps & { step: Step }) {
       return null;
     case "age":
       return (
-        <Field
+        <TextField
+          size="large"
           label="Age (years)"
           value={answers.age}
-          onChangeText={(age) => update({ kind: "fields", patch: { age } })}
+          onChange={(age) => update({ kind: "fields", patch: { age } })}
           placeholder="16 or older"
-          keyboardType="number-pad"
-          inputMode="numeric"
+          kind="integer"
+          filter
           maxLength={3}
-          editable={!disabled}
+          disabled={disabled}
           error={errors.age}
         />
       );
     case "name":
       return (
-        <Field
+        <TextField
+          size="large"
           label="Your name (optional)"
           value={answers.name}
-          onChangeText={(name) => update({ kind: "fields", patch: { name } })}
+          onChange={(name) => update({ kind: "fields", patch: { name } })}
           placeholder="Name or nickname"
           autoComplete="given-name"
-          textContentType="givenName"
           maxLength={40}
-          editable={!disabled}
-          returnKeyType="done"
+          disabled={disabled}
           error={errors.name}
         />
       );
@@ -83,7 +85,7 @@ export function Question({ step, ...props }: QuestionProps & { step: Step }) {
         <View
           accessibilityRole="radiogroup"
           accessibilityLabel="Weight goal"
-          style={{ gap: spacing.layout }}
+          style={{ gap: spacing.md }}
         >
           {goals.map(({ value, label, description }) => (
             <Choice
@@ -93,9 +95,10 @@ export function Question({ step, ...props }: QuestionProps & { step: Step }) {
               selected={answers.goal === value}
               onPress={() => update({ kind: "fields", patch: { goal: value } })}
               disabled={disabled}
+              invalid={Boolean(errors.goal)}
             />
           ))}
-          {errors.goal && <ErrorText message={errors.goal} />}
+          {errors.goal && <InlineMessage>{errors.goal}</InlineMessage>}
         </View>
       );
     case "body":
@@ -105,7 +108,7 @@ export function Question({ step, ...props }: QuestionProps & { step: Step }) {
         <View
           accessibilityRole="radiogroup"
           accessibilityLabel="Activity level"
-          style={{ gap: spacing.layout }}
+          style={{ gap: spacing.md }}
         >
           {activities.map(({ value, label, description }) => (
             <Choice
@@ -115,9 +118,10 @@ export function Question({ step, ...props }: QuestionProps & { step: Step }) {
               selected={answers.activity === value}
               onPress={() => update({ kind: "fields", patch: { activity: value } })}
               disabled={disabled}
+              invalid={Boolean(errors.activity)}
             />
           ))}
-          {errors.activity && <ErrorText message={errors.activity} />}
+          {errors.activity && <InlineMessage>{errors.activity}</InlineMessage>}
           {calorieState(answers).kind !== "estimate" && (
             <AppText variant="caption" muted>
               Optional when you're setting your own target.

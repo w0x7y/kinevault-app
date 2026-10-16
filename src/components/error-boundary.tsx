@@ -1,7 +1,15 @@
 import * as SplashScreen from "expo-splash-screen";
 import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from "react";
-import { Platform, Pressable, ScrollView, Text, useColorScheme } from "react-native";
-import { darkColors, lightColors, radius, spacing } from "../theme/tokens";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useColorScheme,
+} from "react-native";
+import { cardShadow, darkColors, lightColors, radius, spacing } from "../theme/tokens";
 import { reportCrash } from "./crash-reporting";
 import {
   initialBoundaryState,
@@ -79,50 +87,95 @@ function ErrorFallback({ message, onReload }: { message: string; onReload: () =>
       contentContainerStyle={{
         flexGrow: 1,
         justifyContent: "center",
-        padding: spacing.layout,
+        paddingHorizontal: spacing.gutter,
         paddingVertical: 48,
-        gap: spacing.md,
         width: "100%",
-        maxWidth: 480,
+        maxWidth: 440,
         alignSelf: "center",
       }}
     >
-      <Text
-        style={{ color: colors.foreground, fontSize: 24, fontWeight: "600" }}
-        accessibilityRole="header"
-      >
-        Something went wrong
-      </Text>
-      <Text
-        style={{ color: colors.mutedForeground, fontSize: 16 }}
-        accessibilityRole="alert"
-        accessibilityLiveRegion="assertive"
-      >
-        {message}
-      </Text>
-      <Pressable
-        testID="app-error-reload"
-        accessibilityRole="button"
-        accessibilityLabel="Reload"
-        onPress={onReload}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        style={({ pressed }) => ({
-          minHeight: 48,
-          padding: spacing.md,
-          justifyContent: "center",
+      {/* System fonts only: this screen renders before, or without, the app's font loading. */}
+      <View
+        style={{
           alignItems: "center",
-          borderRadius: radius.control,
-          borderWidth: 2,
-          borderColor: focused ? colors.ring : colors.primary,
-          backgroundColor: colors.primary,
-          opacity: pressed ? 0.8 : 1,
-        })}
+          gap: spacing.md,
+          padding: spacing.lg,
+          paddingTop: spacing.xl,
+          borderRadius: radius.panel,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
+          backgroundColor: colors.card,
+          boxShadow: cardShadow(colors),
+        }}
       >
-        <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: "600" }}>
-          Reload
+        <View
+          aria-hidden
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: colors.brandSoft,
+          }}
+        >
+          <Text style={{ color: colors.brand, fontSize: 26, fontWeight: "700", lineHeight: 30 }}>
+            !
+          </Text>
+        </View>
+        <Text
+          style={{
+            color: colors.foreground,
+            fontSize: 22,
+            lineHeight: 28,
+            fontWeight: "700",
+            letterSpacing: -0.3,
+            textAlign: "center",
+          }}
+          accessibilityRole="header"
+        >
+          Let's try that again
         </Text>
-      </Pressable>
+        <Text
+          style={{
+            color: colors.mutedForeground,
+            fontSize: 16,
+            lineHeight: 24,
+            textAlign: "center",
+          }}
+          accessibilityRole="alert"
+          accessibilityLiveRegion="assertive"
+        >
+          {message}
+        </Text>
+        {/* A plain Pressable, not Tappable: this screen renders outside ThemeProvider. */}
+        <Pressable
+          testID="app-error-reload"
+          accessibilityRole="button"
+          accessibilityLabel="Reload"
+          onPress={onReload}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          style={({ pressed }) => ({
+            alignSelf: "stretch",
+            marginTop: spacing.sm,
+            minHeight: 50,
+            padding: spacing.md,
+            justifyContent: "center",
+            alignItems: "center",
+            borderRadius: radius.control,
+            borderWidth: 2,
+            borderColor: focused ? colors.ring : "transparent",
+            backgroundColor: colors.primary,
+            opacity: pressed ? 0.86 : 1,
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+          })}
+        >
+          <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: "700" }}>
+            Reload
+          </Text>
+        </Pressable>
+      </View>
     </ScrollView>
   );
 }

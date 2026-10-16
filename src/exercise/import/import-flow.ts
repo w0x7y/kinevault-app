@@ -56,9 +56,7 @@ export function createWorkoutImportFlow({
         listeners.delete(listener);
       };
     },
-    start() {
-      active = true;
-    },
+    /** Ends the journey with its panel: a running download aborts and late results are dropped. */
     stop() {
       active = false;
       abort();

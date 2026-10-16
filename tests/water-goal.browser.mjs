@@ -74,9 +74,18 @@ async function open(
       window.__goalWaterError = waterState === "error";
       let delayedWater = waterState === "loading";
       let delayedGoal = goalState === "loading";
+      // Each held read must reach its domain store, not a cloud refresh.
+      let tookWater, tookGoal;
+      window.accountFixtureRefreshHolds = [
+        new Promise((resolve) => (tookWater = resolve)),
+        new Promise((resolve) => (tookGoal = resolve)),
+      ];
+      if (!delayedWater) tookWater();
+      if (!delayedGoal) tookGoal();
       Storage.prototype.getItem = function (key) {
         if (key.endsWith(goalKey) && window.accountFixture?.domainReady && delayedGoal) {
           delayedGoal = false;
+          tookGoal();
           return new Promise((resolve) => {
             window.__releaseGoalRead = () => resolve(get.call(this, key));
           });
@@ -87,6 +96,7 @@ async function open(
           throw new Error("Water fixture read failure");
         if (key.endsWith(waterKey) && window.accountFixture?.domainReady && delayedWater) {
           delayedWater = false;
+          tookWater();
           return new Promise((resolve) => {
             window.__releaseGoalWater = () => resolve(get.call(this, key));
           });

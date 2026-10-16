@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createCatalogDrafts } from "../src/food/catalog-drafts.ts";
+import { createCustomFoodPersistence } from "../src/food/custom-persistence.ts";
 import { createProductImportFlow } from "../src/food/product-import-flow.ts";
 import type { BrandedProduct } from "../src/food/product-model.ts";
 
@@ -25,7 +26,12 @@ function product(code = barcode): BrandedProduct {
   };
 }
 function fixture() {
-  const drafts = createCatalogDrafts();
+  const drafts = createCatalogDrafts({
+    store: createCustomFoodPersistence({
+      storage: { getItem: async () => null, setItem: async () => {} },
+      createId: () => "unused",
+    }),
+  });
   const requests: {
     barcode: string;
     signal: AbortSignal;
@@ -80,7 +86,7 @@ test("construction is inert, snapshots are stable, and subscription cleanup work
 
 test("review adopts provider values and provenance through the real Catalog draft owner", async () => {
   const { flow, drafts, requests, start } = fixture();
-  drafts.setMealIntent("dinner");
+  drafts.destination.set("dinner");
   start();
   const pending = flow.lookupBarcode(barcode);
   const result = { ...product(), volumeBased: true };
@@ -88,7 +94,7 @@ test("review adopts provider values and provenance through the real Catalog draf
   await pending;
   assert.deepEqual(flow.getSnapshot(), { kind: "draft" });
   const session = foodSession(drafts);
-  assert.equal(session.mealIntent, "dinner");
+  assert.equal(session.destination, "dinner");
   assert.equal(session.volumeBased, true);
   assert.deepEqual(session.draft, {
     ...result.draft,

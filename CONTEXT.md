@@ -23,13 +23,18 @@ Workout templates and logs, Custom foods and meals, Logged food, Manual water,
 and Water goal. Completed-workout summaries and journal stats derive from these
 saved records. Profile media remains private to the device.
 
+**Account tracking document**: One saved part of Account tracking (Profile,
+Exercises, Food log, Custom foods, Water log or Water goal) with its own storage
+key and Settings name. Each document syncs, and can have a Cloud conflict, on its
+own.
+
 **Account management attempt**: An Account’s request to export tracking or
 confirm permanent deletion, with feedback belonging to the Settings view that
 started it. Confirmed deletion belongs to the Account even after that view leaves.
 
 **Cloud conflict**: Different saved tracking changes on two devices that cannot
 be applied without replacing one copy. The user chooses the device or cloud copy
-for the affected tracking category; both copies are retained until that choice.
+for the affected Account tracking document; both copies are retained until that choice.
 
 **Onboarding flow**: The setup journey through profile questions and review,
 including returning to an edited question and resuming unfinished setup. Leaving
@@ -111,36 +116,56 @@ default to three sets per exercise; legacy templates retain their existing data.
 
 **Workout log**: A record created from a saved workout on the Selected day.
 Several logs may belong to a day. A workout draft becomes active through Start
-workout, or becomes completed through manual logging. The workout menu gives
+workout, or becomes completed through manual logging. The Saved workouts menu gives
 access to drafts and existing logs; there is no ad hoc session creation.
 Selected drafts display compact workout cards. Start expands a card into the
 scrolling exercise bar above the selected-exercise detail; manual logging remains available.
-Settings on a compact draft can change planned counts before Start.
+Workout settings on a compact draft can change planned counts before Start; they open on
+the day itself. A card opened on its own from Saved workouts shows a Close workout
+control that returns to the day.
 
 **Workout edit**: Unfinished changes to a workout log. Planned and active fields
 are saved as drafts; completed changes require explicit Save. Failed saves retain
 the entered fields. Leaving for another panel preserves completed changes, while
-Cancel discards them.
+Cancel discards them. The selected exercise row and a compact card's planned-set
+settings belong to the edit, so a remounted editor keeps them.
 
 **Workout template draft**: The name, ordered Exercise definitions and planned
 counts being prepared for a reusable workout. A newly selected exercise defaults
 to three sets; removing and re-adding it retains its entered count. Saving a
 template draft does not change existing workout logs.
 
+**Library draft**: Unfinished input in an Exercise library panel: an Exercise
+definition edit, a Workout template draft, Saved workouts actions or a Workout
+import. It belongs to the panel that opened it and survives leaving the tab. Only a
+durable success closes that panel, and a replaced panel's late result cannot close
+a newer one.
+
+**Exercise tab view**: Where the Exercise tab shows each Workout log and library
+panel. Compact cards and the Active workout stay on the day; every other panel
+opens as a page over it with its own title and back control.
+
 **Active workout**: The sole workout with a running wall-clock timer. Its name
 must be nonblank before Start; an unnamed draft remains editable. Its saved
 start time and draft sets survive tab switches and app reopening. It remains on
 its original date across midnight. End workout requires a successful durable save.
 The active editor retains local fields across searches and calendar changes.
-It automatically expands on the default Exercise view, with elapsed time beside
-the workout name. It has no separate timer/open panel or Close action.
+It automatically expands on the default Exercise view, whatever the Selected day,
+under a Live workout header with elapsed time beside the workout name. It has no
+separate timer/open panel or Close action.
 
 **Completed workout**: A finished or manually logged workout's valid sets and
 the exercises that have at least one logged set. Untouched blank sets are skipped
 on completion; partially entered sets require valid measurements. Drafts and active workouts do not
 contribute to daily totals. Editing a completed workout requires an explicit save.
 Template and completed editing share the active layout's exercise bar and detail;
-metadata changes are available under Settings.
+a template's name and exercises are under Exercises, a completed workout's name
+and duration under Details.
+
+**Previous sets**: The sets of the latest Completed workout, on or before the
+log's date, that includes the same Exercise definition. A blank set field shows
+the matching previous set's reps and kilograms as a hint, or failing that the set
+above it. Hints are never saved as entered values.
 
 **Exercise snapshot**: The exercise definition retained in a template or log.
 Historical logs survive changes or deletion of their library sources.
@@ -175,7 +200,7 @@ weight multiplied by repetitions for each set.
 
 **Daily activity**: Food, workout, step, and water records for the Selected day.
 Saved food contributes to that day's calorie and macro totals. Home water combines
-manual water with explicit millilitres on saved Drinks entries for that date,
+manual water with explicit milliliters on saved Drinks entries for that date,
 and displays the total in litres. Drink edits and removals change hydration
 with the same food-log save. Catalog saves do not record intake or hydration.
 Unavailable food or water is distinct from a known empty day or zero intake;
@@ -184,7 +209,7 @@ Completed workout logs contribute independently to daily totals. Exercise
 storage loading or failure does not hide known food records, and Food recovery
 does not hide known workout totals.
 
-**Manual water**: The millilitres entered directly for the Selected day,
+**Manual water**: The milliliters entered directly for the Selected day,
 separate from saved Drinks. Editing replaces that day's manual amount; zero
 clears it without changing Drinks or other days.
 
@@ -192,6 +217,12 @@ clears it without changing Drinks or other days.
 set. Manual water and saved Drinks contribute together, and reaching or exceeding
 the target means completed goal progress. An entered replacement remains a draft
 until Save; another device's goal update does not overwrite that entered amount.
+
+**Document edit**: An entered draft of one durable document (Manual water, Water
+goal, a Profile section) with its own save feedback. Its untouched draft comes from
+the saved document, either once or following saved replacements until the user
+types; Save validates against the latest saved document. A closed edit's late
+result never reaches a newer edit.
 
 **Food catalog**: Foods and prepared dishes with calories, macros, and known
 serving weights, available to search when choosing what to log.
@@ -218,9 +249,15 @@ input cannot be submitted. Ready input uses exactly the nutrition shown, preserv
 logged snapshots and the shared legacy detailed-nutrient source fallback. Drink
 preparation fixes the destination to Drinks; hydration changes only after the
 food-log write succeeds. Failed attempts retain the entered fields and destination.
+Only the attempt's own save shows as saving; a food-log refresh doesn't block
+logging, and a save started during one waits for it.
 
 **Meal**: Breakfast, Lunch, Dinner, Snacks, or Drinks within a day's food log.
 Legacy snacks remain Snacks and have no guessed drink volume.
+
+**Meal destination**: The Meal a new Logging attempt adds to. Choosing a meal
+while adding moves it; each Catalog draft captures it when opened and restores it
+when reopened; returning to the food log resets it to Breakfast.
 
 **Custom food**: A reusable food with a name, serving weight, calories, and
 macros entered by the user, plus an optional editable brand and detailed nutrients.
@@ -238,6 +275,11 @@ these reusable drafts. Untouched editors are not offered as resumable drafts.
 The draft owner handles validation, save feedback and retirement together. Changes
 made during a pending save stay available even when the earlier version succeeds.
 
+**Food tab view**: What the Food tab shows over its food log (search results, a
+food's details, its catalog editor, a creation, a resumed draft, a Product import,
+Daily macros) and how a day change, leaving the tab, saving or deleting changes it.
+Pages keep their state while the tab is away.
+
 **Custom meal**: A reusable collection of foods and their amounts. Its calories
 and macros begin as ingredient totals and can be overridden for the whole meal.
 Detailed nutrients use optional whole-meal overrides; clearing a value restores calculation.
@@ -252,7 +294,6 @@ makes that nutrient's daily total unavailable; a reported zero is known intake.
 **Product import**: The journey from barcode lookup to review of an editable
 Custom food draft. Interrupted lookups can be retried; reviewed edits remain
 available, and a canceled or replaced lookup cannot reopen its old review.
-Food has two search-row controls: offline Search and barcode Scan, with a 75/25 split.
 Saved imports retain provider attribution and join offline food and ingredient
 search, including formatting differences and bounded typos in eligible words.
 Missing nutrition is blank. Drinks use confirmed label values per 100 ml; explicit
@@ -261,7 +302,8 @@ packaging alone is insufficient. Solid ingredients still require real gram nutri
 The barcode badge marks only imports made through scanning or manual barcode lookup.
 Unknown scanned products can become manual foods without claiming provider provenance.
 
-**Kine**: The app's blue original creature, who guides setup and appears on each app tab.
+**Kine**: The app's blue original creature, who guides setup, greets on Home and
+appears in loading states.
 
 **Drink nutrition basis**: Calories/macros and optional nutrients per 100 ml,
 from a reviewed label or actual USDA non-iced fluid-volume serving. Unknown

@@ -227,11 +227,10 @@ test("Home distinguishes unconnected steps and Settings states the supported app
   assert.equal(await steps.getByText("0", { exact: true }).count(), 0);
   assert.equal(await steps.getByRole("button").count(), 0);
   await page.getByRole("tab", { name: "Settings", exact: true }).click();
-  await page.getByRole("heading", { name: "App format", exact: true }).waitFor();
+  // The supported formats are a footer line rather than a settings group.
   await page
-    .getByText("English and metric units are the supported formats.", { exact: true })
+    .getByText("English · Metric (kg, cm, km, ml) · Version 1.0.0", { exact: true })
     .waitFor();
-  await page.getByText("Metric · kg, cm, km, ml", { exact: true }).waitFor();
   assert.equal(
     await page.getByRole("button", { name: /Language|Units|English|Metric/ }).count(),
     0,

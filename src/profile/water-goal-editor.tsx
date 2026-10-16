@@ -1,26 +1,31 @@
 import { ButtonRow, AppButton } from "../components/button";
-import { AppText, Panel } from "../components/ui";
-import { Field, ErrorText } from "../onboarding/controls";
-import { useWaterGoalEdit } from "../water/use-goal-editing";
+import { AppText } from "../components/ui";
+import { EditorSection } from "./journal-ui";
+import { TextField } from "../components/text-field";
+import { useDocumentEdit } from "../persistence/use-document-edit";
+import { createWaterGoalEdit } from "../water/goal-editing";
+import { useWaterGoalPersistence } from "../water/goal-provider";
 // The edit follows the saved goal itself.
 export function WaterGoalEditor({ close }: { close: () => void }) {
-  const { edit, draft, error, busy } = useWaterGoalEdit();
+  const goal = useWaterGoalPersistence();
+  const { edit, draft, error, busy, saving } = useDocumentEdit(() => createWaterGoalEdit(goal));
   return (
-    <Panel testID="profile-water-goal-editor">
+    <EditorSection testID="profile-water-goal-editor">
       <AppText variant="heading" accessibilityRole="header">
         Edit water goal
       </AppText>
-      <Field
+      <TextField
+        size="large"
         label="Daily water goal (ml)"
         value={draft}
-        onChangeText={(value) => {
+        onChange={(value) => {
           edit.change(value);
         }}
-        editable={!busy}
-        inputMode="numeric"
-        keyboardType="number-pad"
+        disabled={busy}
+        kind="integer"
+        filter
+        error={error}
       />
-      {error && <ErrorText message={error} />}
       <ButtonRow>
         <AppButton
           fill
@@ -32,8 +37,8 @@ export function WaterGoalEditor({ close }: { close: () => void }) {
         />
         <AppButton
           fill
-          primary
-          label={busy ? "Saving water goal…" : "Save water goal"}
+          tone="primary"
+          label={saving ? "Saving water goal…" : "Save water goal"}
           disabled={busy}
           onPress={() => {
             void edit.save().then((saved) => {
@@ -42,6 +47,6 @@ export function WaterGoalEditor({ close }: { close: () => void }) {
           }}
         />
       </ButtonRow>
-    </Panel>
+    </EditorSection>
   );
 }

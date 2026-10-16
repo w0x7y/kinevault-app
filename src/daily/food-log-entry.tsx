@@ -1,29 +1,65 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { BackHandler, Platform, View } from "react-native";
+import { BackHandler, Platform, View, type StyleProp, type ViewStyle } from "react-native";
+import Animated from "react-native-reanimated";
 import { AppButton, ButtonRow, IconButton } from "../components/button";
 import { useDeleteConfirmation } from "../components/delete-button";
+import { useLayoutMotion, useReducedMotion, useStateTransition } from "../components/motion";
 import { AppText } from "../components/ui";
-import { useTheme } from "../theme/provider";
-import { spacing } from "../theme/tokens";
+import { fonts, spacing } from "../theme/tokens";
 import type { FoodEntry } from "./model";
+import { InlineMessage } from "../components/inline-message";
+
+/** How long a removed entry takes to fade before its meal closes up. */
+const leaveDuration = 160;
 
 export function FoodLogEntry({
   food,
   mealLabel,
+  fresh = false,
   saving,
   onEdit,
   onRemove,
+  onArm,
+  onLeaving,
+  style,
 }: {
   food: FoodEntry;
   mealLabel: string;
+  /** Just logged while the log was on screen: the entry rises into its meal. */
+  fresh?: boolean;
   saving: boolean;
   onEdit: (entry: FoodEntry) => void;
   onRemove: (id: string) => Promise<boolean>;
+  /** Called as the remove confirmation opens, in the same update. */
+  onArm?: () => void;
+  /** Brackets the confirmed removal, fade included, so other entries wait for it. */
+  onLeaving?: (leaving: boolean) => void;
+  style?: StyleProp<ViewStyle>;
 }) {
-  const { colors } = useTheme();
+  const reduced = useReducedMotion();
+  const motion = useLayoutMotion();
+  const fadeOut = useStateTransition(["opacity"], leaveDuration);
+  // A confirmed entry fades where it is, then leaves; the meal closes up once it has gone.
+  const [leaving, setLeaving] = useState(false);
   const { armed, busy, failed, arm, cancel, confirm } = useDeleteConfirmation({
-    onDelete: () => onRemove(food.id),
+    onDelete: async () => {
+      onLeaving?.(true);
+      if (!reduced) {
+        setLeaving(true);
+        await new Promise((resolve) => setTimeout(resolve, leaveDuration));
+      }
+      try {
+        const removed = await onRemove(food.id);
+        if (!removed) setLeaving(false);
+        return removed;
+      } catch (error) {
+        setLeaving(false);
+        throw error;
+      } finally {
+        onLeaving?.(false);
+      }
+    },
     disabled: saving,
   });
   const disabled = saving || busy;
@@ -59,80 +95,96 @@ export function FoodLogEntry({
     }, [armed, disabled, cancel, food.id]),
   );
   return (
-    <View
-      testID={`food-log-entry-${food.id}`}
-      nativeID={`food-log-entry-${food.id}`}
-      style={{ gap: spacing.sm, paddingVertical: spacing.xs }}
+    <Animated.View
+      entering={fresh ? motion.enter() : undefined}
+      style={[style, { opacity: leaving ? 0 : 1, ...fadeOut }]}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
-        <View style={{ flex: 1, minWidth: 0, gap: spacing.xs }}>
-          <AppText style={{ fontSize: 14 }} selectable>
-            {food.name}
-          </AppText>
-          <AppText variant="caption" muted selectable>
-            {food.measurement === "volume"
-              ? `${food.drinkMl.toLocaleString()} ml`
-              : food.meal === "drinks" && food.drinkMl !== undefined
+      <View
+        testID={`food-log-entry-${food.id}`}
+        nativeID={`food-log-entry-${food.id}`}
+        style={{ gap: spacing.sm, paddingTop: 2 }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
+          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+            <AppText
+              variant="label"
+              style={{ fontSize: 15, lineHeight: 21, fontFamily: fonts.semibold }}
+              selectable
+            >
+              {food.name}
+            </AppText>
+            <AppText variant="caption" muted selectable style={{ fontVariant: ["tabular-nums"] }}>
+              {food.measurement === "volume"
                 ? `${food.drinkMl.toLocaleString()} ml`
-                : `${food.grams.toLocaleString(undefined, { maximumFractionDigits: 1 })} g`}{" "}
-            · {Math.round(food.calories).toLocaleString()} kcal
-          </AppText>
-        </View>
-        <View style={{ flexDirection: "row", flexShrink: 0, gap: spacing.sm }}>
-          <IconButton
-            label={`Edit ${food.name} in ${mealLabel}`}
-            icon="pen"
-            disabled={disabled}
-            onPress={() => {
-              cancel();
-              onEdit(food);
-            }}
-          />
-          <IconButton
-            ref={trashButton}
-            label={`Remove ${food.name} from ${mealLabel}`}
-            icon="trash-can"
-            disabled={disabled}
-            expanded={armed}
-            destructive
-            onPress={arm}
-          />
-        </View>
-      </View>
-      {armed && (
-        <View style={{ gap: spacing.sm }}>
-          <AppText variant="caption" accessibilityRole="alert">
-            Remove {food.name} from {mealLabel}?
-          </AppText>
-          <ButtonRow>
-            <AppButton
-              ref={cancelButton}
-              label="Cancel"
-              accessibilityLabel={`Cancel removing ${food.name} from ${mealLabel}`}
+                : food.meal === "drinks" && food.drinkMl !== undefined
+                  ? `${food.drinkMl.toLocaleString()} ml`
+                  : `${food.grams.toLocaleString(undefined, { maximumFractionDigits: 1 })} g`}{" "}
+              · {Math.round(food.calories).toLocaleString()} kcal
+            </AppText>
+          </View>
+          {/* The round targets overhang the card padding so the icons sit near its edge. */}
+          <View style={{ flexDirection: "row", flexShrink: 0, gap: 0, marginRight: -spacing.sm }}>
+            <IconButton
+              label={`Edit ${food.name} in ${mealLabel}`}
+              icon="pen"
               disabled={disabled}
               onPress={() => {
                 cancel();
-                if (Platform.OS === "web") trashButton.current?.focus();
+                onEdit(food);
               }}
-              fill
             />
-            <AppButton
-              label="Remove"
-              accessibilityLabel={`Confirm remove ${food.name} from ${mealLabel}`}
+            <IconButton
+              ref={trashButton}
+              label={`Remove ${food.name} from ${mealLabel}`}
+              icon="trash-can"
               disabled={disabled}
-              busy={busy}
-              onPress={() => void confirm()}
+              expanded={armed}
               destructive
-              fill
+              onPress={() => {
+                arm();
+                onArm?.();
+              }}
             />
-          </ButtonRow>
+          </View>
         </View>
-      )}
-      {failed && (
-        <AppText variant="caption" accessibilityRole="alert" style={{ color: colors.error }}>
-          Couldn't remove this entry. Try again.
-        </AppText>
-      )}
-    </View>
+        {armed && (
+          <Animated.View
+            entering={motion.fade}
+            style={{ gap: spacing.sm, paddingBottom: spacing.xs }}
+          >
+            <AppText
+              variant="caption"
+              accessibilityRole="alert"
+              style={{ fontFamily: fonts.semibold }}
+            >
+              Remove {food.name} from {mealLabel}?
+            </AppText>
+            <ButtonRow>
+              <AppButton
+                ref={cancelButton}
+                label="Cancel"
+                accessibilityLabel={`Cancel removing ${food.name} from ${mealLabel}`}
+                disabled={disabled}
+                onPress={() => {
+                  cancel();
+                  if (Platform.OS === "web") trashButton.current?.focus();
+                }}
+                fill
+              />
+              <AppButton
+                label="Remove"
+                accessibilityLabel={`Confirm remove ${food.name} from ${mealLabel}`}
+                disabled={disabled}
+                busy={busy}
+                onPress={() => void confirm()}
+                tone="destructive"
+                fill
+              />
+            </ButtonRow>
+          </Animated.View>
+        )}
+        {failed && <InlineMessage>Couldn't remove this entry. Try again.</InlineMessage>}
+      </View>
+    </Animated.View>
   );
 }

@@ -1,24 +1,33 @@
-import { useFocusRing } from "./focus-ring";
-import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PropsWithChildren,
+  type Ref,
+} from "react";
 import { usePathname, useRouter, type Href } from "expo-router";
 import {
   BackHandler,
-  Platform,
   Pressable,
   StyleSheet,
   useWindowDimensions,
   View,
+  type StyleProp,
   type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { addDays, calendarWeeks, parseDay } from "../calendar/dates";
 import { useSelectedDay } from "../calendar/provider";
 import { useTheme } from "../theme/provider";
-import { spacing } from "../theme/tokens";
+import { fonts, radius, spacing } from "../theme/tokens";
 import { Icon } from "./icon";
 import { AppText } from "./ui";
 import { ProfileAvatar } from "../profile/profile-identity";
 import { ProfileMenu } from "./profile-menu";
+import { PopoverSurface, usePopover } from "./popover";
+import { Tappable, type TappableState } from "./tappable";
 
 function fullDate(day: string): string {
   return parseDay(day).toLocaleDateString(undefined, {
@@ -37,39 +46,39 @@ function HeaderButton({
   expanded,
   current,
   style,
-  nativeID,
+  surfaceHeight,
+  ref,
 }: PropsWithChildren<{
   label: string;
   onPress: () => void;
   selected?: boolean;
   expanded?: boolean;
   current?: boolean;
-  style?: ViewStyle;
-  nativeID?: string;
+  style?: StyleProp<ViewStyle>;
+  /** A button drawn shorter than its 44 pt hit area. */
+  surfaceHeight?: number;
+  ref?: Ref<View>;
 }>) {
   const { colors } = useTheme();
-  const { focused, onFocus, onBlur } = useFocusRing();
+  const look = ({ pressed }: TappableState) => [
+    styles.button,
+    { backgroundColor: pressed ? colors.accent : "transparent" },
+    style,
+  ];
   return (
-    <Pressable
-      nativeID={nativeID}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected, expanded }}
-      aria-pressed={selected}
-      aria-current={current ? "date" : undefined}
-      aria-expanded={expanded}
+    <Tappable
+      ref={ref}
+      label={label}
+      selected={selected}
+      current={current ? "date" : undefined}
+      expanded={expanded}
       onPress={onPress}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      style={({ pressed }) => [
-        styles.button,
-        { backgroundColor: pressed ? colors.accent : "transparent" },
-        style,
-        focused && { borderColor: colors.ring },
-      ]}
+      style={surfaceHeight === undefined ? look : undefined}
+      surface={surfaceHeight === undefined ? undefined : look}
+      surfaceHeight={surfaceHeight}
     >
       {children}
-    </Pressable>
+    </Tappable>
   );
 }
 
@@ -96,17 +105,19 @@ function DayCalendar() {
           label="Select previous day"
           onPress={() => selectDay(addDays(selectedDay, -1))}
         >
-          <Icon name="chevron-left" size={16} color={colors.foreground} />
+          <Icon name="chevron-left" size={16} color={colors.primary} />
         </HeaderButton>
         <HeaderButton
           label="Select today"
           onPress={() => selectDay(today)}
-          style={styles.todayButton}
+          style={[styles.todayButton, { backgroundColor: colors.muted }]}
         >
-          <AppText variant="label">Today</AppText>
+          <AppText variant="label" style={{ fontFamily: fonts.bold }}>
+            Today
+          </AppText>
         </HeaderButton>
         <HeaderButton label="Select next day" onPress={() => selectDay(addDays(selectedDay, 1))}>
-          <Icon name="chevron-right" size={16} color={colors.foreground} />
+          <Icon name="chevron-right" size={16} color={colors.primary} />
         </HeaderButton>
       </View>
       <AppText variant="caption" muted style={styles.range}>
@@ -124,7 +135,7 @@ function DayCalendar() {
       {weeks.map((week, row) => (
         <View
           key={week[0]}
-          style={[styles.week, row === 2 && { backgroundColor: colors.accent, borderRadius: 10 }]}
+          style={[styles.week, row === 2 && { backgroundColor: colors.muted, borderRadius: 14 }]}
         >
           {week.map((day) => {
             const date = parseDay(day);
@@ -140,8 +151,12 @@ function DayCalendar() {
                   current={isToday}
                   style={{
                     width: "100%",
+                    maxWidth: 52,
+                    height: 44,
+                    borderRadius: radius.pill,
                     backgroundColor: selected ? colors.primary : "transparent",
-                    borderColor: isToday ? colors.primary : "transparent",
+                    borderColor: isToday && !selected ? colors.foreground : "transparent",
+                    borderWidth: isToday && !selected ? 1.5 : 2,
                   }}
                 >
                   <AppText
@@ -199,9 +214,24 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
   const expanded = popover === "calendar";
   const [headerHeight, setHeaderHeight] = useState(0);
   const closePopover = useCallback(() => setPopover(null), []);
-  const focusProfile = useCallback(() => {
-    if (Platform.OS === "web") document.getElementById("profile-menu-button")?.focus();
-  }, []);
+  const calendarChip = useRef<View>(null),
+    calendarCard = useRef<View>(null),
+    profileButton = useRef<View>(null),
+    profileMenu = useRef<View>(null);
+  // The calendar stays open while the day below it is used; the menu closes on any outside press.
+  usePopover({
+    open: expanded,
+    onDismiss: closePopover,
+    trigger: calendarChip,
+    container: calendarCard,
+    lightDismiss: false,
+  });
+  usePopover({
+    open: popover === "profile",
+    onDismiss: closePopover,
+    trigger: profileButton,
+    container: profileMenu,
+  });
   useEffect(() => {
     setPopover((previous) => (previous === "profile" || isProfile ? null : previous));
   }, [path, isProfile]);
@@ -214,26 +244,6 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
     });
     return () => back.remove();
   }, [isProfile, popover, returnFromProfile]);
-  useEffect(() => {
-    if (!popover) return;
-    const close = () => {
-      setPopover(null);
-      if (popover === "profile") focusProfile();
-      return true;
-    };
-    const back = BackHandler.addEventListener("hardwareBackPress", close);
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        close();
-      }
-    };
-    if (Platform.OS === "web") document.addEventListener("keydown", onKeyDown);
-    return () => {
-      back.remove();
-      if (Platform.OS === "web") document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [popover, focusProfile]);
   const dateLabel = parseDay(selectedDay).toLocaleDateString(undefined, {
     weekday: "short",
     month: "short",
@@ -243,6 +253,7 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
   return (
     <View pointerEvents="box-none" style={styles.overlay}>
       {popover === "profile" && (
+        // Not a control: a tap outside the menu closes it, so it stays out of the accessibility tree.
         <Pressable
           testID="header-popover-backdrop"
           accessible={false}
@@ -255,7 +266,7 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
       )}
       <SafeAreaView
         edges={["top", "left", "right"]}
-        style={{ backgroundColor: colors.card }}
+        style={{ backgroundColor: colors.background }}
         onStartShouldSetResponder={() => popover === "profile"}
         onResponderRelease={() =>
           setPopover((previous) => (previous === "profile" ? null : previous))
@@ -266,31 +277,26 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
           onHeightChange(height);
         }}
       >
-        <View style={styles.header}>
-          <View style={[styles.bar, isProfile && { minHeight: 52 }]}>
-            {isProfile ? (
-              <HeaderButton label="Back from Profile" onPress={returnFromProfile}>
-                <Icon name="chevron-left" size={16} color={colors.foreground} />
-              </HeaderButton>
-            ) : isSettings ? (
-              <View style={styles.button} />
-            ) : (
-              <HeaderButton
-                label={expanded ? "Collapse calendar" : "Expand calendar"}
-                expanded={expanded}
-                onPress={() =>
-                  setPopover((previous) => (previous === "calendar" ? null : "calendar"))
-                }
-              >
-                <Icon
-                  name={expanded ? "chevron-up" : "chevron-down"}
-                  size={16}
-                  color={colors.foreground}
-                />
-              </HeaderButton>
-            )}
+        <View style={styles.bar}>
+          {isProfile && (
+            <HeaderButton
+              label="Back from Profile"
+              onPress={returnFromProfile}
+              style={styles.round}
+            >
+              <Icon name="chevron-left" size={20} color={colors.primary} />
+            </HeaderButton>
+          )}
+          {/* A larger tap area for pointers; keyboard and screen readers use the calendar chip. */}
+          <Pressable
+            accessible={false}
+            tabIndex={-1}
+            disabled={isProfile || isSettings}
+            onPress={() => setPopover((previous) => (previous === "calendar" ? null : "calendar"))}
+            style={styles.titleArea}
+          >
             <AppText
-              variant="label"
+              variant="heading"
               accessibilityLabel={
                 isProfile
                   ? "Profile"
@@ -299,39 +305,63 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
                     : `${fullDate(selectedDay)}${selectedDay === today ? ", today" : ""}`
               }
               numberOfLines={1}
-              style={[styles.selectedDate, isProfile && { fontSize: 14, lineHeight: 22 }]}
+              style={[styles.selectedDate, (isProfile || isSettings) && styles.screenName]}
             >
               {isProfile ? "Profile" : isSettings ? "Settings" : dateLabel}
             </AppText>
-            <HeaderButton
-              nativeID="profile-menu-button"
-              label="Profile menu"
-              expanded={popover === "profile"}
-              onPress={() => setPopover((previous) => (previous === "profile" ? null : "profile"))}
-            >
-              <ProfileAvatar />
-            </HeaderButton>
-          </View>
+            {!isProfile && !isSettings && (
+              <HeaderButton
+                ref={calendarChip}
+                label={expanded ? "Collapse calendar" : "Expand calendar"}
+                expanded={expanded}
+                surfaceHeight={36}
+                onPress={() =>
+                  setPopover((previous) => (previous === "calendar" ? null : "calendar"))
+                }
+                style={[styles.chip, { backgroundColor: expanded ? colors.accent : colors.muted }]}
+              >
+                <Icon name="calendar" size={16} color={colors.primary} />
+                <Icon
+                  name={expanded ? "chevron-up" : "chevron-down"}
+                  size={13}
+                  color={colors.mutedForeground}
+                />
+              </HeaderButton>
+            )}
+          </Pressable>
+          <HeaderButton
+            ref={profileButton}
+            label="Profile menu"
+            expanded={popover === "profile"}
+            onPress={() => setPopover((previous) => (previous === "profile" ? null : "profile"))}
+            style={styles.round}
+          >
+            <ProfileAvatar />
+          </HeaderButton>
         </View>
       </SafeAreaView>
       {!isProfile && !isSettings && expanded && (
         <SafeAreaView
           edges={["left", "right"]}
-          style={[styles.calendarOverlay, { top: headerHeight, backgroundColor: colors.card }]}
+          pointerEvents="box-none"
+          style={[styles.calendarOverlay, { top: headerHeight + 4 }]}
         >
-          <DayCalendar />
+          <PopoverSurface ref={calendarCard} origin="top" style={styles.calendarCard}>
+            <DayCalendar />
+          </PopoverSurface>
         </SafeAreaView>
       )}
       {popover === "profile" && (
         <SafeAreaView
           edges={["left", "right"]}
           pointerEvents="box-none"
-          style={[styles.profileAnchor, { top: headerHeight }]}
+          style={[styles.profileAnchor, { top: headerHeight - 4 }]}
         >
           <ProfileMenu
+            ref={profileMenu}
+            trigger={profileButton}
             currentProfile={isProfile}
             maxHeight={Math.max(0, windowHeight - headerHeight)}
-            onDismiss={closePopover}
             onSelect={(entry) => {
               setPopover(null);
               if (entry === "Profile") router.navigate("/profile");
@@ -345,15 +375,15 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
 
 const styles = StyleSheet.create({
   overlay: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 1 },
+  // Narrow phones keep a 4px inset so seven 44px day cells still fit at 320px.
   calendarOverlay: {
     position: "absolute",
     width: "100%",
-    maxWidth: 600,
+    maxWidth: 576,
     alignSelf: "center",
-    borderBottomLeftRadius: 14,
-    borderBottomRightRadius: 14,
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.12)",
+    paddingHorizontal: spacing.xs,
   },
+  calendarCard: { borderRadius: radius.panel, paddingTop: spacing.md },
   profileAnchor: {
     position: "absolute",
     width: "100%",
@@ -362,41 +392,34 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     paddingHorizontal: spacing.layout,
   },
-  header: {},
   bar: {
-    minHeight: 50,
+    minHeight: 60,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: spacing.layout,
-    gap: spacing.layout,
+    paddingLeft: spacing.gutter,
+    paddingRight: spacing.gutter - 6,
+    gap: spacing.sm,
     width: "100%",
     maxWidth: 768,
     alignSelf: "center",
   },
-  button: {
-    minWidth: 44,
-    minHeight: 44,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: "transparent",
+  button: { borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  round: { borderRadius: radius.pill, marginLeft: -6 },
+  titleArea: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: spacing.sm,
   },
-  selectedDate: { flex: 1, textAlign: "center" },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  chip: { flexDirection: "row", gap: 6, paddingHorizontal: spacing.md, borderRadius: radius.pill },
+  selectedDate: { flexShrink: 1, fontSize: 17, lineHeight: 24 },
+  screenName: { fontFamily: fonts.bold },
   calendar: {
     width: "100%",
-    maxWidth: 600,
+    maxWidth: 560,
     alignSelf: "center",
-    paddingHorizontal: 4,
-    paddingBottom: spacing.layout,
+    paddingBottom: spacing.md,
     gap: 2,
   },
   calendarToolbar: {
@@ -405,7 +428,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.layout,
   },
-  todayButton: { paddingHorizontal: spacing.layout },
+  todayButton: { paddingHorizontal: spacing.lg, borderRadius: radius.pill },
   range: { textAlign: "center", paddingVertical: 4 },
   week: { flexDirection: "row" },
   daySlot: { flex: 1, minWidth: 44, alignItems: "center", justifyContent: "center" },

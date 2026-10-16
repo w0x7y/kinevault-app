@@ -37,6 +37,17 @@ Its interface exposes ordinary key-based reads and writes, synchronization
 intentions, snapshots and key-specific external-change subscriptions. Device
 storage and the Supabase document transport are adapters at this seam.
 
+The Account tracking document registry (`src/account/tracking-documents.ts`)
+lists every synced document once, with its storage key, parser and Settings name.
+Account storage, Cloud conflict names and the history partitions read keys from it
+or from the domain key constants it uses, so each key is written in one place.
+Each document's provider comes from `createDocumentProvider`, which owns store
+creation per account scope, subscription, start and stop, and the context guard.
+The tabs mount the documents they read through `AccountTrackingProvider`, and
+`TrackingRefreshNotices` renders their refresh notices from the same list; Profile
+mounts above them with the account scope. Adding a synced document means a domain key constant, a provider from the
+factory and one registry entry.
+
 Food and exercise history have physical monthly partitions behind that logical
 document interface. Local copy-on-write manifests publish a whole replacement
 only after its changed fragments are durable. The optional cloud transport
@@ -82,6 +93,35 @@ changed while it was pending, close a replacement editor or deliver its result t
 that editor. Save completion is delivered before retirement notifications can
 detach the submitting form. Successful deletion retires only the deleted item's
 retained edit; callers cannot bypass durability to retire an edit themselves.
+Catalog drafts receive the Custom food persistence when created and also own
+saved-item deletion feedback, scoped to the caller that requested it, and the Meal
+destination that Logging attempts read and write.
+
+The Exercise tab view decides where every Workout log and panel goes: compact
+cards and the Active workout stay on the tab, every other panel is a sheet with its
+title, back name and test ID. Workout edits own the selected exercise and the
+planned-set settings disclosure, which reopens when a planned count is invalid, and
+the same log mode drives planned-count validation. Library drafts own Exercise definition, Workout template, Saved
+workouts and Workout import state per panel, so the sheet can unmount when the tab
+loses focus without losing input; their durable success closes the originating
+panel through the same token guards as Workout edits. The sheet page owns its
+header overrides and scroll positioning: pages claim the back button with
+`useSheetBack`, request a scroll target with `useSheetScrollTarget`, and a new
+`page` starts at the top.
+
+The Food tab view owns the Food tab's query, its page over the log and the owners
+behind that page (a Logging attempt, a Product import flow). Catalog views
+(creation, resumed drafts, import, a created item, an open catalog editor) survive
+a day change and follow the new day; other views return to the new day's log and
+reset the Meal destination. Leaving the tab hides the page without discarding it:
+the scanner closes, a pending lookup is interrupted, and saves that finish while
+hidden still route their page. React keeps only scroll and keyboard effects.
+
+A Logging attempt is built from the food-log persistence, the Custom food
+persistence and the Meal destination. It derives whether it can submit from them
+and follows the live saved item; only its own pending write reads as saving, and
+a save started during a food-log refresh waits for the refresh, then writes the
+preparation that is current at that point, since the day or food may have changed.
 
 Completed Workout totals derive from persisted Workout sessions and their valid
 sets. Daily activity and test fixtures use the same Exercise summary interface;
@@ -99,8 +139,8 @@ do not tokenize the catalog or build an index during server rendering.
 
 ## Durable domain documents
 
-Profile, Exercise, Food log, Custom foods, Manual water and Water goal persistence
-share the durable-write module's lifecycle. Their own modules retain validation,
+Profile, Exercise, Food log, Custom foods, Manual water, Water goal and Reminders
+persistence share the durable-write module's lifecycle. Their own modules retain validation,
 mutations and domain-specific results. Callers do not coordinate storage ordering,
 write exclusion, subscriber cancellation or stale read generations themselves.
 
@@ -110,10 +150,21 @@ settles. Draft owners remain mounted and merge their chosen fields into the late
 saved document when the user saves. Tests cross the domain interface instead of
 depending on private lifecycle state.
 
+Manual water, Water goal and focused Profile edits share the document-edit module.
+It owns the draft's seeding (fill once or follow until typed), save exclusion,
+write reservation before observers run, stale-completion handling,
+persistence-failure feedback and load state with retry. Domains supply the seed,
+the draft parser (section merge for Profile) and the write command. Editors read
+load state and retry from the edit; one React adapter mounts every edit.
+Body-weight and Profile media edits keep their own modules: their attempts open and
+close by command, and media has a separate two-phase lifecycle.
+
 External refresh keeps the last ready document visible while validating its
 replacement. A failed refresh carries a typed `refreshError` and retry action,
 retains draft owners, and blocks stale writes until a valid replacement is read.
-Normal save failures remain separate from failed refreshes.
+Normal save failures remain separate from failed refreshes. The durable snapshot
+reports `refreshing` while a background refresh validates; `saving` still excludes
+writes during it, and editors label "Saving…" only for a running write.
 
 Body-weight entries are optional history within the existing Profile document. The weight model owns dated entry validation and trend coordinates; the body-weight edit module owns raw drafts, validation, replacement guidance and save/delete feedback. The journal renders that snapshot, and Profile persistence owns durable mutations. Leaving the journal retires its edit; an older completion cannot change a replacement edit. Logging a measurement preserves goal answers and does not recalculate calorie or macro targets.
 
@@ -133,19 +184,78 @@ callers without adding another public abstraction layer.
 
 ## Shared controls
 
-The shared button module owns action sizing, focus and press feedback, disabled
-state and selection/disclosure semantics. Food, Exercise, Profile and Water import
-its interface directly. Domain-named pass-through aliases and duplicate icon
-controls are removed, so control fixes have one place to live. Plain and secondary
-icon appearances retain the existing treatments through the same interface.
+Every pressable control is a Tappable. It owns the accessible role, name and
+state, the keyboard-only focus ring, the pressed state with its one press
+feedback (a 0.97 scale that reduced motion drops, or the accent fill for rows and
+links), the single disabled fade (`disabledOpacity`, which SegmentedControl also applies
+to its raised fill) and the 44 pt minimum target; callers only draw
+the control. AppButton is the one button on top of it, with a tone (primary,
+secondary, danger, destructive, link) and a size (regular, compact, small).
+DeleteButton is the one delete control (button, pill or icon) and arms, then
+confirms, on the same node. There are no area-specific button variants.
 
-The Profile chart disclosure module owns its focused lifetime. Blur closes the
-menu and removes its Back, Escape and outside-interaction listeners, even when
-the tab remains mounted. Escape and selection restore trigger focus on web;
-native menus retain their modal dismissal. These behaviors stay together with
-the disclosure rendering instead of creating another general menu abstraction.
+An exclusive choice between a few options is a SegmentedControl. Callers give a
+group label, the options (value, label, optional short label and icon), the value
+and onChange, and pick what assistive technology hears: pressed-state buttons, a
+radio group or tabs. The control owns the sunken track, the raised fill that
+slides to the chosen option and its reduced-motion fallback, short labels on
+narrow tracks and each segment's Tappable behavior. Pill choices (meal and serving
+pills, reminder days and kinds, a workout's exercise chips) are Chips: a button,
+radio or checkbox whose fill eases in when chosen.
+
+Every text field is a TextField. It owns the label and accessible name, the
+sunken surface with its focused and invalid looks, the keyboard and autofill for
+its kind, length limits, the unit suffix, optional numeric filtering and invalid
+semantics: `aria-invalid` and exactly one alert for its error. Feedback next to a
+control is an InlineMessage (an error alert, or a success or info status). A
+source that could not be read shows a LoadFailure: its message as one alert and a
+Retry that stays busy until the retry settles. Only the exercise set cell, the
+search boxes and the Profile name field draw their own inputs.
+
+Small modal tasks (editing water, the profile photo, progress photos, weight
+entries, the details chooser) are ModalSheets: a bottom sheet on phones and a
+centered dialog on wider windows. The caller only says whether it is open. The
+sheet owns the backdrop, the entrance, the exit for every way of closing (holding
+the last content while it leaves), reduced motion, Escape and Android Back, and
+moving focus in and back out on web. A caller that acts after the sheet has gone,
+such as opening a picker, does it in `onClosed`. Flows that leave the day view
+are SheetPages: a full page with a back-button header, whose nested pages take
+over its header instead of stacking another sheet.
+
+Popovers (the header calendar, the profile menu and the journal's choice lists)
+use `usePopover` for dismissal: Escape returns focus to the trigger, Android Back
+closes, and light-dismiss popovers also close on an outside press or when focus
+leaves. They draw on `PopoverSurface`, which owns the raised surface, the one
+popover shadow and the entrance. The journal's choice lists also close when their
+tab loses focus, so their listeners don't outlive the screen.
+
+The only raw Pressables left are the error screen's Reload button, which renders
+outside the theme, and tap areas that are deliberately not accessible (the header
+title area and popover backdrops). A Tappable with `href` is a route link, an
+anchor on web. Leading icons in rows and cards sit in an IconWell (regular for
+rows, large for a card's lead), and a sub-view's title block is a ViewHeader.
+`motion.tsx` keeps the motion policy (MotionProvider, useReducedMotion), the
+shared curves and durations, and the entrance, layout, progress and step helpers.
 
 ## Verification
+
+The October 17, 2026 final check removed unused props (AppButton `iconPlacement`,
+Icon `solid`, FoodLogStatus `fill` and `testIDPrefix` on the Home calorie and
+nutrition widgets) and exported `disabledOpacity` for SegmentedControl. In the same
+pass, food logging writes the current preparation after waiting for a food-log
+refresh, the workout settings disclosure toggles and reopens on a count error, the
+live timer ticks on whole seconds and its accessibility label includes the time,
+food entries stay disabled while another entry's removal fade runs, and Settings
+shows account action errors in one place. All 1160 unit tests passed. The
+full browser run had 206 passes, one skip and one profile-menu failure; reverting
+the change that caused it fixed it, and that file then passed 7/7.
+
+The October 16, 2026 architecture pass (tab views, Logging attempt, Catalog and
+Library drafts, document edits, shared controls and the Account tracking document
+registry) passed lint, formatting, TypeScript, all 1158 unit and script tests and
+207 browser tests, with one optional screenshot case skipped. One earlier full
+run had a single water-goal layout check fail under load; it passed alone, in
+two parallel runs of its file and in the next full run.
 
 The [October 9 final-check record](final-check-2026-10-09-ui.md) covers the complete
 UI diff and repository security review, including the barcode response limit,

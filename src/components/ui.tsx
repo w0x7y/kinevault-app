@@ -1,8 +1,5 @@
-import { useFocusRing } from "./focus-ring";
-import { Link, type Href } from "expo-router";
 import Head from "expo-router/head";
 import {
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,12 +10,12 @@ import {
   type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useState, type PropsWithChildren, type Ref } from "react";
+import { createContext, useContext, type PropsWithChildren, type Ref } from "react";
 import { useTheme } from "../theme/provider";
-import { fonts, radius, spacing } from "../theme/tokens";
-import { Icon, type IconName } from "./icon";
+import { cardShadow, fonts, radius, spacing } from "../theme/tokens";
 
-type TextVariant = "hero" | "title" | "heading" | "body" | "label" | "caption";
+type TextVariant =
+  "display" | "hero" | "title" | "heading" | "body" | "label" | "caption" | "overline";
 
 /** `numeric` sets title and heading sizes in the data face, so figures line up. */
 export function AppText({
@@ -44,8 +41,55 @@ export function AppText({
 
 export function Panel({ style, ...props }: ViewProps) {
   const { colors } = useTheme();
-  return <View {...props} style={[styles.panel, { backgroundColor: colors.card }, style]} />;
+  return (
+    <View
+      {...props}
+      style={[
+        styles.panel,
+        { backgroundColor: colors.card, borderColor: colors.border, boxShadow: cardShadow(colors) },
+        style,
+      ]}
+    />
+  );
 }
+
+/** A tab's title row: the screen name on the left and today's summary on the right. */
+export function ScreenTitle({
+  title,
+  trailing,
+  testID,
+}: {
+  title: string;
+  trailing?: string | null;
+  testID?: string;
+}) {
+  return (
+    <View testID={testID} style={styles.screenTitle}>
+      <AppText variant="title" accessibilityRole="header" style={{ flexShrink: 1 }}>
+        {title}
+      </AppText>
+      {trailing ? (
+        <AppText variant="label" muted selectable numeric style={styles.screenTitleTrailing}>
+          {trailing}
+        </AppText>
+      ) : null}
+    </View>
+  );
+}
+
+/** A small uppercase label that names a card or group, so cards rarely need headings. */
+export function Overline({ children, style, ...props }: TextProps) {
+  return (
+    <AppText variant="overline" muted {...props} style={style}>
+      {children}
+    </AppText>
+  );
+}
+
+const TabBarInset = createContext(0);
+
+/** The tab layout's floating bar height, which tab screens add below their content. */
+export const FloatingTabBarInset = TabBarInset.Provider;
 
 export function Screen({
   title,
@@ -66,6 +110,7 @@ export function Screen({
   contentContainerStyle?: StyleProp<ViewStyle>;
 }>) {
   const { colors } = useTheme();
+  const tabBarInset = useContext(TabBarInset);
   return (
     <SafeAreaView edges={["left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
       <Head>
@@ -77,11 +122,16 @@ export function Screen({
         ref={scrollRef}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets={adjustKeyboardInsets}
-        contentContainerStyle={[styles.screen, fill && { flexGrow: 1 }, contentContainerStyle]}
+        contentContainerStyle={[
+          styles.screen,
+          { paddingBottom: spacing.xl + tabBarInset },
+          fill && { flexGrow: 1 },
+          contentContainerStyle,
+        ]}
       >
         {showTitle && (
           <View style={styles.intro}>
-            <AppText variant="title" accessibilityRole="header" style={{ flexShrink: 1 }}>
+            <AppText variant="display" accessibilityRole="header" style={{ flexShrink: 1 }}>
               {title}
             </AppText>
             {description && (
@@ -97,98 +147,61 @@ export function Screen({
   );
 }
 
-export function Destination({
-  href,
-  title,
-  description,
-  icon,
-}: {
-  href: Href;
-  title: string;
-  description?: string;
-  icon: IconName;
-}) {
-  const { colors } = useTheme();
-  const { focused, onFocus, onBlur } = useFocusRing();
-  const [pressed, setPressed] = useState(false);
-  return (
-    <Link href={href} asChild>
-      <Pressable
-        accessibilityRole="link"
-        onFocus={onFocus}
-        onBlur={onBlur}
-        onPressIn={() => setPressed(true)}
-        onPressOut={() => setPressed(false)}
-        style={StyleSheet.flatten([
-          styles.destination,
-          {
-            borderColor: focused ? colors.ring : "transparent",
-            backgroundColor: pressed ? colors.accent : colors.card,
-            borderWidth: 2,
-          },
-        ])}
-      >
-        <Icon name={icon} size={20} color={colors.primary} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <AppText variant="label" style={{ fontSize: 16, lineHeight: 22 }}>
-            {title}
-          </AppText>
-          {description && (
-            <AppText variant="caption" muted>
-              {description}
-            </AppText>
-          )}
-        </View>
-        <Icon name="chevron-right" size={16} color={colors.mutedForeground} />
-      </Pressable>
-    </Link>
-  );
-}
-
-// Five sizes do the visible work: 44 for one figure per screen, 28 titles, 20 headings,
-// 16 body and 14 for labels and captions.
+// Rounded Comfortaa sets display and title text only. Manrope carries every label and figure:
+// hero 40 for one figure per screen, heading 18, body 16, label 14, caption 13, overline 11.
 const typeStyles = StyleSheet.create({
+  display: { fontFamily: fonts.display, fontSize: 32, lineHeight: 40, letterSpacing: -0.8 },
   hero: {
-    fontFamily: fonts.bold,
-    fontSize: 44,
-    lineHeight: 50,
-    letterSpacing: -1,
+    fontFamily: fonts.extrabold,
+    fontSize: 40,
+    lineHeight: 46,
+    letterSpacing: -1.4,
     fontVariant: ["tabular-nums"],
   },
-  title: {
-    fontFamily: fonts.display,
-    fontSize: 28,
-    lineHeight: 36,
-    letterSpacing: -0.8,
-  },
-  heading: { fontFamily: fonts.display, fontSize: 20, lineHeight: 28 },
+  title: { fontFamily: fonts.display, fontSize: 24, lineHeight: 32, letterSpacing: -0.6 },
+  heading: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 24, letterSpacing: -0.2 },
   body: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 24 },
   label: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20 },
-  caption: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
+  caption: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 18 },
+  overline: {
+    fontFamily: fonts.bold,
+    fontSize: 11,
+    lineHeight: 14,
+    letterSpacing: 1.3,
+    textTransform: "uppercase",
+  },
 });
 
 const styles = StyleSheet.create({
-  numeric: { fontFamily: fonts.bold, letterSpacing: 0, fontVariant: ["tabular-nums"] },
+  numeric: {
+    fontFamily: fonts.extrabold,
+    letterSpacing: -0.6,
+    fontVariant: ["tabular-nums"],
+  },
   screen: {
     width: "100%",
     maxWidth: 768,
     alignSelf: "center",
-    padding: spacing.layout,
-    paddingBottom: spacing.layout,
+    paddingHorizontal: spacing.gutter,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
     gap: spacing.layout,
   },
-  intro: { gap: spacing.layout },
-  panel: {
-    padding: spacing.layout,
-    borderRadius: radius.panel,
-    gap: spacing.md,
-  },
-  destination: {
-    borderRadius: radius.panel,
-    padding: spacing.layout,
-    minHeight: 64,
+  screenTitle: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.layout,
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    columnGap: spacing.md,
+    rowGap: spacing.xs,
+    paddingTop: spacing.xs,
+  },
+  screenTitleTrailing: { fontSize: 15, lineHeight: 20, letterSpacing: 0 },
+  intro: { gap: spacing.sm, paddingTop: spacing.sm, paddingBottom: spacing.xs },
+  panel: {
+    padding: spacing.card,
+    borderRadius: radius.panel,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: spacing.md,
   },
 });

@@ -39,6 +39,15 @@ const sides = {
 const empty = () => ({ version: 1, exercises: [], workouts: [], sessions: [] });
 const button = (page, name) => page.getByRole("button", { name, exact: true });
 const field = (page, name) => page.getByRole("textbox", { name, exact: true });
+// A page that opens over the Exercise tab slides up; measure it once it has settled.
+const sheetSettled = (page) =>
+  page.waitForFunction(() =>
+    document.getAnimations().every((animation) => animation.playState !== "running"),
+  );
+// Activates a control behind an open sheet, as an outside event such as a calendar change or a
+// deep link would, since the sheet covers it.
+const pressBehindSheet = (page, name) =>
+  page.getByRole("button", { name, exact: true }).evaluate((element) => element.click());
 const documentFrom = (page) =>
   page.evaluate((key) => JSON.parse(window.accountFixture.getItem(key)), storageKey);
 async function storedWhen(page, predicate, argument) {
@@ -351,14 +360,16 @@ test("create exercises and ordered workouts, then add a planned session without 
   await form.getByTestId("create-workout-workspace").waitFor();
   await button(form, "Select exercise Squat").click();
   assert.equal(await field(form, "Planned sets for Squat").inputValue(), "3");
+  await sheetSettled(page);
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
+    // Cancel is the sheet's back button at the top; Save workout spans the form.
     const cancel = await button(form, "Cancel").boundingBox();
     const save = await button(form, "Save workout").boundingBox();
     assert.ok(cancel && save);
-    assert.ok(Math.abs(cancel.width - save.width) <= 1, "creation actions have equal widths");
-    assert.ok(Math.abs(cancel.height - save.height) <= 1, "creation actions have equal heights");
-    assert.ok(cancel.x < save.x, "Cancel precedes the primary action");
+    assert.ok(cancel.width >= 44 && cancel.height >= 44, "Cancel is a full touch target");
+    assert.ok(cancel.y + cancel.height <= save.y, "Cancel leads the page above the actions");
+    assert.ok(cancel.x < save.x, "Cancel sits at the leading edge");
     assert.ok(save.x + save.width <= width, "the primary action stays inside the screen");
   }
   await page.setViewportSize({ width: 390, height: 844 });
@@ -727,10 +738,11 @@ test("completed workout edits survive exercise editing and menu navigation witho
   await field(editor, "Workout name").fill("Updated workout");
   await field(editor, "Squat set 1 reps").fill("10");
   await field(editor, "Duration in minutes (optional)").fill("15");
-  await field(page, "Search exercises").fill("Squat");
-  await button(page, "Edit exercise Squat").click();
+  // The workout's sheet covers the tab, so leave it for the exercise form through Link demo.
+  await button(editor, "Link a KineVault demo to Squat").click();
   await button(page.getByTestId("exercise-form"), "Cancel").click();
-  await openLoggedWorkout(page, "Manual", true);
+  await page.getByTestId("completed-workout-workspace").waitFor();
+  await button(editor, "Workout name and duration").click();
   assert.equal(await field(editor, "Workout name").inputValue(), "Updated workout");
   assert.equal(await field(editor, "Squat set 1 reps").inputValue(), "10");
   assert.equal(await field(editor, "Duration in minutes (optional)").inputValue(), "15");
@@ -809,9 +821,11 @@ test("a workout menu keeps its captured date when the calendar changes before lo
     document: { ...empty(), exercises: [single], workouts: [template] },
   });
   await button(page, "Saved workouts").click();
-  await button(page, "Expand calendar").click();
-  await page.getByRole("button", { name: "Saturday, October 3, 2026", exact: true }).click();
-  await button(page, "Collapse calendar").click();
+  await page.getByTestId("workout-library").waitFor();
+  // The menu's sheet covers the calendar; change the day behind it as an outside event would.
+  await pressBehindSheet(page, "Expand calendar");
+  await pressBehindSheet(page, "Saturday, October 3, 2026");
+  await pressBehindSheet(page, "Collapse calendar");
   await button(page, "Add Leg day to selected day").click();
   const planned = await storedWhen(page, (document) => document.sessions.length === 1);
   assert.equal(planned.sessions[0].date, date);
@@ -1088,6 +1102,7 @@ test("workout creation searches above its ordered list and confirms removal insi
   const form = page.getByTestId("workout-form");
   const search = field(form, "Search workout exercises");
   assert.equal(await form.getByRole("button", { name: /^Add Squat/ }).count(), 0);
+  await sheetSettled(page);
   const searchBox = await search.boundingBox(),
     orderBox = await form.getByText("Exercise order", { exact: true }).boundingBox();
   assert.ok(searchBox.y + searchBox.height < orderBox.y);
@@ -1195,10 +1210,22 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
     await workspace.innerText(),
     /2026-10-04|In progress|Blank weight means|Close workout|Open active workout/,
   );
-  // The timer leads the workout at full width below its name; the exercise bar has no rules.
+  // The timer answers the workout's name on the right of the live header, without an
+  // "elapsed" caption; the exercise bar has no rules.
   const timerBox = await workspace.getByTestId("active-workout-timer").boundingBox();
   const headingBox = await workspace.getByTestId("workout-workspace-heading").boundingBox();
-  assert.ok(timerBox.y >= headingBox.y + headingBox.height);
+  const workspaceBox = await workspace.boundingBox();
+  assert.ok(timerBox.x >= headingBox.x + headingBox.width, "the timer sits right of the name");
+  assert.ok(
+    timerBox.y < headingBox.y + headingBox.height && headingBox.y < timerBox.y + timerBox.height,
+    "the timer shares the name's row",
+  );
+  assert.ok(
+    workspaceBox.x + workspaceBox.width - (timerBox.x + timerBox.width) < 40,
+    "the timer is aligned to the right",
+  );
+  assert.match(await workspace.getByTestId("active-workout-timer").innerText(), /^\d+:\d{2}$/);
+  assert.doesNotMatch(await workspace.innerText(), /elapsed/i);
   const borders = await workspace.getByTestId("exercise-topbar-frame").evaluate((node) => {
     const style = getComputedStyle(node);
     return [parseFloat(style.borderTopWidth), parseFloat(style.borderBottomWidth)];
@@ -1215,6 +1242,9 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
   assert.equal(await field(details, "Squat set 3 reps").count(), 0);
   await field(details, "Squat set 1 reps").fill("5");
   await field(details, "Squat set 1 weight (kg)").fill("40");
+  // Chips show short names; their accessible names keep the full ones.
+  assert.equal(await button(topbar, `Select exercise ${long.name}`).innerText(), "SLSWAEENFNPL");
+  assert.equal(await button(topbar, "Select exercise Squat").innerText(), "Squat");
   await button(topbar, "Select exercise Curl").click();
   assert.equal(await field(page, "Squat set 1 reps").count(), 0);
   assert.equal(await field(details, "Curl set 3 left reps").count(), 1);
@@ -1263,7 +1293,9 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
             actions.getBoundingClientRect().bottom - workspace.getBoundingClientRect().bottom,
           ) < 2 &&
           discardBox.top >= endBox.bottom &&
-          endBox.width > discardBox.width &&
+          // Discard is a full-width red button under End workout, as wide but never above it.
+          Math.abs(endBox.width - discardBox.width) < 2 &&
+          discardBox.height >= 44 &&
           headingButtons.length === 2 &&
           headingButtons.every((button) => {
             const box = button.getBoundingClientRect();
@@ -1567,9 +1599,12 @@ test("completed workout editing shares the layout and keeps side edits local unt
   await button(editor, "Save changes").click();
   await editor.getByRole("alert").waitFor();
   assert.deepEqual((await documentFrom(page)).sessions[0], complete);
-  await button(page, "Create exercise").click();
+  // The workout's sheet covers the tab, so leave it for the exercise form through Link demo.
+  await button(editor, "Select exercise Squat").click();
+  await button(editor, "Link a KineVault demo to Squat").click();
   await button(page.getByTestId("exercise-form"), "Cancel").click();
-  await openLoggedWorkout(page, "Historical workout", true);
+  await page.getByTestId("completed-workout-workspace").waitFor();
+  await button(editor, "Workout name and duration").click();
   assert.equal(await field(editor, "Workout name").inputValue(), "Edited historical workout");
   assert.equal(await field(editor, "Squat set 1 reps").inputValue(), "7");
   await button(editor, "Select exercise Curl").click();
@@ -1617,25 +1652,28 @@ test("cloud sync preserves an unfinished workout across failure, unchanged succe
   const editor = page.getByTestId("session-editor");
   await field(editor, "Squat set 1 reps").fill("7");
   const tab = (name) => page.getByRole("tab", { name, exact: true });
+  // The workout's sheet covers the tab bar. Leave for Settings as an outside navigation would;
+  // the sheet hides away from its tab and returns with it.
+  const leaveForSettings = () => tab("Settings").evaluate((element) => element.click());
   const verifyDraft = async () => {
     await tab("Exercise").click();
     await editor.waitFor();
     assert.equal(await field(editor, "Squat set 1 reps").inputValue(), "7");
     assert.deepEqual((await documentFrom(page)).sessions[0], complete);
   };
-  await tab("Settings").click();
+  await leaveForSettings();
   await verifyDraft(); // Ordinary tab switches already preserve this draft.
-  await tab("Settings").click();
+  await leaveForSettings();
   accountFixture.cloudError = true;
   await button(page, "Sync now").click();
   await page.getByText(/Cloud sync couldn't finish/).waitFor();
   await verifyDraft();
-  await tab("Settings").click();
+  await leaveForSettings();
   accountFixture.cloudError = false;
   await button(page, "Sync now").click();
   await page.getByText("All changes saved to your account.", { exact: true }).waitFor();
   await verifyDraft();
-  await tab("Settings").click();
+  await leaveForSettings();
   const key = "kinevault-track.water-goal.v1";
   accountFixture.documents.set(key, {
     user_id: accountFixture.session.user.id,
@@ -1647,7 +1685,7 @@ test("cloud sync preserves an unfinished workout across failure, unchanged succe
   await button(page, "Sync now").click();
   await page.getByText("Current goal: 2,800 ml per day.", { exact: true }).waitFor();
   await verifyDraft();
-  await tab("Settings").click();
+  await leaveForSettings();
   const profileKey = "kinevault-track.profile.v1",
     previous = accountFixture.documents.get(profileKey);
   const updated = JSON.parse(previous.payload);
@@ -1708,4 +1746,73 @@ test("failed active draft edits survive search and calendar changes before a gua
   await button(page, "Edit exercise Squat").click();
   await page.getByTestId("exercise-form").waitFor();
   assert.equal((await documentFrom(page)).sessions[0].date, date);
+});
+
+test("the Settings import row opens the import sheet, whose back button steps through it", async (t) => {
+  const page = await open(t);
+  await page.getByRole("tab", { name: /Settings/ }).click();
+  await page.getByRole("link", { name: /Import workouts/ }).click();
+  const sheet = page.getByTestId("workout-import");
+  await field(sheet, "Tracked workout link").waitFor();
+  assert.match(page.url(), /\/exercise/);
+  assert.equal(await sheet.getByRole("heading", { name: "Import workouts" }).count(), 1);
+  assert.equal(await button(sheet, "Close import").count(), 0);
+  await button(sheet, "Back to import sources").click();
+  await button(sheet, "Import from Tracked").waitFor();
+  await button(sheet, "Close import").click();
+  await sheet.waitFor({ state: "detached" });
+  await button(page, "Import workouts").click();
+  await button(page.getByTestId("workout-import"), "Import from Tracked").waitFor();
+  // Escape closes the sheet once it has finished sliding up.
+  await sheetSettled(page);
+  await page.keyboard.press("Escape");
+  await page.getByTestId("workout-import").waitFor({ state: "detached" });
+});
+
+test("Workout settings stay on the day, and a card opened on its own closes back to the day", async (t) => {
+  const template = { id: "template", name: "Leg day", exercises: [single] };
+  const draft = (id, name) => ({
+    id,
+    date,
+    name,
+    status: "planned",
+    startedAt: null,
+    durationSeconds: null,
+    exercises: [
+      {
+        id: `${id}-row`,
+        exercise: single,
+        sets: [{ id: "set", kind: "single", reps: "", weightKg: "" }],
+      },
+    ],
+  });
+  const page = await open(t, {
+    document: {
+      ...empty(),
+      exercises: [single],
+      workouts: [template],
+      sessions: [draft("alpha", "Alpha"), draft("beta", "Beta")],
+    },
+  });
+  const alpha = page.getByTestId("planned-workout-alpha"),
+    beta = page.getByTestId("planned-workout-beta");
+  const importWorkouts = button(page, "Import workouts");
+  await button(alpha, "Workout settings").click();
+  await alpha.getByTestId("planned-workout-settings").waitFor();
+  assert.equal(await beta.count(), 1, "the other drafts stay on the day");
+  assert.equal(await importWorkouts.count(), 1);
+  await button(alpha, "Save settings").click();
+  await alpha.getByTestId("planned-workout-settings").waitFor({ state: "detached" });
+  assert.equal(await button(page, "Close workout").count(), 0);
+  // A card the library opens stands alone until its close control returns to the day.
+  await button(page, "Saved workouts").click();
+  await button(page.getByTestId("workout-library"), "Add Leg day to selected day").click();
+  const added = page.getByTestId("session-editor");
+  await added.getByRole("heading", { name: "Leg day", exact: true }).waitFor();
+  assert.equal(await beta.count(), 0);
+  assert.equal(await importWorkouts.count(), 0);
+  await button(added, "Close workout").click();
+  await importWorkouts.waitFor();
+  assert.equal(await page.getByTestId("planned-workout-card").count(), 3);
+  assert.equal(await button(page, "Close workout").count(), 0);
 });

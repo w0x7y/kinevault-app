@@ -2,7 +2,7 @@
 import { registerRootComponent } from "expo";
 import { useState } from "react";
 import { Text, View } from "react-native";
-import { RetryButton } from "../src/exercise/demo/retry-button";
+import { RetryButton } from "../src/components/load-failure";
 import { ThemeProvider } from "../src/theme/provider";
 
 const control = globalThis as unknown as { failPendingRetry?: () => void };
@@ -14,6 +14,7 @@ function RetryFixture() {
       <View>
         <Text>{`Retries started: ${attempts}`}</Text>
         <RetryButton
+          label="Retry"
           accessibilityLabel="Retry fixture"
           onRetry={() => {
             setAttempts((value) => value + 1);

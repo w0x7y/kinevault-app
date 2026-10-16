@@ -3,11 +3,12 @@
 The launcher icon uses a large close-up of the blue Kine mascot, with its cream
 antenna tips, navy eyes, and smile. The supplied Duolingo icon guided the face
 framing. The iOS splash reuses the exact supplied waving mascot, with a wordmark
-set in Comfortaa 700. The app loads Comfortaa at 400/500/600
-and uses Font Awesome 6 for UI icons. Launcher/splash branding is separate from
-the nameless compact in-app top bar, whose right profile-picture slot is a
-placeholder. The eleven in-app WebP poses stay in `../mascot/2d/`; their mappings
-and responsive size limits are recorded in the [mascot guide](../mascot/README.md).
+set in Comfortaa 700. The app loads Comfortaa 600 and Manrope 400–800, and draws
+UI icons from the Ionicons outline set with Font Awesome 6 as a fallback.
+Launcher/splash branding is separate from the nameless compact in-app top bar,
+whose right slot shows the saved avatar or initials. The twelve in-app WebP poses
+stay in `../mascot/2d/`; their mappings and size limits are recorded in the
+[mascot guide](../mascot/README.md).
 
 ## Assets
 
@@ -22,9 +23,10 @@ and responsive size limits are recorded in the [mascot guide](../mascot/README.m
 | `splash-dark.png` | Same layout with cream wordmark for dark mode |
 | `splash-android.png` | Transparent 720px head mark for Android's square launch container |
 
-[app.json](../../app.json) configures these assets. Splash backgrounds match the
-app's existing light `#f6f7f9` and dark `#12171d` backgrounds. The Android adaptive background is
-cream `#f8f2e3`. The head is exported within a 580px bounding box; its visible
+[app.json](../../app.json) configures these assets. Splash backgrounds match the app's
+page colors in [theme tokens](../../src/theme/tokens.ts): light `#eef2f6` and dark `#10161c`.
+Notifications tint `notification-icon.png` with the brand blue `#3a6a96`. The Android adaptive
+background is cream `#f8f2e3`. The head is exported within a 580px bounding box; its visible
 pixels fit inside the 626px safe circle of a 1024px adaptive layer.
 All three splash exports are square to match Expo's native image view.
 The Android splash uses a separate head mark
@@ -57,7 +59,8 @@ Icon and native splash changes require a new native binary. Expo Go cannot show
 the final native splash: verify the launch screen in an installed release build.
 The [startup code](../../src/app/_layout.tsx) holds the splash until theme and
 profile loading finish and font loading either succeeds or reports an error.
-The root loads Comfortaa and Font Awesome 6 before rendering the normal app.
+The root loads Comfortaa, Manrope, Font Awesome 6 and Ionicons before rendering the
+normal app.
 The splash artwork does not change daily layouts, the calendar, or logging
 placeholders; those are documented in [DESIGN.md](../../DESIGN.md).
 

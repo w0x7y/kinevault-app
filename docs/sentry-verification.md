@@ -3,7 +3,9 @@
 Track uses organization `idan-gilboa`, project `kinevault-track` (React Native), in
 Sentry's EU region. Its public DSN is configured as `EXPO_PUBLIC_SENTRY_DSN` in
 ignored `.env.local`. Existing local configuration is preserved. No Sentry auth
-token is needed in the app or its public environment.
+token is needed in the app or its public environment. The iOS unsigned build
+workflow reads the DSN from the repository variable of the same name; see
+[step 5 of the xtool runbook](ios-linux-xtool.md#5-configure-the-github-repository).
 
 ## Verification scope
 

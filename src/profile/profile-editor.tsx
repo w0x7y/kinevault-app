@@ -1,27 +1,27 @@
 import { ButtonRow, AppButton } from "../components/button";
-import { AppText, Panel } from "../components/ui";
+import { AppText } from "../components/ui";
+import { EditorSection } from "./journal-ui";
 import { Question } from "../onboarding/steps";
-import { ErrorText } from "../onboarding/controls";
-import type { Answers } from "./answers";
+import { InlineMessage } from "../components/inline-message";
+import { useDocumentEdit } from "../persistence/use-document-edit";
+import { createFocusedProfileEdit, focusedEditFeedback } from "./focused-editing";
+import { useProfilePersistence } from "./provider";
 import type { ProfileEditSection } from "./section-editing";
-import { useFocusedProfileEdit } from "./use-focused-edit";
+// Each open editor owns its edit; the parent keys it so a new section starts fresh.
 export function ProfileEditor({
   section,
-  initial,
   close,
 }: {
   section: ProfileEditSection;
-  initial: Answers;
   close: () => void;
 }) {
-  const { edit, attempt, busy } = useFocusedProfileEdit({
-    initial: { section, answers: initial },
-    close,
-  });
-  if (!attempt) return null;
-  const { draft, errors, error } = attempt;
+  const profile = useProfilePersistence();
+  const { edit, draft, error, busy, saving } = useDocumentEdit(() =>
+    createFocusedProfileEdit(profile, section),
+  );
+  const { errors, message: failure } = focusedEditFeedback(error);
   return (
-    <Panel testID="profile-editor">
+    <EditorSection testID="profile-editor">
       <AppText variant="heading" accessibilityRole="header">
         Edit {section}
       </AppText>
@@ -50,26 +50,30 @@ export function ProfileEditor({
             ).includes(field),
         )
         .map(([field, message]) => (
-          <ErrorText key={field} message={message} />
+          <InlineMessage key={field}>{message}</InlineMessage>
         ))}
-      {error && <ErrorText message={error} />}
+      {failure && <InlineMessage>{failure}</InlineMessage>}
       <ButtonRow>
         <AppButton
           fill
           label="Cancel"
           disabled={busy}
           onPress={() => {
-            edit.cancel();
+            if (edit.cancel()) close();
           }}
         />
         <AppButton
           fill
-          primary
-          label={busy ? "Saving…" : `Save ${section}`}
+          tone="primary"
+          label={saving ? "Saving…" : `Save ${section}`}
           disabled={busy}
-          onPress={() => void edit.save()}
+          onPress={() => {
+            void edit.save().then((saved) => {
+              if (saved) close();
+            });
+          }}
         />
       </ButtonRow>
-    </Panel>
+    </EditorSection>
   );
 }

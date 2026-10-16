@@ -1,13 +1,14 @@
-import { useFocusRing } from "../components/focus-ring";
-import { AppButton } from "../components/button";
 import { useMemo, useState } from "react";
-import { Keyboard, Pressable, View, type ViewProps } from "react-native";
+import { Keyboard, StyleSheet, View, type ViewProps } from "react-native";
+import { IconButton } from "../components/button";
 import { Icon } from "../components/icon";
-import { AppText, Panel } from "../components/ui";
+import { Tappable } from "../components/tappable";
+import { AppText, Overline, Panel } from "../components/ui";
 import { useTheme } from "../theme/provider";
-import { radius, spacing } from "../theme/tokens";
+import { fonts, radius, spacing } from "../theme/tokens";
 import type { ExerciseDefinition } from "./model";
 import { DemoThumbnail } from "./demo/exercise-demo";
+import { Hairline } from "./controls";
 
 const pageSize = 20;
 
@@ -19,32 +20,35 @@ function ExerciseResult({
   onSelect: () => void;
 }) {
   const { colors } = useTheme();
-  const { focused, onFocus, onBlur } = useFocusRing();
-  const metadata = [exercise.muscleGroup, exercise.equipment].filter(Boolean).join(" · ");
+  const metadata = [
+    exercise.muscleGroup,
+    exercise.equipment,
+    exercise.tracking === "sides" && "Left and right",
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return (
-    <Pressable
+    <Tappable
       testID="exercise-result"
-      accessibilityRole="button"
-      accessibilityLabel={`Edit exercise ${exercise.name}`}
-      accessibilityHint="Edit this exercise in your library"
+      label={`Edit exercise ${exercise.name}`}
+      hint="Edit this exercise in your library"
       onPress={onSelect}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      style={({ pressed }) => ({
+      feedback="fill"
+      style={{
         minHeight: 72,
         marginHorizontal: -spacing.sm,
         paddingHorizontal: spacing.sm,
         paddingVertical: spacing.sm,
         gap: 2,
-        borderWidth: 2,
         borderRadius: radius.control,
-        borderColor: focused ? colors.ring : "transparent",
-        backgroundColor: pressed ? colors.accent : "transparent",
-      })}
+      }}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-        <View style={{ flex: 1, minWidth: 0, gap: spacing.xs }}>
-          <AppText variant="label" style={{ flexShrink: 1 }}>
+        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+          <AppText
+            variant="label"
+            style={{ flexShrink: 1, fontSize: 15, lineHeight: 21, fontFamily: fonts.semibold }}
+          >
             {exercise.name}
           </AppText>
           {Boolean(metadata) && (
@@ -52,14 +56,11 @@ function ExerciseResult({
               {metadata}
             </AppText>
           )}
-          <AppText variant="caption" muted>
-            {exercise.tracking === "sides" ? "Left and right" : "Single weight"}
-          </AppText>
         </View>
         {exercise.catalog && <DemoThumbnail link={exercise.catalog} />}
-        <Icon name="user-pen" size={14} color={colors.primary} />
+        <Icon name="chevron-right" size={16} color={colors.mutedForeground} />
       </View>
-    </Pressable>
+    </Tappable>
   );
 }
 
@@ -76,6 +77,7 @@ export function ExerciseSearchResults({
   onLayout: ViewProps["onLayout"];
   onNavigate: () => void;
 }) {
+  const { colors } = useTheme();
   const [page, setPage] = useState(0);
   const normalized = query.trim().toLocaleLowerCase();
   const matches = useMemo(
@@ -101,50 +103,63 @@ export function ExerciseSearchResults({
     onNavigate();
   }
   return (
-    <Panel testID="exercise-library" onLayout={onLayout} style={{ gap: spacing.layout }}>
-      <AppText variant="heading" accessibilityRole="header">
-        Exercise library
-      </AppText>
-      <AppText variant="caption" muted accessibilityLiveRegion="polite">
-        {!normalized
-          ? "Type to search exercises."
-          : matches.length
-            ? `${matches.length.toLocaleString()} matching exercises.`
-            : "No exercises found. Try a simpler name or different equipment."}
-      </AppText>
-      {matches.slice(resultPage * pageSize, (resultPage + 1) * pageSize).map((exercise) => (
-        <ExerciseResult key={exercise.id} exercise={exercise} onSelect={() => select(exercise)} />
-      ))}
+    <Panel
+      testID="exercise-library"
+      onLayout={onLayout}
+      style={{ gap: spacing.sm, paddingBottom: spacing.sm }}
+    >
+      <View style={{ gap: 2 }}>
+        <Overline accessibilityRole="header">Exercise library</Overline>
+        <AppText variant="caption" muted accessibilityLiveRegion="polite">
+          {!normalized
+            ? "Type to search exercises."
+            : matches.length
+              ? `${matches.length.toLocaleString()} matching exercises.`
+              : "No exercises found. Try a simpler name or different equipment."}
+        </AppText>
+      </View>
+      <View>
+        {matches
+          .slice(resultPage * pageSize, (resultPage + 1) * pageSize)
+          .map((exercise, index) => (
+            <View key={exercise.id}>
+              {index > 0 && <Hairline />}
+              <ExerciseResult exercise={exercise} onSelect={() => select(exercise)} />
+            </View>
+          ))}
+      </View>
       {pageCount > 1 && (
-        <View style={{ gap: spacing.sm }}>
-          <AppText variant="caption" muted>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: spacing.sm,
+            paddingTop: spacing.sm,
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderColor: colors.border,
+          }}
+        >
+          <AppText variant="caption" muted style={{ flex: 1, fontVariant: ["tabular-nums"] }}>
             Showing {resultPage * pageSize + 1} to{" "}
             {Math.min((resultPage + 1) * pageSize, matches.length)} of{" "}
             {matches.length.toLocaleString()}
           </AppText>
-          <View
-            style={{ flexDirection: "row", justifyContent: "space-between", gap: spacing.layout }}
-          >
-            <AppButton
-              label="Previous"
-              accessibilityLabel="Previous exercise results"
-              disabled={resultPage === 0}
-              onPress={() => changePage(resultPage - 1)}
-            />
-            <AppButton
-              label="Next"
-              accessibilityLabel="Next exercise results"
-              disabled={resultPage + 1 >= pageCount}
-              onPress={() => changePage(resultPage + 1)}
-            />
-          </View>
+          <IconButton
+            appearance="secondary"
+            icon="chevron-left"
+            label="Previous exercise results"
+            disabled={resultPage === 0}
+            onPress={() => changePage(resultPage - 1)}
+          />
+          <IconButton
+            appearance="secondary"
+            icon="chevron-right"
+            label="Next exercise results"
+            disabled={resultPage + 1 >= pageCount}
+            onPress={() => changePage(resultPage + 1)}
+          />
         </View>
       )}
-      <View>
-        <AppText variant="caption" muted selectable>
-          Your exercise library · Saved on this device
-        </AppText>
-      </View>
     </Panel>
   );
 }

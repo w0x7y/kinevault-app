@@ -1,10 +1,12 @@
 import "../theme/global.css";
 import { Comfortaa_600SemiBold } from "@expo-google-fonts/comfortaa/600SemiBold";
-import { Nunito_400Regular } from "@expo-google-fonts/nunito/400Regular";
-import { Nunito_500Medium } from "@expo-google-fonts/nunito/500Medium";
-import { Nunito_600SemiBold } from "@expo-google-fonts/nunito/600SemiBold";
-import { Nunito_700Bold } from "@expo-google-fonts/nunito/700Bold";
+import { Manrope_400Regular } from "@expo-google-fonts/manrope/400Regular";
+import { Manrope_500Medium } from "@expo-google-fonts/manrope/500Medium";
+import { Manrope_600SemiBold } from "@expo-google-fonts/manrope/600SemiBold";
+import { Manrope_700Bold } from "@expo-google-fonts/manrope/700Bold";
+import { Manrope_800ExtraBold } from "@expo-google-fonts/manrope/800ExtraBold";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFonts } from "expo-font";
 import { Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -44,11 +46,13 @@ function RootNavigator() {
   const authRoute = isPublicAccountRoute(segments);
   const [fontsLoaded, fontError] = useFonts({
     Comfortaa_600SemiBold,
-    Nunito_400Regular,
-    Nunito_500Medium,
-    Nunito_600SemiBold,
-    Nunito_700Bold,
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
     ...FontAwesome6.font,
+    ...Ionicons.font,
   });
   const loaded =
     ready && (fontsLoaded || Boolean(fontError)) && (authRoute || state.kind !== "loading");

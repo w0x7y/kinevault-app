@@ -32,7 +32,8 @@ export type CatalogDraftTarget =
     };
 type Session = {
   handle: CatalogDraftHandle;
-  mealIntent: Meal;
+  /** The Meal destination captured when the session opened; activating it restores this. */
+  destination: Meal;
   attempted: boolean;
   error: string | null;
   saving: boolean;
@@ -59,10 +60,17 @@ export type CatalogDraftSummary = {
   imported: boolean;
 };
 export type CatalogDraftSnapshot = {
-  mealIntent: Meal;
   creationKind: CatalogKind;
   session: CatalogDraftSession | null;
   resumable: CatalogDraftSummary[];
+  /** A failed saved-item deletion, kept for the caller that requested it. */
+  deletion: { caller: object; error: string } | null;
+};
+/** The Meal a new Logging attempt adds to. Catalog drafts own it so each session can retain it. */
+export type MealDestination = {
+  get(): Meal;
+  set(meal: Meal): void;
+  subscribe(listener: () => void): () => void;
 };
 type FoodBasis = Pick<CustomFoodDraft, "calories" | "carbs" | "protein" | "fat" | "details">;
 type Entry = {
@@ -77,6 +85,7 @@ type CatalogStore = Pick<
   ReturnType<typeof createCustomFoodPersistence>,
   "add" | "addMeal" | "updateFood" | "updateMeal" | "remove" | "getSnapshot"
 >;
+const deleteFailure = "Couldn't delete this item. It is still saved. Try again.";
 
 function saveFailure(session: CatalogDraftSession): string {
   return session.kind === "food"
@@ -158,18 +167,33 @@ function sameTarget(left: CatalogDraftTarget, right: CatalogDraftTarget): boolea
   }
 }
 
-/** Owns unfinished reusable-catalog input for one Food screen lifetime. */
-export function createCatalogDrafts() {
+/** Owns unfinished reusable-catalog input for one Food screen lifetime.
+ * Every save and deletion goes through the Custom food persistence it is given.
+ */
+export function createCatalogDrafts({ store }: { store: CatalogStore }) {
   let entries: Entry[] = [];
   let sequence = 0;
   let pending = false;
+  let destination: Meal = "breakfast";
   let snapshot: CatalogDraftSnapshot = {
-    mealIntent: "breakfast",
     creationKind: "food",
     session: null,
     resumable: [],
+    deletion: null,
   };
   const listeners = new Set<() => void>();
+  function subscribe(listener: () => void) {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }
+  // Changing the logging destination never rewrites paused drafts.
+  function setDestination(meal: Meal) {
+    if (destination === meal) return;
+    destination = meal;
+    listeners.forEach((listener) => listener());
+  }
   function publish(session = snapshot.session, beforeNotify?: () => void) {
     snapshot = {
       ...snapshot,
@@ -191,7 +215,7 @@ export function createCatalogDrafts() {
     listeners.forEach((listener) => listener());
   }
   function activate(entry: Entry) {
-    snapshot = { ...snapshot, mealIntent: entry.session.mealIntent };
+    destination = entry.session.destination;
     publish(entry.session);
     return entry.session;
   }
@@ -202,7 +226,7 @@ export function createCatalogDrafts() {
     const handle: CatalogDraftHandle = { [sessionIdentity]: true };
     const base = {
       handle,
-      mealIntent: snapshot.mealIntent,
+      destination,
       attempted: false,
       error: null,
       saving: false,
@@ -293,7 +317,6 @@ export function createCatalogDrafts() {
   }
   async function save(
     handle: CatalogDraftHandle,
-    store: CatalogStore,
     onSaved?: (item: CustomFood | CustomMeal) => void,
   ): Promise<CustomFood | CustomMeal | null> {
     const entry = entries.find((entry) => entry.session.handle === handle);
@@ -342,19 +365,14 @@ export function createCatalogDrafts() {
   }
   return {
     getSnapshot: () => snapshot,
-    subscribe(listener: () => void) {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
-    // Changing the logging destination never rewrites paused drafts.
-    setMealIntent(mealIntent: Meal) {
-      if (snapshot.mealIntent !== mealIntent) {
-        snapshot = { ...snapshot, mealIntent };
-        publish();
-      }
-    },
+    subscribe,
+    destination: {
+      get: () => destination,
+      set: setDestination,
+      subscribe,
+    } satisfies MealDestination,
+    /** Returning to the food log starts the next Logging attempt at Breakfast. */
+    resetDestination: () => setDestination("breakfast"),
     setCreationKind(creationKind: CatalogKind) {
       snapshot = { ...snapshot, creationKind };
       return open({ kind: creationKind === "food" ? "new-food" : "new-meal" });
@@ -411,17 +429,30 @@ export function createCatalogDrafts() {
     },
     discard: (handle: CatalogDraftHandle) => retire(handle),
     save,
-    async removeSaved(item: CustomFood | CustomMeal, store: CatalogStore): Promise<boolean> {
+    /** Deletes a saved item durably. A failure is kept for `caller` until another deletion starts. */
+    async removeSaved(item: CustomFood | CustomMeal, caller: object): Promise<boolean> {
       const current = store.getSnapshot();
       if (pending || current.saving || current.state.kind !== "ready") return false;
       pending = true;
+      if (snapshot.deletion) {
+        snapshot = { ...snapshot, deletion: null };
+        publish();
+      }
+      let removed: boolean;
       try {
-        const removed = await store.remove(item.customId);
-        if (removed) retireDeletedItem(item);
-        return removed;
+        removed = await store.remove(item.customId);
       } finally {
         pending = false;
       }
+      if (removed) retireDeletedItem(item);
+      else {
+        snapshot = {
+          ...snapshot,
+          deletion: { caller, error: store.getSnapshot().error ?? deleteFailure },
+        };
+        publish();
+      }
+      return removed;
     },
   };
 }

@@ -6,17 +6,20 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { AppText } from "../components/ui";
+import { AppText, Panel } from "../components/ui";
 import { Icon } from "../components/icon";
+import { SegmentedControl } from "../components/segmented-control";
 import { useTheme } from "../theme/provider";
-import { radius, spacing } from "../theme/tokens";
-import { Button, Field } from "./controls";
-import { Kine } from "./kine";
+import { fonts, radius, spacing } from "../theme/tokens";
+import { AppButton } from "../components/button";
+import { InlineMessage } from "../components/inline-message";
+import { TextField } from "../components/text-field";
+import { KineStage } from "./kine";
 import { useAccount } from "../account/provider";
 
 type Mode = "create" | "login" | "recover";
@@ -29,12 +32,12 @@ export function AccountScreen({
   initialMode?: "create" | "login";
 }) {
   const { colors } = useTheme();
+  const compact = useWindowDimensions().height < 720;
   const account = useAccount();
   const { busy, error, notice, clearFeedback } = account;
   const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const scroll = useRef<ScrollView>(null);
   const confirmationEmail =
     account.emailDelivery?.kind === "confirmation" ? account.emailDelivery.email : null;
@@ -51,7 +54,6 @@ export function AccountScreen({
     (next: Mode) => {
       Keyboard.dismiss();
       setPassword("");
-      setShowPassword(false);
       clearFeedback();
       setMode(next);
     },
@@ -65,14 +67,12 @@ export function AccountScreen({
     else if (mode === "login") await account.signIn(email, password);
     else await account.signUp(email, password);
     setPassword("");
-    setShowPassword(false);
   }
 
   function leave(action: () => void) {
     Keyboard.dismiss();
     setEmail("");
     setPassword("");
-    setShowPassword(false);
     action();
   }
 
@@ -104,6 +104,34 @@ export function AccountScreen({
     return () => subscription.remove();
   }, [busy, mode, onBack, changeMode]);
 
+  const feedback = (
+    <>
+      {error && <InlineMessage>{error}</InlineMessage>}
+      {notice && !needsEmailConfirmation && (
+        <View
+          accessibilityLiveRegion="polite"
+          style={{
+            flexDirection: "row",
+            gap: spacing.sm,
+            padding: spacing.md,
+            borderRadius: radius.control,
+            backgroundColor: colors.brandSoft,
+          }}
+        >
+          <Icon name="envelope" size={17} color={colors.brand} style={{ marginTop: 2 }} />
+          <AppText variant="label" style={{ flexShrink: 1, fontFamily: fonts.medium }}>
+            {notice}
+          </AppText>
+        </View>
+      )}
+      {!account.configured && (
+        <InlineMessage>
+          Account connection is unavailable. Please configure Supabase and restart Track.
+        </InlineMessage>
+      )}
+    </>
+  );
+
   return (
     <SafeAreaView testID="account-screen" style={{ flex: 1, backgroundColor: colors.background }}>
       <Head>
@@ -121,281 +149,212 @@ export function AccountScreen({
           contentContainerStyle={{
             flexGrow: 1,
             width: "100%",
-            maxWidth: 560,
+            maxWidth: 480,
             alignSelf: "center",
-            padding: spacing.layout,
-            gap: spacing.layout,
+            paddingHorizontal: spacing.gutter,
+            paddingTop: spacing.sm,
+            paddingBottom: spacing.xl,
           }}
         >
-          {mode !== "recover" && (
-            <View style={{ alignItems: "flex-start" }}>
-              <Button
+          <View style={{ minHeight: 44, alignItems: "flex-start" }}>
+            {mode !== "recover" && (
+              <AppButton
                 label="Back"
-                link
+                size="compact"
                 icon="chevron-left"
                 disabled={busy}
                 onPress={() => leave(onBack)}
               />
-            </View>
-          )}
-          <View style={{ alignItems: "center", gap: spacing.layout }}>
-            <Kine size={120} pose="welcome" />
-            <AppText
-              nativeID="account-title"
-              accessibilityRole="header"
-              variant="title"
-              style={{ textAlign: "center", outlineWidth: 0, outlineStyle: "solid" }}
-            >
-              {title}
-            </AppText>
-            <AppText muted style={{ textAlign: "center" }}>
-              {needsEmailConfirmation
-                ? "Confirm your email to finish creating your account."
-                : mode === "recover"
-                  ? "Enter the email you use for KineVault."
-                  : mode === "login"
-                    ? "Log in to your KineVault account."
-                    : "A KineVault account for your tracking journey."}
-            </AppText>
+            )}
           </View>
-
-          {needsEmailConfirmation ? (
-            <View style={{ gap: spacing.layout }}>
-              <View
-                testID="signup-confirmation"
-                accessibilityLiveRegion="polite"
-                style={{
-                  gap: spacing.layout,
-                  padding: spacing.layout,
-                  borderRadius: radius.panel,
-                  backgroundColor: colors.card,
-                }}
-              >
-                <View style={{ alignItems: "center", gap: spacing.sm }}>
-                  <Icon name="envelope" size={28} color={colors.primary} />
-                  <AppText muted style={{ textAlign: "center" }}>
-                    A verification email is on its way to
-                  </AppText>
-                  <AppText variant="label" style={{ textAlign: "center" }}>
-                    {confirmationEmail}
-                  </AppText>
-                </View>
-                <AppText>
-                  1. Open the KineVault email and tap the verification link on this device.
-                </AppText>
-                <AppText>2. Come back here and log in with your email and password.</AppText>
-                <AppText variant="caption" muted>
-                  Can't find the email? Check your spam or junk folder.
-                </AppText>
-              </View>
-              <Button
-                label="Go to log in"
-                disabled={busy}
-                onPress={() => {
-                  setEmail(confirmationEmail ?? "");
-                  changeMode("login");
-                }}
-              />
-              <Button
-                label="Use a different email"
-                link
-                disabled={busy}
-                onPress={() => changeMode("create")}
-              />
-            </View>
-          ) : (
-            <>
-              {mode !== "recover" && (
-                <View
-                  accessibilityRole="tablist"
-                  accessibilityLabel="Account options"
-                  style={{
-                    flexDirection: "row",
-                    gap: spacing.xs,
-                    padding: spacing.xs,
-                    borderRadius: radius.control,
-                    backgroundColor: colors.secondary,
-                  }}
+          <View style={{ flexGrow: 1, justifyContent: "center", gap: spacing.lg }}>
+            <View style={{ alignItems: "center", gap: spacing.md }}>
+              <KineStage size={compact ? 96 : 116} pose="welcome" />
+              <View style={{ alignItems: "center", gap: spacing.xs }}>
+                <AppText
+                  nativeID="account-title"
+                  accessibilityRole="header"
+                  variant="title"
+                  style={{ textAlign: "center", outlineWidth: 0, outlineStyle: "solid" }}
                 >
-                  {(["create", "login"] as const).map((option) => (
-                    <Pressable
-                      key={option}
-                      accessibilityRole="tab"
-                      accessibilityState={{ selected: mode === option, disabled: busy }}
-                      disabled={busy}
-                      onPress={() => changeMode(option)}
-                      style={({ pressed }) => ({
-                        flex: 1,
-                        minHeight: 44,
-                        padding: spacing.sm,
-                        justifyContent: "center",
-                        alignItems: "center",
-                        borderRadius: radius.control - 4,
-                        backgroundColor: mode === option ? colors.card : "transparent",
-                        opacity: busy ? 0.55 : pressed ? 0.8 : 1,
-                      })}
-                    >
-                      <AppText variant="label" style={{ textAlign: "center" }}>
-                        {option === "create" ? "Sign up" : "Log in"}
-                      </AppText>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
+                  {title}
+                </AppText>
+                <AppText muted style={{ textAlign: "center" }}>
+                  {needsEmailConfirmation
+                    ? "Confirm your email to finish creating your account."
+                    : mode === "recover"
+                      ? "Enter the email you use for KineVault."
+                      : mode === "login"
+                        ? "Log in to your KineVault account."
+                        : "A KineVault account for your tracking journey."}
+                </AppText>
+              </View>
+            </View>
 
-              <View style={{ gap: spacing.layout }}>
-                <Field
-                  label="Email"
-                  value={email}
-                  onChangeText={setEmail}
-                  inputMode="email"
-                  keyboardType="email-address"
-                  autoComplete="email"
-                  textContentType="emailAddress"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!busy}
-                  placeholder="you@example.com"
-                  returnKeyType="done"
-                  onSubmitEditing={() => {
-                    if (mode === "recover") void submit();
+            {needsEmailConfirmation ? (
+              <View style={{ gap: spacing.md }}>
+                <Panel
+                  testID="signup-confirmation"
+                  accessibilityLiveRegion="polite"
+                  style={{ gap: spacing.md }}
+                >
+                  <View style={{ alignItems: "center", gap: spacing.sm }}>
+                    <View
+                      style={{
+                        width: 52,
+                        height: 52,
+                        borderRadius: 26,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: colors.brandSoft,
+                      }}
+                    >
+                      <Icon name="envelope" size={24} color={colors.brand} />
+                    </View>
+                    <AppText muted style={{ textAlign: "center" }}>
+                      A verification email is on its way to
+                    </AppText>
+                    <AppText variant="heading" style={{ textAlign: "center", fontSize: 16 }}>
+                      {confirmationEmail}
+                    </AppText>
+                  </View>
+                  {[
+                    "Open the KineVault email and tap the verification link on this device.",
+                    "Come back here and log in with your email and password.",
+                  ].map((text, index) => (
+                    <View key={text} style={{ flexDirection: "row", gap: spacing.md }}>
+                      <View
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 12,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: colors.muted,
+                        }}
+                      >
+                        <AppText variant="caption" style={{ fontFamily: fonts.bold }}>
+                          {index + 1}
+                        </AppText>
+                      </View>
+                      <AppText style={{ flex: 1 }}>{text}</AppText>
+                    </View>
+                  ))}
+                  <AppText variant="caption" muted>
+                    Can't find the email? Check your spam or junk folder.
+                  </AppText>
+                </Panel>
+                {feedback}
+                <AppButton
+                  label="Go to log in"
+                  tone="primary"
+                  disabled={busy}
+                  onPress={() => {
+                    setEmail(confirmationEmail ?? "");
+                    changeMode("login");
                   }}
                 />
-                {mode !== "recover" && (
-                  <>
-                    <Field
-                      key={mode}
-                      label="Password"
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry={!showPassword}
-                      autoComplete={mode === "create" ? "new-password" : "current-password"}
-                      textContentType={mode === "create" ? "newPassword" : "password"}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      spellCheck={false}
-                      editable={!busy}
-                      returnKeyType="done"
-                      onSubmitEditing={() => void submit()}
-                      trailing={
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={showPassword ? "Hide password" : "Show password"}
-                          accessibilityState={{ disabled: busy }}
-                          disabled={busy}
-                          onPress={() => setShowPassword((visible) => !visible)}
-                          style={({ pressed }) => ({
-                            minWidth: 44,
-                            minHeight: 44,
-                            justifyContent: "center",
-                            alignItems: "center",
-                            opacity: busy ? 0.55 : pressed ? 0.7 : 1,
-                          })}
-                        >
-                          <Icon
-                            name={showPassword ? "eye-slash" : "eye"}
-                            size={20}
-                            color={colors.mutedForeground}
-                          />
-                        </Pressable>
-                      }
-                    />
-                    {mode === "create" && (
-                      <AppText variant="caption" muted>
-                        Use at least 10 characters.
-                      </AppText>
-                    )}
-                    {mode === "login" && (
-                      <View style={{ flexDirection: "row" }}>
-                        <AccountLink
-                          label="Forgot password?"
-                          disabled={busy}
-                          onPress={() => changeMode("recover")}
-                        />
-                      </View>
-                    )}
-                  </>
-                )}
-              </View>
-
-              <View style={{ gap: spacing.layout }}>
-                <Button
-                  label={
-                    busy
-                      ? "Please wait…"
-                      : mode === "create"
-                        ? "Create account"
-                        : mode === "login"
-                          ? "Log in"
-                          : "Send reset link"
-                  }
-                  onPress={() => void submit()}
-                  disabled={busy || !account.configured}
+                <AppButton
+                  label="Use a different email"
+                  disabled={busy}
+                  onPress={() => changeMode("create")}
                 />
-                <AppText variant="caption" muted style={{ textAlign: "center" }}>
-                  Sign in to save your goals and workout history to your KineVault account.
-                </AppText>
-                {mode === "recover" && (
-                  <Button
-                    label="Back to log in"
-                    link
+              </View>
+            ) : (
+              <View style={{ gap: spacing.lg }}>
+                {mode !== "recover" && (
+                  <SegmentedControl
+                    label="Account options"
+                    semantics="tabs"
+                    options={[
+                      { value: "create", label: "Sign up" },
+                      { value: "login", label: "Log in" },
+                    ]}
+                    value={mode}
                     disabled={busy}
-                    onPress={() => changeMode("login")}
+                    onChange={changeMode}
                   />
                 )}
-              </View>
-            </>
-          )}
 
-          <View style={{ marginTop: "auto", gap: spacing.layout }}>
-            {error && (
-              <AppText accessibilityRole="alert" style={{ color: colors.error }}>
-                {error}
-              </AppText>
-            )}
-            {notice && !needsEmailConfirmation && (
-              <AppText accessibilityLiveRegion="polite" style={{ textAlign: "center" }}>
-                {notice}
-              </AppText>
-            )}
-            {!account.configured && (
-              <AppText accessibilityRole="alert">
-                Account connection is unavailable. Please configure Supabase and restart Track.
-              </AppText>
+                <View style={{ gap: spacing.md }}>
+                  <TextField
+                    size="large"
+                    label="Email"
+                    value={email}
+                    onChange={setEmail}
+                    kind="email"
+                    disabled={busy}
+                    placeholder="you@example.com"
+                    onSubmit={() => {
+                      if (mode === "recover") void submit();
+                    }}
+                  />
+                  {mode !== "recover" && (
+                    <View style={{ gap: spacing.xs }}>
+                      <TextField
+                        size="large"
+                        key={mode}
+                        label="Password"
+                        value={password}
+                        onChange={setPassword}
+                        kind="password"
+                        revealable
+                        autoComplete={mode === "create" ? "new-password" : "current-password"}
+                        disabled={busy}
+                        onSubmit={() => void submit()}
+                      />
+                      {mode === "create" && (
+                        <AppText variant="caption" muted>
+                          Use at least 10 characters.
+                        </AppText>
+                      )}
+                      {mode === "login" && (
+                        <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
+                          <AppButton
+                            label="Forgot password?"
+                            size="compact"
+                            disabled={busy}
+                            onPress={() => changeMode("recover")}
+                          />
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </View>
+
+                <View style={{ gap: spacing.md }}>
+                  {feedback}
+                  <AppButton
+                    label={
+                      busy
+                        ? "Please wait…"
+                        : mode === "create"
+                          ? "Create account"
+                          : mode === "login"
+                            ? "Log in"
+                            : "Send reset link"
+                    }
+                    tone="primary"
+                    onPress={() => void submit()}
+                    disabled={busy || !account.configured}
+                  />
+                  {mode === "recover" ? (
+                    <AppButton
+                      label="Back to log in"
+                      disabled={busy}
+                      onPress={() => changeMode("login")}
+                    />
+                  ) : (
+                    <AppText variant="caption" muted style={{ textAlign: "center" }}>
+                      Your goals and workout history are saved to your KineVault account.
+                    </AppText>
+                  )}
+                </View>
+              </View>
             )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
-  );
-}
-
-function AccountLink({
-  label,
-  onPress,
-  disabled,
-}: {
-  label: string;
-  onPress: () => void;
-  disabled: boolean;
-}) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        minHeight: 44,
-        paddingHorizontal: spacing.xs,
-        justifyContent: "center",
-        opacity: disabled ? 0.55 : pressed ? 0.7 : 1,
-      })}
-    >
-      <AppText variant="caption" style={{ color: colors.primary, textDecorationLine: "underline" }}>
-        {label}
-      </AppText>
-    </Pressable>
   );
 }

@@ -7,7 +7,7 @@ formats; it does not offer a language or unit selector.
 Open Food Facts can return a product's original name in another language,
 including Hebrew. Source product names are user-reviewable food data, not an
 indication that the app interface has been translated. Keep that fallback so a
-Hebrew-labelled product can still be imported when it has no English name.
+Hebrew-labeled product can still be imported when it has no English name.
 
 Hebrew interface support is future work in [TODO.md](../TODO.md). Implement it
 as a complete interface feature: extracted message keys, Hebrew translations,
@@ -17,5 +17,5 @@ scaling, and screen-reader labels on native devices. Do not infer the interface
 language from the language of a scanned product.
 
 Imperial display units are also future work. Keep canonical persisted values in
-grams, kilograms, centimetres, and millilitres, and convert at display/input
+grams, kilograms, centimeters, and milliliters, and convert at display/input
 boundaries when a real preference is introduced.

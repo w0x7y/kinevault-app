@@ -17,34 +17,31 @@ Onboarding starts with welcome and flag (goal), then age confirmation, listening
 (review). Age reuses `kine-body.webp`; there are twelve distinct image files for
 thirteen pose keys, including loading.
 
-Tabs: morning stretch (Home, internally `today` / `kine-today.webp`), fruit and
-spoon (Food), side stretch (Exercise), notebook and pencil (Settings).
+Home shows the morning stretch (internally `today` / `kine-today.webp`). The fruit
+and spoon (Food), side stretch (Exercise), and notebook and pencil (Settings) poses
+are still bundled and prefetched after Home's pose, but no screen shows them since
+the October 2026 redesign.
 
 Loading: the v2 pose holds a large hourglass with both hands. The shared
-`KineLoading` component shows it without visible text or animation, with a
-polite accessible loading label. Home centers it while the food log loads;
-Food uses it for the food log and saved foods, showing only one while both load.
-Compact instances fit the water form and barcode lookup. Web startup also uses
+`KineLoading` component shows it on a soft brand disc without visible text, with a
+polite accessible loading label; Kine bobs slowly unless motion is reduced. Home and
+Food show a compact instance in a card while the food log loads; Food also uses it
+for saved foods, showing only one while both load. Compact instances fit the water
+form, barcode lookup, and workout import. Web startup also uses
 the pose; native startup retains the existing splash until the app is ready.
 There is no minimum display time, so it disappears as soon as loading ends.
 
-Home places macro progress to Kine's left; Food and Exercise place their action
-buttons there, and Settings places its title there. All four use the same equal
-content/Kine split with a 12px gap and the same mascot size for a given content
-width. A full-width calorie bar sits above Home's macro row. Kine stays visible
-when daily records are empty; the disabled creation/view buttons do not log data.
-The app uses Comfortaa and Font Awesome 6; these character images are separate
-from the UI icon font.
+Home shows a small Kine (84–96pt) beside the greeting; onboarding and account
+screens stand Kine on a soft brand-tinted disc. The app uses Comfortaa,
+Manrope and Ionicons; these character images are separate from the UI icon
+font.
 
 ## Loading and asset sizes
 
-The welcome asset is 840px, supporting its 280pt onboarding display at 3×.
-Other poses are 456px, supporting the 152pt onboarding display at 3×. Tab poses
-scale with the shared two-column layout: `(content width - 12) / 2`, after the
-screen's 12px side padding. Their maximum display is 366pt within the 768pt
-screen container. The existing 456px artwork is not 3× resolution at that
-largest size; review larger tablet/high-density displays before increasing the
-asset budget or claiming full-size 3× sharpness.
+The welcome asset is 840px, sharp at 3× up to 280pt; onboarding shows it at up to
+248pt (200pt on short windows) and account screens at 96–116pt. Other poses are
+456px, sharp at 3× up to 152pt: onboarding stages use 108–132pt, status screens
+120pt, loading 96–140pt, and Home's greeting 84–96pt.
 WebP compression uses quality 80, full-quality alpha, and stripped metadata.
 Actual sizes are recorded in `2d/manifest.json`.
 

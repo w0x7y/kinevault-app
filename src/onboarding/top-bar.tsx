@@ -7,14 +7,15 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { AppText } from "../components/ui";
-import { motionEase, PageTransition, useReducedMotion } from "../components/motion";
+import { motionEase, useReducedMotion } from "../components/motion";
 import { useTheme } from "../theme/provider";
-import { spacing } from "../theme/tokens";
+import { fonts, radius, spacing } from "../theme/tokens";
 import { steps } from "../profile/answers";
-import { Button } from "./controls";
+import { AppButton } from "../components/button";
 
 const totalSteps = steps.length - 1;
 
+/** Back on the left, a slim progress track in the middle, and the step count or Cancel. */
 export function SetupTopBar({
   stepIndex,
   editing,
@@ -44,30 +45,26 @@ export function SetupTopBar({
   const progressStyle = useAnimatedStyle<ViewStyle>(() => ({
     width: `${progress.get() * 100}%`,
   }));
+  const started = stepIndex > 0;
   return (
-    <>
-      <PageTransition direction={0} style={styles.bar}>
+    <View style={styles.bar}>
+      <View style={styles.side}>
         {back ? (
-          <Button label="Back" icon="chevron-left" link disabled={saving} onPress={back} />
+          <AppButton
+            label="Back"
+            size="compact"
+            icon="chevron-left"
+            disabled={saving}
+            onPress={back}
+          />
         ) : (
-          <AppText variant="label">{editing ? "Edit profile" : ""}</AppText>
-        )}
-        {editing ? (
-          <Button label="Cancel" icon="xmark" link disabled={saving} onPress={cancel} />
-        ) : (
-          stepIndex > 0 && (
-            <PageTransition key={stepIndex} direction={0}>
-              <AppText
-                variant="caption"
-                muted
-                accessibilityLabel={`Step ${stepIndex} of ${totalSteps}`}
-              >
-                {stepIndex} of {totalSteps}
-              </AppText>
-            </PageTransition>
+          editing && (
+            <AppText variant="label" style={{ paddingHorizontal: spacing.sm }}>
+              Edit profile
+            </AppText>
           )
         )}
-      </PageTransition>
+      </View>
       <View
         accessibilityRole="progressbar"
         accessibilityValue={{ min: 0, max: totalSteps, now: stepIndex }}
@@ -75,39 +72,68 @@ export function SetupTopBar({
         aria-valuemax={totalSteps}
         aria-valuenow={stepIndex}
         accessibilityLabel="Setup progress"
-        style={{
-          height: 3,
-          backgroundColor: colors.muted,
-          opacity: stepIndex === 0 ? 0 : 1,
-        }}
+        style={[
+          styles.track,
+          { backgroundColor: colors.muted, opacity: started || editing ? 1 : 0 },
+        ]}
       >
         <Animated.View
           style={[
             {
               position: "absolute",
               left: 0,
-              height: 3,
+              top: 0,
+              bottom: 0,
+              borderRadius: radius.pill,
               backgroundColor: colors.primary,
             },
             progressStyle,
           ]}
         />
       </View>
-    </>
+      <View style={[styles.side, { alignItems: "flex-end" }]}>
+        {editing ? (
+          <AppButton
+            label="Cancel"
+            size="compact"
+            icon="xmark"
+            disabled={saving}
+            onPress={cancel}
+          />
+        ) : (
+          started && (
+            <AppText
+              variant="caption"
+              muted
+              accessibilityLabel={`Step ${stepIndex} of ${totalSteps}`}
+              style={{ fontFamily: fonts.semibold, fontVariant: ["tabular-nums"] }}
+            >
+              {stepIndex} of {totalSteps}
+            </AppText>
+          )
+        )}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   bar: {
     minHeight: 60,
-    paddingHorizontal: spacing.layout,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    gap: spacing.layout,
+    gap: spacing.md,
     width: "100%",
-    maxWidth: 640,
+    maxWidth: 560,
     alignSelf: "center",
+  },
+  side: { minWidth: 84, flexShrink: 0, justifyContent: "center" },
+  track: {
+    flex: 1,
+    height: 4,
+    borderRadius: radius.pill,
+    overflow: "hidden",
   },
 });

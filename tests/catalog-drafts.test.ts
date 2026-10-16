@@ -51,29 +51,37 @@ async function savingFixture(raw: string | null = null) {
   });
   store.start();
   await new Promise((resolve) => setImmediate(resolve));
-  const owner = createCatalogDrafts();
+  const owner = createCatalogDrafts({ store });
   const session = owner.open({
     kind: "import",
     draft: { ...imported, importSource: { ...imported.importSource, barcode: "3017620422003" } },
     volumeBased: false,
   });
-  const catalog = () => ({ ...store, ...store.getSnapshot() });
   return {
     owner,
     session,
-    catalog,
+    store,
     writes: () => writes,
     release: (failed = false) => release!(failed),
   };
+}
+// Drafts that never save need persistence only as a dependency.
+function drafts() {
+  return createCatalogDrafts({
+    store: createCustomFoodPersistence({
+      storage: { getItem: async () => null, setItem: async () => {} },
+      createId: () => "unused",
+    }),
+  });
 }
 
 test("catalog save reserves its attempt before subscribers reenter and retires after durable success", async () => {
   const f = await savingFixture();
   let duplicate: Promise<unknown> | undefined;
   f.owner.subscribe(() => {
-    duplicate ??= f.owner.save(f.session.handle, f.catalog());
+    duplicate ??= f.owner.save(f.session.handle);
   });
-  const saved = f.owner.save(f.session.handle, f.catalog());
+  const saved = f.owner.save(f.session.handle);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(f.writes(), 1);
   assert.equal(await duplicate, null);
@@ -85,7 +93,7 @@ test("catalog save reserves its attempt before subscribers reenter and retires a
 
 test("a delayed catalog save cannot retire or return into a replacement editor", async () => {
   const f = await savingFixture();
-  const saved = f.owner.save(f.session.handle, f.catalog());
+  const saved = f.owner.save(f.session.handle);
   await new Promise((resolve) => setImmediate(resolve));
   f.owner.discard(f.session.handle);
   const replacement = f.owner.openCreation();
@@ -96,7 +104,7 @@ test("a delayed catalog save cannot retire or return into a replacement editor",
 
 test("entered catalog fields during a save survive its completion", async () => {
   const f = await savingFixture();
-  const saved = f.owner.save(f.session.handle, f.catalog());
+  const saved = f.owner.save(f.session.handle);
   await new Promise((resolve) => setImmediate(resolve));
   f.owner.changeFood(f.session.handle, { ...imported, name: "Later fields" });
   f.release();
@@ -108,7 +116,7 @@ test("entered catalog fields during a save survive its completion", async () => 
 test("catalog validation belongs to the retained draft and corrects after an attempted save", async () => {
   const f = await savingFixture();
   f.owner.changeFood(f.session.handle, { ...imported, name: "" });
-  assert.equal(await f.owner.save(f.session.handle, f.catalog()), null);
+  assert.equal(await f.owner.save(f.session.handle), null);
   const invalid = f.owner.getSnapshot().session;
   assert.equal(invalid?.kind, "food");
   if (invalid?.kind !== "food") return;
@@ -123,15 +131,15 @@ test("catalog validation belongs to the retained draft and corrects after an att
 });
 
 test("Snacks import retains edits and metadata independently of Lunch creation", () => {
-  const owner = createCatalogDrafts();
-  owner.setMealIntent("snacks");
+  const owner = drafts();
+  owner.destination.set("snacks");
   const first = owner.open({ kind: "import", draft: imported, volumeBased: true });
   assert.equal(first.kind, "food");
   if (first.kind !== "food") return;
   owner.changeFood(first.handle, { ...first.draft, carbs: "42", brand: "Reviewed brand" });
-  owner.setMealIntent("lunch");
+  owner.destination.set("lunch");
   const lunch = owner.openCreation();
-  assert.equal(lunch.mealIntent, "lunch");
+  assert.equal(lunch.destination, "lunch");
   const resumed = owner.open({
     kind: "import",
     draft: { ...imported, carbs: "99" },
@@ -143,19 +151,19 @@ test("Snacks import retains edits and metadata independently of Lunch creation",
   assert.equal(resumed.draft.brand, "Reviewed brand");
   assert.deepEqual(resumed.draft.importSource, imported.importSource);
   assert.equal(resumed.volumeBased, true);
-  assert.equal(resumed.mealIntent, "snacks");
-  assert.equal(owner.getSnapshot().mealIntent, "snacks");
-  assert.equal(owner.resume(lunch.handle)?.mealIntent, "lunch");
+  assert.equal(resumed.destination, "snacks");
+  assert.equal(owner.destination.get(), "snacks");
+  assert.equal(owner.resume(lunch.handle)?.destination, "lunch");
 });
 
 test("creation kinds retain independent fields and destinations and discard independently", () => {
-  const owner = createCatalogDrafts();
-  owner.setMealIntent("lunch");
+  const owner = drafts();
+  owner.destination.set("lunch");
   const food = owner.openCreation();
   assert.equal(food.kind, "food");
   if (food.kind !== "food") return;
   owner.changeFood(food.handle, { ...food.draft, name: "Lunch oats" });
-  owner.setMealIntent("dinner");
+  owner.destination.set("dinner");
   owner.setCreationKind("meal");
   const meal = owner.getSnapshot().session;
   assert.equal(meal?.kind, "meal");
@@ -163,34 +171,34 @@ test("creation kinds retain independent fields and destinations and discard inde
   owner.changeMeal(meal.handle, { ...meal.draft, name: "Dinner bowl" });
   owner.setCreationKind("food");
   assert.equal(owner.getSnapshot().session?.draft.name, "Lunch oats");
-  assert.equal(owner.getSnapshot().mealIntent, "lunch");
+  assert.equal(owner.destination.get(), "lunch");
   assert.equal(owner.discard(food.handle), true);
   owner.setCreationKind("meal");
   assert.equal(owner.getSnapshot().session?.draft.name, "Dinner bowl");
-  assert.equal(owner.getSnapshot().mealIntent, "dinner");
+  assert.equal(owner.destination.get(), "dinner");
   owner.setCreationKind("food");
   assert.equal(owner.getSnapshot().session?.draft.name, "");
 });
 
 test("Dinner editor resumes after changing views and untouched editors do not advertise drafts", () => {
-  const owner = createCatalogDrafts();
-  owner.setMealIntent("dinner");
+  const owner = drafts();
+  owner.destination.set("dinner");
   const first = owner.open({ kind: "edit-food", item: oats });
   assert.equal(owner.getSnapshot().resumable.length, 0);
   assert.equal(first.kind, "food");
   if (first.kind !== "food") return;
   owner.changeFood(first.handle, { ...first.draft, name: "" });
   assert.equal(owner.getSnapshot().resumable.length, 1);
-  owner.setMealIntent("snacks");
+  owner.destination.set("snacks");
   owner.openCreation();
   const resumed = owner.open({ kind: "edit-food", item: oats });
   assert.equal(resumed.draft.name, "");
-  assert.equal(resumed.mealIntent, "dinner");
-  assert.equal(owner.getSnapshot().mealIntent, "dinner");
+  assert.equal(resumed.destination, "dinner");
+  assert.equal(owner.destination.get(), "dinner");
 });
 
 test("solid and drink bases survive pause and resume without treating grams as ml", () => {
-  const owner = createCatalogDrafts();
+  const owner = drafts();
   const food = owner.open({ kind: "import", draft: imported, volumeBased: true });
   assert.equal(food.kind, "food");
   if (food.kind !== "food") return;
@@ -232,7 +240,7 @@ test("solid and drink bases survive pause and resume without treating grams as m
 });
 
 test("discard only affects the matching session", () => {
-  const owner = createCatalogDrafts();
+  const owner = drafts();
   const old = owner.openCreation();
   assert.equal(owner.discard(old.handle), true);
   const replacement = owner.openCreation();
@@ -244,7 +252,7 @@ test("discard only affects the matching session", () => {
 });
 
 test("manual and provider barcodes have separate identities; draft copies isolate saved ingredients", () => {
-  const owner = createCatalogDrafts();
+  const owner = drafts();
   const provider = owner.open({ kind: "import", draft: imported, volumeBased: true });
   const manual = owner.open({
     kind: "import",
@@ -281,7 +289,7 @@ test("manual and provider barcodes have separate identities; draft copies isolat
 });
 
 test("snapshots are stable between notifications and unsubscribe stops publication", () => {
-  const owner = createCatalogDrafts();
+  const owner = drafts();
   const first = owner.getSnapshot();
   assert.equal(owner.getSnapshot(), first);
   let updates = 0;
@@ -290,19 +298,19 @@ test("snapshots are stable between notifications and unsubscribe stops publicati
   assert.notEqual(owner.getSnapshot(), first);
   assert.equal(updates, 1);
   unsubscribe();
-  owner.setMealIntent("dinner");
+  owner.destination.set("dinner");
   assert.equal(updates, 1);
 });
 
 test("failed catalog writes retain fields and destination and save retry retires them", async () => {
   const f = await savingFixture();
-  const saved = f.owner.save(f.session.handle, f.catalog());
+  const saved = f.owner.save(f.session.handle);
   await new Promise((resolve) => setImmediate(resolve));
   f.release(true);
   assert.equal(await saved, null);
-  assert.equal(f.owner.getSnapshot().session?.error, f.catalog().error);
+  assert.equal(f.owner.getSnapshot().session?.error, f.store.getSnapshot().error);
   assert.equal(f.owner.getSnapshot().session?.draft.name, "Cereal");
-  const retry = f.owner.save(f.session.handle, f.catalog());
+  const retry = f.owner.save(f.session.handle);
   assert.equal(f.owner.getSnapshot().session?.error, null);
   await new Promise((resolve) => setImmediate(resolve));
   f.release();
@@ -318,16 +326,25 @@ test("successful deletion retires its catalog edit after durability and preserve
   f.owner.changeFood(food.handle, { ...food.draft, name: "Retained edit" });
   const meal = f.owner.open({ kind: "edit-meal", item: bowl });
   if (meal.kind === "meal") f.owner.changeMeal(meal.handle, { ...meal.draft, name: "Other draft" });
-  const removing = f.owner.removeSaved(oats, f.catalog());
+  const detail = {};
+  const removing = f.owner.removeSaved(oats, detail);
   await new Promise((resolve) => setImmediate(resolve));
   assert.ok(f.owner.resume(food.handle));
+  assert.equal(await f.owner.removeSaved(oats, {}), false, "one deletion at a time");
+  assert.equal(f.owner.getSnapshot().deletion, null, "a refused request has no feedback");
   f.release(true);
   assert.equal(await removing, false);
+  assert.deepEqual(f.owner.getSnapshot().deletion, {
+    caller: detail,
+    error: "Couldn't delete this item. It is still saved. Try again.",
+  });
   assert.equal(f.owner.resume(food.handle)?.draft.name, "Retained edit");
-  const retry = f.owner.removeSaved(oats, f.catalog());
+  const retry = f.owner.removeSaved(oats, detail);
+  assert.equal(f.owner.getSnapshot().deletion, null, "a new deletion clears the failure");
   await new Promise((resolve) => setImmediate(resolve));
   f.release();
   assert.equal(await retry, true);
+  assert.equal(f.owner.getSnapshot().deletion, null);
   assert.equal(f.owner.resume(food.handle), null);
   assert.ok(f.owner.resume(meal.handle));
 });
@@ -337,11 +354,11 @@ test("catalog meal edits save through the same owner without duplicating the sav
   const meal = f.owner.open({ kind: "edit-meal", item: bowl });
   if (meal.kind !== "meal") return;
   f.owner.changeMeal(meal.handle, { ...meal.draft, name: "Changed bowl" });
-  const saved = f.owner.save(meal.handle, f.catalog());
+  const saved = f.owner.save(meal.handle);
   await new Promise((resolve) => setImmediate(resolve));
   f.release();
   assert.equal((await saved)?.customId, bowl.customId);
-  const state = f.catalog().state;
+  const state = f.store.getSnapshot().state;
   assert.equal(state.kind, "ready");
   if (state.kind === "ready") {
     assert.equal(state.document.meals.length, 1);
@@ -357,7 +374,7 @@ test("catalog save delivers the completion before retirement subscribers detach 
   f.owner.subscribe(() => {
     if (f.owner.getSnapshot().session === null) mounted = false;
   });
-  const saved = f.owner.save(f.session.handle, f.catalog(), (item) => {
+  const saved = f.owner.save(f.session.handle, (item) => {
     assert.equal(f.owner.getSnapshot().session, null);
     assert.equal(item.name, "Cereal");
     if (mounted) delivered = true;
@@ -371,30 +388,28 @@ test("catalog save delivers the completion before retirement subscribers detach 
 
 test("a retained catalog save error survives an unrelated failed deletion", async () => {
   const f = await savingFixture(JSON.stringify({ version: 1, foods: [oats], meals: [bowl] }));
-  const saved = f.owner.save(f.session.handle, f.catalog());
+  const saved = f.owner.save(f.session.handle);
   await new Promise((resolve) => setImmediate(resolve));
   f.release(true);
   assert.equal(await saved, null);
-  const saveError = f.catalog().error;
+  const saveError = f.store.getSnapshot().error;
   assert.ok(saveError);
   assert.equal(f.owner.getSnapshot().session?.error, saveError);
   f.owner.openCreation();
-  const removed = f.owner.removeSaved(oats, f.catalog());
+  const removed = f.owner.removeSaved(oats, {});
   await new Promise((resolve) => setImmediate(resolve));
   f.release(true);
   assert.equal(await removed, false);
-  assert.notEqual(f.catalog().error, saveError);
+  assert.notEqual(f.store.getSnapshot().error, saveError);
   assert.equal(f.owner.resume(f.session.handle)?.error, saveError);
 });
 
-test("catalog save checks current persistence availability instead of captured context fields", async () => {
+test("catalog save is refused without an attempt while another catalog write runs", async () => {
   const f = await savingFixture(JSON.stringify({ version: 1, foods: [oats], meals: [bowl] }));
-  const captured = f.catalog();
-  const deleting = captured.remove(oats.customId);
+  const deleting = f.store.remove(oats.customId);
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(captured.saving, false);
-  assert.equal(captured.getSnapshot().saving, true);
-  assert.equal(await f.owner.save(f.session.handle, captured), null);
+  assert.equal(f.store.getSnapshot().saving, true);
+  assert.equal(await f.owner.save(f.session.handle), null);
   assert.equal(f.owner.getSnapshot().session?.attempted, false);
   assert.equal(f.writes(), 1);
   f.release();

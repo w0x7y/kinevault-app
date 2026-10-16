@@ -1,8 +1,10 @@
 import { parseFoodLog } from "../food/log-model.ts";
+import { foodLogStorageKey } from "../food/log-persistence.ts";
 import { parseExerciseDocument, type WorkoutSession } from "../exercise/model.ts";
+import { exerciseStorageKey } from "../exercise/persistence.ts";
 import type { AccountLocalStorage } from "./storage.ts";
 
-export const historyKeys = ["kinevault-track.food-log.v1", "kinevault-track.exercise.v1"] as const;
+export const historyKeys = [foodLogStorageKey, exerciseStorageKey] as const;
 export type HistoryKey = (typeof historyKeys)[number];
 export type HistoryParts = Record<string, string>;
 export function isHistoryKey(key: string): key is HistoryKey {

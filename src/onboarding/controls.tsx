@@ -1,156 +1,11 @@
-import { useFocusRing } from "../components/focus-ring";
-import { Icon, type IconName } from "../components/icon";
-import { useState, type ReactNode } from "react";
-import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from "react-native";
+import { Icon } from "../components/icon";
+import { Tappable } from "../components/tappable";
+import { View } from "react-native";
+import Animated from "react-native-reanimated";
+import { useAppear, useStateTransition } from "../components/motion";
 import { AppText } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
-
-/** Same hierarchy as AppButton: filled primary, tinted `secondary`, red-text `danger`,
- * filled `destructive` for the confirming tap and text-only `link`. */
-export function Button({
-  label,
-  onPress,
-  secondary = false,
-  destructive = false,
-  danger = false,
-  link = false,
-  disabled = false,
-  icon,
-}: {
-  label: string;
-  onPress: () => void;
-  secondary?: boolean;
-  destructive?: boolean;
-  danger?: boolean;
-  link?: boolean;
-  disabled?: boolean;
-  icon?: IconName;
-}) {
-  const { colors } = useTheme();
-  const { focused, onFocus, onBlur } = useFocusRing();
-  const tinted = secondary || danger;
-  const foreground = destructive
-    ? colors.destructiveForeground
-    : danger
-      ? colors.danger
-      : link
-        ? colors.primary
-        : secondary
-          ? colors.secondaryForeground
-          : colors.primaryForeground;
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled }}
-      aria-disabled={disabled}
-      disabled={disabled}
-      onPress={onPress}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      style={({ pressed }) => ({
-        minHeight: link ? 44 : 52,
-        padding: link ? spacing.sm : spacing.layout,
-        justifyContent: "center",
-        alignItems: "center",
-        flexDirection: "row",
-        gap: 8,
-        borderRadius: radius.control,
-        borderWidth: 2,
-        borderColor: focused ? colors.ring : "transparent",
-        backgroundColor: destructive
-          ? colors.destructive
-          : link
-            ? pressed
-              ? colors.accent
-              : "transparent"
-            : tinted
-              ? pressed
-                ? colors.accent
-                : colors.secondary
-              : colors.primary,
-        opacity: disabled ? 0.55 : pressed && !tinted && !link ? 0.8 : 1,
-      })}
-    >
-      {icon && <Icon name={icon} size={16} color={foreground} />}
-      <AppText variant="label" style={{ color: foreground, flexShrink: 1 }}>
-        {label}
-      </AppText>
-    </Pressable>
-  );
-}
-
-export function Field({
-  label,
-  error,
-  inputMode,
-  onChangeText,
-  trailing,
-  ...props
-}: TextInputProps & { label: string; error?: string; trailing?: ReactNode }) {
-  const { colors } = useTheme();
-  const [focused, setFocused] = useState(false);
-  const borderColor = error ? colors.error : focused ? colors.ring : colors.input;
-  const input = (
-    <TextInput
-      {...props}
-      inputMode={inputMode}
-      onChangeText={(text) => {
-        // Keyboard hints do not restrict hardware typing or pasted text.
-        if (inputMode === "numeric" && !/^\d*$/.test(text)) return;
-        if (inputMode === "decimal" && !/^\d*(?:[.,]\d*)?$/.test(text)) return;
-        onChangeText?.(text);
-      }}
-      accessibilityLabel={label}
-      aria-invalid={Boolean(error)}
-      placeholderTextColor={colors.mutedForeground}
-      selectionColor={colors.ring}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      style={[
-        styles.input,
-        {
-          color: colors.foreground,
-          backgroundColor: colors.card,
-          borderColor,
-          borderWidth: focused ? 2 : 1,
-        },
-        trailing
-          ? { flex: 1, minWidth: 0, borderWidth: 0, backgroundColor: "transparent" }
-          : undefined,
-      ]}
-    />
-  );
-  return (
-    <View style={{ gap: 8 }}>
-      <AppText variant="label">{label}</AppText>
-      {trailing ? (
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            borderRadius: radius.control,
-            borderColor,
-            borderWidth: focused ? 2 : 1,
-            backgroundColor: colors.card,
-            paddingRight: spacing.sm,
-          }}
-        >
-          {input}
-          {trailing}
-        </View>
-      ) : (
-        input
-      )}
-      {error && (
-        <AppText variant="caption" accessibilityRole="alert" style={{ color: colors.error }}>
-          {error}
-        </AppText>
-      )}
-    </View>
-  );
-}
 
 export function Choice({
   label,
@@ -158,80 +13,72 @@ export function Choice({
   selected,
   onPress,
   disabled = false,
+  invalid = false,
 }: {
   label: string;
   description?: string;
   selected: boolean;
   onPress: () => void;
   disabled?: boolean;
+  /** Outlines the card in red while its group has an unanswered error. */
+  invalid?: boolean;
 }) {
   const { colors } = useTheme();
-  const { focused, onFocus, onBlur } = useFocusRing();
+  // The card's outline and fill ease to their new state; the check pops in.
+  const transition = useStateTransition(["borderColor", "backgroundColor"], 150);
+  const checkIn = useAppear("pop", { duration: 150 });
   return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityLabel={label}
-      accessibilityState={{ checked: selected, disabled }}
-      aria-checked={selected}
-      aria-disabled={disabled}
+    <Tappable
+      role="radio"
+      label={label}
+      checked={selected}
       disabled={disabled}
       onPress={onPress}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      style={({ pressed }) => ({
-        minHeight: 58,
-        padding: spacing.layout,
-        borderRadius: radius.control,
+      eases={["borderColor", "backgroundColor"]}
+      style={({ pressed, focused }) => ({
+        minHeight: 62,
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.card,
+        borderRadius: radius.control + 2,
         flexDirection: "row",
         alignItems: "center",
         gap: spacing.layout,
-        borderWidth: focused ? 2 : 1,
-        borderColor: focused ? colors.ring : selected ? colors.primary : colors.border,
-        backgroundColor: selected || pressed ? colors.accent : colors.card,
+        borderWidth: focused || selected ? 2 : invalid ? 1.5 : 1,
+        borderColor: selected ? colors.primary : invalid ? colors.error : colors.border,
+        backgroundColor: pressed && !selected ? colors.muted : colors.card,
       })}
     >
       <View style={{ flex: 1, gap: 4 }}>
-        <AppText variant="label">{label}</AppText>
+        <AppText variant="label" style={{ fontFamily: fonts.bold, fontSize: 16, lineHeight: 22 }}>
+          {label}
+        </AppText>
         {description && (
           <AppText muted style={{ fontSize: 14, lineHeight: 20 }}>
             {description}
           </AppText>
         )}
       </View>
-      <View
-        style={{
-          width: 22,
-          height: 22,
-          borderRadius: 11,
-          borderWidth: 1,
-          borderColor: selected ? colors.primary : colors.border,
-          backgroundColor: selected ? colors.primary : colors.card,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
+      <Animated.View
+        style={[
+          {
+            width: 24,
+            height: 24,
+            borderRadius: 12,
+            borderWidth: 1.5,
+            borderColor: selected ? colors.primary : invalid ? colors.error : colors.input,
+            backgroundColor: selected ? colors.primary : colors.card,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+          transition,
+        ]}
       >
-        {selected && <Icon name="check" size={14} color={colors.primaryForeground} />}
-      </View>
-    </Pressable>
-  );
-}
-const styles = StyleSheet.create({
-  input: {
-    outlineWidth: 0,
-    outlineStyle: "solid",
-    fontFamily: fonts.regular,
-    fontSize: 18,
-    minHeight: 56,
-    borderRadius: radius.control,
-    padding: spacing.layout,
-  },
-});
-
-export function ErrorText({ message }: { message: string }) {
-  const { colors } = useTheme();
-  return (
-    <AppText variant="caption" accessibilityRole="alert" style={{ color: colors.error }}>
-      {message}
-    </AppText>
+        {selected && (
+          <Animated.View style={checkIn}>
+            <Icon name="check" size={14} color={colors.primaryForeground} />
+          </Animated.View>
+        )}
+      </Animated.View>
+    </Tappable>
   );
 }

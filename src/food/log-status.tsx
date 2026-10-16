@@ -1,22 +1,24 @@
-import { AppButton } from "../components/button";
-import { AppText, Panel } from "../components/ui";
+import { LoadFailure } from "../components/load-failure";
+import { Panel } from "../components/ui";
 import { useFoodLog } from "./log-provider";
 import { KineLoading } from "../components/kine-loading";
 
-export function FoodLogStatus({ fill = false }: { fill?: boolean }) {
+export function FoodLogStatus() {
   const log = useFoodLog();
   if (log.state.kind === "ready") return null;
   if (log.state.kind === "loading")
-    return <KineLoading label="Loading your food log..." fill={fill} />;
+    return (
+      <Panel>
+        <KineLoading compact label="Loading your food log..." />
+      </Panel>
+    );
   return (
-    <Panel accessibilityRole="alert">
-      <AppText variant="heading" accessibilityRole="header">
-        Couldn't load your food log
-      </AppText>
-      <AppText muted>
-        We couldn't read your saved entries. Retry to load them before logging food.
-      </AppText>
-      <AppButton label="Retry food log" onPress={log.retryLoad} />
-    </Panel>
+    <LoadFailure
+      appearance="panel"
+      message="Couldn't load your food log"
+      description="We couldn't read your saved entries. Retry to load them before logging food."
+      retryLabel="Retry food log"
+      onRetry={log.retryLoad}
+    />
   );
 }

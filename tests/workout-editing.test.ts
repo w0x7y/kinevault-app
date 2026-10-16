@@ -110,13 +110,47 @@ test("completed edits remain local across panels; Cancel releases all retained f
 test("the selected exercise row outlives the editor until Cancel releases the edit", async () => {
   const f = await fixture();
   await f.editing.requestView({ kind: "session", id: "log" });
-  assert.equal(f.editing.edit("log").selectedId(), undefined);
-  f.editing.edit("log").select("row");
+  const edit = f.editing.edit("log");
+  assert.equal(edit.getSnapshot().selectedId, null);
+  let notified = 0;
+  const unsubscribe = edit.subscribe(() => notified++);
+  edit.select("row");
+  unsubscribe();
+  assert.ok(notified > 0, "selecting a row notifies the editor that renders it");
   await f.editing.requestView({ kind: "library", date: "2026-10-05" });
   await f.editing.requestView({ kind: "session", id: "log" });
-  assert.equal(f.editing.edit("log").selectedId(), "row");
+  assert.equal(f.editing.edit("log").getSnapshot().selectedId, "row");
   assert.equal(await f.editing.edit("log").run("cancel"), true);
-  assert.equal(f.editing.edit("log").selectedId(), undefined);
+  assert.equal(f.editing.edit("log").getSnapshot().selectedId, null);
+});
+
+test("a compact card's settings stay open until they save, beside any count problem", async () => {
+  const f = await fixture("planned");
+  const edit = f.editing.edit("log");
+  assert.equal(edit.getSnapshot().settingsOpen, false);
+  edit.showSettings(true);
+  edit.change({ kind: "count", rowId: "row", value: "-" });
+  assert.equal(await edit.run("settings"), false);
+  assert.equal(edit.getSnapshot().settingsOpen, true);
+  assert.ok(edit.getSnapshot().countError);
+  // Another panel keeps the disclosure with the edit rather than with the card on screen.
+  edit.change({ kind: "count", rowId: "row", value: "4" });
+  assert.equal(await f.editing.requestView({ kind: "library", date: "2026-10-04" }), true);
+  assert.equal(f.editing.edit("log").getSnapshot().settingsOpen, true);
+  assert.equal(await f.editing.edit("log").run("settings"), true);
+  assert.equal(f.editing.edit("log").getSnapshot().settingsOpen, false);
+  assert.equal(f.saved().exercises[0]!.sets.length, 4);
+});
+
+test("a count problem reopens folded settings so its message shows", async () => {
+  const f = await fixture("planned");
+  const edit = f.editing.edit("log");
+  edit.showSettings(true);
+  edit.change({ kind: "count", rowId: "row", value: "-" });
+  edit.showSettings(false);
+  assert.equal(await edit.run("start"), false);
+  assert.equal(edit.getSnapshot().settingsOpen, true);
+  assert.ok(edit.getSnapshot().countError);
 });
 
 test("failed active fields survive editor replacement and query/day changes until retry allows departure", async () => {
@@ -172,7 +206,7 @@ test("invalid manual duration retains text, saves sets, and blocks departure unt
 
 test("planned counts retain invalid text, reject shrink over entered sets, and resize blank rows", async () => {
   const f = await fixture("planned");
-  await f.editing.requestView({ kind: "session", id: "log", settings: true });
+  await f.editing.requestView({ kind: "session", id: "log" });
   const edit = f.editing.edit("log");
   for (const value of ["-", "101", "1.5", "0"]) {
     edit.change({ kind: "count", rowId: "row", value });
@@ -307,7 +341,7 @@ test("stale panel callbacks and completed save feedback cannot replace a newer v
   await f.editing.requestView({ kind: "exercise" });
   const current = f.editing.getSnapshot().panel;
   f.editing.closeView(oldToken);
-  f.editing.createdSession(oldToken, "log");
+  f.editing.replaceView(oldToken, { kind: "session", id: "log" });
   assert.equal(f.editing.getSnapshot().panel, current);
   pending.resolve();
   assert.equal(await saving, true);
@@ -489,7 +523,7 @@ test("editing a valid count keeps another row's count problem visible while savi
     name: "Strength",
     exercises: [row, { ...row, id: "other-row", sets: [] }],
   });
-  await f.editing.requestView({ kind: "session", id: "log", settings: true });
+  await f.editing.requestView({ kind: "session", id: "log" });
   const edit = f.editing.edit("log");
   edit.change({ kind: "count", rowId: "row", value: "-" });
   edit.change({ kind: "count", rowId: "other-row", value: "3" });
@@ -532,7 +566,7 @@ test("planned count validation observers cannot replace Complete with a competin
 
 test("planned departure validation observers cannot replace the owned save with a competing Discard", async () => {
   const f = await fixture("planned");
-  await f.editing.requestView({ kind: "session", id: "log", settings: true });
+  await f.editing.requestView({ kind: "session", id: "log" });
   const edit = f.editing.edit("log");
   let discarding: Promise<boolean> | undefined;
   const unsubscribe = edit.subscribe(() => {

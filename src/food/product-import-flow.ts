@@ -8,7 +8,7 @@ export type ProductImportState =
   | { kind: "error"; barcode: string; message: string }
   | { kind: "draft" };
 type Context = { active: boolean; scopeKey: string };
-type Lookup = {
+export type ProductLookup = {
   lookupProduct(input: { barcode: string; signal: AbortSignal }): Promise<BrandedProduct | null>;
 };
 
@@ -17,7 +17,7 @@ export function createProductImportFlow({
   lookup,
   drafts,
 }: {
-  lookup: Lookup;
+  lookup: ProductLookup;
   drafts: Pick<CatalogDrafts, "open">;
 }) {
   let state: ProductImportState = { kind: "scanner" };
@@ -153,3 +153,4 @@ export function createProductImportFlow({
     },
   };
 }
+export type ProductImportFlow = ReturnType<typeof createProductImportFlow>;

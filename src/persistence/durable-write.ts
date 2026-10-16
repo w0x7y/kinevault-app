@@ -8,7 +8,10 @@ export type DurableStorage = {
 
 export type DurableSnapshot<Document> = Readonly<{
   state: { kind: "loading" } | { kind: "error" } | { kind: "ready"; document: Document };
+  /** Writes are excluded: a write is running or a background refresh is validating. */
   saving: boolean;
+  /** A background refresh is validating an external replacement; no write is running. */
+  refreshing: boolean;
   error: string | null;
   /** A failed external refresh leaves the last valid document mounted. */
   refreshError?: string | null;
@@ -31,6 +34,7 @@ export function createDurableWrite<Document>({
   let snapshot: DurableSnapshot<Document> = {
     state: { kind: "loading" },
     saving: false,
+    refreshing: false,
     error: null,
   };
   const listeners = new Set<() => void>();
@@ -55,8 +59,15 @@ export function createDurableWrite<Document>({
     const background = externalInvalid && snapshot.state.kind === "ready";
     backgroundRead = background ? generation : null;
     const current = () => active && generation === readGeneration;
-    if (background) publish({ saving: true, error: null });
-    else publish({ state: { kind: "loading" }, saving: false, error: null, refreshError: null });
+    if (background) publish({ saving: true, refreshing: true, error: null });
+    else
+      publish({
+        state: { kind: "loading" },
+        saving: false,
+        refreshing: false,
+        error: null,
+        refreshError: null,
+      });
     // A subscriber may stop or replace this load during publication.
     if (!current()) return;
     try {
@@ -64,14 +75,19 @@ export function createDurableWrite<Document>({
       if (current()) {
         externalInvalid = false;
         backgroundRead = null;
-        publish({ state: { kind: "ready", document }, saving: false, refreshError: null });
+        publish({
+          state: { kind: "ready", document },
+          saving: false,
+          refreshing: false,
+          refreshError: null,
+        });
       }
     } catch {
       if (current()) {
         backgroundRead = null;
         if (background) {
           const error = "Couldn't load your latest saved data. Try again.";
-          publish({ saving: false, error, refreshError: error });
+          publish({ saving: false, refreshing: false, error, refreshError: error });
         } else publish({ state: { kind: "error" } });
       }
     }

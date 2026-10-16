@@ -12,27 +12,37 @@ evidence from earlier revisions, rather than current status.
 
 ## Current foundation
 
-- Home, Food, Exercise, and Settings tabs through Expo Router.
-- Compact header with a profile dropdown and shared five-week day picker.
-  The current week stays centered; Settings and Profile have no calendar.
+- Home, Food, Exercise, and Settings tabs through Expo Router, in a floating tab bar.
+- Compact header with the selected date, a calendar chip that opens a shared
+  five-week day picker, and a profile dropdown. The current week stays centered; Settings and Profile have no calendar.
   Dates use the device's local time zone. Selecting Today follows local day
   changes; a deliberately chosen other date stays selected until changed again.
   Profile, Friends, Messages, and KineVault appear above a separator, followed by
   Support and Feedback. Profile opens the personal journal; the other entries
   are disabled and marked Upcoming.
 - Daily layouts for nutrition, workouts, steps, water, and five meal sections.
-  Kine appears on Home only, in an even split beside the macros. Macro counts sit
-  beside their labels. A full-width calorie count and progress bar sit below
-  Home’s macro/Kine row. Carbs use amber, protein blue, and fat purple in the
-  macro breakdown and stacked calorie bar.
-  Food and Exercise start with search, then three labelled action tiles.
+  Home opens with a time-of-day greeting beside a small Kine, then a Calories
+  card whose ring shows kcal left, filled with each macro's share, beside the
+  macro rows. Carbs use
+  honey, protein Kine blue, and fat rose throughout.
+  Food and Exercise open with a title and today's total (kcal eaten against
+  the goal, or weight lifted and minutes), then search and three labeled
+  action tiles. Food shows one card per meal.
   Workout details list completed exercises with sets, reps, and actual weight ranges.
   Food records can be logged to a meal on the selected day. Exercise supports
   user-created exercises, reusable workouts, and multiple workout logs per day.
   Steps displays Not connected until a step source is implemented.
-- Shared 12px screen margins, panel padding, and gaps across tabs and onboarding.
-- Comfortaa titles, Nunito text and tabular figures, Font Awesome 6 icons, and
-  shared themed components.
+- The redesigned look: cool blue-gray surfaces, slate-blue primary actions, 20px
+  screen margins, 18px card padding and 14px gaps. See
+  [the redesign notes](docs/redesign-2026-10.md).
+- Rounded Comfortaa titles, Manrope text and tabular figures, Ionicons outline
+  icons, and shared themed components.
+- Flows that leave the day view (food details and editing, create/edit forms,
+  Daily macros, barcode scan and import, saved workouts, workout import, manual
+  and completed workouts) open as full-page sheets with a back button. Steps
+  inside a flow replace each other on the same page.
+- Reanimated motion for presses, sheets, popovers, progress rings and bars, new
+  log rows, and the live workout. Reduced motion turns it off.
 - System, Light, and Dark appearance, saved locally on the device.
 - English copy, metric units, safe-area layout, and scalable text.
 - Empty states, a missing-route recovery screen, and root crash recovery with Reload.
@@ -47,11 +57,11 @@ evidence from earlier revisions, rather than current status.
 - Settings account JSON export includes device/cloud copies and local photos. Password-confirmed deletion and local cleanup are implemented; the server endpoint still requires deployment and isolated validation. See [account management](docs/account-management.md).
 - Offline food database search with 5,431 USDA foods, calories and macros per
   100 g, serving weights, and nutrition previews for a custom gram amount.
-- Tap Home's Water widget to edit manually logged water in millilitres for the selected day.
-  The popup opens with the current manual amount. Save replaces that amount;
+- Tap Home's Water widget to edit manually logged water in milliliters for the selected day.
+  The sheet opens with the current manual amount. Save replaces that amount;
   zero clears manual water. Drinks continue contributing separately to the Home total.
   The -250 ml and +250 ml buttons adjust the draft amount before saving.
-  Daily totals combine manual water with saved Drinks volumes and display in litres; failed saves retain the entry for retry.
+  Daily totals combine manual water with saved Drinks volumes and display in liters; failed saves retain the entry for retry.
   Settings offers an editable daily water goal, defaulting to 1,500 ml.
   Previously unset goals use this default. A confirmation appears after saving.
   Home shows a compact cup beside the water amount that fills to the rim;
@@ -60,17 +70,17 @@ evidence from earlier revisions, rather than current status.
   Editing or removing a drink updates hydration with the same food-log save.
   Legacy Snacks stay Snacks and have no inferred drink volume.
 - Drink search includes named energy drinks and common cola/pepper-style aliases.
-  Generic alternatives are labelled; use Scan for an exact product.
+  Generic alternatives are labeled; use Scan barcode for an exact product.
 - Local food logging to Breakfast, Lunch, Dinner, Snacks, or Drinks, with
   saved gram or beverage volume amounts, editing, removal, and shared daily calorie/macro totals.
   Empty meals say “No food has been logged yet”.
 - Create reusable custom foods with a name, serving weight, calories, and macros.
   Foods persist on the device and appear alongside USDA foods in search.
 - Create reusable meals from foods and gram amounts, with calculated calories
-  and macros that can be overridden. Food/Meal buttons switch creation forms.
+  and macros that can be overridden. A Food/Meal switch changes the creation form.
 - Scan product barcodes, review an editable
   import draft, and save it for offline reuse. Only scanned imports show a barcode badge.
-- View macros for the day shows calories, carbs, protein, and fat first, then an ordered nutrient list
+- Daily macros shows calories, carbs, protein, and fat first, then an ordered nutrient list
   for the selected date with gram, milligram, and microgram units.
 - First-run onboarding with Kine, resumable local answers, and profile editing.
   Welcome and goals precede the age confirmation. Account screens appear after
@@ -85,7 +95,7 @@ evidence from earlier revisions, rather than current status.
   change the calorie target.
 - Ages 16+. Automatic calorie estimates are for adults; ages 16–17 use a
   custom target agreed with a health professional, or leave it unset.
-- Eleven distinct flat 2D Kine poses, quick page transitions, and an animated setup
+- Twelve distinct flat 2D Kine poses, quick page transitions, and an animated setup
   progress bar. System reduced-motion preferences are respected.
 - Small transparent WebP mascot assets, native memory/disk caching, and
   background prefetching of upcoming poses.
@@ -107,22 +117,25 @@ is no exercise-library widget on the daily screen.
 Create Workouts saves a named, ordered exercise list. Search for available
 exercises above the order list; matching rows load in groups of 20. Set planned
 counts from 0 to 100 per exercise; new selections default to three sets. Logging begins
-only from a saved workout in the menu beside search. Choosing one shows a compact
-workout card on the captured selected date. The menu also provides access to that day's
+only from a saved workout in the Saved workouts sheet, opened from the tile under
+search. Choosing one shows a compact
+workout card on the captured selected date. The sheet also provides access to that day's
 workout drafts, active workout, and completed logs for editing or removal.
-Settings inside a compact workout adjusts its counts before Start, without
+Workout settings inside a compact workout adjusts its counts before Start, without
 removing any entered measurements.
 
-Start workout requires a nonblank name; an unnamed draft stays editable in
-Settings until corrected. It runs the sole active timer. Its start time and
+Start workout requires a nonblank name; an unnamed draft stays editable until
+corrected. It runs the sole active timer. Its start time and
 entered sets are saved on the device, so switching tabs, backgrounding, or reopening keeps elapsed
-time. Starting expands the card into a horizontally scrolling exercise bar and a selected-exercise
-detail with a sets/reps/weight table and the exercise's KineVault demo, or a Link demo button.
-Add set and View notes sit beside the exercise name. Dividers frame the scrolling bar.
-The workout name and elapsed timer share the widget's title row, with no active
-name field, date/status line or separate Open active workout panel. Active
-workouts automatically expand when returning to Exercise's default view.
-Discard workout and End workout share equal halves of the bottom row. Ending
+time. Starting expands the card into a live workout: a blue header with the workout
+name and the running timer, a horizontally scrolling row of exercise chips, and a
+selected-exercise detail with a sets/reps/weight table and the exercise's KineVault
+demo, or a Link demo button. Chips show short names (initials for long names);
+accessible labels keep the full names. Add set and View notes sit beside the
+exercise name. There is no active name field, date/status line or separate Open
+active workout panel. Active workouts automatically expand when returning to
+Exercise's default view.
+End workout sits above a red Discard workout button. Ending
 validates and saves the completed workout. Drafts and
 active workouts do not contribute to daily totals. A saved workout can also be
 logged manually on any selected date, with optional duration in minutes.
@@ -130,18 +143,18 @@ Logging has no remove-set or remove-exercise buttons. Entirely blank sets are
 skipped when saving completion, so unlogged exercises do not enter daily totals.
 Partially entered sets still require valid repetitions and weight.
 Saved workout editing and completed workout editing use the same exercise bar
-and selected detail. Settings contains template name/search/order controls or
-logged name/duration controls. Completed edits stay local until Save changes.
-Logged editor headers show compact minutes:seconds; unknown or invalid duration
-has a short caption, while Settings preserves the entered minute text.
+and selected detail. Exercises opens template name/search/order controls, and
+Details opens logged name/duration controls. Completed edits stay local until Save changes.
+Logged editors show the duration as compact minutes:seconds; unknown or invalid duration
+has a short caption, while Details preserves the entered minute text.
 
 Home and Exercise show the workout summary only when that day has an active or
 completed workout. An empty day shows a button-only Add workout widget that opens the same
-saved-workout menu as the button beside search. Home opens this menu in Exercise
+Saved workouts sheet as the tile under search. Home opens this sheet in Exercise
 for the selected day. An empty menu says “No workout found. Create a workout to
 get started.” There is no separate sessions widget or ad hoc logging flow.
 
-Exercise shows its daily widget only when no search, form, saved menu, or workout
+Exercise shows its daily widget only when no search, form, Saved workouts sheet, or workout
 editor is open. Storage loading and recovery remain visible.
 Selected planned workouts appear as compact cards on their day. An active
 workspace retains unsaved fields across searches and calendar changes; opening
@@ -229,7 +242,7 @@ and Log drink to Drinks. Selecting a catalog result dismisses the native keyboar
 Long solid serving lists show 100 g and two source servings initially.
 Catalog saves show inline confirmation and add no intake until that action.
 
-Search foods finds both foods and saved meals. Tap Create food/meal, then choose
+Search foods finds both foods and saved meals. Tap Create food or meal, then choose
 Food or Meal in the form. In Food mode, choose Solid food or Drink. Solid foods need a name, serving weight in grams, and
 calories, carbs, protein, and fat for that serving. All nutrition values are
 required; zero and decimal amounts are accepted. Save food stores it locally,
@@ -286,7 +299,7 @@ store volume and nutrition snapshots. Old gram logs remain readable. Editing a
 legacy beverage with known ml scales its stored snapshot; missing volume requires
 entered ml and a label basis. Legacy Snacks remain Snacks until explicitly edited.
 
-The barcode button on the right of Food search opens the camera and manual barcode
+Scan barcode, the first action tile under Food search, opens the camera and manual barcode
 entry. It supports EAN/UPC product barcodes, including UPC-E camera expansion,
 and excludes QR codes. Camera permission is requested on opening the scanner;
 denied or unavailable cameras leave manual entry usable. The camera closes on
@@ -294,8 +307,7 @@ tab blur, scanner close, or app background. The camera permission covers barcode
 scanning and profile/progress photos. Android audio recording is disabled,
 microphone access is blocked, and no iOS microphone permission is declared.
 
-Food has two search-row controls: offline Search and barcode Scan, with a 75/25
-width split. Barcode lookup opens an unsaved food draft with editable name,
+Barcode lookup opens an unsaved food draft with editable name,
 brand, macros, and optional nutrients. Saving adds it to local search without
 logging it. Saved names and brands support formatting differences and bounded
 one-letter typos in eligible words, including ingredient search, entirely offline.
@@ -329,7 +341,7 @@ totals. Food records use their own versioned storage key, separate from the
 profile and appearance preferences. Resetting the profile leaves food records
 intact.
 
-View macros for the day uses the calendar's selected date, including past days.
+Daily macros uses the calendar's selected date, including past days.
 Calories and progress appear first, followed by calories, carbs, protein, fat,
 saturated fat, trans fat, fiber, total sugars, sodium, cholesterol, potassium,
 calcium, iron, vitamin D, caffeine, and alcohol. Fat subtypes are indented.
@@ -371,7 +383,15 @@ Python 3 is needed for importer tests; it is available on the Ubuntu CI runner.
 
 ## Run locally
 
-Use Node.js 24 LTS and npm. Install the locked dependencies with `npm ci`.
+Use Node.js 24 LTS (`.nvmrc`) and npm. Install the locked dependencies with `npm ci`.
+
+An account is required before Home, so the app needs the shared Supabase project.
+Copy `.env.example` to the ignored `.env.local` and set
+`EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Without
+them, account features report unavailable configuration. `EXPO_PUBLIC_SENTRY_DSN`
+(crash reporting) is optional, and `EXPO_PUBLIC_TRACK_PARTITIONS` stays `false`
+until the history migration ships. Restart Expo after editing the file. See
+[Supabase setup](docs/supabase-setup.md).
 
 ```sh
 npm start
@@ -381,7 +401,7 @@ Scan the QR code with the iPhone Camera or Expo Go on Android, using an SDK
 57-compatible client. For LAN mode, phone and computer must share a network.
 If the installed
 Expo Go version does not support SDK 57, use a compatible client or development
-build. No backend credentials are needed for this foundation.
+build.
 
 ```sh
 npm run web       # Browser preview
@@ -404,6 +424,9 @@ npm ci
 npm run ios:prebuild   # generate ios/ from app.json and run pod install
 npm run ios:open       # open ios/KineVaultTrack.xcworkspace in Xcode
 ```
+
+After signing is set up in Xcode, `npm run ios:device` builds a Debug app, installs
+it on a connected iPhone, and starts Metro in one command.
 
 Then choose your team under Signing & Capabilities, select the iPhone, and press
 Run with `npm start` running for Debug builds. `ios/` is generated and ignored by
@@ -443,7 +466,7 @@ runtime, available network addresses, and Expo sign-in status. Pass a different
 port if necessary: `npm run doctor:connection -- 8082`.
 
 The checked-in tunnel dependency makes the command usable after `npm ci`.
-Internet access is needed for tunnel mode; app profile data still stays local.
+Internet access is needed for tunnel mode.
 
 If ngrok fails with `remote gone away` or `session closed`, use the Cloudflare
 fallback. Install [cloudflared](https://developers.cloudflare.com/tunnel/downloads/),
@@ -474,11 +497,12 @@ clear a field or leave a decimal separator while typing.
 ## Verify
 
 `npm run check` runs ESLint, Prettier verification, TypeScript and unit/script
-tests. Use `npm run format` to format source/tests/scripts and
+tests. `npm test` and `npm run typecheck` run single steps. Use `npm run format` to format source/tests/scripts and
 `npm run lint:fix` for safe lint fixes. ESLint uses the SDK-compatible Expo
 configuration; two compiler-specific ref/effect diagnostics are excluded because
 React Compiler is not enabled and persisted-draft effects/owner refs are intentional.
-Hook ordering and effect dependency checks remain enabled.
+`react/no-unescaped-entities` is also off, because native Text renders apostrophes
+literally. Hook ordering and effect dependency checks remain enabled.
 
 ```sh
 npm run check
@@ -517,12 +541,22 @@ deletion, and independent Home recovery when Food or Exercise storage fails.
 Connection checks use local HTTP fixtures for
 manifest errors, bundle host rules, HTTPS links, startup retries, and shutdown. Formula assumptions and supported ranges are recorded
 in [the onboarding design](docs/superpowers/specs/2026-09-30-kine-onboarding-design.md). The web export produces static routes in `dist/`.
-GitHub Actions runs checks and exports independently. The browser job reuses the
+GitHub Actions runs checks and exports independently. The check job also
+type-checks the Supabase Edge Functions with Deno, runs Expo Doctor and confirms the
+generated iOS entitlements have no push entitlement. The browser job reuses the
 web export and runs alongside the check job on pushes and pull requests.
+
+The suite has 1160 unit and script tests and 208 browser tests. In the last full
+browser run (17 October 2026), 206 passed and the optional screenshot case was skipped.
+One profile-menu test failed on a change that was then reverted; that file passes
+on its own.
 
 For browser checks, install Chromium once with `npx playwright install chromium`.
 Start the preview with `npm run web -- --port 8081`, then run `npm run test:browser`
 in another terminal. Set `KINE_PREVIEW_URL` if the preview uses a different address.
+When it points at a static build, as in CI, set `KINE_DEV_PREVIEW_URL` to the Metro
+preview, which serves the test-only fixture bundles. Browser contexts default to reduced motion,
+so assertions read settled UI; tests that check motion opt back in.
 The runner limits browser files to two at a time to reduce preview startup load.
 Suites with a 10-second interaction timeout allow 30 seconds for navigation,
 so initial page loads have a separate budget without relaxing interaction checks.
@@ -560,7 +594,13 @@ launcher icons and splash screens. It runs independently of the Expo app.
 
 - `src/app/`: routes and navigation layouts.
 - `src/components/ui.tsx`: shared text, panel, screen, and destination link.
-- `src/theme/`: palette, geometry, typography, and appearance persistence.
+- `src/components/`: the shared controls. Tappable is every pressable; AppButton,
+  IconButton and DeleteButton, SegmentedControl, Chip, TextField, InlineMessage,
+  LoadFailure, ModalSheet, `popover.tsx`, SheetPage, IconWell and ViewHeader build
+  on it. Use and extend these instead of adding another pressable, field or sheet;
+  see [module ownership](docs/architecture.md#shared-controls).
+- `src/theme/`: palette, geometry, typography, and appearance persistence;
+  `tokens.ts` holds every color, spacing, radius and font.
 - `src/profile/answers.ts`: profile vocabulary and editable numeric strings.
 - `src/profile/calories.ts`: estimate/manual/teen policy, answer changes, and target source.
 - `src/profile/macros.ts`: calculated gram targets and custom overrides.
@@ -569,8 +609,8 @@ launcher icons and splash screens. It runs independently of the Expo app.
   `media-files.ts` and `media-files.web.ts` own native files and browser IndexedDB blobs.
 - `src/profile/media-editing.ts`: selection, retained photo drafts, validation, Save,
   removal and temporary-source retirement; `use-media-editing.ts` binds it to React.
-- `src/profile/focused-editing.ts`: independent name/section drafts, latest-answer
-  merging, validation and save lifecycle; `use-focused-edit.ts` binds it to React.
+- `src/profile/focused-editing.ts`: one Profile section's draft, latest-answer
+  merging and validation, built on the shared document edit.
 - `src/profile/profile-screen.tsx`: Personal journal composition and editor requests;
   focused goals, charts, photo editors, and automatic progress comparison reuse
   the shared providers.
@@ -589,9 +629,29 @@ launcher icons and splash screens. It runs independently of the Expo app.
   water availability, completed workout totals, and goal progress; unavailable
   sources stay distinct from zero.
 - `src/daily/`: daily record types, nutrition summaries, and dashboard widgets.
+- `src/exercise/tab-view.ts`: where each Workout log and panel goes (on the tab or
+  in a sheet). `src/food/tab-view.ts` owns the Food tab's query, page, Logging
+  attempt and Product import flow. Both have unit tests.
 - `src/persistence/durable-write.ts`: shared read ordering, write exclusion,
   durable publication, and restart recovery for food, catalog, exercise, water, and goal
   records. Each domain retains its own keys, validation, and saved results.
+- `src/persistence/document-edit.ts`: shared draft, save and load-retry lifecycle for
+  Manual water, Water goal and focused Profile edits; `use-document-edit.ts` is its
+  one React adapter.
+- `src/persistence/document-provider.tsx`: `createDocumentProvider`, which builds
+  each tracking document's provider per account scope.
+- `src/account/`: Supabase Auth adapter, account controller, account storage and
+  cloud sync, export/deletion, and Settings account UI.
+- `src/account/tracking-documents.ts`: the Account tracking document registry. Every
+  synced document is listed once with its storage key, parser and Settings name;
+  `tracking-provider.tsx` (`AccountTrackingProvider`) mounts them for the tabs.
+  Adding a synced document means a key constant, a provider from the factory and
+  one registry entry. Never change an existing key; saved data would be orphaned.
+- `src/connectivity/`: reachability observations and offline notices.
+- `src/reminders/`: reminder settings and local notification scheduling.
+- `src/exercise/import/`: Tracked share-link workout import.
+- `supabase/`: migrations, SQL tests and the `delete-account` and
+  `tracked-workout` Edge Functions.
 - `src/water/`: validated local water totals, persistence, and direct Home entry.
 - `src/food/`: offline catalog search, USDA data adapter, result pages, nutrition
   previews, and local food-log validation, persistence, and React wiring.
@@ -604,21 +664,26 @@ launcher icons and splash screens. It runs independently of the Expo app.
   and serving weights. Source data and provenance live in `assets/food/`.
 - `src/profile/model.ts`: stored document parsing and legacy age recovery.
 - `src/profile/persistence.ts`: storage lifecycle, durable saves, reset, and recovery.
-- `src/profile/provider.tsx`: React subscription and AsyncStorage adapter.
+- `src/profile/provider.tsx`: Profile document provider, built with `createDocumentProvider`.
 - `src/onboarding/flow.ts`: setup transitions, validation, staged edits, and save ordering.
 - `src/onboarding/`: Kine artwork, form controls, and question content.
 - `assets/mascot/2d/`: optimized page poses, source artwork, and exact generation prompts.
 - `scripts/optimize-mascot.mjs`: reproducible mascot compression; see the [artwork notes](assets/mascot/README.md).
-- `src/components/motion.tsx`: reduced-motion preferences and setup transitions.
+- `src/components/motion.tsx`: reduced-motion policy, shared curves and durations,
+  and entrance, layout, progress and step helpers. Native Reanimated needs these
+  `cubicBezier()` curves; CSS timing strings crash on a phone.
 - `scripts/expo-connection.ts`: shared manifest checks and cancelable readiness; Node 24+ runs it directly.
 - `scripts/expo-connect.mjs`: Expo Go connection diagnostics.
 - `scripts/publish-catalog.mjs`: mirrors published KineVault exercises into the hosted
-  project; dry run by default.
+  project; dry run by default. Run it with `npm run catalog:publish`; see
+  [Exercise demos](docs/exercise-demos.md).
 - `scripts/validate-demo-catalog-postgres.sh`: SQL checks on a private cluster.
 - `plugins/`: local Expo config plugins for the generated iOS project (local-only
   notification entitlements, scene life cycle); see [iOS builds with Xcode](docs/ios-xcode.md).
-- `CONTEXT.md`: profile, daily activity, and onboarding domain vocabulary.
-- `DESIGN.md`: supplied KineVault design reference, preserved as shared authority.
+- `CONTEXT.md`: domain vocabulary for accounts, profile, daily activity, food,
+  exercise, water, reminders, and onboarding.
+- `DESIGN.md`: supplied KineVault design reference. For Track's look, the
+  [redesign notes](docs/redesign-2026-10.md) win where the two disagree.
 - `PRODUCT.md`: confirmed product scope.
 - `TODO.md`: completed work, outstanding verification, and future/optional work.
 

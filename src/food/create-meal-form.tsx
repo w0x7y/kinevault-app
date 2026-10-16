@@ -1,7 +1,7 @@
-import { ButtonRow, AppButton } from "../components/button";
+import { AppButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
-import { useEffect, useRef } from "react";
-import { View } from "react-native";
+import { useRef } from "react";
+import { StyleSheet, View } from "react-native";
 import { AppText } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
@@ -9,10 +9,14 @@ import type { CatalogFood, Nutrition } from "./catalog.ts";
 import { previewMeal, type CustomMeal, type MealDraft } from "./meal-model.ts";
 import { defaultAmount } from "./logging-attempt.ts";
 import { useCustomFoods } from "./custom-provider";
-import { FoodField, NutritionFields } from "./form-fields";
+import { InlineMessage } from "../components/inline-message";
+import { TextField } from "../components/text-field";
+import { NutritionFields } from "./form-fields";
 import { IngredientSearch } from "./ingredient-search";
 import { DetailedNutrientFields } from "./detailed-nutrient-fields";
 import { unknownNutrients } from "./nutrients.ts";
+import { Section } from "./food-ui";
+import { FormFooter } from "./create-form";
 
 import { useFoodDrafts } from "./draft-provider";
 import type { MealDraftSession } from "./catalog-drafts.ts";
@@ -34,13 +38,6 @@ export function CreateMealForm({
   const { draft, existing, handle, errors, error } = session;
   const sequence = useRef(0);
   const busy = foods.saving || session.saving;
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
   const calculated = previewMeal(draft.ingredients);
   const values: Record<keyof Nutrition, string> = {
     calories: "0",
@@ -63,133 +60,133 @@ export function CreateMealForm({
       ingredients: [...draft.ingredients, { id, food, amount: defaultAmount(food) }],
     });
   }
+  // A save finishing while the tab hides this form still reaches the page that started it.
   async function save() {
-    await drafts.save(handle, foods, (item) => {
-      if (mounted.current && "ingredients" in item) onSaved(item);
+    await drafts.save(handle, (item) => {
+      if ("ingredients" in item) onSaved(item);
     });
   }
   return (
     <View testID="create-meal-form" style={{ gap: spacing.layout }}>
-      <AppText variant="heading" accessibilityRole="header">
-        {existing ? "Edit custom meal" : "Create meal"}
-      </AppText>
-      <AppText muted>
+      <AppText variant="caption" muted style={{ paddingHorizontal: spacing.xs }}>
         Combine foods into a meal you can log again. The ingredient amounts make one complete meal.
       </AppText>
-      <FoodField
-        label="Meal name"
-        value={draft.name}
-        error={errors.name}
-        disabled={busy}
-        onChange={(name) => change({ ...draft, name })}
-      />
-      <AppText variant="label" accessibilityRole="header">
-        Ingredients
-      </AppText>
-      {draft.ingredients.length === 0 && (
-        <AppText variant="caption" muted>
-          No foods added yet. Search below to add your first ingredient.
-        </AppText>
-      )}
-      {draft.ingredients.map((ingredient) => (
-        <View key={ingredient.id} style={{ gap: spacing.sm }}>
-          <FoodField
-            label={`Amount for ${ingredient.food.name} (g)`}
-            value={ingredient.amount}
-            error={errors.amounts?.[ingredient.id]}
-            numeric
-            disabled={busy}
-            onChange={(amount) =>
-              change({
-                ...draft,
-                ingredients: draft.ingredients.map((item) =>
-                  item.id === ingredient.id ? { ...item, amount } : item,
-                ),
-              })
-            }
-          />
-          <DeleteButton
-            label="Remove ingredient"
-            accessibilityLabel={`Remove ${ingredient.food.name} from meal`}
-            disabled={busy}
-            confirmAccessibilityLabel={`Confirm remove ${ingredient.food.name} from meal`}
-            onDelete={() =>
-              change({
-                ...draft,
-                ingredients: draft.ingredients.filter((item) => item.id !== ingredient.id),
-              })
-            }
-          />
-        </View>
-      ))}
-      {errors.ingredients && (
-        <AppText variant="caption" accessibilityRole="alert" style={{ color: colors.error }}>
-          {errors.ingredients}
-        </AppText>
-      )}
-      <IngredientSearch onAdd={add} disabled={busy} />
-      <AppText variant="label" accessibilityRole="header">
-        Nutrition for the whole meal
-      </AppText>
-      <AppText variant="caption" muted>
-        {calculated ? `${numberText(calculated.grams)} g in total. ` : ""}Calculated from
-        ingredients. Edit any value to override it.
-      </AppText>
-      <NutritionFields
-        values={values}
-        errors={errors}
-        disabled={busy || draft.ingredients.length === 0}
-        onChange={(key, value) =>
-          change({ ...draft, overrides: { ...draft.overrides, [key]: value } })
-        }
-      />
-      {Object.keys(draft.overrides).length > 0 && (
-        <AppButton
-          label="Use calculated nutrition"
+      <Section title="Details">
+        <TextField
+          label="Meal name"
+          value={draft.name}
+          error={errors.name}
           disabled={busy}
-          onPress={() => change({ ...draft, overrides: {} })}
+          onChange={(name) => change({ ...draft, name })}
         />
-      )}
-      <DetailedNutrientFields
-        values={draft.detailOverrides}
-        errors={errors.detailOverrides}
-        disabled={busy || draft.ingredients.length === 0}
-        calculated={calculated?.nutrition.details ?? unknownNutrients}
-        onChange={(key, value) =>
-          change({ ...draft, detailOverrides: { ...draft.detailOverrides, [key]: value } })
+      </Section>
+      <Section title="Ingredients" titleRole="header">
+        {draft.ingredients.length === 0 ? (
+          <AppText variant="caption" muted>
+            No foods added yet. Search below to add your first ingredient.
+          </AppText>
+        ) : (
+          <View>
+            {draft.ingredients.map((ingredient, index) => (
+              <View
+                key={ingredient.id}
+                style={{
+                  paddingTop: index ? spacing.md : 0,
+                  paddingBottom: spacing.md,
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderColor: colors.border,
+                }}
+              >
+                <TextField
+                  label={`Amount for ${ingredient.food.name} (g)`}
+                  value={ingredient.amount}
+                  error={errors.amounts?.[ingredient.id]}
+                  kind="decimal"
+                  disabled={busy}
+                  onChange={(amount) =>
+                    change({
+                      ...draft,
+                      ingredients: draft.ingredients.map((item) =>
+                        item.id === ingredient.id ? { ...item, amount } : item,
+                      ),
+                    })
+                  }
+                  action={
+                    <View style={{ flexShrink: 0 }}>
+                      <DeleteButton
+                        label="Remove"
+                        accessibilityLabel={`Remove ${ingredient.food.name} from meal`}
+                        disabled={busy}
+                        confirmAccessibilityLabel={`Confirm remove ${ingredient.food.name} from meal`}
+                        onDelete={() =>
+                          change({
+                            ...draft,
+                            ingredients: draft.ingredients.filter(
+                              (item) => item.id !== ingredient.id,
+                            ),
+                          })
+                        }
+                      />
+                    </View>
+                  }
+                />
+              </View>
+            ))}
+          </View>
+        )}
+        {errors.ingredients && <InlineMessage>{errors.ingredients}</InlineMessage>}
+        <IngredientSearch onAdd={add} disabled={busy} />
+      </Section>
+      <Section
+        title="Nutrition for the whole meal"
+        titleRole="header"
+        description={`${calculated ? `${numberText(calculated.grams)} g in total. ` : ""}Calculated from ingredients. Edit any value to override it.`}
+      >
+        <NutritionFields
+          values={values}
+          errors={errors}
+          disabled={busy || draft.ingredients.length === 0}
+          onChange={(key, value) =>
+            change({ ...draft, overrides: { ...draft.overrides, [key]: value } })
+          }
+        />
+        {Object.keys(draft.overrides).length > 0 && (
+          <AppButton
+            label="Use calculated nutrition"
+            icon="rotate-left"
+            disabled={busy}
+            onPress={() => change({ ...draft, overrides: {} })}
+          />
+        )}
+        <DetailedNutrientFields
+          values={draft.detailOverrides}
+          errors={errors.detailOverrides}
+          disabled={busy || draft.ingredients.length === 0}
+          calculated={calculated?.nutrition.details ?? unknownNutrients}
+          onChange={(key, value) =>
+            change({ ...draft, detailOverrides: { ...draft.detailOverrides, [key]: value } })
+          }
+          onReset={() => change({ ...draft, detailOverrides: {} })}
+        />
+      </Section>
+      <FormFooter
+        note={
+          existing
+            ? "Changes apply to future logging. Existing log entries keep their original nutrition."
+            : "Saved to your meals and available in search. Saving won't add it to your daily log."
         }
-        onReset={() => change({ ...draft, detailOverrides: {} })}
+        error={error}
+        busy={busy}
+        onCancel={() => {
+          drafts.discard(handle);
+          onCancel();
+        }}
+        saveLabel={busy ? "Saving meal..." : existing ? "Save meal changes" : "Save meal"}
+        saveDisabled={busy || foods.state.kind !== "ready"}
+        onSave={() => {
+          void save();
+        }}
       />
-      <AppText variant="caption" muted>
-        {existing
-          ? "Changes apply to future logging. Existing log entries keep their original nutrition."
-          : "Saved on this device and available in meal search. Saving won't add it to your daily log."}
-      </AppText>
-      {error && (
-        <AppText accessibilityRole="alert" style={{ color: colors.error }}>
-          {error}
-        </AppText>
-      )}
-      <ButtonRow>
-        <AppButton
-          fill
-          label="Cancel"
-          disabled={busy}
-          onPress={() => {
-            drafts.discard(handle);
-            onCancel();
-          }}
-        />
-        <AppButton
-          fill
-          primary
-          label={busy ? "Saving meal..." : existing ? "Save meal changes" : "Save meal"}
-          disabled={busy || foods.state.kind !== "ready"}
-          onPress={() => {
-            void save();
-          }}
-        />
-      </ButtonRow>
     </View>
   );
 }

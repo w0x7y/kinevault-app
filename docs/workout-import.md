@@ -93,7 +93,7 @@ payload is parsed instead. Each build supplies a transport that gets one page.
 validated UUID, so only `https://app.tracked.gg` is requested, with
 `credentials: "omit"`. It sends `GET` with `RSC: 1`. A response from another
 host after a redirect is rejected. Each request has a 15-second timeout and can
-be cancelled, and responses over 2 MB are rejected by `Content-Length` and then
+be canceled, and responses over 2 MB are rejected by `Content-Length` and then
 by UTF-8 size. Native fetch buffers the whole body before the size check, so the
 timeout also bounds a slow, oversized response.
 
@@ -188,7 +188,7 @@ created again.
 
 ### Limits
 
-The import commits through `ExerciseProvider.importWorkoutPlan` as one durable
+The import commits through the Exercise persistence's `importWorkoutPlan` as one durable
 write: new definitions plus the template. It goes through the same queue,
 document parse and account storage path as other exercise edits. The plan
 maps against the latest saved document when its turn comes. The import is

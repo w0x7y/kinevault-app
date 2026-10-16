@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useEffect, useRef, type Ref, type RefObject } from "react";
+import { Platform, ScrollView, StyleSheet, View } from "react-native";
 import { useTheme } from "../theme/provider";
-import { radius, spacing } from "../theme/tokens";
+import { fonts, radius, spacing } from "../theme/tokens";
 import { Icon, type IconName } from "./icon";
+import { PopoverSurface } from "./popover";
 import { AppText } from "./ui";
+import { Tappable } from "./tappable";
 
 const destinations = [
   { label: "Profile", icon: "user" },
@@ -28,67 +30,71 @@ function MenuEntry({
   selected: boolean;
 }) {
   const { colors } = useTheme();
-  const [focused, setFocused] = useState(false);
   const upcoming = label !== "Profile";
   return (
-    <Pressable
-      accessibilityRole="menuitem"
-      accessibilityLabel={upcoming ? `${label} · Upcoming` : label}
+    <Tappable
+      role="menuitem"
+      label={upcoming ? `${label} · Upcoming` : label}
       onPress={onPress}
       disabled={upcoming}
-      accessibilityState={{ disabled: upcoming }}
-      aria-disabled={upcoming}
-      aria-current={selected ? "page" : undefined}
-      onFocus={() =>
-        setFocused(
-          Platform.OS !== "web" || document.activeElement?.matches(":focus-visible") === true,
-        )
-      }
-      onBlur={() => setFocused(false)}
-      style={({ pressed }) => [
-        styles.entry,
-        {
-          borderColor: focused ? colors.ring : "transparent",
-          backgroundColor: pressed || selected ? colors.accent : "transparent",
-        },
-      ]}
+      current={selected ? "page" : undefined}
+      feedback="fill"
+      style={[styles.entry, selected && { backgroundColor: colors.accent }]}
     >
-      <Icon name={icon} size={16} color={colors.mutedForeground} />
-      <AppText variant="label" muted={upcoming} style={{ flex: 1 }}>
+      <View style={styles.iconColumn}>
+        <Icon name={icon} size={19} color={colors.foreground} />
+      </View>
+      <AppText
+        variant="label"
+        numberOfLines={1}
+        style={{ flex: 1, fontSize: 15, fontFamily: upcoming ? fonts.medium : fonts.semibold }}
+      >
         {label}
       </AppText>
       {upcoming && (
-        <AppText variant="caption" muted>
-          Upcoming
-        </AppText>
+        // The entry fades as unavailable, so the badge keeps full-strength text to stay legible.
+        <View style={[styles.badge, { backgroundColor: colors.accent }]}>
+          <AppText variant="overline" style={styles.badgeText}>
+            Upcoming
+          </AppText>
+        </View>
       )}
-    </Pressable>
+    </Tappable>
   );
 }
 
+/**
+ * The menu under the header's avatar. Arrow keys, Home and End move between the available
+ * entries; opening it from the keyboard focuses the first. The header dismisses it.
+ */
 export function ProfileMenu({
   onSelect,
-  onDismiss,
   maxHeight,
   currentProfile = false,
+  trigger,
+  ref,
 }: {
   onSelect: (destination: ProfileDestination) => void;
-  onDismiss: () => void;
   maxHeight: number;
   currentProfile?: boolean;
+  /** The button that opened the menu. */
+  trigger: RefObject<View | null>;
+  ref?: Ref<View>;
 }) {
   const { colors } = useTheme();
+  const list = useRef<View>(null);
   useEffect(() => {
     if (Platform.OS !== "web") return;
-    const menu = document.getElementById("profile-menu");
+    const opener = trigger.current as unknown as HTMLElement | null;
     const entries = Array.from(
-      menu?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])') ?? [],
+      (list.current as unknown as HTMLElement | null)?.querySelectorAll<HTMLElement>(
+        '[role="menuitem"]:not([aria-disabled="true"])',
+      ) ?? [],
     );
-    const trigger = document.getElementById("profile-menu-button");
-    if (trigger?.matches(":focus-visible")) entries[0]?.focus();
+    if (opener?.matches(":focus-visible")) entries[0]?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       const index = entries.indexOf(document.activeElement as HTMLElement);
-      if (index < 0 && document.activeElement !== trigger) return;
+      if (index < 0 && document.activeElement !== opener) return;
       let next: number;
       switch (event.key) {
         case "ArrowDown":
@@ -109,66 +115,64 @@ export function ProfileMenu({
       event.preventDefault();
       entries[next]?.focus();
     };
-    const onFocusIn = (event: FocusEvent) => {
-      const target = event.target as Node;
-      if (!menu?.contains(target) && target !== document.getElementById("profile-menu-button"))
-        onDismiss();
-    };
     document.addEventListener("keydown", onKeyDown);
-    document.addEventListener("focusin", onFocusIn);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.removeEventListener("focusin", onFocusIn);
-    };
-  }, [onDismiss]);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [trigger]);
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      showsHorizontalScrollIndicator={false}
-      nativeID="profile-menu"
+    <PopoverSurface
+      ref={ref}
+      origin="top right"
       accessibilityRole="menu"
       accessibilityLabel="Profile menu"
-      keyboardShouldPersistTaps="handled"
-      style={[styles.menu, { maxHeight, backgroundColor: colors.card, borderColor: colors.border }]}
-      contentContainerStyle={{ padding: spacing.xs }}
+      style={[styles.menu, { maxHeight }]}
     >
-      {destinations.map(({ label, icon }, index) => (
-        <View key={label}>
-          {index === 4 && (
-            <View role="separator" style={[styles.divider, { backgroundColor: colors.border }]} />
-          )}
-          <MenuEntry
-            label={label}
-            icon={icon}
-            selected={currentProfile && label === "Profile"}
-            onPress={() => onSelect(label)}
-          />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        style={{ flexGrow: 0 }}
+      >
+        <View ref={list} style={{ padding: 6 }}>
+          {destinations.map(({ label, icon }, index) => (
+            <View key={label}>
+              {index === 4 && (
+                <View
+                  role="separator"
+                  style={[styles.divider, { backgroundColor: colors.border }]}
+                />
+              )}
+              <MenuEntry
+                label={label}
+                icon={icon}
+                selected={currentProfile && label === "Profile"}
+                onPress={() => onSelect(label)}
+              />
+            </View>
+          ))}
         </View>
-      ))}
-    </ScrollView>
+      </ScrollView>
+    </PopoverSurface>
   );
 }
 
 const styles = StyleSheet.create({
-  menu: {
-    width: "100%",
-    maxWidth: 260,
-    flexGrow: 0,
-    borderWidth: 1,
-    borderTopWidth: 0,
-    borderBottomLeftRadius: radius.control,
-    borderBottomRightRadius: radius.control,
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.12)",
-  },
+  menu: { width: "100%", maxWidth: 272, borderRadius: 20, overflow: "hidden" },
   entry: {
-    minHeight: 44,
-    paddingHorizontal: spacing.layout,
-    paddingVertical: spacing.sm,
+    minHeight: 46,
+    paddingLeft: spacing.sm,
+    paddingRight: spacing.sm,
+    paddingVertical: spacing.xs,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.layout,
-    borderWidth: 2,
-    borderRadius: 10,
+    gap: spacing.sm,
+    borderRadius: 14,
   },
-  divider: { height: 1, marginVertical: spacing.xs, marginHorizontal: spacing.layout },
+  iconColumn: { width: 28, alignItems: "center", justifyContent: "center" },
+  badge: { borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 3 },
+  badgeText: { fontSize: 10, lineHeight: 13, letterSpacing: 0.6, textTransform: "none" },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: 6,
+    marginHorizontal: spacing.md,
+  },
 });

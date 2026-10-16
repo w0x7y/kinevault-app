@@ -9,6 +9,8 @@ read or modify app data. This records the initial layout exploration. Later
 production revisions use a Sunday-first streak week, inline name pencil,
 automatic earliest/latest Progress comparison, and a horizontal photo carousel;
 the prototype’s Edit profile and comparison controls are historical references.
+It also predates the October 2026 redesign, so its colors, Font Awesome icons and
+bottom bar are not the current look.
 
 From `Application/`, run:
 
@@ -26,7 +28,8 @@ visual demos. Camera, editing, and logging actions do not change saved data.
 ## Branding
 
 `branding.html` previews the app's exported launcher icons and splash screens.
-It runs independently of the Expo app.
+It runs independently of the Expo app. Its phone and tile backgrounds use the same
+splash colors as `app.json`.
 
 From `Application/`, start a local server with the repository root available so
 the preview can load images and the installed Comfortaa font:

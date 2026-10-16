@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { View } from "react-native";
-import { AppText, Panel } from "../components/ui";
+import { AppText, Overline, Panel } from "../components/ui";
 import { ButtonRow, AppButton, IconButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
 import { spacing } from "../theme/tokens";
@@ -11,13 +11,16 @@ import {
   type WorkoutSession,
 } from "./model";
 import { useExercises } from "./provider";
-import type { WorkoutEditing, WorkoutView } from "./workout-editing";
+import type { WorkoutEditing, WorkoutLogMode, WorkoutView } from "./workout-editing";
 import { ExerciseDemoSlot } from "./demo/exercise-demo";
 import { useWorkoutEdit } from "./use-workout-editing";
-import { ExerciseError, ExerciseField } from "./controls";
+import { InlineMessage } from "../components/inline-message";
+import { TextField } from "../components/text-field";
+import { ExerciseNotes, SectionLabel } from "./controls";
 import { ExerciseSetTable } from "./set-table";
 import { exerciseRowLabel, WorkoutWorkspace } from "./workout-workspace";
 import { ActiveWorkoutTimer } from "./timer";
+import { useSheetBack } from "../components/sheet-page";
 
 function durationCaption(minutes: string) {
   try {
@@ -33,13 +36,14 @@ function durationCaption(minutes: string) {
 export function SessionEditor({
   session,
   editing,
-  manual = false,
-  initialSettings = false,
+  mode,
+  closeLabel = null,
 }: {
   session: WorkoutSession;
   editing: WorkoutEditing;
-  manual?: boolean;
-  initialSettings?: boolean;
+  mode: WorkoutLogMode;
+  /** Names a compact card's close control, when a panel opened the card on its own. */
+  closeLabel?: string | null;
 }) {
   const {
     edit,
@@ -48,15 +52,21 @@ export function SessionEditor({
     busy,
     error,
     countError: settingsError,
+    selectedId,
+    settingsOpen,
   } = useWorkoutEdit(editing, session.id);
   const store = useExercises();
   const sessions = store.state.kind === "ready" ? store.state.document.sessions : [];
-  const [settingsOpen, setSettingsOpen] = useState(initialSettings);
-  const [selectedId, setSelectedId] = useState(edit.selectedId() ?? session.exercises[0]?.id),
+  const [detailsOpen, setDetailsOpen] = useState(false),
     [notesId, setNotesId] = useState<string | null>(null);
-  // Active workouts reopen on the default view; others reopen their panel.
-  const returnTo: WorkoutView | undefined =
-    session.status === "active" ? undefined : { kind: "session", id: session.id, manual };
+  // In a sheet, its back button is this workout's Cancel.
+  const inSheet = useSheetBack({ onPress: () => void edit.run("cancel"), disabled: busy });
+  const active = mode === "active",
+    completed = mode === "completed";
+  // Active workouts reopen on the default view; others reopen their sheet.
+  const returnTo: WorkoutView | undefined = active
+    ? undefined
+    : { kind: "session", id: session.id, manual: mode === "manual" };
   function renderExercise(row: SessionExercise, index: number) {
     const rowLabel = exerciseRowLabel(draft.exercises, row, index);
     return (
@@ -65,7 +75,11 @@ export function SessionEditor({
           testID="exercise-detail-heading"
           style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, minWidth: 0 }}
         >
-          <AppText variant="heading" accessibilityRole="header" style={{ flex: 1, minWidth: 0 }}>
+          <AppText
+            variant="heading"
+            accessibilityRole="header"
+            style={{ flex: 1, minWidth: 0, fontSize: 17 }}
+          >
             {row.exercise.name}
           </AppText>
           <IconButton
@@ -91,11 +105,7 @@ export function SessionEditor({
           busy={busy}
           onChange={(setId, build) => edit.change({ kind: "set", rowId: row.id, setId, build })}
         />
-        {notesId === row.id && (
-          <AppText variant="caption" muted>
-            {row.exercise.notes || "No notes for this exercise."}
-          </AppText>
-        )}
+        {notesId === row.id && <ExerciseNotes notes={row.exercise.notes} />}
         <ExerciseDemoSlot
           exercise={row.exercise}
           label={rowLabel}
@@ -112,12 +122,11 @@ export function SessionEditor({
       </View>
     );
   }
-  const compact = session.status === "planned" && !manual;
   const selected = draft.exercises.find((row) => row.id === selectedId) ?? draft.exercises[0];
   const feedback = (
     <>
-      <ExerciseError message={error} />
-      {error && session.status !== "completed" && (
+      <InlineMessage>{error}</InlineMessage>
+      {error && !completed && (
         <AppButton
           label="Retry draft save"
           onPress={() => void edit.run("retry")}
@@ -126,96 +135,113 @@ export function SessionEditor({
       )}
     </>
   );
-  const active = session.status === "active";
+  // Manual and completed logs open on a sheet, whose back button is their Cancel.
   const headerActions = !active && (
-    <View style={{ flexDirection: "row", gap: spacing.sm }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
       <AppButton
+        size="compact"
         icon="pen"
         label="Details"
         accessibilityLabel="Workout name and duration"
-        expanded={settingsOpen}
+        expanded={detailsOpen}
         disabled={busy}
-        onPress={() => setSettingsOpen((previous) => !previous)}
-      />
-      <IconButton
-        appearance="secondary"
-        label="Cancel"
-        icon="xmark"
-        disabled={busy}
-        onPress={() => void edit.run("cancel")}
+        onPress={() => setDetailsOpen((previous) => !previous)}
       />
     </View>
   );
   const toolbar = !active && (
     <>
-      <AppText variant="caption" muted accessibilityLabel="Workout duration">
-        {durationCaption(draft.minutes)}
-      </AppText>
-      {session.status === "planned" && (
+      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+        <Overline>Duration</Overline>
+        <AppText
+          variant="label"
+          accessibilityLabel="Workout duration"
+          style={{ fontVariant: ["tabular-nums"] }}
+        >
+          {durationCaption(draft.minutes)}
+        </AppText>
+      </View>
+      {mode === "manual" && (
         <AppButton label="Start workout" onPress={() => void edit.run("start")} disabled={busy} />
       )}
-      {settingsOpen && (
+      {detailsOpen && (
         <View testID="workout-log-settings" style={{ gap: spacing.layout }}>
-          <ExerciseField
+          <TextField
+            labelTone="muted"
             label="Workout name"
             value={draft.name}
             onChange={(value) => edit.change({ kind: "name", value })}
             disabled={busy}
           />
-          <ExerciseField
+          <TextField
+            labelTone="muted"
             label="Duration in minutes (optional)"
             value={draft.minutes}
             onChange={(value) => edit.change({ kind: "minutes", value })}
-            numeric
+            kind="decimal"
             disabled={busy}
           />
         </View>
       )}
     </>
   );
-  // The main action fills the row; discarding sits apart as red text, away from the thumb.
+  // The main action leads; discarding sits under it in red, so it is never the first tap.
   const actions = (
     <View testID="workout-log-actions" style={{ gap: spacing.sm }}>
       <AppButton
-        label={
-          active
-            ? "End workout"
-            : session.status === "completed"
-              ? "Save changes"
-              : "Log completed workout"
-        }
-        onPress={() => void edit.run(active || session.status === "planned" ? "complete" : "save")}
-        primary
+        label={active ? "End workout" : completed ? "Save changes" : "Log completed workout"}
+        onPress={() => void edit.run(completed ? "save" : "complete")}
+        tone="primary"
         disabled={busy}
       />
-      {session.status !== "completed" && (
-        <View style={{ alignItems: "center" }}>
-          <DeleteButton
-            label="Discard workout"
-            confirmAccessibilityLabel="Confirm discard workout"
-            onDelete={() => edit.run("discard")}
-            disabled={busy}
-            link
-          />
-        </View>
+      {!completed && (
+        <DeleteButton
+          label="Discard workout"
+          confirmAccessibilityLabel="Confirm discard workout"
+          onDelete={() => edit.run("discard")}
+          disabled={busy}
+        />
       )}
     </View>
   );
+  const plannedHeading = (
+    <View style={{ gap: 2 }}>
+      <Overline>Planned</Overline>
+      <AppText
+        variant="heading"
+        accessibilityRole="header"
+        style={{ fontSize: 22, lineHeight: 28, letterSpacing: -0.4 }}
+      >
+        {draft.name}
+      </AppText>
+      <AppText variant="caption" muted numberOfLines={2}>
+        {draft.exercises.length
+          ? draft.exercises.map((row) => row.exercise.name).join(" · ")
+          : "No exercises yet"}
+      </AppText>
+    </View>
+  );
   return (
-    <Panel testID="session-editor">
-      {compact ? (
-        <View testID="planned-workout-card" style={{ gap: spacing.sm }}>
-          <AppText variant="heading" accessibilityRole="header">
-            {draft.name}
-          </AppText>
-          <AppText variant="caption" muted>
-            {draft.exercises.length} {draft.exercises.length === 1 ? "exercise" : "exercises"} ·
-            Planned
-          </AppText>
+    <Panel testID={inSheet ? undefined : "session-editor"}>
+      {mode === "compact" ? (
+        <View testID="planned-workout-card" style={{ gap: spacing.md }}>
+          {closeLabel ? (
+            <View style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.sm }}>
+              <View style={{ flex: 1, minWidth: 0 }}>{plannedHeading}</View>
+              <IconButton
+                label={closeLabel}
+                icon="xmark"
+                disabled={busy}
+                onPress={() => void edit.run("cancel")}
+              />
+            </View>
+          ) : (
+            plannedHeading
+          )}
           <ButtonRow>
             <AppButton
               label="Start workout"
-              primary
+              tone="primary"
               fill
               onPress={() => void edit.run("start")}
               disabled={busy}
@@ -230,36 +256,31 @@ export function SessionEditor({
             />
           </ButtonRow>
           <AppButton
-            link
             icon="gear"
             label="Workout settings"
             expanded={settingsOpen}
-            onPress={() =>
-              void editing.requestView({ kind: "session", id: session.id, settings: true })
-            }
+            onPress={() => edit.showSettings(!settingsOpen)}
             disabled={busy}
           />
           {settingsOpen && (
             <View testID="planned-workout-settings" style={{ gap: spacing.layout }}>
-              <AppText variant="label">Planned sets</AppText>
+              <SectionLabel>Planned sets</SectionLabel>
               {draft.exercises.map((row, index) => (
-                <ExerciseField
+                <TextField
+                  labelTone="muted"
                   key={row.id}
                   label={`Planned sets for ${exerciseRowLabel(draft.exercises, row, index)}`}
                   value={counts[row.id] ?? String(row.sets.length)}
                   onChange={(value) => edit.change({ kind: "count", rowId: row.id, value })}
-                  numeric
+                  kind="decimal"
+                  layout="inline"
                   disabled={busy}
                 />
               ))}
-              <ExerciseError message={settingsError} />
+              <InlineMessage>{settingsError}</InlineMessage>
               <AppButton
                 label="Save settings"
-                onPress={() => {
-                  void (async () => {
-                    if (await edit.run("settings")) setSettingsOpen(false);
-                  })();
-                }}
+                onPress={() => void edit.run("settings")}
                 disabled={busy}
               />
             </View>
@@ -269,10 +290,12 @@ export function SessionEditor({
       ) : (
         <WorkoutWorkspace
           name={draft.name}
+          live={active}
+          overline={completed ? "Logged workout" : "Log a workout"}
           testID={
             active
               ? "active-workout-workspace"
-              : session.status === "completed"
+              : completed
                 ? "completed-workout-workspace"
                 : "manual-workout-workspace"
           }
@@ -281,10 +304,7 @@ export function SessionEditor({
           toolbar={toolbar}
           exercises={draft.exercises}
           selectedId={selected?.id}
-          onSelect={(rowId) => {
-            edit.select(rowId);
-            setSelectedId(rowId);
-          }}
+          onSelect={edit.select}
           busy={busy}
           feedback={feedback}
           actions={actions}

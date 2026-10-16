@@ -9,8 +9,11 @@ import { createAccountRemote } from "./remote";
 import { createAccountScope } from "./scope";
 import { isPublicAccountRoute } from "./navigation";
 import { KineLoading } from "../components/kine-loading";
-import { AppText, Panel } from "../components/ui";
-import { Button } from "../onboarding/controls";
+import { View } from "react-native";
+import { AppButton } from "../components/button";
+import { InlineMessage } from "../components/inline-message";
+import { StatusScreen } from "../onboarding/status-screen";
+import { spacing } from "../theme/tokens";
 import { ProfileProvider } from "../profile/provider";
 import { useConnectivityStore } from "../connectivity/provider";
 
@@ -47,17 +50,22 @@ function ScopedData({ userId, children }: PropsWithChildren<{ userId: string | n
   }, [state]);
   if (state === "error" && !authRoute)
     return (
-      <Panel>
-        <AppText accessibilityRole="alert">Couldn't load this account's saved data.</AppText>
-        <Button label="Try again" onPress={scope.retry} />
-        <Button
-          label="Log out"
-          secondary
-          disabled={account.busy}
-          onPress={() => void account.signOut()}
-        />
-        {account.error && <AppText accessibilityRole="alert">{account.error}</AppText>}
-      </Panel>
+      <StatusScreen
+        icon="cloud"
+        title="Couldn't load this account's saved data."
+        titleRole="alert"
+        message="Check your connection and try again, or log out."
+      >
+        <View style={{ gap: spacing.md }}>
+          <AppButton label="Try again" tone="primary" onPress={scope.retry} />
+          <AppButton
+            label="Log out"
+            disabled={account.busy}
+            onPress={() => void account.signOut()}
+          />
+          {account.error && <InlineMessage>{account.error}</InlineMessage>}
+        </View>
+      </StatusScreen>
     );
   if (state === "loading" && !authRoute) return <KineLoading fill />;
   return (

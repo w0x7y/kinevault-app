@@ -1,12 +1,13 @@
 import { AppButton } from "../components/button";
 import { useMemo, useState } from "react";
-import { View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { AppText } from "../components/ui";
 import { spacing } from "../theme/tokens";
 import { foodKey, type CatalogFood } from "./catalog.ts";
 import { useCustomFoods } from "./custom-provider";
-import { FoodField } from "./form-fields";
-import { FoodResult, genericDrinkNotice } from "./food-result";
+import { TextField } from "../components/text-field";
+import { FoodResult, GenericNotice } from "./food-result";
+import { useTheme } from "../theme/provider";
 
 export function IngredientSearch({
   onAdd,
@@ -16,6 +17,7 @@ export function IngredientSearch({
   disabled: boolean;
 }) {
   const { selection } = useCustomFoods();
+  const { colors } = useTheme();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const result = useMemo(
@@ -25,7 +27,7 @@ export function IngredientSearch({
   if (page !== result.page) setPage(result.page);
   return (
     <View style={{ gap: spacing.layout }}>
-      <FoodField
+      <TextField
         label="Search ingredients"
         value={query}
         disabled={disabled}
@@ -35,7 +37,7 @@ export function IngredientSearch({
         }}
       />
       {query.trim().length >= 2 && (
-        <>
+        <View style={{ gap: spacing.sm }}>
           <AppText variant="caption" muted accessibilityLiveRegion="polite">
             {result.total
               ? `${result.total.toLocaleString()} foods. Nutrition per 100 g. Tap a food to add it.`
@@ -43,43 +45,48 @@ export function IngredientSearch({
                 ? "No matching foods with gram nutrition."
                 : "No foods found. Try a different name."}
           </AppText>
-          {result.rows.some((row) => row.genericMatch) && (
-            <AppText variant="caption" muted>
-              {genericDrinkNotice}
-            </AppText>
-          )}
+          {result.rows.some((row) => row.genericMatch) && <GenericNotice />}
           {result.exclusions.volumeOnly > 0 && (
             <AppText variant="caption" muted>
               Drinks with label nutrition per ml need a reliable gram weight conversion to use as
               ingredients.
             </AppText>
           )}
-          {result.rows.map(({ food, kind, genericMatch }) => (
-            <FoodResult
+          {result.rows.map(({ food, kind, genericMatch }, index) => (
+            <View
               key={foodKey(food)}
-              food={food}
-              kind={kind}
-              action="add"
-              disabled={disabled}
-              genericMatch={genericMatch}
-              onSelect={() => {
-                onAdd(food);
-                setQuery("");
-                setPage(0);
+              style={{
+                borderTopWidth: index ? StyleSheet.hairlineWidth : 0,
+                borderColor: colors.border,
               }}
-            />
+            >
+              <FoodResult
+                food={food}
+                kind={kind}
+                action="add"
+                disabled={disabled}
+                genericMatch={genericMatch}
+                onSelect={() => {
+                  onAdd(food);
+                  setQuery("");
+                  setPage(0);
+                }}
+              />
+            </View>
           ))}
           {result.pageCount > 1 && (
             <View
               style={{ flexDirection: "row", justifyContent: "space-between", gap: spacing.layout }}
             >
               <AppButton
+                icon="chevron-left"
                 label="Previous"
                 accessibilityLabel="Previous ingredient results"
                 disabled={disabled || result.page === 0}
                 onPress={() => setPage(result.page - 1)}
               />
               <AppButton
+                icon="chevron-right"
                 label="Next"
                 accessibilityLabel="Next ingredient results"
                 disabled={disabled || result.page + 1 >= result.pageCount}
@@ -87,7 +94,7 @@ export function IngredientSearch({
               />
             </View>
           )}
-        </>
+        </View>
       )}
     </View>
   );

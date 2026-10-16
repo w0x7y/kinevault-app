@@ -1,8 +1,7 @@
-import { useState } from "react";
-import { TextInput, View } from "react-native";
-import { AppText } from "../components/ui";
+import { View } from "react-native";
+import { TextField } from "../components/text-field";
 import { useTheme } from "../theme/provider";
-import { fonts, radius, spacing } from "../theme/tokens";
+import { spacing } from "../theme/tokens";
 import type { Nutrition } from "./catalog.ts";
 
 const nutritionFields = [
@@ -25,81 +24,22 @@ export function NutritionFields({
 }) {
   const { colors } = useTheme();
   return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.layout }}>
+    <View
+      style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start", gap: spacing.md }}
+    >
       {nutritionFields.map(({ key, label }) => (
         <View key={key} style={{ flexGrow: 1, flexBasis: "45%", minWidth: 0 }}>
-          <FoodField
+          <TextField
             label={label}
             value={values[key]}
             onChange={(value) => onChange(key, value)}
             error={errors[key]}
             disabled={disabled}
-            numeric
-            color={key === "calories" ? undefined : colors[key]}
+            kind="decimal"
+            labelColor={key === "calories" ? undefined : colors[key]}
           />
         </View>
       ))}
-    </View>
-  );
-}
-
-export function FoodField({
-  label,
-  value,
-  onChange,
-  error,
-  disabled,
-  numeric,
-  color,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  error?: string;
-  disabled: boolean;
-  numeric?: boolean;
-  color?: string;
-}) {
-  const { colors } = useTheme();
-  const [focused, setFocused] = useState(false);
-  return (
-    <View style={{ gap: spacing.xs }}>
-      <AppText variant="label" style={color ? { color } : undefined}>
-        {label}
-      </AppText>
-      <TextInput
-        accessibilityLabel={label}
-        accessibilityHint={error}
-        aria-invalid={Boolean(error)}
-        value={value}
-        onChangeText={onChange}
-        editable={!disabled}
-        inputMode={numeric ? "decimal" : "text"}
-        keyboardType={numeric ? "decimal-pad" : "default"}
-        maxLength={numeric ? 16 : 400}
-        selectTextOnFocus={numeric}
-        returnKeyType="done"
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        selectionColor={colors.ring}
-        style={{
-          minHeight: 48,
-          minWidth: 0,
-          padding: spacing.layout,
-          borderWidth: 1,
-          borderRadius: radius.control,
-          borderColor: error ? colors.error : focused ? colors.ring : colors.border,
-          backgroundColor: colors.background,
-          color: colors.foreground,
-          fontFamily: fonts.regular,
-          fontSize: 16,
-        }}
-      />
-      {error && (
-        <AppText variant="caption" accessibilityRole="alert" style={{ color: colors.error }}>
-          {error}
-        </AppText>
-      )}
     </View>
   );
 }

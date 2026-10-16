@@ -322,6 +322,23 @@ export async function installAccountFixture(
           }
         }
       }
+      // The account downloads its documents once before any domain renders.
+      // When connectivity is first confirmed online it downloads them again,
+      // at an unpredictable moment. That refresh reads every document while
+      // holding the account's local queue, and domain reads wait behind it, so
+      // a read that a test holds open must reach its domain store and not the
+      // refresh. Earlier init scripts can add promises to
+      // `window.accountFixtureRefreshHolds`. Refresh downloads wait until all
+      // of them settle.
+      let downloads = 0;
+      const fetch = window.fetch;
+      window.fetch = function (input, init) {
+        const url = input instanceof Request ? input.url : String(input);
+        const holds = window.accountFixtureRefreshHolds ?? [];
+        if (url.includes("/rest/v1/track_documents") && ++downloads > 1 && holds.length)
+          return Promise.all(holds).then(() => fetch.call(this, input, init));
+        return fetch.call(this, input, init);
+      };
       window.accountFixture = {
         get domainReady() {
           return Boolean(

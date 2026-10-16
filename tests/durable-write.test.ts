@@ -120,13 +120,22 @@ test("external refresh keeps ready owners mounted and excludes stale mutations u
   f.storage.getItem = () => read.promise;
   f.emit();
   assert.deepEqual(documentOf(f.store), { count: 3 });
+  // A refresh excludes writes like saving, but reports that no write is running.
   assert.equal(f.store.getSnapshot().saving, true);
+  assert.equal(f.store.getSnapshot().refreshing, true);
   assert.equal(await f.set(4), null);
   read.resolve(encode(7));
   await flush();
   assert.deepEqual(documentOf(f.store), { count: 7 });
   assert.equal(f.store.getSnapshot().saving, false);
+  assert.equal(f.store.getSnapshot().refreshing, false);
+  let refreshingWhileSaving: boolean | null = null;
+  const unsubscribe = f.store.subscribe(() => {
+    if (f.store.getSnapshot().saving) refreshingWhileSaving = f.store.getSnapshot().refreshing;
+  });
   assert.equal(await f.set(4), true);
+  assert.equal(refreshingWhileSaving, false);
+  unsubscribe();
 });
 
 test("failed external refresh retains owners but blocks writes until a validated retry", async () => {
@@ -140,6 +149,7 @@ test("failed external refresh retains owners but blocks writes until a validated
   await flush();
   assert.deepEqual(documentOf(f.store), { count: 3 });
   assert.equal(f.store.getSnapshot().saving, false);
+  assert.equal(f.store.getSnapshot().refreshing, false);
   assert.match(f.store.getSnapshot().error ?? "", /latest saved data/);
   assert.equal(f.store.getSnapshot().refreshError, f.store.getSnapshot().error);
   assert.equal(await f.set(4), null);

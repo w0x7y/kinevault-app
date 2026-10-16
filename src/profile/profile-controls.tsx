@@ -1,74 +1,11 @@
-import { AppButton } from "../components/button";
-import { type PropsWithChildren } from "react";
-import { Modal, Platform, Pressable, ScrollView, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { AppText, Panel } from "../components/ui";
-import { useTheme } from "../theme/provider";
+import { View } from "react-native";
+import { LoadFailure } from "../components/load-failure";
+import { AppText } from "../components/ui";
+import { SegmentedControl } from "../components/segmented-control";
 import { spacing } from "../theme/tokens";
-import { JournalText } from "./journal-ui";
 export const profileSections = ["Overview", "Goals", "Photos"] as const;
 export type ProfileSection = (typeof profileSections)[number];
-export function ProfileChoices<T extends string | number>({
-  label,
-  values,
-  selected,
-  select,
-}: {
-  label: string;
-  values: readonly { value: T; label: string }[];
-  selected: T;
-  select: (value: T) => void;
-}) {
-  const { colors } = useTheme();
-  return (
-    <View
-      accessibilityLabel={label}
-      style={{
-        flexDirection: "row",
-        gap: 3,
-        padding: 3,
-        backgroundColor: colors.secondary,
-        borderRadius: 10,
-      }}
-    >
-      {values.map((option) => (
-        <Pressable
-          key={option.value}
-          accessibilityRole="button"
-          accessibilityLabel={option.label}
-          accessibilityState={{ selected: selected === option.value }}
-          aria-pressed={selected === option.value}
-          onPress={() => select(option.value)}
-          style={{
-            flex: option.value === "weight" ? 1.5 : 1,
-            minHeight: 44,
-            marginVertical: -4,
-            justifyContent: "center",
-          }}
-        >
-          <View
-            style={{
-              height: 36,
-              borderRadius: 7,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: selected === option.value ? colors.card : "transparent",
-            }}
-          >
-            <JournalText
-              size={10}
-              style={{
-                color: selected === option.value ? colors.primary : colors.mutedForeground,
-              }}
-            >
-              {option.label}
-            </JournalText>
-          </View>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
+
 export function ProfileControls({
   section,
   select,
@@ -76,48 +13,20 @@ export function ProfileControls({
   section: ProfileSection;
   select: (section: ProfileSection) => void;
 }) {
-  const { colors } = useTheme();
   return (
-    <View
-      accessibilityLabel="Profile sections"
-      style={{
-        flexDirection: "row",
-
-        marginHorizontal: -12,
-        paddingHorizontal: 12,
-        marginBottom: 14,
-      }}
-    >
-      {profileSections.map((name) => (
-        <Pressable
-          key={name}
-          accessibilityRole="button"
-          accessibilityLabel={name}
-          accessibilityState={{ selected: section === name }}
-          aria-pressed={section === name}
-          onPress={() => select(name)}
-          style={{
-            flex: 1,
-            minHeight: 44,
-            justifyContent: "center",
-            alignItems: "center",
-            borderBottomWidth: 2,
-            borderBottomColor: section === name ? colors.primary : "transparent",
-          }}
-        >
-          <JournalText
-            size={11}
-            style={{
-              color: section === name ? colors.primary : colors.mutedForeground,
-            }}
-          >
-            {name}
-          </JournalText>
-        </Pressable>
-      ))}
+    <View style={{ marginBottom: spacing.layout }}>
+      <SegmentedControl
+        label="Profile sections"
+        shape="pill"
+        options={profileSections.map((name) => ({ value: name, label: name }))}
+        value={section}
+        onChange={select}
+      />
     </View>
   );
 }
+
+/** A Profile card's source while it loads, or the failure to load it with its retry. */
 export function SourceStatus({
   name,
   kind,
@@ -127,68 +36,13 @@ export function SourceStatus({
   kind: "loading" | "error";
   retry: () => void;
 }) {
-  const { colors } = useTheme();
-  return (
-    <View style={{ gap: spacing.sm }}>
-      <AppText
-        accessibilityRole={kind === "error" ? "alert" : undefined}
-        accessibilityLiveRegion="polite"
-        style={kind === "error" ? { color: colors.error } : undefined}
-      >
-        {kind === "loading" ? `Loading ${name}…` : `Couldn't load ${name}.`}
+  if (kind === "loading")
+    return (
+      <AppText variant="caption" muted accessibilityLiveRegion="polite">
+        {`Loading ${name}…`}
       </AppText>
-      {kind === "error" && <AppButton label={`Retry ${name}`} onPress={retry} />}
-    </View>
-  );
-}
-export function ProfileDialog({
-  title,
-  dismiss,
-  children,
-}: PropsWithChildren<{ title: string; dismiss: () => void }>) {
+    );
   return (
-    <Modal
-      visible
-      transparent
-      animationType="none"
-      accessibilityLabel={title}
-      onRequestClose={dismiss}
-      onShow={() => {
-        if (Platform.OS === "web")
-          document
-            .getElementById("profile-dialog")
-            ?.querySelector<HTMLElement>('input, [role="button"]')
-            ?.focus();
-      }}
-    >
-      <SafeAreaView
-        style={{
-          flex: 1,
-          backgroundColor: "rgba(0,0,0,0.45)",
-          justifyContent: "center",
-          alignItems: "center",
-          padding: spacing.layout,
-        }}
-      >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          showsHorizontalScrollIndicator={false}
-          style={{
-            width: "100%",
-            maxWidth: 740,
-            maxHeight: "100%",
-            flexGrow: 0,
-          }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <Panel nativeID="profile-dialog" accessibilityViewIsModal>
-            <AppText variant="heading" accessibilityRole="header">
-              {title}
-            </AppText>
-            {children}
-          </Panel>
-        </ScrollView>
-      </SafeAreaView>
-    </Modal>
+    <LoadFailure message={`Couldn't load ${name}.`} retryLabel={`Retry ${name}`} onRetry={retry} />
   );
 }

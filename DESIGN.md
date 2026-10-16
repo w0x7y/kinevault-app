@@ -1,10 +1,14 @@
 # KineVault design guide
 
+> **Track redesign, October 2026.** KineVault Track's colors, type, icons and
+> screen layouts now follow [the redesign notes](docs/redesign-2026-10.md).
+> Where this guide's Track sections disagree with them, the redesign notes win.
+
 Design reference for KineVault Track, the Expo app in `Application/`, and its
 separate [KineVault studio](https://github.com/arielhagay10-ui/KineVault).
 The supplied studio reference below describes its working source on
 **30 September 2026**; its measurements assume a 16px root font size.
-The Application summary records the implementation on **15 October 2026**.
+The Application summary records the implementation on **17 October 2026**.
 Preserve scalable text in both products.
 
 Outside the Application summary and explicitly labeled companion notes,
@@ -16,67 +20,104 @@ reference patterns, not implemented companion features.
 
 ## Current Application implementation
 
-- Use the shared light/dark palette and radii from
-  [theme tokens](src/theme/tokens.ts). Comfortaa 600 sets titles and headings only;
-  Nunito 400–700 sets body text, labels, inputs, navigation and every figure, and its
-  digits are tabular so numbers line up. Five sizes do the visible work: 44 for the one
-  leading figure on a screen, 28 titles, 20 headings, 16 body and 14 labels and captions.
-  The shared [Icon](src/components/icon.tsx) uses Font Awesome 6; decorative icons are
-  hidden and icon-only controls are named.
-- Cards have no outline. White cards sit on a slightly darker ground and separate by
-  tone; cards are not nested inside cards, and lists inside a card are flat rows. Lines
-  remain only in real data tables (the daily nutrient list and completed exercises).
-  Inputs keep a 1px outline as controls. Focus rings follow keyboard focus only.
-- One button hierarchy: primary is filled slate; secondary is tinted with no outline;
-  a destructive action starts as red text and becomes a filled red button only on its
-  confirming tap; Back, Cancel and Close are text links with a chevron, placed first.
-- Screen margins, panel padding, and gaps between cards or form groups are 12px.
-  Local label/caption gaps remain 4–8px. Content is centered at a maximum 768px,
-  including screen padding; touch targets remain at least 44px.
-- The compact top bar omits the app name. Its left chevron expands an inline
-  seven-column, five-row calendar with the current week in the middle row.
-  Home, Food, and Exercise share the selected local date; Settings and Profile
-  have no picker and show their name as the only title. The right slot uses the saved
-  avatar or initials on slate and opens the profile menu. Profile has a back control and
-  title. Bottom tabs retain their four names and stay within the 768px column on wide
-  windows.
+- Use the shared light/dark palette, radii and spacing from
+  [theme tokens](src/theme/tokens.ts): cool blue-gray pages (`#eef2f6` light, `#10161c`
+  dark), white or `#18212a` cards, and a slate-blue primary (`#2c5070`; pale `#94bdd7`
+  with dark text in dark mode). Color is reserved for meaning: honey carbs, Kine-blue
+  protein, rose fat, and blue water. Comfortaa 600 sets display and title text only;
+  Manrope 400–800 sets headings, body text, labels, inputs, navigation and every figure,
+  and figures use tabular digits so numbers line up. The scale in
+  [ui.tsx](src/components/ui.tsx) is display 32 and title 24 (Comfortaa), a 40 hero figure
+  (Manrope 800), heading 18, body 16, label 14, caption 13, and an uppercase 11 overline
+  that names cards and groups. The shared [Icon](src/components/icon.tsx) keeps Font
+  Awesome 6 names at call sites and draws the lighter Ionicons outline set, falling back
+  to Font Awesome where no outline glyph is mapped. Decorative icons are hidden and
+  icon-only controls are named.
+- Cards ([Panel](src/components/ui.tsx)) are white on the page tone with a hairline
+  border, a 24pt radius and 18pt padding, plus a soft two-layer shadow in light mode;
+  dark mode uses the hairline alone. Cards are not nested inside cards, and lists inside
+  a card are rows separated by hairlines. Controls use a 16pt radius, small tiles and
+  [icon wells](src/components/icon-well.tsx) 12pt, and chips and pills are fully round.
+  A [TextField](src/components/text-field.tsx) is a sunken well with a 1px border that
+  lifts to the card color with a 2pt ring while focused and turns red while invalid.
+  Focus rings follow keyboard focus only.
+- [Tappable](src/components/tappable.tsx) is the one pressable. It owns the accessible
+  role, name and state, the keyboard focus ring, press feedback (a 0.97 scale over 120 ms,
+  or a pressed fill for rows and links), the 0.45 disabled fade and the 44pt minimum
+  target. One button hierarchy ([AppButton](src/components/button.tsx)): primary is
+  filled slate blue; secondary is a quiet sunken fill; a destructive action is red text
+  on a soft red fill, and [DeleteButton](src/components/delete-button.tsx) turns into a
+  filled red "Are you sure?" on the first tap and deletes on the second; Back, Cancel and
+  similar navigation are text links. Buttons are 50pt regular, 44pt compact pills, or
+  32pt small pills inside a 44pt hit area; IconButton is a round 48pt icon action.
+  [Chip](src/components/chip.tsx) and [SegmentedControl](src/components/segmented-control.tsx)
+  cover choices: sunken when idle, with a primary fill or a raised segment that slides to
+  the chosen option.
+- Screens use a 20pt gutter, 18pt card padding and 14pt gaps between cards. Local
+  label/caption gaps remain 4–8pt. Content is centered at a maximum 768pt, including
+  screen padding; touch targets are at least 44pt.
+- The compact top bar sits on the page color and omits the app name. Home, Food, and
+  Exercise show the selected date followed by a calendar chip (calendar icon and chevron)
+  that opens a floating [popover](src/components/popover.tsx) calendar: seven columns,
+  five weeks with the current week tinted in the middle row, round day cells, and
+  previous-day, Today and next-day controls. These three tabs share the selected local
+  date. Settings and Profile have no picker and show their name as the only title. The
+  right slot uses the saved avatar or initials on Kine blue and opens the profile menu.
+  Profile has a back control. The floating tab bar (`src/app/(tabs)/_layout.tsx`) is a
+  rounded, elevated bar inset 16pt from the screen edges and at most 560pt wide, with
+  the four labeled tabs, outline icons, a soft blue pill behind the active icon, and
+  primary active and muted inactive colors. Screens pad their end by its measured height.
+- Small modal tasks use [ModalSheet](src/components/modal-sheet.tsx): a bottom sheet on
+  phones and a centered dialog on windows 600pt and wider. Flows that leave the day view
+  (food details, create and edit forms, barcode scan, imports, saved workouts) open as a
+  [SheetPage](src/components/sheet-page.tsx) that slides up over the tab (a page sheet on
+  iOS) with a round back button; a flow's steps replace each other on that one page.
+  Sub-views start with a [ViewHeader](src/components/view-header.tsx). Feedback sits under
+  what it describes as an [InlineMessage](src/components/inline-message.tsx); a source that
+  can't be read shows a [LoadFailure](src/components/load-failure.tsx) with its retry.
 - Profile uses version 3, Personal journal, in
   [the layout reference](design/profile-prototype.html): centered avatar/name,
-  goal/activity summary, and Overview, Goals, and Photos section controls.
+  goal/activity summary, and an Overview, Goals, and Photos segmented control.
   Overview groups the Sunday–Saturday streak week, workout graph, today's nutrition
   link, and automatic earliest/latest Progress comparison with dates below each
   image. Goals shows real intake/targets and focused editors. Photos is an optional
   horizontal carousel with dates, separators and notes. Comparison contains images
   without stretching or forcing matching crops. The name pencil opens a centered,
   underlined field with Cancel on the left and Save on the right.
-  Charts use the existing theme, distinct labelled Left/Right series, honest
+  Charts use the existing theme, distinct labeled Left/Right series, honest
   missing-data gaps, and equivalent readable values. Empty state has an optional
   add action; it never fills the gallery or chart with illustrative records.
-- Only Home shows Kine, in a [KineSplitRow](src/components/kine-split-row.tsx): two
-  equal columns separated by 12px, content left and Kine right, using the internal
-  `today` pose. Food, Exercise and Settings start with their content.
+- On the tabs only Home shows Kine: the `today` pose at 96pt (84pt on narrow phones)
+  beside the greeting. Food, Exercise and Settings start with their content. Onboarding,
+  account and status screens stand Kine on a soft brand-tinted disc.
 - The [loading pose](src/components/kine-loading.tsx) holds a large hourglass
-  with both hands. Center it while Home loads, and use compact instances for
-  saved foods, water entry, and barcode lookup. Web startup uses the same pose.
-  Keep it static, with an accessible loading label and no minimum display time;
-  errors retain their explanatory text and retry actions.
-- Home starts with carbs, protein, and fat progress to Kine's left, followed by
-  a full-width calorie count and horizontal progress bar. Each macro count
-  shares its label's line above the bar. The workout card leads with total lifted,
-  then duration, sets and reps. Steps and water follow side by side.
-  Water shows manual water plus saved Drinks volumes for the selected day.
-  The tile says Includes Drinks; the manual entry form explains that Drinks
-  are already included. Loading or unreadable water storage hides the total.
-  Macro rows center vertically within their panel. Carbs, protein, and fat use
-  their amber, blue, and purple theme tokens in labels, icons, progress fills,
-  and the calorie bar's stacked segments. The unconsumed track stays neutral.
-- Food and Exercise begin with search, then three equal tiles with the icon centred
-  above a sentence-case label: Scan barcode, Create food or meal and Daily macros on
-  Food; Saved workouts, Create workout and Create exercise on Exercise. Food and Meal
-  buttons inside Create food or meal switch creation forms. Create food or meal opens an inline panel for
+  with both hands, on a soft brand disc. Home and Food show a compact instance in a card
+  while the food log loads; compact instances also cover saved foods, water entry,
+  barcode lookup, and workout import. Startup and account loading fill the screen with
+  it. Kine bobs slowly while loading, with no movement under reduced motion, an
+  accessible loading label and no minimum display time; errors retain their
+  explanatory text and retry actions.
+- Home starts with a two-line greeting ("Good morning," then the first name, larger;
+  other days show the weekday) with Kine to its right. The Calories card follows: an
+  overline with eaten / goal kcal, then a calorie ring beside the carbs, protein, and fat
+  rows. The ring shows kcal left (or over) in its center and fills with each macro's
+  share of the calories eaten; energy without macro data uses the foreground color, and
+  an overage arc is red. Each macro row puts its label and grams / target on one line
+  above a thin bar. Carbs, protein, and fat use their honey, blue, and rose theme tokens
+  in labels, fills and ring arcs; the unconsumed track stays neutral. Steps and water
+  follow side by side. Water shows manual water plus saved Drinks volumes for the
+  selected day. The tile says Includes Drinks; the manual entry form explains that
+  Drinks are already included. Loading or unreadable water storage hides the total. The
+  workout card leads with total lifted, then duration, sets and reps.
+- Food and Exercise start with a title row, "Daily food log" with the day's eaten /
+  goal kcal or "Daily workout log" with the day's weight lifted and minutes, then search,
+  then three equal quiet tiles with the icon above a sentence-case label: Scan barcode,
+  Create food or meal and Daily macros on Food; Saved workouts, Create workout and Create
+  exercise on Exercise. Food and Meal buttons inside Create food or meal switch creation
+  forms. Create food or meal opens a sheet page for
   a food name, serving weight, and calories/macros per serving. Nutrition inputs
-  form a wrapping two-column grid with the existing macro colors; Save food and
-  Cancel are full-width controls. Validation and failed saves appear inline and
+  form a wrapping two-column grid with the existing macro colors; Cancel and Save food
+  share one row below them. Validation and failed saves appear inline and
   preserve the draft. Saving opens the serving screen with an inline
   Saved to your foods message. Custom foods join
   search results with a Custom food category and a small person-and-pen icon
@@ -92,17 +133,18 @@ reference patterns, not implemented companion features.
   search filters the selected day's existing exercise rows.
 - Custom food and meal details place Edit and Delete controls below the name and
   category. Edit opens the matching prefilled form with Save food/meal changes
-  and Cancel. Delete opens a themed confirmation popup naming the item and
-  explaining that existing log entries and saved ingredients are kept. Failed
+  and Cancel. Delete turns into a filled red "Are you sure?" and deletes on the
+  second tap; existing log entries and saved ingredients are kept. Failed
   writes show inline retry errors. USDA foods have no catalog edit/delete controls.
 - Food shows one daily log with Breakfast, Lunch, Dinner, Snacks, and Drinks,
-  below catalog search. Logged name filters never replace catalog results.
+  below catalog search, as one card per meal: icon well, meal name and kcal, with
+  entries separated by hairlines. Logged name filters never replace catalog results.
   Empty meals say "No food has been logged yet". Solid details place gram amount
   and serving choices before nutrition, with four meal destinations and a dated Log action.
   Long lists show 100 g and two source servings first. Selecting results dismisses
   the native keyboard. Saved entries show amounts, Edit, and a named removal control.
   Drink details have one Drink amount (ml) field before the nutrition preview,
-  requiring whole millilitres from 1 to 10,000. No gram serving panel or meal chooser
+  requiring whole milliliters from 1 to 10,000. No gram serving panel or meal chooser
   appears. Nutrition uses that volume, and Log drink to Drinks includes hydration.
   Unknown volume nutrition requests calories/macros per 100 ml from the label.
   Blank initial volume uses neutral guidance; entered invalid volume shows an inline error.
@@ -117,15 +159,21 @@ reference patterns, not implemented companion features.
   Exercise adds completed exercises with sets, reps, and actual load ranges;
   planned sets do not count as completed activity. Only saved food contributes
   to nutrition totals; other activity remains empty until its logging exists.
-- Settings starts with the account summary and ends with Account and data: export, log
-  out and delete account, apart from routine settings. Reminders are hidden on web.
+- Settings is a grouped list: an overline title above one card of rows each, with icon
+  wells and hairline dividers. It starts with the account summary and ends with Data &
+  account (export and log out), with Delete account in its own red control below,
+  apart from routine settings. Reminders are hidden on web.
   Language, units and version share one caption at the bottom.
   Onboarding begins with welcome and goals before age confirmation, then profile
   questions and editable calorie/macro targets. Required account screens follow
   saving the final review. Automatic macros use 50% carbs,
   25% protein, and 25% fat, with editable gram overrides.
-- Brief page and Kine greeting motion respects reduced motion. The artwork and
-  its responsive-resolution limits are documented in
+- Motion uses the shared [motion helpers](src/components/motion.tsx), runs on the UI
+  thread and uses ease-out curves: 120 ms presses, 180 ms toggles, segment slides and
+  popover entrances, 300 ms entrances, and 650 ms value fills (ring arcs, macro bars and
+  the water cup). Kine greets with a short hop. Tab switches are instant; search results
+  and figures do not animate. Under reduced motion nothing moves; only short fades
+  remain. The artwork and its size limits are documented in
   [the mascot guide](assets/mascot/README.md).
 
 [PRODUCT.md](PRODUCT.md) defines the current feature scope; [README.md](README.md)
@@ -254,11 +302,12 @@ The surrounding controls follow the app theme.
 Current studio font: **Geist**, loaded through `next/font/google`, Latin subset.
 Headings and body share the same sans-serif family. There is no separate display font.
 
-**Companion app:** as of 15 October 2026, bundled Comfortaa 600 sets titles and
-headings, and bundled Nunito 400–700 sets text, inputs, navigation and figures.
+**Companion app:** as of 17 October 2026, bundled Comfortaa 600 sets display and
+title text, and bundled Manrope 400–800 sets headings, text, inputs, navigation and figures.
 Launcher and splash branding uses Comfortaa 700. The studio reference above retains Geist. Native platform
 fonts are a fallback only if loading fails.
-The companion uses Font Awesome 6 through its shared Icon component.
+The companion draws Ionicons outline glyphs through its shared Icon component, which
+keeps Font Awesome 6 names and falls back to Font Awesome for unmapped ones.
 Decorative icons stay hidden from assistive technology; icon-only controls need labels.
 
 | Role | Size / line height | Weight | Tracking |
@@ -373,13 +422,13 @@ Maximum width includes container padding. Use centered containers and
 - The repository has no established persistent bottom navigation, app-wide sidebar,
   generic modal system, or tab bar.
 
-**Companion app:** use a compact top bar with a calendar chevron, selected date,
-and saved avatar or initials. Omit the app name. Expand a seven-column,
+**Companion app:** use a compact top bar with the selected date, a calendar chip,
+and saved avatar or initials. Omit the app name. The chip opens a floating seven-column,
 five-week calendar with the current week centered; share the selected day across
 Home, Food, and Exercise. Settings omits the picker; Profile shows a back control
-and title. Use the four labeled bottom tabs,
-Font Awesome icons, primary active color, muted inactive text, a card surface,
-and a 1px divider. Respect safe areas.
+and title. Use a floating, rounded bottom bar with the four labeled tabs, outline
+icons, a soft pill behind the active icon, primary active color, and muted inactive
+text. Respect safe areas.
 
 ## 7. Brand and icons
 
@@ -401,7 +450,8 @@ ArrowUpRight = explore, ShieldCheck = reviewed knowledge, Play/Pause = playback.
 
 Decorative icons should be hidden from assistive technology. Icon-only controls
 need an accessible name. Do not rely on tooltips to convey essential actions.
-The companion uses Font Awesome 6 rather than Lucide. Its app name belongs in
+The companion uses Ionicons outline glyphs (Font Awesome 6 as a fallback) rather
+than Lucide. Its app name belongs in
 launcher/splash branding; the compact in-app top bar has no wordmark.
 
 ## 8. Buttons and action hierarchy
@@ -707,8 +757,9 @@ Current motion is restrained: button transitions, a 1px press displacement,
 - Reduced-motion CSS sets transition/animation duration to 0.01ms and disables
   smooth scrolling. Video respects reduced motion; 3D viewers start paused.
 - Do not add automatic camera spins, bouncing panels, or decorative movement.
-- **Companion guidance:** if custom transitions are needed, use brief 120–180ms
-  ease-out feedback. This is a proposed timing range, not a custom current token.
+- **Companion app:** Track's motion durations are 120ms presses, 180ms toggles,
+  300ms entrances and 650ms value fills, all ease-out, in
+  [motion.tsx](src/components/motion.tsx).
 - Show completion near the initiating action; avoid silent save/copy operations.
 
 ## 15. Loading, empty, error, and confirmation states
@@ -730,8 +781,10 @@ Explore's main empty state has a 320px minimum height, 22px radius, centered
 content, 30px icon, 20px heading, and 14px explanation with a roughly 384px max width.
 Do not replace missing information with fabricated illustrations, counts, or classifications.
 
-**Companion guidance:** there is no established skeleton, toast, dialog, or offline
-component. If adding one, use the same surfaces, borders, type, and radius scale.
+**Companion guidance:** the studio has no established skeleton, toast, dialog, or offline
+component. Track has a bottom sheet / dialog, an offline notice, inline messages and
+the Kine loading pose; reuse those. If adding another, use the same surfaces, borders,
+type, and radius scale.
 Skeletons should mirror content without shimmer under reduced motion. Offline states
 should distinguish cached content from an action that has not been saved/sent.
 
@@ -778,13 +831,14 @@ reduced-motion support, and responsive layouts.
 
 ## 18. Companion extension guidance
 
-The Application already has theme persistence, Comfortaa, Font Awesome 6, shared
-primitives, and its daily/onboarding screens. For future catalog features, the
+The Application already has theme persistence, Comfortaa and Manrope, Ionicons
+outline icons, shared primitives, and its daily/onboarding screens. For future catalog features, the
 original handoff sequence remains a reference; it is not a list of current features:
 
 1. Copy the semantic palette into light/dark theme objects and add System preference.
-2. Bundle Comfortaa and Font Awesome 6 for the companion app.
-3. Retain the Application's 12px structural spacing and shared radius scale.
+2. Bundle Comfortaa, Manrope and the Ionicons outline set for the companion app.
+3. Retain the Application's spacing (20pt gutter, 18pt card padding, 14pt gaps) and
+   shared radius scale.
 4. Build primitives: text, panel, button, field, tag, divider, disclosure, feedback.
 5. Build exercise cards and a 4:3 demonstration component.
 6. Build page shells for browsing, detail, forms, and account screens.
@@ -816,7 +870,8 @@ Do not depend on Next.js, Supabase, or Tailwind to reproduce the visual design.
 ### Quick visual acceptance checklist
 
 - [ ] Slate blue primary actions; correct light and dark foreground pairings.
-- [ ] Comfortaa in the companion; Geist in the studio; restrained uppercase labels.
+- [ ] Comfortaa titles and Manrope text in the companion; Geist in the studio;
+  restrained uppercase labels.
 - [ ] Correct 14px field / 18px panel radius, rather than default Tailwind radii.
 - [ ] Flat bordered panels with selective shadows and consistent spacing.
 - [ ] Large, contained demonstrations; figure and equipment remain in frame.

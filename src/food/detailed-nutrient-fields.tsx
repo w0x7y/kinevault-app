@@ -1,9 +1,9 @@
 import { AppButton } from "../components/button";
 import { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { AppText } from "../components/ui";
 import { useTheme } from "../theme/provider";
-import { radius, spacing } from "../theme/tokens";
+import { spacing } from "../theme/tokens";
 import {
   type DetailedNutrientDraft,
   type DetailedNutrientErrors,
@@ -14,7 +14,7 @@ import {
   type DetailedNutrients,
 } from "./nutrients.ts";
 import { nutritionAmountText } from "./number-input.ts";
-import { FoodField } from "./form-fields";
+import { TextField } from "../components/text-field";
 
 export function DetailedNutrientFields({
   values = {},
@@ -35,7 +35,6 @@ export function DetailedNutrientFields({
   const [expanded, setExpanded] = useState(() =>
     Object.values(values).some((value) => value?.trim()),
   );
-  const [focused, setFocused] = useState(false);
   // Validation runs on the entire draft, even when inputs are hidden.
   useEffect(() => {
     if (errors && Object.keys(errors).length) setExpanded(true);
@@ -43,30 +42,22 @@ export function DetailedNutrientFields({
   const isMeal = onReset !== undefined;
   return (
     <View style={{ gap: spacing.layout }}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="More nutrients"
-        accessibilityState={{ disabled, expanded }}
-        aria-expanded={expanded}
-        disabled={disabled}
-        onPress={() => setExpanded((value) => !value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        style={({ pressed }) => ({
-          minHeight: 44,
-          padding: spacing.layout,
-          borderWidth: 1,
-          borderRadius: radius.control,
-          borderColor: focused ? colors.ring : colors.border,
-          backgroundColor: pressed ? colors.accent : colors.secondary,
-          justifyContent: "center",
-          opacity: disabled ? 0.5 : 1,
-        })}
+      <View
+        style={{
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
+          paddingTop: spacing.xs,
+        }}
       >
-        <AppText variant="label" style={{ color: colors.secondaryForeground }}>
-          {expanded ? "More nutrients (hide)" : "More nutrients"}
-        </AppText>
-      </Pressable>
+        <AppButton
+          tone="link"
+          icon={expanded ? "chevron-up" : "chevron-down"}
+          label="More nutrients"
+          expanded={expanded}
+          disabled={disabled}
+          onPress={() => setExpanded((value) => !value)}
+        />
+      </View>
       {expanded && (
         <View style={{ gap: spacing.layout }}>
           <AppText variant="caption" muted>
@@ -74,7 +65,14 @@ export function DetailedNutrientFields({
               ? "Amounts are for the whole meal. Edit a value to override it. Clear a field to use its calculated amount."
               : "Optional amounts per serving. Leave unknown values blank. Enter 0 when the label lists zero."}
           </AppText>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.layout }}>
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              alignItems: "flex-start",
+              gap: spacing.layout,
+            }}
+          >
             {detailedNutrients.map(({ key, label, unit }) => {
               const amount = calculated?.[key] ?? null;
               const calculatedText =
@@ -85,12 +83,12 @@ export function DetailedNutrientFields({
                   key={key}
                   style={{ flexGrow: 1, flexBasis: "45%", minWidth: 0, gap: spacing.xs }}
                 >
-                  <FoodField
+                  <TextField
                     label={`${label} (${unit})`}
                     value={value}
                     error={errors?.[key]}
                     disabled={disabled}
-                    numeric
+                    kind="decimal"
                     onChange={(input) => onChange(key, input)}
                   />
                   {isMeal && (
@@ -106,6 +104,7 @@ export function DetailedNutrientFields({
           </View>
           {onReset && Object.values(values).some((value) => value?.trim()) && (
             <AppButton
+              icon="rotate-left"
               label="Use calculated detailed nutrients"
               onPress={onReset}
               disabled={disabled}
