@@ -1,7 +1,6 @@
 // Isolated Metro test entry using the same persisted-session interpretation as the app.
 import { registerRootComponent } from "expo";
-import { useState } from "react";
-import { ScrollView, TextInput } from "react-native";
+import { ScrollView } from "react-native";
 import { ThemeProvider } from "../src/theme/provider";
 import { WorkoutWidget } from "../src/daily/workout-widget";
 import { parseWorkoutSession, type SessionExercise } from "../src/exercise/model";
@@ -51,17 +50,11 @@ const planned = parseWorkoutSession({
 const workout = summarizeSessions([completed, planned]);
 
 function WorkoutFixture() {
-  const [query, setQuery] = useState("");
   return (
     <ThemeProvider>
       <ScrollView contentContainerStyle={{ padding: 12, gap: 12 }}>
-        <WorkoutWidget workout={workout} />
-        <TextInput
-          accessibilityLabel="Filter completed exercises"
-          value={query}
-          onChangeText={setQuery}
-        />
-        <WorkoutWidget workout={workout} detailed query={query} />
+        <WorkoutWidget workout={workout} onRetry={() => undefined} />
+        <WorkoutWidget workout={workout} detailed onRetry={() => undefined} />
       </ScrollView>
     </ThemeProvider>
   );

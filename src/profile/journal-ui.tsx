@@ -1,94 +1,31 @@
-import { useCallback, useId, useRef, useState, type PropsWithChildren } from "react";
+import { useCallback, useRef, useState, type PropsWithChildren, type ReactNode } from "react";
 import { useFocusEffect } from "expo-router";
 import {
-  BackHandler,
   Platform,
   Modal,
   ScrollView,
   Pressable,
+  StyleSheet,
   View,
-  type TextProps,
   type ViewProps,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { AppText, Panel } from "../components/ui";
-import { Icon, type IconName } from "../components/icon";
+import { AppText, Overline } from "../components/ui";
+import { useReducedMotion } from "../components/motion";
+import { Icon } from "../components/icon";
+import { PopoverSurface, usePopover } from "../components/popover";
+import { Tappable } from "../components/tappable";
 import { useTheme } from "../theme/provider";
+import { radius, spacing } from "../theme/tokens";
 
-/** Profile text follows the app's scale: 16 by default and never below 14. */
-export function JournalText({
-  size: requested = 16,
-  lineHeight,
-  ...props
-}: TextProps & {
-  size?: number;
-  lineHeight?: number;
-  muted?: boolean;
-  variant?: "body" | "heading" | "label" | "caption";
-}) {
-  const size = Math.max(14, requested);
-  return (
-    <AppText
-      {...props}
-      style={[{ fontSize: size, lineHeight: lineHeight ?? Math.round(size * 1.45) }, props.style]}
-    />
-  );
-}
-export function JournalPanel(props: ViewProps) {
-  return <Panel {...props} style={[{ gap: 0 }, props.style]} />;
-}
-export function JournalAction({
-  label,
-  accessibilityLabel,
-  icon,
-  onPress,
-  disabled,
-  style,
-  size = 14,
-}: {
-  size?: number;
-  label: string;
-  accessibilityLabel?: string;
-  icon?: IconName;
-  onPress: () => void;
-  disabled?: boolean;
-  style?: StyleProp<ViewStyle>;
-}) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel || label}
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        {
-          minHeight: 44,
-          marginVertical: -3,
-          paddingHorizontal: 3,
-          flexDirection: "row",
-          gap: 6,
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: disabled ? 0.5 : pressed ? 0.7 : 1,
-        },
-        style,
-      ]}
-    >
-      {icon && <Icon name={icon} size={12} color={colors.primary} />}
-      <JournalText size={size} variant="label" style={{ color: colors.primary }}>
-        {label}
-      </JournalText>
-    </Pressable>
-  );
-}
+/** Card header: an overline names the card, with optional controls on the right. */
 export function JournalHeading({
   title,
+  leading,
   children,
   style,
-}: PropsWithChildren<{ title: string; style?: StyleProp<ViewStyle> }>) {
+}: PropsWithChildren<{ title: string; leading?: ReactNode; style?: StyleProp<ViewStyle> }>) {
   return (
     <View
       style={[
@@ -96,141 +33,177 @@ export function JournalHeading({
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          minHeight: 38,
-          marginTop: -3,
-          marginBottom: 8,
-          gap: 6,
+          minHeight: 32,
+          gap: spacing.sm,
         },
         style,
       ]}
     >
-      <JournalText size={20} variant="heading" accessibilityRole="header" style={{ flexShrink: 1 }}>
-        {title}
-      </JournalText>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 }}>
+        {leading}
+        <Overline accessibilityRole="header" style={{ flexShrink: 1 }}>
+          {title}
+        </Overline>
+      </View>
       {children}
     </View>
   );
 }
+
+/** An inline editor inside a card, set apart by a hairline instead of a nested card. */
+export function EditorSection(props: ViewProps) {
+  const { colors } = useTheme();
+  return (
+    <View
+      {...props}
+      style={[
+        {
+          gap: spacing.md,
+          marginTop: spacing.xs,
+          paddingTop: spacing.card,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
+        },
+        props.style,
+      ]}
+    />
+  );
+}
+
+/** One strong figure with a smaller muted unit. */
+export function JournalFigure({
+  value,
+  unit,
+  size = 32,
+}: {
+  value: string;
+  unit?: string;
+  size?: number;
+}) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "baseline", gap: 5, flexWrap: "wrap" }}>
+      <AppText
+        variant="hero"
+        style={{ fontSize: size, lineHeight: Math.round(size * 1.15), letterSpacing: -size / 32 }}
+      >
+        {value}
+      </AppText>
+      {unit && (
+        <AppText variant="label" muted>
+          {unit}
+        </AppText>
+      )}
+    </View>
+  );
+}
+/**
+ * A compact choice: a pill showing the current value that opens a list of the others. On web
+ * the list hangs from the pill; on phones it is a centered card over a dimmed screen.
+ */
 export function JournalDisclosure<T extends string | number>({
   label,
   values,
   value,
   onChange,
+  align = "right",
 }: {
   label: string;
   values: readonly { value: T; label: string }[];
   value: T;
   onChange: (next: T) => void;
+  /** The edge of the trigger that the popover lines up with. */
+  align?: "left" | "right";
 }) {
   const { colors } = useTheme();
+  const reduced = useReducedMotion();
   const [open, setOpen] = useState(false);
-  const id = useId();
-  const trigger = useRef<View>(null);
-  const close = useCallback((restoreFocus = false) => {
-    setOpen(false);
-    if (restoreFocus && Platform.OS === "web") trigger.current?.focus();
-  }, []);
-  useFocusEffect(useCallback(() => () => close(), [close]));
-  useFocusEffect(
-    useCallback(() => {
-      if (!open) return;
-      const back = BackHandler.addEventListener("hardwareBackPress", () => {
-        close();
-        return true;
-      });
-      const escape = (event: KeyboardEvent) => {
-        if (
-          event.key === "Escape" &&
-          document.getElementById(id)?.contains(document.activeElement)
-        ) {
-          event.preventDefault();
-          close(true);
-        }
-      };
-      const outside = (event: Event) => {
-        if (event.target instanceof Node && !document.getElementById(id)?.contains(event.target))
-          close();
-      };
-      if (Platform.OS === "web") {
-        document.addEventListener("keydown", escape);
-        document.addEventListener("pointerdown", outside);
-        document.addEventListener("focusin", outside);
-      }
-      return () => {
-        back.remove();
-        if (Platform.OS === "web") {
-          document.removeEventListener("keydown", escape);
-          document.removeEventListener("pointerdown", outside);
-          document.removeEventListener("focusin", outside);
-        }
-      };
-    }, [open, close, id]),
-  );
-  const choices = values.map((option) => (
-    <Pressable
-      key={option.value}
-      accessibilityRole="button"
-      accessibilityLabel={option.label}
-      accessibilityState={{ selected: value === option.value }}
-      aria-pressed={value === option.value}
-      onPress={() => {
-        onChange(option.value);
-        close(true);
-      }}
-      style={{
-        minHeight: 44,
-        justifyContent: "center",
-        paddingHorizontal: 8,
-        borderRadius: 6,
-        backgroundColor: value === option.value ? colors.secondary : colors.card,
-      }}
-    >
-      <JournalText size={10}>{option.label}</JournalText>
-    </Pressable>
-  ));
-  return (
-    <View nativeID={id} style={{ zIndex: 2 }}>
-      <Pressable
-        ref={trigger}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        accessibilityState={{ expanded: open }}
-        aria-expanded={open}
-        onPress={() => setOpen((v) => !v)}
-        style={{ height: 44, marginVertical: -4, justifyContent: "center" }}
+  const trigger = useRef<View>(null),
+    list = useRef<View>(null);
+  const dismiss = useCallback(() => setOpen(false), []);
+  const popover = usePopover({ open, onDismiss: dismiss, trigger, container: list });
+  useFocusEffect(useCallback(() => dismiss, [dismiss]));
+  const choices = values.map((option) => {
+    const chosen = value === option.value;
+    return (
+      <Tappable
+        key={option.value}
+        label={option.label}
+        selected={chosen}
+        feedback="fill"
+        onPress={() => {
+          onChange(option.value);
+          popover.close();
+        }}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: spacing.sm,
+          paddingHorizontal: spacing.md,
+          borderRadius: radius.tile,
+          backgroundColor: chosen ? colors.muted : "transparent",
+        }}
       >
-        <View
+        <AppText
+          variant="label"
+          numberOfLines={2}
           style={{
-            minHeight: 36,
-            paddingHorizontal: 8,
-            gap: 10,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: 9,
-            backgroundColor: colors.card,
+            flex: 1,
+            fontSize: 14,
+            color: chosen ? colors.foreground : colors.mutedForeground,
           }}
         >
-          <JournalText size={9}>{values.find((v) => v.value === value)?.label}</JournalText>
-          <Icon name="chevron-down" size={10} color={colors.foreground} />
-        </View>
-      </Pressable>
+          {option.label}
+        </AppText>
+        {chosen && <Icon name="check" size={16} color={colors.primary} />}
+      </Tappable>
+    );
+  });
+  const surface = { borderRadius: radius.control + 2, padding: 6 } as const;
+  return (
+    <View style={{ zIndex: 2 }}>
+      <Tappable
+        ref={trigger}
+        label={label}
+        expanded={open}
+        feedback="fill"
+        onPress={() => setOpen((shown) => !shown)}
+        surfaceHeight={32}
+        surface={{
+          minHeight: 32,
+          paddingLeft: spacing.md,
+          paddingRight: 10,
+          gap: 6,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderRadius: radius.pill,
+          backgroundColor: open ? colors.accent : colors.muted,
+        }}
+      >
+        <AppText
+          variant="label"
+          numberOfLines={1}
+          style={{ fontSize: 13, lineHeight: 18, flexShrink: 1 }}
+        >
+          {values.find((v) => v.value === value)?.label}
+        </AppText>
+        <Icon
+          name={open ? "chevron-up" : "chevron-down"}
+          size={13}
+          color={colors.mutedForeground}
+        />
+      </Tappable>
       {open &&
         (Platform.OS === "web" ? (
-          <View
-            style={{
-              position: "absolute",
-              top: 40,
-              right: 0,
-              minWidth: 110,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.card,
-              borderRadius: 9,
-              padding: 4,
-            }}
+          // The menu grows out of the trigger's corner.
+          <PopoverSurface
+            ref={list}
+            origin={align === "left" ? "top left" : "top right"}
+            style={[
+              surface,
+              { position: "absolute", top: 42, minWidth: 168, maxWidth: 300 },
+              align === "left" ? { left: 0 } : { right: 0 },
+            ]}
           >
             <ScrollView
               showsVerticalScrollIndicator={false}
@@ -240,9 +213,14 @@ export function JournalDisclosure<T extends string | number>({
             >
               {choices}
             </ScrollView>
-          </View>
+          </PopoverSurface>
         ) : (
-          <Modal transparent animationType="fade" visible onRequestClose={() => close()}>
+          <Modal
+            transparent
+            animationType={reduced ? "none" : "fade"}
+            visible
+            onRequestClose={dismiss}
+          >
             <View
               style={{
                 flex: 1,
@@ -251,35 +229,31 @@ export function JournalDisclosure<T extends string | number>({
                 padding: 24,
               }}
             >
+              {/* The native backdrop: a tap outside closes the list; not a control itself. */}
               <Pressable
                 accessible={false}
-                onPress={() => close()}
+                onPress={dismiss}
                 style={{
                   position: "absolute",
                   top: 0,
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  backgroundColor: "rgba(0,0,0,.5)",
+                  backgroundColor: "rgba(14, 15, 17, 0.45)",
                 }}
               />
-              <View
+              <PopoverSurface
+                ref={list}
+                origin="center"
                 accessibilityViewIsModal
-                style={{
-                  width: "100%",
-                  maxWidth: 320,
-                  maxHeight: "80%",
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: 18,
-                  padding: 12,
-                  backgroundColor: colors.card,
-                  gap: 8,
-                }}
+                style={[surface, { width: "100%", maxWidth: 340, maxHeight: "80%", gap: 6 }]}
               >
-                <JournalText size={14} variant="heading" accessibilityRole="header">
+                <Overline
+                  accessibilityRole="header"
+                  style={{ padding: spacing.md, paddingBottom: 4 }}
+                >
                   {label}
-                </JournalText>
+                </Overline>
                 <ScrollView
                   showsVerticalScrollIndicator={false}
                   showsHorizontalScrollIndicator={false}
@@ -288,7 +262,7 @@ export function JournalDisclosure<T extends string | number>({
                 >
                   {choices}
                 </ScrollView>
-              </View>
+              </PopoverSurface>
             </View>
           </Modal>
         ))}

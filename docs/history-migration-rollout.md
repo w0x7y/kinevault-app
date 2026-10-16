@@ -12,6 +12,8 @@ Docker is installed without an available daemon/socket. PostgreSQL was downloade
 
 No remote migration, synthetic account creation, function deployment, project/branch creation, or flag activation was performed.
 
+Since then, the unrelated `20261013120000_exercise_demo_catalog` migration was applied to the shared project on 2026-10-13 (see [exercise demos](exercise-demos.md)). The bounded-history migration is still not applied.
+
 ## Repeat the read-only inspection
 
 Run from `Application`:
@@ -38,7 +40,7 @@ PG_BINDIR=/tmp/kinevault-pg-validation/usr/bin \
 bash scripts/validate-history-postgres.sh
 ```
 
-The wrapper creates a fresh cluster, disables TCP, uses a private Unix socket, installs only the three repository migrations plus minimal Supabase roles/auth prerequisites, and always removes its cluster on exit. It does not install dependencies or connect to a system PostgreSQL service. The PostgreSQL packages under `/tmp/kinevault-pg-validation` are disposable, not a repo dependency.
+The wrapper creates a fresh cluster, disables TCP, uses a private Unix socket, installs only the two account migrations and the bounded-history migration plus minimal Supabase roles/auth prerequisites, and always removes its cluster on exit. It does not install dependencies or connect to a system PostgreSQL service. The PostgreSQL packages under `/tmp/kinevault-pg-validation` are disposable, not a repo dependency.
 
 The Python runner executes both `supabase/tests/history-partitions.sql` and `supabase/tests/history-partitions-security.sql`. They roll back their fixtures. Concurrent tests commit random synthetic accounts so separate connections can see them, then remove those accounts. They check an actual advisory-lock wait through `pg_stat_activity` and `pg_blocking_pids`, release the winning transaction, and assert the loser result. All sessions have bounded timeouts.
 

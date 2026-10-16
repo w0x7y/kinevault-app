@@ -33,6 +33,7 @@ and docs/ describe behavior and link here instead of repeating status.
 
 - [x] Verify the original native keyboard, gestures, safe areas, text scaling, and screen readers.
 - [ ] Verify the new offline banner, reconnect sync and crash Reload on native devices before release.
+- [ ] Check the October 2026 redesign on a physical iPhone and Android phone: Comfortaa and Manrope rendering, the floating tab bar and safe areas, sheet pages (an iOS page sheet), the live workout timer, the keyboard inside sheets, animations, and reduced motion. So far it has run only in browser tests.
 - [x] Resolve the Router decoder advisory (decode-uri-component 0.5.0 override plus query-string adapter patch).
 - [x] Resolve the http-cache-semantics shared-cache advisory with a local patch; 4.3.0 alone still reproduces the flaw.
 - [ ] Adopt a compatible Expo/node-forge signature-verification fix when available.
@@ -82,7 +83,13 @@ and docs/ describe behavior and link here instead of repeating status.
 - [x] Own complete Account management attempts outside Settings rendering, with caller-scoped failure feedback and Account-owned confirmed deletion.
 - [x] Own body-weight draft validation, replacement guidance and save/delete lifecycle through a directly tested edit interface.
 
-## Latest verification, October 8, 2026
+## Latest verification, October 17, 2026
+
+- After the final review fixes, lint, formatting, TypeScript and all 1160 unit and script tests passed. In the full browser run, 206 passed and the optional screenshot case was skipped; one profile-menu test failed on a change that was then reverted, and that file passes 7 of 7. See docs/architecture.md.
+- In the October 16 architecture pass, lint, formatting, TypeScript and all 1158 unit and script tests passed; 207 browser tests passed with one optional screenshot case skipped. See docs/architecture.md and docs/redesign-2026-10.md.
+- No native export or physical-device check is recorded for the redesign.
+
+## Verification, October 8, 2026
 
 - Dependencies installed with SDK-compatible `expo-sharing`; both dependency security patches remain applied.
 - `npm run check` passed after the architecture and final-review fixes: lint, formatting, TypeScript, and all 874 unit/script tests, including local SQL/RLS execution.
@@ -98,13 +105,13 @@ and docs/ describe behavior and link here instead of repeating status.
 Ranked by how much they build on existing code:
 
 1. [x] Body weight log with dated add/edit/delete, durable retry, accessible trend chart, and account export/sync. Profile goals remain independently editable.
-2. [ ] Previous reps and weights beside each set, from historical sessions already in the exercise document.
+2. [x] Previous reps and weights as hints in blank set fields, from the latest completed workout with that exercise.
 3. [ ] Rest timer and workout duplication, on top of the active-workout timer and template draft machinery.
 4. [ ] Timed and cardio exercises. Extend the set model's `kind` discriminator.
-5. [ ] Recently logged and favourite foods above search results.
+5. [ ] Recently logged and favorite foods above search results. Search already ranks foods the user has logged first.
 6. [ ] Copy yesterday's meals to the selected day.
 7. [ ] Steps via HealthKit and Health Connect, making the Home tile honest.
-8. [ ] Daily reminders for logging and water, using local notifications.
+8. [x] Reminders for weigh-ins, water, workouts, food logging, progress photos and custom notes, using local notifications.
 9. [ ] Weekly nutrition summary in Profile, reusing the workout chart components.
 10. [x] Data export and account deletion implementation (deployment/device release checks listed above).
 11. [ ] Imperial units and language selection as real preferences beyond the supported English/metric formats.

@@ -1,34 +1,29 @@
-import { AppButton } from "../components/button";
-import type { Meal } from "../daily/model";
+import { IconButton } from "../components/button";
 import { useMemo, useState } from "react";
-import { Keyboard, View, type ViewProps } from "react-native";
-import { AppText, Panel } from "../components/ui";
+import { StyleSheet, View, type ViewProps } from "react-native";
+import { AppText, Overline, Panel } from "../components/ui";
+import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import { foodKey, foodPageSize, type CatalogFood } from "./catalog.ts";
 import { foodSource } from "./database";
 import { useCustomFoods } from "./custom-provider";
 import { useFoodLog } from "./log-provider";
-import { FoodResult, genericDrinkNotice } from "./food-result";
-import { FoodNutritionDetail } from "./nutrition-detail";
+import { FoodResult, GenericNotice } from "./food-result";
 
 export function FoodSearchResults({
   query,
   onLayout,
   onNavigate,
-  date,
-  onLogged,
-  onCatalogEditChange,
-  initialMeal,
+  onSelect,
 }: {
   query: string;
-  initialMeal?: Meal;
   onLayout: ViewProps["onLayout"];
   onNavigate: () => void;
-  date: string;
-  onLogged: () => void;
-  onCatalogEditChange?: (editing: boolean) => void;
+  /** A chosen food opens on its own page above the results it came from. */
+  onSelect: (food: CatalogFood) => void;
 }) {
   const { selection } = useCustomFoods();
+  const { colors } = useTheme();
   const log = useFoodLog();
   const days = log.state.kind === "ready" ? log.state.document.days : null;
   const logged = useMemo(() => {
@@ -39,97 +34,94 @@ export function FoodSearchResults({
     return counts;
   }, [days]);
   const [page, setPage] = useState(0);
-  const [selected, setSelected] = useState<CatalogFood | null>(null);
   const result = useMemo(
     () => selection.search({ purpose: "logging", query, page, logged }),
     [selection, query, page, logged],
   );
   const hasGenericMatches = result.rows.some((row) => row.genericMatch);
   if (page !== result.page) setPage(result.page);
-  const selectedItem = selected?.customId ? selection.savedItem(selected.customId) : undefined;
   function changePage(nextPage: number) {
     setPage(nextPage);
     onNavigate();
   }
-  function selectFood(food: CatalogFood | null) {
-    Keyboard.dismiss();
-    setSelected(food);
-    onNavigate();
-  }
+  const databaseRows = result.rows.some(({ food }) => !food.customId);
   return (
-    <Panel testID="food-catalog-results" onLayout={onLayout} style={{ gap: spacing.sm }}>
-      {selected ? (
-        <FoodNutritionDetail
-          initialMeal={initialMeal}
-          target={{ kind: "add", food: selected }}
-          date={date}
-          onCatalogEditChange={onCatalogEditChange}
-          onSaved={onLogged}
-          onBack={() => selectFood(null)}
-          backLabel="Back to food results"
-        />
-      ) : (
-        <>
-          <AppText variant="heading" accessibilityRole="header">
-            Food database
-          </AppText>
+    <View testID="food-catalog-results" onLayout={onLayout} style={{ gap: spacing.sm }}>
+      <Panel style={{ gap: spacing.sm, paddingBottom: spacing.sm }}>
+        <View style={{ gap: 2 }}>
+          <Overline>Foods and meals</Overline>
           <AppText variant="caption" muted accessibilityLiveRegion="polite">
             {query.trim().length < 2
               ? "Type at least two letters to search foods and meals."
-              : result.total
-                ? `${result.total.toLocaleString()} matching foods and meals.`
-                : "No foods or meals found. Try a simpler name or a different preparation."}
+              : result.total === 1
+                ? "1 matching food or meal."
+                : result.total
+                  ? `${result.total.toLocaleString()} matching foods and meals.`
+                  : "No foods or meals found. Try a simpler name or a different preparation."}
           </AppText>
-          {hasGenericMatches && <AppText muted>{genericDrinkNotice}</AppText>}
-          {result.rows.map(({ food, kind, genericMatch }) => (
-            <FoodResult
+        </View>
+        {hasGenericMatches && <GenericNotice />}
+        <View>
+          {result.rows.map(({ food, kind, genericMatch }, index) => (
+            <View
               key={foodKey(food)}
-              kind={kind}
-              genericMatch={genericMatch}
-              food={food}
-              onSelect={() => selectFood(food)}
-            />
-          ))}
-          {result.pageCount > 1 && (
-            <View style={{ gap: spacing.sm }}>
-              <AppText variant="caption" muted>
-                Showing {result.page * foodPageSize + 1} to{" "}
-                {Math.min((result.page + 1) * foodPageSize, result.total)} of{" "}
-                {result.total.toLocaleString()}
-              </AppText>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  gap: spacing.layout,
-                }}
-              >
-                <AppButton
-                  label="Previous"
-                  accessibilityLabel="Previous food results"
-                  disabled={result.page === 0}
-                  onPress={() => changePage(result.page - 1)}
-                />
-                <AppButton
-                  label="Next"
-                  accessibilityLabel="Next food results"
-                  disabled={result.page + 1 >= result.pageCount}
-                  onPress={() => changePage(result.page + 1)}
-                />
-              </View>
+              style={{
+                borderTopWidth: index ? StyleSheet.hairlineWidth : 0,
+                borderColor: colors.border,
+              }}
+            >
+              <FoodResult
+                kind={kind}
+                genericMatch={genericMatch}
+                food={food}
+                onSelect={() => onSelect(food)}
+              />
             </View>
-          )}
-        </>
-      )}
-      <View>
-        <AppText variant="caption" muted selectable>
-          {selectedItem?.kind === "meal"
-            ? "Custom meal · Nutrition from ingredients and your overrides"
-            : selected?.customId
-              ? "Custom food · Nutrition entered by you"
-              : `${foodSource.name} · ${foodSource.dataset}`}
+          ))}
+        </View>
+        {result.pageCount > 1 && (
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: spacing.sm,
+              paddingTop: spacing.sm,
+              borderTopWidth: StyleSheet.hairlineWidth,
+              borderColor: colors.border,
+            }}
+          >
+            <AppText variant="caption" muted style={{ flex: 1, fontVariant: ["tabular-nums"] }}>
+              Showing {result.page * foodPageSize + 1} to{" "}
+              {Math.min((result.page + 1) * foodPageSize, result.total)} of{" "}
+              {result.total.toLocaleString()}
+            </AppText>
+            <IconButton
+              appearance="secondary"
+              icon="chevron-left"
+              label="Previous food results"
+              disabled={result.page === 0}
+              onPress={() => changePage(result.page - 1)}
+            />
+            <IconButton
+              appearance="secondary"
+              icon="chevron-right"
+              label="Next food results"
+              disabled={result.page + 1 >= result.pageCount}
+              onPress={() => changePage(result.page + 1)}
+            />
+          </View>
+        )}
+      </Panel>
+      {databaseRows && (
+        <AppText
+          variant="caption"
+          muted
+          selectable
+          style={{ paddingHorizontal: spacing.xs, textAlign: "center" }}
+        >
+          {foodSource.name} · {foodSource.dataset}
         </AppText>
-      </View>
-    </Panel>
+      )}
+    </View>
   );
 }

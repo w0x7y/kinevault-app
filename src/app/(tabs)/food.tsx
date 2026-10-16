@@ -1,60 +1,73 @@
-import { AppButton } from "../../components/button";
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { AppState, Keyboard, type ScrollView } from "react-native";
-import { useFocusEffect } from "expo-router";
-import { AppText, Panel, Screen } from "../../components/ui";
+import { useIsFocused } from "expo-router";
+import { Screen, ScreenTitle } from "../../components/ui";
+import { SheetPage } from "../../components/sheet-page";
+import { StepFade } from "../../components/motion";
+import { spacing } from "../../theme/tokens";
 import { useDayActivity } from "../../daily/use-day";
 import { SearchActions } from "../../daily/search-actions";
 import { MealsWidget } from "../../daily/meals-widget";
 import { FoodSearchResults } from "../../food/search-results";
 import { FoodLogStatus } from "../../food/log-status";
-import { useFoodLog } from "../../food/log-provider";
-import { FoodNutritionDetail } from "../../food/nutrition-detail";
+import { useFoodLog, useFoodLogPersistence } from "../../food/log-provider";
+import { FoodCatalogEditor, FoodNutritionDetail } from "../../food/nutrition-detail";
 import { DailyMacros } from "../../food/daily-macros";
 import type { FoodEntry } from "../../daily/model";
 import type { CustomFood } from "../../food/custom-model";
-import { useCustomFoods } from "../../food/custom-provider";
+import { useCustomFoodPersistence, useCustomFoods } from "../../food/custom-provider";
 import { CustomFoodStatus } from "../../food/custom-status";
-import { CreateItemForm } from "../../food/create-item-form";
 import type { CustomMeal } from "../../food/meal-model.ts";
 import { FoodProductImport } from "../../food/product-import";
-
+import { productClient } from "../../food/product-provider.ts";
+import { createCatalogDrafts } from "../../food/catalog-drafts.ts";
+import { createFoodTabView, type FoodTabView } from "../../food/tab-view.ts";
 import { FoodDraftProvider, useFoodDrafts } from "../../food/draft-provider";
-import { CreateFoodForm } from "../../food/create-form";
-import { CreateMealForm } from "../../food/create-meal-form";
+import { CatalogDraftPage } from "../../food/catalog-draft-page";
+import { ResumeDraft } from "../../food/resume-draft";
 
 export default function FoodScreen() {
   const activity = useDayActivity();
+  const log = useFoodLogPersistence();
+  const catalog = useCustomFoodPersistence();
+  // Catalog drafts and the tab's view live as long as the screen; pages come and go.
+  const [{ drafts, tab }] = useState(() => {
+    const drafts = createCatalogDrafts({ store: catalog });
+    const tab = createFoodTabView({
+      date: activity.date,
+      drafts,
+      log,
+      catalog,
+      lookup: productClient,
+    });
+    return { drafts, tab };
+  });
   return (
-    <FoodDraftProvider>
-      <FoodDay activity={activity} />
+    <FoodDraftProvider owner={drafts}>
+      <FoodDay activity={activity} tab={tab} />
     </FoodDraftProvider>
   );
 }
 
-function FoodDay({ activity }: { activity: ReturnType<typeof useDayActivity> }) {
-  const { date, food } = activity;
+function FoodDay({
+  activity,
+  tab,
+}: {
+  activity: ReturnType<typeof useDayActivity>;
+  tab: FoodTabView;
+}) {
+  const { date, food, targets } = activity;
+  const view = useSyncExternalStore(tab.subscribe, tab.getSnapshot, tab.getSnapshot);
+  const { page } = view;
   const drafts = useFoodDrafts();
-  const { mealIntent, setMealIntent } = drafts;
-  const [query, setQuery] = useState("");
-  const [catalogEditing, setCatalogEditing] = useState(false);
-  const [viewDate, setViewDate] = useState(date);
-  const [view, setView] = useState<
-    | { kind: "log" }
-    | { kind: "edit"; entry: FoodEntry }
-    | { kind: "macros" }
-    | { kind: "resume"; key: number }
-    | { kind: "create" }
-    | { kind: "import"; session: number }
-    | { kind: "created"; food: CustomFood | CustomMeal }
-  >({ kind: "log" });
-  const [focused, setFocused] = useState(false);
-  useFocusEffect(
-    useCallback(() => {
-      setFocused(true);
-      return () => setFocused(false);
-    }, []),
-  );
+  const focused = useIsFocused();
   const [foreground, setForeground] = useState(AppState.currentState !== "background");
   useEffect(() => {
     const listener = AppState.addEventListener("change", (state) => {
@@ -62,216 +75,193 @@ function FoodDay({ activity }: { activity: ReturnType<typeof useDayActivity> }) 
     });
     return () => listener.remove();
   }, []);
+  useLayoutEffect(() => {
+    tab.start();
+    return tab.stop;
+  }, [tab]);
+  useLayoutEffect(() => tab.setPresence({ focused, foreground }), [tab, focused, foreground]);
+  useLayoutEffect(() => tab.setDay(date), [tab, date]);
   const scrollRef = useRef<ScrollView>(null);
+  const pageScroll = useRef<ScrollView>(null);
   const resultsTop = useRef(0);
-  const importSession = useRef(0);
   const log = useFoodLog();
+  const persistence = useFoodLogPersistence();
   const custom = useCustomFoods();
-  // Day-specific views reset before rendering children; reusable-food drafts stay mounted.
-  if (viewDate !== date) {
-    setViewDate(date);
-    if (!catalogEditing) {
-      setQuery("");
-      if (
-        view.kind !== "create" &&
-        view.kind !== "created" &&
-        view.kind !== "import" &&
-        view.kind !== "resume"
-      ) {
-        setView({ kind: "log" });
-      }
-    }
-  }
-  const resetDayView = useEffectEvent(() => {
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
-    if (
-      !catalogEditing &&
-      view.kind !== "create" &&
-      view.kind !== "created" &&
-      view.kind !== "import" &&
-      view.kind !== "resume"
-    ) {
-      setMealIntent("breakfast");
-    }
-  });
+  // A new day starts at the top of its log, and so does each return to the log.
   useEffect(() => {
-    resetDayView();
-  }, [date]);
-  function showLog() {
-    setView({ kind: "log" });
-    setMealIntent("breakfast");
-    setQuery("");
     scrollRef.current?.scrollTo({ y: 0, animated: false });
-  }
-  function scrollToContent() {
+  }, [date]);
+  useLayoutEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [view.logTop]);
+  // Each step on the page over the log replaces the last, so it starts at the top too.
+  useLayoutEffect(() => {
+    pageScroll.current?.scrollTo({ y: 0, animated: false });
+  }, [view.step]);
+  function scrollToResults() {
     scrollRef.current?.scrollTo({ y: resultsTop.current, animated: false });
   }
-  function created(food: CustomFood | CustomMeal) {
+  function created(item: CustomFood | CustomMeal) {
     Keyboard.dismiss();
-    setView({ kind: "created", food });
-    scrollToContent();
+    tab.created(item);
   }
-  function openImport() {
-    if (custom.state.kind !== "ready" || custom.saving || log.saving || !focused || !foreground)
-      return;
-    Keyboard.dismiss();
-    setQuery("");
-    setView({ kind: "import", session: ++importSession.current });
-    scrollToContent();
-  }
+  const showingLog = !view.query.trim() && food.kind === "ready";
+  const fresh = useFreshEntries(food.kind === "ready" ? food.day : null, date, {
+    focused,
+    showingLog,
+  });
+  const body =
+    page.kind === "resume" || page.kind === "create" ? (
+      drafts.session && (
+        <CatalogDraftPage
+          key={page.key}
+          session={drafts.session}
+          creation={page.kind === "create"}
+          closeLabel="Back to food log"
+          onClose={tab.back}
+          onSaved={created}
+        />
+      )
+    ) : page.kind === "import" ? (
+      <FoodProductImport
+        page={page}
+        active={focused && foreground}
+        onClose={tab.back}
+        onSaved={created}
+      />
+    ) : page.kind === "detail" && page.editor ? (
+      <FoodCatalogEditor
+        attempt={page.attempt}
+        onClose={tab.back}
+        onSaved={(item) => {
+          Keyboard.dismiss();
+          tab.catalogSaved(item);
+        }}
+      />
+    ) : page.kind === "detail" && (page.origin !== "entry" || food.kind === "ready") ? (
+      <FoodNutritionDetail
+        key={page.key}
+        attempt={page.attempt}
+        backLabel={page.origin === "search" ? "Back to food results" : "Back to food log"}
+        saved={page.saved}
+        onBack={tab.back}
+        onLog={() => void tab.submit()}
+        onEditCatalog={tab.editCatalog}
+        onDeleteItem={tab.deleteItem}
+      />
+    ) : page.kind === "macros" && food.kind === "ready" ? (
+      <DailyMacros day={food.day} onBack={tab.back} />
+    ) : null;
+  const eaten =
+    food.kind === "ready"
+      ? Math.round(food.day.foods.reduce((sum, entry) => sum + entry.calories, 0))
+      : null;
+  const goal = targets.kind === "ready" ? targets.calories : null;
+  const calorieSummary =
+    eaten === null
+      ? null
+      : goal === null
+        ? `${eaten.toLocaleString()} kcal`
+        : `${eaten.toLocaleString()} / ${goal.toLocaleString()} kcal`;
   return (
     <Screen title="Food" showTitle={false} scrollRef={scrollRef} adjustKeyboardInsets>
+      <ScreenTitle title="Daily food log" trailing={calorieSummary} />
       <SearchActions
         kind="food"
-        query={query}
-        onQueryChange={(query) => {
-          setView({ kind: "log" });
-          setQuery(query);
+        query={view.query}
+        onQueryChange={tab.search}
+        createDisabled={view.createDisabled}
+        searchDisabled={view.busy}
+        onCreateItem={tab.create}
+        onScanBarcode={() => {
+          if (tab.scan()) Keyboard.dismiss();
         }}
-        createDisabled={custom.state.kind !== "ready" || custom.saving || log.saving}
-        searchDisabled={custom.saving || log.saving}
-        onCreateItem={() => {
-          drafts.openCreation();
-          setQuery("");
-          setView({ kind: "create" });
-          scrollToContent();
-        }}
-        onScanBarcode={openImport}
-        macrosDisabled={food.kind !== "ready" || log.saving || custom.saving}
-        onViewMacros={() => {
-          setQuery("");
-          setView({ kind: "macros" });
-          scrollToContent();
-        }}
+        macrosDisabled={view.macrosDisabled}
+        onViewMacros={tab.macros}
       />
       <FoodLogStatus />
       {(log.state.kind !== "loading" || custom.state.kind !== "loading") && <CustomFoodStatus />}
-      {!catalogEditing &&
-        view.kind !== "resume" &&
-        view.kind !== "import" &&
+      {view.resumable &&
         drafts.resumable.map((summary) => (
-          <AppButton
+          <ResumeDraft
             key={summary.key}
-            label={`Resume draft: ${summary.name}`}
-            disabled={custom.saving || log.saving}
-            onPress={() => {
-              drafts.resume(summary.handle);
-              setQuery("");
-              setView({ kind: "resume", key: summary.key });
-              scrollToContent();
-            }}
+            name={summary.name}
+            disabled={view.busy}
+            onPress={() => tab.resume(summary.handle)}
           />
         ))}
-      {view.kind === "resume" ? (
-        <Panel key={view.key}>
-          {drafts.session?.kind === "meal" ? (
-            <CreateMealForm session={drafts.session} onCancel={showLog} onSaved={created} />
-          ) : drafts.session?.kind === "food" ? (
-            <>
-              {drafts.session.draft.importSource && (
-                <AppText variant="heading" accessibilityRole="header">
-                  Review imported food
-                </AppText>
-              )}
-              <CreateFoodForm session={drafts.session} onCancel={showLog} onSaved={created} />
-            </>
-          ) : null}
-        </Panel>
-      ) : view.kind === "import" ? (
-        <Panel
-          onLayout={(event) => {
-            resultsTop.current = event.nativeEvent.layout.y;
-            scrollToContent();
-          }}
-        >
-          <FoodProductImport
-            key={view.session}
-            active={focused && foreground}
-            focused={focused}
-            scopeKey={date}
-            onCancel={showLog}
-            onSaved={created}
-          />
-        </Panel>
-      ) : view.kind === "create" ? (
-        <Panel
-          onLayout={(event) => {
-            resultsTop.current = event.nativeEvent.layout.y;
-            scrollToContent();
-          }}
-        >
-          <CreateItemForm onCancel={showLog} onSaved={created} />
-        </Panel>
-      ) : view.kind === "created" ? (
-        <Panel
-          onLayout={(event) => {
-            resultsTop.current = event.nativeEvent.layout.y;
-            scrollToContent();
-          }}
-        >
-          <FoodNutritionDetail
-            initialMeal={mealIntent}
-            savedCatalog
-            target={{ kind: "add", food: view.food }}
-            date={date}
-            onCatalogEditChange={setCatalogEditing}
-            onBack={showLog}
-            backLabel="Back to food log"
-            onSaved={showLog}
-          />
-        </Panel>
-      ) : food.kind === "ready" && view.kind === "edit" ? (
-        <Panel
-          onLayout={(event) => {
-            resultsTop.current = event.nativeEvent.layout.y;
-            scrollToContent();
-          }}
-        >
-          <FoodNutritionDetail
-            target={{ kind: "edit", entry: view.entry }}
-            date={date}
-            onBack={showLog}
-            onSaved={showLog}
-          />
-        </Panel>
-      ) : food.kind === "ready" && view.kind === "macros" ? (
-        <DailyMacros
-          day={food.day}
-          onBack={showLog}
-          onLayout={(event) => {
-            resultsTop.current = event.nativeEvent.layout.y;
-            scrollToContent();
-          }}
-        />
-      ) : query.trim() ? (
+      {view.query.trim() ? (
         <FoodSearchResults
-          initialMeal={mealIntent}
-          key={query}
-          query={query}
-          date={date}
-          onCatalogEditChange={setCatalogEditing}
-          onLogged={showLog}
+          key={view.query}
+          query={view.query}
+          onSelect={(food) => {
+            Keyboard.dismiss();
+            tab.select(food);
+          }}
           onLayout={(event) => {
             resultsTop.current = event.nativeEvent.layout.y;
           }}
-          onNavigate={scrollToContent}
+          onNavigate={scrollToResults}
         />
       ) : food.kind === "ready" ? (
         <MealsWidget
+          // A new day starts its own list, so its cards appear in place rather than gliding.
+          key={date}
           day={food.day}
+          fresh={fresh}
           query=""
-          saving={log.saving || custom.saving}
+          saving={view.busy}
           error={log.error}
           onLayout={(event) => {
             resultsTop.current = event.nativeEvent.layout.y;
           }}
-          onEdit={(entry) => {
-            setView({ kind: "edit", entry });
-            scrollToContent();
-          }}
-          onRemove={(id) => log.remove({ date, id })}
+          onEdit={tab.editEntry}
+          onRemove={(id) => persistence.remove({ date, id })}
         />
       ) : null}
+      {/* Every flow opens on one page over the log. Its steps (create, then the saved item)
+          replace each other on that page; leaving a draft keeps it to resume. The page steps
+          aside while the tab is away and returns with it. */}
+      {view.sheet && body && (
+        <SheetPage
+          title="Food"
+          closeLabel="Back to food log"
+          onClose={tab.back}
+          scrollRef={pageScroll}
+        >
+          <StepFade step={view.step} style={{ gap: spacing.layout }}>
+            {body}
+          </StepFade>
+        </SheetPage>
+      )}
     </Screen>
   );
+}
+
+/**
+ * Entries logged while the food log is on screen (or on its way back, after a search), so only
+ * those rise into their meal. Entries already there when the tab opens or the day changes, or
+ * added while the tab was away, are simply there.
+ */
+function useFreshEntries(
+  day: { foods: FoodEntry[] } | null,
+  date: string,
+  { focused, showingLog }: { focused: boolean; showingLog: boolean },
+): ReadonlySet<string> {
+  const seen = useRef<{ date: string; ids: Set<string> } | null>(null);
+  const [, settle] = useReducer((count: number) => count + 1, 0);
+  const fresh = new Set<string>();
+  const known = seen.current?.date === date ? seen.current.ids : null;
+  if (day && known && focused && showingLog)
+    for (const entry of day.foods) if (!known.has(entry.id)) fresh.add(entry.id);
+  useEffect(() => {
+    if (!day) return;
+    if (seen.current?.date !== date)
+      seen.current = { date, ids: new Set(day.foods.map((entry) => entry.id)) };
+    // While a search covers the log, a food logged from it stays new until the log shows it.
+    else if (showingLog || !focused) for (const entry of day.foods) seen.current.ids.add(entry.id);
+    // Once shown, a new entry's meal card rejoins the glide of later reflows.
+    if (fresh.size) settle();
+  });
+  return fresh;
 }

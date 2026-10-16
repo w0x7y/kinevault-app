@@ -1,7 +1,12 @@
 import { AppButton } from "../components/button";
-import { useState } from "react";
-import { Pressable, View } from "react-native";
-import { Icon } from "../components/icon";
+import { useRef, useState, type ReactNode } from "react";
+import { StyleSheet, View } from "react-native";
+import { Icon, type IconName } from "../components/icon";
+import { IconWell } from "../components/icon-well";
+import { Tappable } from "../components/tappable";
+import { ProgressFill } from "../components/motion";
+import { AppText, Panel } from "../components/ui";
+import { cardShadow, fonts, radius, spacing } from "../theme/tokens";
 import { useFoodLog } from "../food/log-provider";
 import { useWaterLog } from "../water/provider";
 import { useWaterGoal } from "../water/goal-provider";
@@ -13,8 +18,9 @@ import { activities, goals } from "./answers";
 import { useProfile } from "./provider";
 import { ProfileEditor } from "./profile-editor";
 import type { ProfileEditSection } from "./section-editing";
-import { ProfileDialog, SourceStatus } from "./profile-controls";
-import { JournalAction, JournalHeading, JournalPanel, JournalText } from "./journal-ui";
+import { SourceStatus } from "./profile-controls";
+import { ModalSheet } from "../components/modal-sheet";
+import { JournalFigure, JournalHeading } from "./journal-ui";
 export type ProfileEditorInstance = {
   id: number;
   section: ProfileEditSection | "water";
@@ -33,21 +39,61 @@ function ProgressBar({
   return (
     <View
       style={{
-        height: 5,
-        backgroundColor: colors.secondary,
+        height: 6,
+        backgroundColor: colors.muted,
         borderRadius: 3,
         overflow: "hidden",
-        marginTop: 8,
       }}
     >
-      <View
-        style={{
-          height: 5,
-          borderRadius: 3,
-          backgroundColor: color,
-          width: `${progressFraction(consumed ?? 0, target) * 100}%`,
-        }}
+      <ProgressFill
+        fraction={progressFraction(consumed ?? 0, target)}
+        color={color}
+        style={{ borderRadius: 3 }}
       />
+    </View>
+  );
+}
+/** A goal row: icon well, name, value / target and a small progress bar. */
+function GoalRow({
+  icon,
+  name,
+  value,
+  target,
+  bar,
+  trailing,
+}: {
+  icon: ReactNode;
+  name: string;
+  value: string;
+  target: string;
+  bar: ReactNode;
+  trailing?: ReactNode;
+}) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, minHeight: 52 }}>
+      <IconWell>{icon}</IconWell>
+      <View style={{ flex: 1, gap: 6 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            alignItems: "baseline",
+            columnGap: spacing.sm,
+          }}
+        >
+          <AppText variant="label" style={{ flexGrow: 1, flexShrink: 0 }}>
+            {name}
+          </AppText>
+          <AppText variant="label" numeric style={{ fontSize: 14 }}>
+            {value}
+            <AppText variant="caption" muted>
+              {` / ${target}`}
+            </AppText>
+          </AppText>
+        </View>
+        {bar}
+      </View>
+      {trailing}
     </View>
   );
 }
@@ -57,28 +103,47 @@ export function TodayNutrition({ today, onPress }: { today: string; onPress: () 
   const calories = activity.food.kind === "ready" ? activity.food.summary.calories : null;
   const target = activity.targets.kind === "ready" ? activity.targets.calories : null;
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Today's nutrition"
+    <Tappable
+      label="Today's nutrition"
       onPress={onPress}
-      style={{
-        padding: 12,
-        backgroundColor: colors.card,
-        borderRadius: 18,
+      ring="outline"
+      style={({ pressed }) => ({
+        padding: spacing.card,
+        paddingRight: spacing.card - 2,
+        borderRadius: radius.panel,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: colors.border,
+        backgroundColor: pressed ? colors.muted : colors.card,
+        boxShadow: cardShadow(colors),
         flexDirection: "row",
         alignItems: "center",
-        justifyContent: "space-between",
-      }}
+        gap: spacing.md,
+      })}
     >
-      <View>
-        <JournalText variant="label">Today’s nutrition</JournalText>
-        <JournalText size={14} muted style={{ marginTop: 2 }}>
-          {calories === null ? "Unavailable" : number(calories)} /{" "}
-          {target === null ? "Not set" : number(target)} kcal
-        </JournalText>
+      <IconWell icon="utensils" color={colors.primary} />
+      <View style={{ flex: 1, gap: 6 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            alignItems: "baseline",
+            columnGap: spacing.sm,
+          }}
+        >
+          <AppText variant="label" style={{ flexGrow: 1, flexShrink: 0 }}>
+            Today’s nutrition
+          </AppText>
+          <AppText variant="label" numeric style={{ fontSize: 14 }}>
+            {calories === null ? "Unavailable" : number(calories)}
+            <AppText variant="caption" muted>
+              {` / ${target === null ? "Not set" : number(target)} kcal`}
+            </AppText>
+          </AppText>
+        </View>
+        <ProgressBar consumed={calories} target={target} color={colors.primary} />
       </View>
-      <Icon name="chevron-right" size={12} color={colors.primary} />
-    </Pressable>
+      <Icon name="chevron-right" size={16} color={colors.mutedForeground} />
+    </Tappable>
   );
 }
 export function ProfileGoals({
@@ -99,6 +164,8 @@ export function ProfileGoals({
     activity = useDayActivity(today);
   const { colors } = useTheme();
   const [choosing, setChoosing] = useState(false);
+  // The chosen editor opens once the chooser has gone, so it can take focus.
+  const chosen = useRef<(typeof chooserSections)[number] | null>(null);
   const { targets } = activity;
   if (profile.state.kind !== "ready" || targets.kind !== "ready") return null;
   const answers = profile.state.document.answers;
@@ -113,11 +180,24 @@ export function ProfileGoals({
     ["Activity", activities.find((v) => v.value === answers.activity)?.label || "Not set"],
     ["Calorie target", targets.calories === null ? "Not set" : `${number(targets.calories)} kcal`],
   ];
+  const detail = (section: (typeof chooserSections)[number]) =>
+    ({
+      name: answers.name.trim() || "Not set",
+      age: answers.age ? `${answers.age} years` : "Not set",
+      body:
+        [answers.height && `${answers.height} cm`, answers.weight && `${answers.weight} kg`]
+          .filter(Boolean)
+          .join(" · ") || "Not set",
+      goal: goals.find((v) => v.value === answers.goal)?.label || "Not set",
+      activity: activities.find((v) => v.value === answers.activity)?.label || "Not set",
+      calories: targets.calories === null ? "Not set" : `${number(targets.calories)} kcal`,
+    })[section];
   return (
-    <View style={{ gap: 12 }}>
-      <JournalPanel accessibilityLabel={`Today & targets · ${today}`}>
+    <View style={{ gap: spacing.layout }}>
+      <Panel accessibilityLabel={`Today & targets · ${today}`}>
         <JournalHeading title="Today & targets">
-          <JournalAction
+          <AppButton
+            size="small"
             label="Edit"
             icon="pen"
             accessibilityLabel="Edit nutrition goals"
@@ -130,81 +210,71 @@ export function ProfileGoals({
         <View
           testID="profile-goal-calories"
           accessibilityLabel={`${summary?.calories ?? "Unavailable"} / ${targets.calories === null ? "Not set" : number(targets.calories)} kcal`}
+          style={{ gap: spacing.sm, marginBottom: spacing.xs }}
         >
-          <JournalText size={23} variant="heading">
-            {summary ? number(summary.calories) : "Unavailable"}
-            <JournalText size={10} muted>
-              {" "}
-              / {targets.calories === null ? "Not set" : number(targets.calories)} kcal
-            </JournalText>
-          </JournalText>
+          <JournalFigure
+            value={summary ? number(summary.calories) : "Unavailable"}
+            unit={`/ ${targets.calories === null ? "Not set" : number(targets.calories)} kcal`}
+          />
           <ProgressBar
             consumed={summary?.calories ?? null}
             target={targets.calories}
             color={colors.primary}
           />
         </View>
-        <View
-          style={{
-            flexDirection: "row",
-            gap: 12,
-            marginTop: 16,
-            marginBottom: 14,
-          }}
-        >
-          {(["carbs", "protein", "fat"] as const).map((field) => (
-            <View
-              key={field}
-              testID={`profile-goal-${field}`}
-              accessibilityLabel={`${summary?.[field] ?? "Unavailable"} / ${targets[field] === null ? "Not set" : number(targets[field])} g`}
-              style={{ flex: 1 }}
-            >
-              <JournalText size={11} variant="label" style={{ color: colors[field] }}>
-                {field[0].toUpperCase() + field.slice(1)}
-              </JournalText>
-              <JournalText size={16} variant="heading" style={{ marginTop: 3 }}>
-                {summary ? number(summary[field]) : "—"} g
-              </JournalText>
-              <JournalText size={10} muted>
-                of {targets[field] === null ? "not set" : `${number(targets[field])} g`}
-              </JournalText>
-              <ProgressBar
-                consumed={summary?.[field] ?? null}
-                target={targets[field]}
-                color={colors[field]}
-              />
-            </View>
-          ))}
-        </View>
+        {(["carbs", "protein", "fat"] as const).map((field) => (
+          <View
+            key={field}
+            testID={`profile-goal-${field}`}
+            accessibilityLabel={`${summary?.[field] ?? "Unavailable"} / ${targets[field] === null ? "Not set" : number(targets[field])} g`}
+          >
+            <GoalRow
+              icon={
+                <View
+                  style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors[field] }}
+                />
+              }
+              name={field[0].toUpperCase() + field.slice(1)}
+              value={summary ? number(summary[field]) : "—"}
+              target={targets[field] === null ? "not set" : `${number(targets[field])} g`}
+              bar={
+                <ProgressBar
+                  consumed={summary?.[field] ?? null}
+                  target={targets[field]}
+                  color={colors[field]}
+                />
+              }
+            />
+          </View>
+        ))}
         <View
           testID="profile-goal-water"
           accessibilityLabel={`${waterMl === null ? "Unavailable" : number(waterMl)} / ${waterTarget === null ? "Not set" : number(waterTarget)} ml`}
-          style={{ paddingTop: 12 }}
+          style={{
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderColor: colors.border,
+            paddingTop: spacing.sm,
+          }}
         >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Edit water goal"
+          <Tappable
+            label="Edit water goal"
             onPress={() => edit("water")}
+            feedback="fill"
             style={{
-              minHeight: 44,
-              marginVertical: -13,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
+              marginHorizontal: -spacing.sm,
+              paddingHorizontal: spacing.sm - 2,
+              borderRadius: radius.control,
             }}
           >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <Icon name="droplet" size={14} color={colors.primary} />
-              <JournalText size={11}>Water</JournalText>
-            </View>
-            <JournalText size={10}>
-              {waterMl === null ? "—" : number(waterMl)}
-              <JournalText size={10} muted>
-                {" "}
-                / {waterTarget === null ? "Not set" : `${number(waterTarget)} ml`}
-              </JournalText>
-            </JournalText>
-          </Pressable>
+            <GoalRow
+              icon={<Icon name="droplet" size={18} color={colors.water} />}
+              name="Water"
+              value={waterMl === null ? "—" : number(waterMl)}
+              target={waterTarget === null ? "Not set" : `${number(waterTarget)} ml`}
+              bar={<ProgressBar consumed={waterMl} target={waterTarget} color={colors.water} />}
+              trailing={<Icon name="chevron-right" size={16} color={colors.mutedForeground} />}
+            />
+          </Tappable>
         </View>
         {water.state.kind !== "ready" && (
           <SourceStatus name="water log" kind={water.state.kind} retry={water.retryLoad} />
@@ -213,69 +283,135 @@ export function ProfileGoals({
           <SourceStatus name="water goal" kind={goal.state.kind} retry={goal.retryLoad} />
         )}
         {editor?.section === "calories" && (
-          <ProfileEditor
-            key={editor.id}
-            section={editor.section}
-            initial={answers}
-            close={() => close(editor.id)}
-          />
+          <ProfileEditor key={editor.id} section={editor.section} close={() => close(editor.id)} />
         )}
         {editor?.section === "water" && goal.state.kind === "ready" && (
           <WaterGoalEditor key={editor.id} close={() => close(editor.id)} />
         )}
-      </JournalPanel>
-      <JournalPanel>
+      </Panel>
+      <Panel>
         <JournalHeading title="Details & goals">
-          <JournalAction
+          <AppButton
+            size="small"
             label="Edit"
             icon="pen"
             accessibilityLabel="Edit details and goals"
             onPress={() => setChoosing(true)}
           />
         </JournalHeading>
-        {rows.map(([label, value]) => (
-          <View
-            key={label}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-              paddingVertical: 6,
-            }}
-          >
-            <JournalText size={11} muted>
-              {label}
-            </JournalText>
-            <JournalText size={11} style={{ textAlign: "right", flexShrink: 1 }}>
-              {value}
-            </JournalText>
-          </View>
-        ))}
+        <View>
+          {rows.map(([label, value], index) => (
+            <View
+              key={label}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: spacing.md,
+                minHeight: 46,
+                borderTopWidth: index ? StyleSheet.hairlineWidth : 0,
+                borderColor: colors.border,
+              }}
+            >
+              <AppText variant="label" muted style={{ fontFamily: fonts.medium }}>
+                {label}
+              </AppText>
+              <AppText variant="label" style={{ textAlign: "right", flexShrink: 1 }}>
+                {value}
+              </AppText>
+            </View>
+          ))}
+        </View>
         {editor && editor.section !== "calories" && editor.section !== "water" && (
-          <ProfileEditor
-            key={editor.id}
-            section={editor.section}
-            initial={answers}
-            close={() => close(editor.id)}
-          />
+          <ProfileEditor key={editor.id} section={editor.section} close={() => close(editor.id)} />
         )}
-      </JournalPanel>
-      {choosing && (
-        <ProfileDialog title="Edit details & goals" dismiss={() => setChoosing(false)}>
-          {(["name", "age", "body", "goal", "activity", "calories"] as const).map((section) => (
-            <AppButton
+      </Panel>
+      <ModalSheet
+        open={choosing}
+        title="Edit details & goals"
+        onDismiss={() => setChoosing(false)}
+        onClosed={() => {
+          const section = chosen.current;
+          chosen.current = null;
+          if (section) edit(section);
+        }}
+      >
+        <View
+          style={{
+            borderRadius: radius.panel - 4,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: colors.border,
+            backgroundColor: colors.card,
+            overflow: "hidden",
+          }}
+        >
+          {chooserSections.map((section, index) => (
+            <ChooserRow
               key={section}
-              label={`Edit ${section}`}
+              section={section}
+              detail={detail(section)}
+              first={index === 0}
               onPress={() => {
+                chosen.current = section;
                 setChoosing(false);
-                edit(section);
               }}
             />
           ))}
-          <AppButton label="Cancel" onPress={() => setChoosing(false)} />
-        </ProfileDialog>
-      )}
+        </View>
+        <AppButton label="Cancel" onPress={() => setChoosing(false)} />
+      </ModalSheet>
+    </View>
+  );
+}
+const chooserSections = ["name", "age", "body", "goal", "activity", "calories"] as const;
+const chooserIcons = {
+  name: "user",
+  age: "calendar",
+  body: "weight-scale",
+  goal: "chart-line",
+  activity: "shoe-prints",
+  calories: "fire",
+} as const satisfies Record<(typeof chooserSections)[number], IconName>;
+function ChooserRow({
+  section,
+  detail,
+  first,
+  onPress,
+}: {
+  section: (typeof chooserSections)[number];
+  detail: string;
+  first: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={{ borderTopWidth: first ? 0 : StyleSheet.hairlineWidth, borderColor: colors.border }}
+    >
+      <Tappable
+        label={`Edit ${section}`}
+        onPress={onPress}
+        feedback="fill"
+        style={{
+          minHeight: 60,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: spacing.md,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm - 2,
+        }}
+      >
+        <IconWell icon={chooserIcons[section]} color={colors.primary} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <AppText variant="label" style={{ fontSize: 15 }}>
+            {section[0].toUpperCase() + section.slice(1)}
+          </AppText>
+          <AppText variant="caption" muted numberOfLines={1}>
+            {detail}
+          </AppText>
+        </View>
+        <Icon name="chevron-right" size={16} color={colors.mutedForeground} />
+      </Tappable>
     </View>
   );
 }

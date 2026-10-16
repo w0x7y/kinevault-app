@@ -1,4 +1,4 @@
-import { createDurableWrite, type DurableSnapshot } from "../persistence/durable-write.ts";
+import { createDurableWrite } from "../persistence/durable-write.ts";
 import {
   customFoodFromDraft,
   parseCustomFoods,
@@ -10,7 +10,6 @@ import type { FoodLogStorage } from "./log-persistence.ts";
 import { mealFromDraft, type CustomMeal, type MealDraft } from "./meal-model.ts";
 
 export const customFoodStorageKey = "kinevault-track.custom-foods.v1";
-export type CustomFoodSnapshot = DurableSnapshot<CustomFoodDocument>;
 
 export function createCustomFoodPersistence({
   storage,

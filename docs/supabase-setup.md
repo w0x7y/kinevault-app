@@ -51,6 +51,17 @@ document keys are accepted. Payloads remain versioned JSON objects understood by
 the existing application parsers. Profile progress-photo documents and image files
 are outside this document sync.
 
+Three later migrations are in `supabase/migrations/`:
+
+- `20261005152713_track_role_assignment_index.sql` indexes the role assignment
+  foreign key. It is applied.
+- `20261008041229_bounded_history_partitions.sql` adds
+  `track_document_partitions` and the monthly history RPCs. It is not applied;
+  see [monthly cloud history rollout](history-migration-rollout.md).
+- `20261013120000_exercise_demo_catalog.sql` adds the public `catalog_exercises`
+  table and the `exercise-demos` storage bucket. It was applied on 2026-10-13;
+  see [exercise demos](exercise-demos.md).
+
 The migration was applied to the inspected empty project. Verification passed for
 account isolation, anonymous denial, subscription/role write denial, signup defaults,
 revision conflicts and the account-switch guard. Live password login and document
@@ -112,7 +123,8 @@ Management API token is ready for a retry after upgrading the organization.
 
 Use Resend SMTP for account emails and Vercel for the exported Track web app.
 `vercel.json` defines the static build and clean routes. Create the Vercel project
-from `Application/`, add the two public Supabase environment variables, and use its
+from `Application/`, add the two public Supabase environment variables (and
+`EXPO_PUBLIC_SENTRY_DSN` if you use Sentry), and use its
 actual production origin for the web callback. No production URL has been reserved
 or deployed yet.
 
@@ -176,7 +188,9 @@ to the friend's website would send Track's users to the wrong application. The
 application uses PKCE and also accepts token-hash links from such a template. It
 refuses links that carry session tokens, since PKCE sign-in never sends them, and it
 ignores token-hash links while someone is signed in, because anyone can take one
-from their own account's email.
+from their own account's email. On a device that has never signed in, such a link
+still signs in and imports the guest data; see the open finding in
+[security remediation](security-remediation.md#token-hash-email-links-on-a-guest-device).
 
 Test confirmation and password reset through links sent to a real inbox. Open each
 link in both the installed app and the deployed web app before releasing. A successful

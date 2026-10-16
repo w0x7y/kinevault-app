@@ -1,14 +1,17 @@
 import { AppButton } from "../components/button";
 import { useState } from "react";
-import { View, type ViewProps } from "react-native";
+import { useRouter } from "expo-router";
+import { StyleSheet, View } from "react-native";
+import { SheetPage } from "../components/sheet-page";
+import { Tappable } from "../components/tappable";
 import { parseDay } from "../calendar/dates.ts";
-import { AppText, Panel } from "../components/ui";
-import { CalorieWidget } from "../daily/calorie-widget";
-import { summarizeDay, type FoodDay } from "../daily/model.ts";
+import { AppText, Overline, Panel } from "../components/ui";
+import { progressFraction, summarizeDay, type FoodDay } from "../daily/model.ts";
+import { calorieSegments, macroCategories } from "../daily/nutrition.ts";
 import { sumDetailedNutrients } from "../daily/detailed-nutrition.ts";
 import { useDayActivity } from "../daily/use-day";
 import { useTheme } from "../theme/provider";
-import { spacing } from "../theme/tokens";
+import { fonts, radius, spacing } from "../theme/tokens";
 import { detailedNutrients } from "./nutrients.ts";
 import { foodDatabase } from "./database";
 
@@ -26,109 +29,219 @@ function formatNutrient(value: number | null): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-export function DailyMacros({
-  day,
-  onBack,
-  onLayout,
-}: {
-  day: FoodDay;
-  onBack: () => void;
-  onLayout: ViewProps["onLayout"];
-}) {
+export function DailyMacros({ day, onBack }: { day: FoodDay; onBack: () => void }) {
   const { targets } = useDayActivity(day.date);
   const { colors } = useTheme();
+  const router = useRouter();
   const [showMissing, setShowMissing] = useState(false);
-  if (targets.kind !== "ready") return null;
+  // The page opens at once; its figures appear when the day's targets have loaded.
+  if (targets.kind !== "ready")
+    return <SheetPage title="Daily macros" closeLabel="Back to food log" onClose={onBack} />;
   const summary = summarizeDay(day);
   const details = sumDetailedNutrients(day.foods, foodDatabase.getById);
   const values = { ...summary, ...details };
   // Nutrients without data fold away behind one control instead of a column of placeholders.
   const missing = nutrientRows.filter(({ key }) => values[key] === null);
   const rows = showMissing ? nutrientRows : nutrientRows.filter(({ key }) => values[key] !== null);
+  const fraction = progressFraction(summary.calories, targets.calories);
+  const percentage = Math.round(fraction * 100);
+  const remaining =
+    targets.calories === null ? null : targets.calories - Math.round(summary.calories);
   return (
-    <View testID="daily-macro-view" onLayout={onLayout} style={{ gap: spacing.layout }}>
-      <AppButton link icon="chevron-left" label="Back to food log" onPress={onBack} />
-      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.layout }}>
-        <View style={{ flex: 1, minWidth: 0, gap: spacing.xs }}>
-          <AppText variant="heading" accessibilityRole="header">
-            Daily macros
-          </AppText>
-          <AppText variant="caption" muted selectable>
-            {parseDay(day.date).toLocaleDateString(undefined, {
-              weekday: "long",
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </AppText>
-        </View>
-      </View>
-      <CalorieWidget
-        current={summary.calories}
-        macros={summary}
-        goal={targets.calories}
-        testIDPrefix="day"
-      />
-      <Panel testID="daily-nutrient-details" style={{ gap: 0 }}>
-        {rows.map(({ key, label, unit, indented }, index) => (
+    <SheetPage title="Daily macros" closeLabel="Back to food log" onClose={onBack}>
+      <View testID="daily-macro-view" style={{ gap: spacing.layout }}>
+        <Overline selectable style={{ textAlign: "center" }}>
+          {parseDay(day.date).toLocaleDateString(undefined, {
+            weekday: "long",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </Overline>
+        <Panel style={{ gap: 0 }}>
+          <View testID="day-calories" style={{ gap: spacing.md, paddingBottom: spacing.lg }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+              <Overline style={{ flex: 1 }}>Energy</Overline>
+              {remaining !== null && (
+                <Overline style={{ color: remaining < 0 ? colors.danger : colors.mutedForeground }}>
+                  {remaining < 0
+                    ? `${Math.abs(remaining).toLocaleString()} over`
+                    : `${remaining.toLocaleString()} left`}
+                </Overline>
+              )}
+            </View>
+            <AppText variant="hero" selectable>
+              {Math.round(summary.calories).toLocaleString()}
+              <AppText
+                variant="body"
+                muted
+                style={{ fontFamily: fonts.semibold, letterSpacing: 0 }}
+              >
+                {" "}
+                / {targets.calories === null ? "—" : targets.calories.toLocaleString()} kcal
+              </AppText>
+            </AppText>
+            <View
+              testID="day-calorie-track"
+              accessibilityRole="progressbar"
+              accessibilityLabel={`${summary.calories} kilocalories consumed, calorie goal ${targets.calories === null ? "unset" : `${targets.calories} kilocalories`}`}
+              accessibilityValue={{ min: 0, max: 100, now: percentage }}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={percentage}
+              style={{
+                height: 10,
+                borderRadius: radius.pill,
+                backgroundColor: colors.muted,
+                overflow: "hidden",
+                flexDirection: "row",
+              }}
+            >
+              {calorieSegments(summary, targets.calories).map((segment) => (
+                <View
+                  key={segment.key}
+                  testID={`day-calorie-${segment.key}`}
+                  style={{
+                    height: "100%",
+                    width: `${segment.fraction * 100}%`,
+                    backgroundColor:
+                      segment.key === "other" ? colors.mutedForeground : colors[segment.key],
+                  }}
+                />
+              ))}
+            </View>
+            <View style={{ flexDirection: "row", gap: spacing.sm, paddingTop: spacing.xs }}>
+              {macroCategories.map(({ key, label }) => (
+                <View key={key} style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <View
+                      style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors[key] }}
+                    />
+                    <AppText
+                      variant="caption"
+                      style={{ color: colors[key], fontFamily: fonts.bold }}
+                    >
+                      {label}
+                    </AppText>
+                  </View>
+                  <AppText
+                    variant="label"
+                    style={{ fontFamily: fonts.extrabold, fontVariant: ["tabular-nums"] }}
+                  >
+                    {Math.round(summary[key]).toLocaleString()}
+                    <AppText variant="caption" muted>
+                      {targets[key] === null ? " g" : ` / ${targets[key].toLocaleString()} g`}
+                    </AppText>
+                  </AppText>
+                </View>
+              ))}
+            </View>
+            {targets.calories === null && (
+              <Tappable
+                role="link"
+                label="Set your calorie goal in Settings"
+                // Settings opens behind this page, so the page closes first.
+                onPress={() => {
+                  onBack();
+                  router.push("/settings");
+                }}
+                feedback="fill"
+                style={{
+                  justifyContent: "center",
+                  alignSelf: "flex-start",
+                  paddingHorizontal: spacing.sm,
+                  marginHorizontal: -spacing.sm,
+                  borderRadius: radius.control,
+                }}
+              >
+                <AppText variant="label" style={{ color: colors.brand }}>
+                  Set your goals
+                </AppText>
+              </Tappable>
+            )}
+          </View>
           <View
-            key={key}
-            testID={`daily-nutrient-${key}`}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: spacing.layout,
-              paddingVertical: spacing.layout,
-              borderTopWidth: index ? 1 : 0,
-              borderColor: colors.border,
-            }}
+            testID="daily-nutrient-details"
+            style={{ borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border }}
           >
-            <AppText
-              testID="nutrient-label"
-              variant="label"
-              style={{
-                flex: 1,
-                paddingLeft: indented ? spacing.layout : 0,
-                color:
-                  key === "carbs" || key === "protein" || key === "fat"
-                    ? colors[key]
-                    : colors.foreground,
-              }}
-            >
-              {label} ({unit})
-            </AppText>
-            <AppText
-              testID="nutrient-value"
-              variant="label"
-              selectable
-              style={{
-                color: values[key] === null ? colors.mutedForeground : colors.foreground,
-                fontVariant: ["tabular-nums"],
-              }}
-            >
-              {key === "calories"
-                ? Math.round(values[key]).toLocaleString()
-                : formatNutrient(values[key])}
-            </AppText>
+            <Overline style={{ paddingTop: spacing.lg, paddingBottom: spacing.xs }}>
+              Nutrients
+            </Overline>
+            {rows.map(({ key, label, unit, indented }, index) => (
+              <View
+                key={key}
+                testID={`daily-nutrient-${key}`}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: spacing.layout,
+                  paddingVertical: spacing.md,
+                  borderTopWidth: index ? StyleSheet.hairlineWidth : 0,
+                  borderColor: colors.border,
+                }}
+              >
+                <AppText
+                  testID="nutrient-label"
+                  variant="label"
+                  style={{
+                    flex: 1,
+                    paddingLeft: indented ? spacing.layout : 0,
+                    fontFamily: indented ? fonts.medium : fonts.semibold,
+                    color:
+                      key === "carbs" || key === "protein" || key === "fat"
+                        ? colors[key]
+                        : indented
+                          ? colors.mutedForeground
+                          : colors.foreground,
+                  }}
+                >
+                  {label} ({unit})
+                </AppText>
+                <AppText
+                  testID="nutrient-value"
+                  variant="label"
+                  selectable
+                  style={{
+                    color: values[key] === null ? colors.mutedForeground : colors.foreground,
+                    fontFamily: values[key] === null ? fonts.medium : fonts.bold,
+                    fontVariant: ["tabular-nums"],
+                  }}
+                >
+                  {key === "calories"
+                    ? Math.round(values[key]).toLocaleString()
+                    : formatNutrient(values[key])}
+                </AppText>
+              </View>
+            ))}
+            {missing.length > 0 && (
+              <View
+                style={{
+                  paddingTop: spacing.xs,
+                  borderTopWidth: StyleSheet.hairlineWidth,
+                  borderColor: colors.border,
+                }}
+              >
+                <AppButton
+                  tone="link"
+                  icon={showMissing ? "chevron-up" : "chevron-down"}
+                  label={
+                    showMissing
+                      ? "Hide nutrients without data"
+                      : `Show ${missing.length} ${missing.length === 1 ? "nutrient" : "nutrients"} without data`
+                  }
+                  expanded={showMissing}
+                  onPress={() => setShowMissing((shown) => !shown)}
+                />
+              </View>
+            )}
           </View>
-        ))}
-        {missing.length > 0 && (
-          <View style={{ paddingTop: spacing.sm }}>
-            <AppButton
-              link
-              icon={showMissing ? "chevron-up" : "chevron-down"}
-              label={
-                showMissing
-                  ? "Hide nutrients without data"
-                  : `Show ${missing.length} ${missing.length === 1 ? "nutrient" : "nutrients"} without data`
-              }
-              expanded={showMissing}
-              onPress={() => setShowMissing((shown) => !shown)}
-            />
-          </View>
+        </Panel>
+        {day.foods.length === 0 && (
+          <AppText muted style={{ textAlign: "center" }}>
+            No food has been logged yet
+          </AppText>
         )}
-      </Panel>
-      {day.foods.length === 0 && <AppText muted>No food has been logged yet</AppText>}
-    </View>
+      </View>
+    </SheetPage>
   );
 }

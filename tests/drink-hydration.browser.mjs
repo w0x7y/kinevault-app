@@ -56,11 +56,16 @@ async function open(t, { food = null, water = null, waterState = "ready", custom
       const get = Storage.prototype.getItem;
       window.__waterFailure = waterState === "error";
       let delayed = waterState === "loading";
+      // The held read must reach the water store, not a cloud refresh.
+      let tookRead;
+      window.accountFixtureRefreshHolds = [new Promise((resolve) => (tookRead = resolve))];
+      if (!delayed) tookRead();
       Storage.prototype.getItem = function (key) {
         if (key.endsWith(waterKey) && window.accountFixture?.domainReady && window.__waterFailure)
           throw new Error("Fixture read error");
         if (key.endsWith(waterKey) && window.accountFixture?.domainReady && delayed) {
           delayed = false;
+          tookRead();
           return new Promise((resolve) => {
             window.__releaseWaterRead = () => resolve(get.call(this, key));
           });

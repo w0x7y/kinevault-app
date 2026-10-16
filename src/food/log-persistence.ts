@@ -16,6 +16,7 @@ import {
 export const foodLogStorageKey = "kinevault-track.food-log.v1";
 export type FoodLogStorage = DurableStorage;
 export type FoodLogSnapshot = DurableSnapshot<FoodLogDocument>;
+const noFood: FindFood = () => undefined;
 
 export function createFoodLogPersistence({
   storage,
@@ -43,6 +44,8 @@ export function createFoodLogPersistence({
   }
   return {
     ...lifecycle,
+    /** The bundled-food lookup shared by edits and Logging attempt previews. */
+    findFood: findFood ?? noFood,
     add(input: AddFoodInput) {
       return update((document) => {
         parseDay(input.date);

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useRef } from "react";
+import { useDocumentEdit } from "../persistence/use-document-edit";
 import { createMediaEditing } from "./media-editing";
 import { pickProfilePhoto } from "./media-picker";
 import { useProfileMedia, useProfileMediaStore } from "./media-provider";
@@ -8,7 +9,7 @@ export function useMediaEditing(mode: "avatar" | "photos", today = "") {
   const { files } = useProfileMedia();
   const date = useRef(today);
   date.current = today;
-  const [editing] = useState(() =>
+  const { edit, ...snapshot } = useDocumentEdit(() =>
     createMediaEditing({
       mode,
       media,
@@ -17,14 +18,5 @@ export function useMediaEditing(mode: "avatar" | "photos", today = "") {
       today: () => date.current,
     }),
   );
-  const snapshot = useSyncExternalStore(
-    editing.subscribe,
-    editing.getSnapshot,
-    editing.getSnapshot,
-  );
-  useEffect(() => {
-    editing.start();
-    return editing.stop;
-  }, [editing]);
-  return { ...snapshot, editing };
+  return { ...snapshot, editing: edit };
 }

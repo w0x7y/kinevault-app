@@ -216,7 +216,7 @@ async function bottomTabGeometry(page) {
           .filter(
             (node) =>
               node.childElementCount === 0 &&
-              getComputedStyle(node).fontFamily.includes("FontAwesome"),
+              /FontAwesome|ionicons/i.test(getComputedStyle(node).fontFamily),
           )
           .map(geometry),
         labels: descendants
@@ -1474,7 +1474,7 @@ test(
       x.textAlign = "center";
       x.font = "22px FontAwesome6Free-Solid";
       x.fillText("\uf03e", 160, 88);
-      x.font = "9px Comfortaa_400Regular";
+      x.font = "9px Manrope_500Medium";
       x.fillText("Progress photo", 160, 110);
       const blob = await new Promise((resolve) => c.toBlob(resolve, "image/jpeg", 0.95));
       const db = await new Promise((resolve, reject) => {

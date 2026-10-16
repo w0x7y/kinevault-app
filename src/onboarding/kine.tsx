@@ -12,6 +12,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useIsFocused } from "expo-router";
 import { useReducedMotion } from "../components/motion";
+import { useTheme } from "../theme/provider";
 import { kineAssets, warmUpcomingKine, type KinePose } from "./kine-assets";
 export type { KinePose } from "./kine-assets";
 
@@ -24,6 +25,7 @@ export const Kine = memo(function Kine({
 }) {
   const reduced = useReducedMotion();
   const focused = useIsFocused();
+  const { appearance } = useTheme();
   const greeting = useSharedValue(0);
   useEffect(() => {
     cancelAnimation(greeting);
@@ -77,7 +79,8 @@ export const Kine = memo(function Kine({
           width: shadowWidth,
           height: shadowWidth,
           borderRadius: size,
-          backgroundColor: "#27323d",
+          // A soft contact shadow that reads on light and dark pages alike.
+          backgroundColor: appearance === "dark" ? "rgba(0, 0, 0, 0.55)" : "rgba(22, 24, 28, 0.16)",
           // Flatten a circle into an ellipse on both native and web.
           transform: [{ scaleY: shadowHeight / shadowWidth }],
         }}
@@ -99,3 +102,30 @@ export const Kine = memo(function Kine({
     </Animated.View>
   );
 });
+
+/** Kine standing on a soft brand-tinted disc. The disc stays still while Kine greets. */
+export function KineStage({ size = 136, pose = "welcome" }: { size?: number; pose?: KinePose }) {
+  const { colors } = useTheme();
+  const disc = Math.round(size * 0.86);
+  return (
+    <View
+      accessible={false}
+      aria-hidden={true}
+      style={{ width: size, height: size, alignSelf: "center", flexShrink: 0 }}
+    >
+      <View
+        style={{
+          position: "absolute",
+          pointerEvents: "none",
+          left: (size - disc) / 2,
+          top: size * 0.08,
+          width: disc,
+          height: disc,
+          borderRadius: disc / 2,
+          backgroundColor: colors.brandSoft,
+        }}
+      />
+      <Kine size={size} pose={pose} />
+    </View>
+  );
+}

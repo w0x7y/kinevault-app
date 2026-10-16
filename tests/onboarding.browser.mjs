@@ -137,9 +137,10 @@ test("custom food and meal edits and deletes persist, retry safely and preserve 
     await page.getByRole("textbox", { name: "Food name", exact: true }).inputValue(),
     "Revised oats",
   );
-  await button(page, "Expand calendar").click();
-  await button(page, "Select previous day").click();
-  await button(page, "Collapse calendar").click();
+  // The calendar behind the open page stands in for a day change under it, e.g. at midnight.
+  await button(page, "Expand calendar").dispatchEvent("click");
+  await button(page, "Select previous day").dispatchEvent("click");
+  await button(page, "Collapse calendar").dispatchEvent("click");
   await heading(page, "Edit custom food");
   assert.equal(
     await page.getByRole("textbox", { name: "Food name", exact: true }).inputValue(),
@@ -148,9 +149,9 @@ test("custom food and meal edits and deletes persist, retry safely and preserve 
   assert.ok(
     await page.getByRole("alert").filter({ hasText: "Couldn't update your food" }).isVisible(),
   );
-  await button(page, "Expand calendar").click();
-  await button(page, "Select today").click();
-  await button(page, "Collapse calendar").click();
+  await button(page, "Expand calendar").dispatchEvent("click");
+  await button(page, "Select today").dispatchEvent("click");
+  await button(page, "Collapse calendar").dispatchEvent("click");
   await button(page, "Save food changes").click();
   await heading(page, "Revised oats");
   await page.getByTestId("food-nutrition-detail").getByText("500 kcal", { exact: true }).waitFor();
@@ -411,7 +412,9 @@ test("meal creation calculates ingredients, preserves drafts across food/meal sw
   );
   await button(page, "Save meal").click();
   await page.getByText("Saved to your meals", { exact: true }).waitFor();
-  assert.equal(await page.getByRole("dialog").count(), 0);
+  // The saved item replaces the form on the same page, with no other dialog.
+  await page.getByRole("dialog").getByTestId("food-nutrition-detail").waitFor();
+  assert.equal(await page.getByRole("dialog").count(), 1);
   assert.equal(await button(page, "Food").count(), 0);
   assert.equal(await button(page, "Meal").count(), 0);
   await heading(page, "Breakfast bowl");
@@ -503,9 +506,14 @@ test("meal ingredient validation, removal, calendar changes and logged edits wor
         .screenshot({ path: join(screenshotDir, `meal-builder-${theme}.png`) });
     }
   }
-  await button(page, "Expand calendar").click();
-  await page.locator("button[aria-pressed]").filter({ hasText: /^\d/ }).first().click();
-  await button(page, "Collapse calendar").click();
+  // The calendar behind the open page stands in for a day change under it, e.g. at midnight.
+  await button(page, "Expand calendar").dispatchEvent("click");
+  await page
+    .locator("button[aria-pressed]")
+    .filter({ hasText: /^\d/ })
+    .first()
+    .dispatchEvent("click");
+  await button(page, "Collapse calendar").dispatchEvent("click");
   assert.equal(
     await page.getByRole("textbox", { name: "Meal name", exact: true }).inputValue(),
     "Portable snack",
@@ -518,7 +526,9 @@ test("meal ingredient validation, removal, calendar changes and logged edits wor
   );
   await button(page, "Save meal").click();
   await page.getByText("Saved to your meals", { exact: true }).waitFor();
-  assert.equal(await page.getByRole("dialog").count(), 0);
+  // The saved item replaces the form on the same page, with no other dialog.
+  await page.getByRole("dialog").getByTestId("food-nutrition-detail").waitFor();
+  assert.equal(await page.getByRole("dialog").count(), 1);
   assert.equal(await button(page, "Food").count(), 0);
   assert.equal(await button(page, "Meal").count(), 0);
   await button(page, "Log meal").click();
@@ -575,7 +585,9 @@ test("custom food creation validates, retries a failed save, logs and remains se
   );
   await button(page, "Save food").click();
   await page.getByText("Saved to your foods", { exact: true }).waitFor();
-  assert.equal(await page.getByRole("dialog").count(), 0);
+  // The saved item replaces the form on the same page, with no other dialog.
+  await page.getByRole("dialog").getByTestId("food-nutrition-detail").waitFor();
+  assert.equal(await page.getByRole("dialog").count(), 1);
   assert.equal(
     await page.evaluate(
       () =>
@@ -694,11 +706,12 @@ test("changing calendar day preserves a custom food draft and logs it to the new
   });
   await button(page, "Save food").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save your custom food" }).waitFor();
-  await button(page, "Expand calendar").click();
+  // The calendar behind the open page stands in for a day change under it, e.g. at midnight.
+  await button(page, "Expand calendar").dispatchEvent("click");
   const date = page.locator("button[aria-pressed]").filter({ hasText: /^\d+$/ }).first();
   const dateName = await date.getAttribute("aria-label");
-  await date.click();
-  await button(page, "Collapse calendar").click();
+  await date.dispatchEvent("click");
+  await button(page, "Collapse calendar").dispatchEvent("click");
   await heading(page, "Create food");
   assert.equal(
     await page.getByRole("textbox", { name: "Food name", exact: true }).inputValue(),
@@ -713,7 +726,9 @@ test("changing calendar day preserves a custom food draft and logs it to the new
   );
   await button(page, "Save food").click();
   await page.getByText("Saved to your foods", { exact: true }).waitFor();
-  assert.equal(await page.getByRole("dialog").count(), 0);
+  // The saved item replaces the form on the same page, with no other dialog.
+  await page.getByRole("dialog").getByTestId("food-nutrition-detail").waitFor();
+  assert.equal(await page.getByRole("dialog").count(), 1);
   await heading(page, "שיבולת שועל");
   await button(page, "Log food").click();
   await page.getByTestId("food-nutrition-detail").waitFor({ state: "hidden" });
@@ -1377,12 +1392,13 @@ test("onboarding poses load and onboarding fits phone and desktop widths", async
     if (pose !== "today") {
       const contentBox = await page.getByTestId("onboarding-content").boundingBox();
       const outerWidth = Math.min(width, pose === "welcome" ? 480 : 560);
+      // Onboarding uses the 20px screen gutter of the redesign.
       assert.ok(
-        Math.abs(contentBox.x - ((width - outerWidth) / 2 + 12)) <= 1,
-        `${pose} uses 12px screen margins`,
+        Math.abs(contentBox.x - ((width - outerWidth) / 2 + 20)) <= 1,
+        `${pose} uses 20px screen margins`,
       );
       assert.ok(
-        Math.abs(contentBox.width - (outerWidth - 24)) <= 1,
+        Math.abs(contentBox.width - (outerWidth - 40)) <= 1,
         `${pose} content stays evenly inset`,
       );
     }
@@ -1547,9 +1563,13 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
               "Add workout",
               { exact: true },
             );
-        // Comfortaa sets headings; Nunito sets labels, buttons and figures.
+        // Rounded Comfortaa sets display titles and Manrope sets card headings, labels, buttons
+        // and figures; no other face (or a system fallback) may appear.
         const font = await text.evaluate((el) => getComputedStyle(el).fontFamily);
-        assert.match(font, tab === "Exercise" ? /Nunito/ : /Comfortaa/);
+        assert.match(
+          font,
+          tab === "Exercise" ? /^Manrope_\d+/ : /^(?:Comfortaa_600SemiBold|Manrope_\d+)/,
+        );
         assert.equal(await page.getByRole("heading", { name: tab, exact: true }).count(), 0);
         // Visited tabs stay mounted but hidden, so count only Kine that is on screen.
         const mascots = page.locator('[data-testid^="kine-"]:visible');
@@ -1563,19 +1583,18 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
             mascotBox.width >= 64 && mascotBox.x + mascotBox.width <= width,
             "Home Kine fits beside its content",
           );
-          const contentBox = await page.getByTestId("home-kine-content").boundingBox();
-          const kineColumnBox = await page.getByTestId("home-kine-column").boundingBox();
+          // Kine is a small companion to the greeting, not a half-width column.
+          const greetingBox = await page.getByTestId("home-greeting").boundingBox();
+          assert.ok(mascotBox.width <= 120, "Home Kine stays small");
           assert.ok(
-            Math.abs(contentBox.width - kineColumnBox.width) <= 1,
-            "Home uses equal columns",
+            mascotBox.x + mascotBox.width <= greetingBox.x + greetingBox.width + 1 &&
+              mascotBox.y >= greetingBox.y - 1 &&
+              mascotBox.y + mascotBox.height <= greetingBox.y + greetingBox.height + 1,
+            "Home Kine sits inside the greeting",
           );
           assert.ok(
-            Math.abs(mascotBox.width - kineColumnBox.width) <= 1,
-            "Home Kine fills its half",
-          );
-          assert.ok(
-            contentBox.x + contentBox.width <= kineColumnBox.x,
-            "Home content sits to Kine's left",
+            mascotBox.x >= greetingBox.x + greetingBox.width / 2,
+            "the greeting text sits to Kine's left",
           );
         } else
           assert.equal(
@@ -1596,18 +1615,19 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
           );
         const firstBlock =
           tab === "Home"
-            ? page.getByTestId("home-nutrition-row")
+            ? page.getByTestId("home-greeting")
             : tab === "Settings"
               ? page.getByRole("heading", { name: "Your account", exact: true }).locator("..")
               : page.getByTestId(`${tab.toLowerCase()}-search-actions`);
         const firstBox = await firstBlock.boundingBox();
         const screenWidth = Math.min(width, 768);
+        // Screens use the redesign's 20px gutter.
         assert.ok(
-          Math.abs(firstBox.x - ((width - screenWidth) / 2 + 12)) <= 1,
-          `${tab} uses 12px screen margins`,
+          Math.abs(firstBox.x - ((width - screenWidth) / 2 + 20)) <= 1,
+          `${tab} uses 20px screen margins`,
         );
         assert.ok(
-          Math.abs(firstBox.width - (screenWidth - 24)) <= 1,
+          Math.abs(firstBox.width - (screenWidth - 40)) <= 1,
           `${tab} content stays evenly inset`,
         );
         const bodyText = await page.locator("body").innerText();
@@ -1618,7 +1638,6 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
           "Your exercises, weights, sets, and reps will appear here.",
           "Total lifted is weight × reps",
           "No steps recorded",
-          "Not connected",
           "No water logged",
           "kcal goal",
           "remaining",
@@ -1640,50 +1659,60 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
           await waterCup.waitFor();
           assert.equal(await waterCup.getAttribute("aria-valuenow"), "0");
           await page
-            .getByTestId("home-water")
-            .getByText("of 1,500 ml · 0%", { exact: true })
+            .getByTestId("water-goal-progress")
+            .getByText("0% of goal", { exact: true })
             .waitFor();
-          await page.getByTestId("home-calorie-hero").getByText("Calories left").waitFor();
+          await page
+            .getByTestId("home-water")
+            .getByText("Goal: 1,500 ml", { exact: true })
+            .waitFor();
+          // The energy ring leads with what's left; it is decorative beside the accessible track.
+          await page
+            .getByTestId("home-calorie-hero")
+            .getByText("kcal left", { exact: true })
+            .waitFor();
           assert.equal(bodyText.includes("Daily nutrition"), false);
+          const greetingBox = await page.getByTestId("home-greeting").boundingBox();
           const rowBox = await page.getByTestId("home-nutrition-row").boundingBox();
           const heroBox = await page.getByTestId("home-calorie-hero").boundingBox();
-          const kineColumnBox = await page.getByTestId("home-kine-column").boundingBox();
           const caloriePanelBox = await page.getByTestId("home-calories").boundingBox();
           const trackBox = await page.getByTestId("home-calorie-track").boundingBox();
           const macrosBox = await page.getByTestId("home-macros").boundingBox();
+          assert.ok(heroBox.x + heroBox.width <= macrosBox.x, "the ring sits left of the macros");
           assert.ok(
-            heroBox.x + heroBox.width <= kineColumnBox.x,
-            "the calorie figure sits to Kine's left",
+            rowBox.x >= caloriePanelBox.x &&
+              rowBox.x + rowBox.width <= caloriePanelBox.x + caloriePanelBox.width &&
+              rowBox.y >= caloriePanelBox.y,
+            "ring and macros share the energy card",
           );
           assert.ok(
-            Math.abs(kineColumnBox.x - heroBox.x - heroBox.width - 12) <= 1,
-            "figure/Kine gap is 12px",
+            Math.abs(trackBox.x - heroBox.x) <= 1 &&
+              Math.abs(trackBox.y - heroBox.y) <= 1 &&
+              Math.abs(trackBox.width - heroBox.width) <= 1,
+            "the ring itself is the accessible calorie progress",
           );
-          assert.ok(
-            Math.abs(caloriePanelBox.width - rowBox.width) <= 1,
-            "calorie card spans the row",
-          );
-          assert.ok(
-            trackBox.y + trackBox.height <= macrosBox.y &&
-              macrosBox.y + macrosBox.height <= caloriePanelBox.y + caloriePanelBox.height,
-            "macro rows explain the calorie bar directly beneath it, in the same card",
+          assert.equal(
+            await page.getByTestId("home-calorie-track").getAttribute("role"),
+            "progressbar",
           );
           const workoutBox = await page.getByTestId("home-workout-empty").boundingBox();
           const activityBox = await page.getByTestId("home-activity-row").boundingBox();
           const waterBox = await page.getByTestId("home-water").boundingBox();
+          const stepsBox = await page.getByTestId("home-steps").boundingBox();
           for (const [before, after, name] of [
-            [rowBox, caloriePanelBox, "figure to calories"],
-            [caloriePanelBox, workoutBox, "calories to workout"],
-            [workoutBox, activityBox, "workout to activity"],
+            [greetingBox, caloriePanelBox, "greeting to calories"],
+            [caloriePanelBox, activityBox, "calories to activity"],
+            [activityBox, workoutBox, "activity to workout"],
           ]) {
             assert.ok(
-              Math.abs(after.y - before.y - before.height - 12) <= 1,
-              `${name} has a 12px gap`,
+              Math.abs(after.y - before.y - before.height - 14) <= 1,
+              `${name} has a 14px gap`,
             );
           }
-          assert.equal(await page.getByTestId("home-steps").count(), 0);
-          assert.ok(Math.abs(waterBox.width - activityBox.width) <= 1, "water fills the row");
-          assert.equal(await page.locator("svg circle").count(), 0, "the calorie ring is removed");
+          assert.ok(
+            Math.abs(waterBox.width - stepsBox.width) <= 1 && waterBox.x > stepsBox.x,
+            "Steps and Water share the row, Water on the right",
+          );
           for (const [label, target] of [
             ["Carbs", "345"],
             ["Protein", "173"],
@@ -1721,8 +1750,8 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
             .boundingBox();
           assert.ok(Math.abs(searchBox.y - searchActionsBox.y) <= 1, `${tab} starts with search`);
           assert.ok(
-            Math.abs(logBox.y - searchActionsBox.y - searchActionsBox.height - 12) <= 1,
-            `${tab} actions-to-log gap is 12px`,
+            Math.abs(logBox.y - searchActionsBox.y - searchActionsBox.height - 14) <= 1,
+            `${tab} actions-to-log gap is 14px`,
           );
           const actions =
             tab === "Food"
@@ -1780,9 +1809,12 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
           const editProfileBox = await page
             .getByRole("link", { name: /^Edit profile/ })
             .boundingBox();
+          // Settings is a grouped list: the Profile group, with its overline title, follows the
+          // account group.
           assert.ok(
-            Math.abs(editProfileBox.y - firstBox.y - firstBox.height - 12) <= 1,
-            "Settings account-to-profile gap is 12px",
+            editProfileBox.y > firstBox.y + firstBox.height &&
+              editProfileBox.y - firstBox.y - firstBox.height <= 48,
+            "Edit profile directly follows the account group",
           );
           const management = await page.getByTestId("account-management").boundingBox();
           assert.ok(management.y > editProfileBox.y, "account actions come last");
@@ -1943,15 +1975,15 @@ test("food logging saves to the selected date and meal, retries failures, update
   assert.equal(saved.days[date][0].meal, "lunch");
   assert.equal(saved.days[date][0].calories, 122.22);
   await page.getByRole("tab", { name: /Home/ }).click();
-  await page.getByText("122 / 2,760 kcal", { exact: true }).waitFor();
+  await page.getByTestId("home-calories").getByText("122 / 2,760 kcal", { exact: true }).waitFor();
   await page.getByText("28.6 / 345 g", { exact: true }).waitFor();
   await page.reload();
   await heading(page, "Calories");
-  await page.getByText("0 / 2,760 kcal", { exact: true }).waitFor();
+  await page.getByTestId("home-calories").getByText("0 / 2,760 kcal", { exact: true }).waitFor();
   await button(page, "Expand calendar").click();
   await button(page, pastLabel).click();
   await button(page, "Collapse calendar").click();
-  await page.getByText("122 / 2,760 kcal", { exact: true }).waitFor();
+  await page.getByTestId("home-calories").getByText("122 / 2,760 kcal", { exact: true }).waitFor();
   await page.getByRole("tab", { name: /Food/ }).click();
   await heading(page, "Daily food log");
   await failFoodWrite();
@@ -1967,7 +1999,7 @@ test("food logging saves to the selected date and meal, retries failures, update
     .getByText("No food has been logged yet", { exact: true })
     .waitFor();
   await page.getByRole("tab", { name: /Home/ }).click();
-  await page.getByText("0 / 2,760 kcal", { exact: true }).waitFor();
+  await page.getByTestId("home-calories").getByText("0 / 2,760 kcal", { exact: true }).waitFor();
   assert.equal((await savedFoods()).days[date]?.length ?? 0, 0);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
 });
@@ -1989,7 +2021,7 @@ test("a corrupt food log offers recovery without showing an invented empty day",
   );
   await button(page, "Retry food log").click();
   await heading(page, "Calories");
-  await page.getByText("0 / 2,760 kcal", { exact: true }).waitFor();
+  await page.getByTestId("home-calories").getByText("0 / 2,760 kcal", { exact: true }).waitFor();
 });
 
 test("logged food edits retain the draft on failure, move meals, update totals, and survive reload", async (t) => {
@@ -2053,6 +2085,7 @@ test("logged food edits retain the draft on failure, move meals, update totals, 
     .waitFor();
   await page.getByTestId("daily-nutrient-protein").getByText("1.48", { exact: true }).waitFor();
   await page.getByTestId("daily-nutrient-potassium").getByText("652", { exact: true }).waitFor();
+  await button(page, "Back to food log").click();
   await page.getByRole("tab", { name: /Home/ }).click();
   await page.getByTestId("home-calories").getByText("194 / 2,760 kcal", { exact: true }).waitFor();
   await page.reload();
@@ -2096,9 +2129,17 @@ test("daily macro view uses consistent category colors, reflects edits, and foll
     await heading(page, "Calories");
     const colors = [];
     let filledWidth = 0;
+    // Each macro is an arc of the calorie ring, sized by its share of the energy eaten.
+    let circumference = 0;
     for (const category of ["carbs", "protein", "fat"]) {
       const segment = page.getByTestId(`home-calorie-${category}`);
-      const categoryColor = await color(segment);
+      const arc = await segment.evaluate((el) => ({
+        stroke: getComputedStyle(el).stroke,
+        length: Number(el.getAttribute("stroke-dasharray").split(/[ ,]+/)[0]),
+        circumference: 2 * Math.PI * Number(el.getAttribute("r")),
+      }));
+      const categoryColor = arc.stroke;
+      circumference = arc.circumference;
       colors.push(categoryColor);
       assert.equal(await color(page.getByTestId(`home-macro-${category}-fill`)), categoryColor);
       assert.equal(
@@ -2108,13 +2149,11 @@ test("daily macro view uses consistent category colors, reflects edits, and foll
           .evaluate((el) => getComputedStyle(el).color),
         categoryColor,
       );
-      const box = await segment.boundingBox();
-      assert.ok(box.width > 0, `${category} contributes to the calorie bar`);
-      filledWidth += box.width;
+      assert.ok(arc.length > 0, `${category} contributes to the calorie ring`);
+      filledWidth += arc.length;
     }
     assert.equal(new Set(colors).size, 3);
-    const totalWidth = (await page.getByTestId("home-calorie-track").boundingBox()).width;
-    assert.ok(Math.abs(filledWidth / totalWidth - 97 / 2760) < 0.001);
+    assert.ok(Math.abs(filledWidth / circumference - 97 / 2760) < 0.001);
     await page.getByRole("tab", { name: /Food/ }).click();
     await button(page, "Daily macros").click();
     await heading(page, "Daily macros");
@@ -2132,6 +2171,7 @@ test("daily macro view uses consistent category colors, reflects edits, and foll
       false,
     );
   }
+  await button(page, "Back to food log").click();
   await button(page, "Expand calendar").click();
   await page.locator("button[aria-pressed]").filter({ hasText: /^\d+$/ }).nth(3).click();
   await button(page, "Collapse calendar").click();
@@ -2333,7 +2373,7 @@ test("editable macro grams persist and update the home targets", async (t) => {
   assert.equal(saved.answers.customCalories, "2400");
 });
 
-test("unset and maximum calorie goals keep a readable bar below macros and Kine", async (t) => {
+test("unset and maximum calorie goals keep a readable ring beside macros and Kine", async (t) => {
   for (const customCalories of ["", "10000"]) {
     const answers = {
       ...adult,
@@ -2362,7 +2402,10 @@ test("unset and maximum calorie goals keep a readable bar below macros and Kine"
       "calorie count stays readable",
     );
     const rowBox = await page.getByTestId("home-nutrition-row").boundingBox();
-    assert.ok(rowBox.y + rowBox.height <= calorieBox.y);
+    // The ring beside the macros carries the calorie progress.
+    assert.ok(
+      calorieBox.y >= rowBox.y && calorieBox.y + calorieBox.height <= rowBox.y + rowBox.height,
+    );
     const macrosBox = await page.getByTestId("home-macros").boundingBox();
     const hero = page.getByTestId("home-calorie-hero");
     const heroBox = await hero.boundingBox();
@@ -2421,7 +2464,7 @@ test("unset and maximum calorie goals keep a readable bar below macros and Kine"
   }
 });
 
-test("completed workout widgets render coherent totals and filter only exercise rows", async (t) => {
+test("completed workout widgets render coherent totals and their exercise rows", async (t) => {
   const browser = await launchBrowser();
   t.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
@@ -2466,18 +2509,6 @@ test("completed workout widgets render coherent totals and filter only exercise 
   }
   assert.equal(await page.getByText("Planned row", { exact: true }).count(), 0);
   assert.equal(await home.getByText("Completed exercises", { exact: true }).count(), 0);
-  const filter = page.getByRole("textbox", { name: "Filter completed exercises", exact: true });
-  await filter.fill("  pReSs  ");
-  await exercise.getByText("Press", { exact: true }).waitFor();
-  for (const name of ["Squat", "Push-up", "Pull-up"])
-    assert.equal(await exercise.getByText(name, { exact: true }).count(), 0);
-  for (const value of ["1,300 kg", "30 min", "7", "69", "4", "10 reps"])
-    assert.equal(await exercise.getByText(value, { exact: true }).count(), 1);
-  await filter.fill("unmatched");
-  assert.equal(await exercise.getByText("Press", { exact: true }).count(), 0);
-  assert.equal(await exercise.getByText("1,300 kg", { exact: true }).count(), 1);
-  await filter.fill("");
-  await exercise.getByText("Squat", { exact: true }).waitFor();
 });
 
 test("Profile recovery retries a repaired record and retains it when reset fails", async (t) => {

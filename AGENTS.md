@@ -1,3 +1,60 @@
+# KineVault Track: working notes
+
+KineVault Track is the Expo app in this repository (Expo SDK 57, React Native 0.86,
+Expo Router, Reanimated 4.5, Supabase accounts). It runs on iOS, Android and a web
+preview. The sibling `KineVault/` folder is a separate studio project; don't edit it
+from here.
+
+## Read first
+
+- [README.md](README.md): features, setup and scripts.
+- [docs/architecture.md](docs/architecture.md): module ownership and the shared controls.
+- [CONTEXT.md](CONTEXT.md): domain terms. Use these names in code and docs.
+- [DESIGN.md](DESIGN.md) and [docs/redesign-2026-10.md](docs/redesign-2026-10.md): the
+  current look. The redesign notes win where the two disagree.
+- [TODO.md](TODO.md): open work and release blockers.
+
+Files under `docs/superpowers/`, `docs/research/` and the dated `docs/final-check*.md`
+reports are records of earlier work. Don't update them to match today's code.
+
+## Commands
+
+- `npm run check`: lint, Prettier, TypeScript and unit tests. CI runs it on every push.
+- `npm test`: unit tests only (`node --test` with type stripping, `tests/*.test.ts`).
+- `npm run test:browser`: Playwright tests in `tests/*.browser.mjs`. They need the web
+  app at `http://localhost:8081` (`npx expo start --web --port 8081`) or at
+  `KINE_PREVIEW_URL`. Contexts default to reduced motion.
+- `npm run start:cloudflare`: Expo Go over a Cloudflare tunnel. Anyone with the URL can
+  load the bundle and its source maps, so stop it when you're done.
+- Node 24 (`.nvmrc`).
+
+## Code conventions
+
+- Build UI from the shared controls in `src/components` (Tappable, AppButton,
+  IconButton, DeleteButton, SegmentedControl, Chip, TextField, InlineMessage,
+  LoadFailure, ModalSheet, popover, SheetPage, IconWell, ViewHeader). Don't add another
+  pressable, field or sheet; extend the shared one. `docs/architecture.md` lists the few
+  places a raw `Pressable` is allowed.
+- Colors, spacing, radii and fonts come from `src/theme/tokens.ts`.
+- Reanimated on native needs `cubicBezier()` easing objects. A CSS timing string such as
+  `"cubic-bezier(...)"` works on web and crashes on a phone. Use the curves in
+  `src/components/motion.tsx`.
+- Every account-synced document is registered in `src/account/tracking-documents.ts`
+  with its storage key and parser. A storage key is written in one place only; changing
+  one orphans saved user data.
+- Data providers come from `createDocumentProvider` (`src/persistence/document-provider.tsx`).
+  Screen logic for Food and Exercise lives in `src/food/tab-view.ts` and
+  `src/exercise/tab-view.ts`, which have unit tests.
+- Keep accessibility intact: roles, labels, `invalid` and `checked` states, 44pt
+  targets and the keyboard focus ring.
+- Bug fixes and behavior changes get a test that fails without the change.
+- Write US English in code, UI text and docs.
+
+## Before you hand work back
+
+Run `npm run check`. For UI changes, also run the browser suite against a running web
+server. The web build is not a phone: say so when a change hasn't been tried on a device.
+
 <!-- graft:start -->
 ## Graft — repo context graph
 

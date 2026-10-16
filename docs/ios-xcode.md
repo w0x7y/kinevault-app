@@ -241,7 +241,7 @@ capability, so a free team can sign the app.
 - Remote push would need a paid team: remove that plugin, enable the capability,
   and add push-token registration.
 - On Android, notifications use `assets/branding/notification-icon.png` as the
-  small icon, tinted `#314e65`.
+  small icon, tinted `#3a6a96`.
 
 ## Sentry
 
@@ -309,7 +309,9 @@ React Native's required-reason entries (file timestamps `C617.1`, user defaults
 `expo-file-system`'s disk-space reasons. `@react-native-async-storage/async-storage`
 2.2.0 ships its own manifest and doesn't use `UserDefaults`. `expo-crypto` ships
 none; it calls `SecRandomCopyBytes`, CommonCrypto digests and CryptoKit, which
-aren't required-reason APIs. The other linked pods without manifests don't call
+aren't required-reason APIs. `expo-video` ships none either; its video cache
+uses `UserDefaults` and file timestamps, which the user defaults and file
+timestamp entries above already declare. The other linked pods without manifests don't call
 required-reason APIs that aren't already declared, so `app.json` has no
 `ios.privacyManifests` entry. Repeat that check when adding a native dependency.
 The collected-data section stays empty and must be filled in before an App Store
@@ -399,6 +401,7 @@ build phases, `expo-doctor`, `expo install --check` and an iOS Hermes bundle via
   while it's running.
 - The camera, photo picker and notification permission prompts appear with the
   expected text, and a scheduled local reminder fires.
+- An exercise demonstration video plays (`expo-video`).
 - An iPhone stays in portrait when rotated. An iPad rotates to all four
   orientations and opens in Split View.
 - A sign-up confirmation or password reset email link finishes signing in. The

@@ -23,7 +23,10 @@ const field = (page) =>
   dialog(page).getByRole("textbox", { name: "Manual water (ml)", exact: true });
 const stored = (page) => page.evaluate((key) => window.accountFixture.getItem(key), storageKey);
 
-async function open(t, { water = null, readFailure = false, delayedRead = false } = {}) {
+async function open(
+  t,
+  { water = null, readFailure = false, delayedRead = false, fakeClock = true } = {},
+) {
   const browser = await launchBrowser();
   t.after(() => browser.close());
   // This fresh context never shares the user's preview storage.
@@ -43,6 +46,10 @@ async function open(t, { water = null, readFailure = false, delayedRead = false 
       }
       window.__waterReadFailure = readFailure;
       let delayRead = delayedRead;
+      // The held read must reach the water store, not a cloud refresh.
+      let tookRead;
+      window.accountFixtureRefreshHolds = [new Promise((resolve) => (tookRead = resolve))];
+      if (!delayRead) tookRead();
       const getItem = Storage.prototype.getItem;
       Storage.prototype.getItem = function (key) {
         if (
@@ -53,6 +60,7 @@ async function open(t, { water = null, readFailure = false, delayedRead = false 
           throw new Error("Fixture read failure");
         if (key.endsWith(storageKey) && window.accountFixture?.domainReady && delayRead) {
           delayRead = false;
+          tookRead();
           return new Promise((resolve) => {
             window.__releaseWaterRead = () => resolve(getItem.call(this, key));
           });
@@ -65,7 +73,8 @@ async function open(t, { water = null, readFailure = false, delayedRead = false 
   await installAccountFixture(context);
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
-  await page.clock.install({ time: new Date("2026-10-01T12:00:00+03:00") });
+  // Motion needs real frame times; without the fake clock the day is the real today.
+  if (fakeClock) await page.clock.install({ time: new Date("2026-10-01T12:00:00+03:00") });
   await page.goto(baseURL);
   await page.getByTestId("home-water").waitFor();
   return page;
@@ -404,4 +413,30 @@ test("an untouched loading draft preloads the durable manual total only once aft
   assert.equal(await stored(page), initial);
   await save(page);
   assert.equal(JSON.parse(await stored(page)).days["2026-10-01"], 750);
+});
+
+test("with motion the water sheet takes focus, plays out before it unmounts, and returns focus to the tile", async (t) => {
+  const page = await open(t, { fakeClock: false });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const tile = page.getByTestId("home-water");
+  const focusInSheet = () =>
+    page.waitForFunction(() =>
+      document.querySelector('[data-testid="water-entry"]')?.contains(document.activeElement),
+    );
+  await tile.focus();
+  await page.keyboard.press("Enter");
+  await field(page).waitFor();
+  await focusInSheet();
+  await page.keyboard.press("Escape");
+  // The sheet stays up while it leaves, then the tile has focus again.
+  assert.equal(await dialog(page).count(), 1);
+  await dialog(page).waitFor({ state: "detached" });
+  assert.equal(await tile.evaluate((node) => node === document.activeElement), true);
+  await page.keyboard.press("Enter");
+  await focusInSheet();
+  await field(page).fill("750");
+  await button(dialog(page), "Save water").click();
+  await dialog(page).waitFor({ state: "detached" });
+  assert.deepEqual(Object.values(JSON.parse(await stored(page)).days), [750]);
+  assert.equal(await tile.evaluate((node) => node === document.activeElement), true);
 });

@@ -14,9 +14,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppText } from "../components/ui";
-import { Button } from "../onboarding/controls";
+import { AppButton } from "../components/button";
+import { InlineMessage } from "../components/inline-message";
 import { AccountScreen } from "../onboarding/account-screen";
-import { Kine } from "../onboarding/kine";
+import { KineStage } from "../onboarding/kine";
 import { SetupTopBar } from "../onboarding/top-bar";
 import { PageTransition } from "../components/motion";
 import { Question, stepCopy } from "../onboarding/steps";
@@ -26,7 +27,7 @@ import { calorieState } from "../profile/calories";
 import { createOnboardingFlow } from "../onboarding/flow";
 import { useProfile } from "../profile/provider";
 import { useTheme } from "../theme/provider";
-import { radius, spacing } from "../theme/tokens";
+import { spacing } from "../theme/tokens";
 import { useAccount } from "../account/provider";
 
 export default function OnboardingScreen() {
@@ -59,7 +60,7 @@ function OnboardingFlow({
 }) {
   const [showAccount, setShowAccount] = useState(startWithAccount);
   const { colors } = useTheme();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const { save } = useProfile();
   const { user } = useAccount();
   const [flow] = useState<ReturnType<typeof createOnboardingFlow>>(() =>
@@ -97,6 +98,9 @@ function OnboardingFlow({
   const update = flow.update;
   const mode = calorieState(answers);
   const scroll = useRef<ScrollView>(null);
+  // A hairline separates the pinned actions only while the step scrolls beneath them.
+  const [viewport, setViewport] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
   const stepIndex = steps.indexOf(step);
   const { title, message } = stepCopy[step];
   const act: typeof flow.act = (action) => {
@@ -145,6 +149,20 @@ function OnboardingFlow({
   }
 
   const welcome = step === "welcome";
+  // Shorter windows get a smaller stage so the question stays in view.
+  const compact = height < 720;
+  const stageSize = welcome
+    ? Math.min(compact ? 200 : 248, width - 2 * spacing.gutter)
+    : compact
+      ? 108
+      : 132;
+  const supporting = welcome
+    ? message
+    : mode.kind !== "estimate" && step === "body"
+      ? "A few details for your profile. Height and weight are optional."
+      : mode.kind !== "estimate" && step === "calories"
+        ? "You can leave this blank or add your own target."
+        : message;
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <Head>
@@ -166,53 +184,31 @@ function OnboardingFlow({
           showsHorizontalScrollIndicator={false}
           ref={scroll}
           keyboardShouldPersistTaps="handled"
+          onLayout={(event) => setViewport(event.nativeEvent.layout.height)}
+          onContentSizeChange={(_, nextHeight) => setContentHeight(nextHeight)}
           contentContainerStyle={[styles.content, welcome && styles.welcome]}
         >
           <PageTransition
             key={step}
             testID="onboarding-content"
             direction={direction}
-            style={{ gap: spacing.layout, flexGrow: 1 }}
+            style={styles.page}
           >
-            {welcome ? (
-              <View style={{ alignItems: "center" }}>
-                <Kine size={280} pose="welcome" />
-              </View>
-            ) : (
-              <View
-                style={[
-                  styles.guide,
-                  width < 380 && {
-                    flexDirection: "column",
-                    gap: spacing.layout,
-                    padding: 0,
-                  },
-                ]}
-              >
-                <Kine pose={step} />
+            <View style={styles.header}>
+              <KineStage size={stageSize} pose={step} />
+              <View style={{ gap: spacing.sm, alignItems: "center" }}>
                 <AppText
-                  variant="caption"
-                  muted
-                  style={width < 380 ? { textAlign: "center" } : { flex: 1 }}
+                  nativeID="onboarding-title"
+                  variant={welcome ? "display" : "title"}
+                  accessibilityRole="header"
+                  style={{ textAlign: "center", outlineWidth: 0, outlineStyle: "solid" }}
                 >
-                  {mode.kind !== "estimate" && step === "body"
-                    ? "A few details for your profile. Height and weight are optional."
-                    : mode.kind !== "estimate" && step === "calories"
-                      ? "You can leave this blank or add your own target."
-                      : message}
+                  {title}
+                </AppText>
+                <AppText muted style={{ textAlign: "center", maxWidth: 420 }}>
+                  {supporting}
                 </AppText>
               </View>
-            )}
-            <View style={{ gap: spacing.sm }}>
-              <AppText
-                nativeID="onboarding-title"
-                variant="title"
-                accessibilityRole="header"
-                style={{ outlineWidth: 0, outlineStyle: "solid" }}
-              >
-                {title}
-              </AppText>
-              {welcome && <AppText muted>{message}</AppText>}
             </View>
             <Question
               step={step}
@@ -223,45 +219,46 @@ function OnboardingFlow({
               disabled={saving}
             />
             {step === "review" && Object.keys(errors).length > 0 && (
-              <AppText accessibilityRole="alert" style={{ color: colors.error }}>
+              <InlineMessage>
                 Some answers need another look. Use Edit above to check them.
-              </AppText>
+              </InlineMessage>
             )}
-            {error && (
-              <AppText accessibilityRole="alert" style={{ color: colors.error }}>
-                {error}
-              </AppText>
-            )}
-            <View style={{ marginTop: "auto", gap: spacing.layout }}>
-              <Button
-                label={primaryLabel}
-                icon={step === "review" ? "check" : "arrow-right"}
-                onPress={() => void act({ kind: "next" })}
-                disabled={saving}
-              />
-              {showSkip && (
-                <Button
-                  label="Set up later"
-                  link
-                  onPress={() => void act({ kind: "skip" })}
-                  disabled={saving}
-                />
-              )}
-            </View>
-            {welcome && (
-              <Button
-                label="I already have an account"
-                link
-                onPress={() => router.push("/account")}
-              />
-            )}
-            {welcome && (
-              <AppText variant="caption" muted>
-                Your answers are saved to your account after you sign in. You can edit them anytime.
-              </AppText>
-            )}
+            {error && <InlineMessage>{error}</InlineMessage>}
           </PageTransition>
         </ScrollView>
+        <View
+          style={[
+            styles.footer,
+            welcome && { maxWidth: 480 },
+            contentHeight > viewport + 1 && {
+              borderTopWidth: StyleSheet.hairlineWidth,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <AppButton
+            label={primaryLabel}
+            tone="primary"
+            icon={step === "review" ? "check" : "arrow-right"}
+            onPress={() => void act({ kind: "next" })}
+            disabled={saving}
+          />
+          {showSkip && (
+            <AppButton
+              label="Set up later"
+              onPress={() => void act({ kind: "skip" })}
+              disabled={saving}
+            />
+          )}
+          {welcome && (
+            <AppButton label="I already have an account" onPress={() => router.push("/account")} />
+          )}
+          {welcome && (
+            <AppText variant="caption" muted style={{ textAlign: "center" }}>
+              Your answers are saved to your account after you sign in. You can edit them anytime.
+            </AppText>
+          )}
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -271,16 +268,22 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 560,
     alignSelf: "center",
-    padding: spacing.layout,
-    gap: spacing.layout,
+    paddingHorizontal: spacing.gutter,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
     flexGrow: 1,
   },
-  welcome: { maxWidth: 480, justifyContent: "center" },
-  guide: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.layout,
-    padding: spacing.layout,
-    borderRadius: radius.panel,
+  welcome: { maxWidth: 480 },
+  // Short questions sit in the middle of the screen instead of leaving a gap above Continue.
+  page: { gap: spacing.lg, flexGrow: 1, justifyContent: "center" },
+  header: { alignItems: "center", gap: spacing.md },
+  footer: {
+    width: "100%",
+    maxWidth: 560,
+    alignSelf: "center",
+    paddingHorizontal: spacing.gutter,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    gap: spacing.xs,
   },
 });

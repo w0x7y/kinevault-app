@@ -2,7 +2,9 @@ import { View } from "react-native";
 import { AppText } from "../components/ui";
 import { calorieState } from "../profile/calories";
 import { spacing } from "../theme/tokens";
-import { Choice, ErrorText, Field } from "./controls";
+import { InlineMessage } from "../components/inline-message";
+import { TextField } from "../components/text-field";
+import { Choice } from "./controls";
 import type { QuestionProps } from "./types";
 
 export function BodyQuestion({ answers, update, errors, disabled }: QuestionProps) {
@@ -20,7 +22,7 @@ export function BodyQuestion({ answers, update, errors, disabled }: QuestionProp
         <View
           accessibilityRole="radiogroup"
           accessibilityLabel="Calorie estimate"
-          style={{ gap: spacing.layout }}
+          style={{ gap: spacing.md }}
         >
           <Choice
             label="Use the standard estimate"
@@ -28,6 +30,7 @@ export function BodyQuestion({ answers, update, errors, disabled }: QuestionProp
             selected={mode.kind === "estimate" && answers.eligible}
             onPress={() => update({ kind: "estimate", enabled: true })}
             disabled={disabled}
+            invalid={Boolean(errors.eligible)}
           />
           <Choice
             label="Skip the estimate"
@@ -35,13 +38,14 @@ export function BodyQuestion({ answers, update, errors, disabled }: QuestionProp
             selected={mode.kind === "manual"}
             onPress={() => update({ kind: "estimate", enabled: false })}
             disabled={disabled}
+            invalid={Boolean(errors.eligible)}
           />
-          {errors.eligible && <ErrorText message={errors.eligible} />}
+          {errors.eligible && <InlineMessage>{errors.eligible}</InlineMessage>}
         </View>
       )}
       {estimate && (
         <>
-          <View style={{ gap: 8 }}>
+          <View style={{ gap: spacing.sm, marginTop: spacing.xs }}>
             <AppText variant="label">Sex used by the formula</AppText>
             <AppText variant="caption" muted>
               The formula has two coefficients. If neither fits, you can skip the estimate.
@@ -49,7 +53,7 @@ export function BodyQuestion({ answers, update, errors, disabled }: QuestionProp
             <View
               accessibilityRole="radiogroup"
               accessibilityLabel="Sex used by the formula"
-              style={{ flexDirection: "row", gap: spacing.layout }}
+              style={{ flexDirection: "row", gap: spacing.md }}
             >
               <View style={{ flex: 1 }}>
                 <Choice
@@ -57,6 +61,7 @@ export function BodyQuestion({ answers, update, errors, disabled }: QuestionProp
                   selected={answers.sex === "female"}
                   onPress={() => update({ kind: "fields", patch: { sex: "female" } })}
                   disabled={disabled}
+                  invalid={Boolean(errors.sex)}
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -65,43 +70,46 @@ export function BodyQuestion({ answers, update, errors, disabled }: QuestionProp
                   selected={answers.sex === "male"}
                   onPress={() => update({ kind: "fields", patch: { sex: "male" } })}
                   disabled={disabled}
+                  invalid={Boolean(errors.sex)}
                 />
               </View>
             </View>
-            {errors.sex && <ErrorText message={errors.sex} />}
+            {errors.sex && <InlineMessage>{errors.sex}</InlineMessage>}
           </View>
         </>
       )}
-      <View style={{ flexDirection: "row", gap: spacing.layout }}>
+      <View style={{ flexDirection: "row", gap: spacing.md }}>
         <View style={{ flex: 1 }}>
-          <Field
+          <TextField
+            size="large"
             label={`Height (cm)${estimate ? "" : " · optional"}`}
             value={answers.height}
-            onChangeText={(height) => update({ kind: "fields", patch: { height } })}
+            onChange={(height) => update({ kind: "fields", patch: { height } })}
             placeholder="e.g. 175"
-            keyboardType="decimal-pad"
-            inputMode="decimal"
+            kind="decimal"
+            filter
             maxLength={8}
-            editable={!disabled}
+            disabled={disabled}
             error={errors.height}
           />
         </View>
         <View style={{ flex: 1 }}>
-          <Field
+          <TextField
+            size="large"
             label={`Weight (kg)${estimate ? "" : " · optional"}`}
             value={answers.weight}
-            onChangeText={(weight) => update({ kind: "fields", patch: { weight } })}
+            onChange={(weight) => update({ kind: "fields", patch: { weight } })}
             placeholder="e.g. 70"
-            keyboardType="decimal-pad"
-            inputMode="decimal"
+            kind="decimal"
+            filter
             maxLength={8}
-            editable={!disabled}
+            disabled={disabled}
             error={errors.weight}
           />
         </View>
       </View>
       <AppText variant="caption" muted>
-        Saved on this device. Your answers stay editable.
+        You can change these details anytime.
       </AppText>
     </View>
   );

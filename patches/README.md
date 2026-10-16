@@ -1,8 +1,11 @@
 # Dependency security patches
 
-`npm ci` runs `scripts/apply-dependency-patches.mjs`, using Node and Git without
-additional npm dependencies. It checks package versions and patch applicability
-before writing, accepts already-applied patches, and fails on unexpected files.
+The `postinstall` script runs `scripts/apply-dependency-patches.mjs` after
+`npm ci` or `npm install`, using Node and Git without additional npm
+dependencies. It checks package versions and patch applicability before
+writing, accepts already-applied patches, and fails on an unexpected package
+version or a patch that no longer applies. With `--omit=dev`, ngrok and its
+`http-cache-semantics` are absent, and that patch is skipped.
 Install failures must be fixed; do not skip lifecycle scripts or ignore a patch
 that no longer applies.
 
@@ -16,6 +19,11 @@ that no longer applies.
   validation. The published 4.3.0 still allows `max-stale` to bypass these
   restrictions described in [GHSA-ch52-4w7c-c8xp](https://github.com/advisories/GHSA-ch52-4w7c-c8xp).
   This is a local security patch, not a published upstream fix.
+
+npm overrides also pin `uuid@11.1.1` under `@expo/ngrok` and `xcode`, the
+tunnel and prebuild tools. `tests/tooling-dependencies.test.ts` checks that their
+v3 and v5 generators reject undersized output buffers and that v4 and Xcode
+project identifiers still work. This needs no patch file.
 
 `tests/dependency-security.test.ts` exercises the actual dependencies resolved by
 Expo Router and cacheable-request, including serialized cache policies, malformed

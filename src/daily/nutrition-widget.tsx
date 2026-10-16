@@ -1,81 +1,64 @@
 import { View } from "react-native";
-import { AppText, Panel } from "../components/ui";
-import { Icon } from "../components/icon";
+import { AppText } from "../components/ui";
+import { ProgressFill } from "../components/motion";
 import { useTheme } from "../theme/provider";
-import { spacing } from "../theme/tokens";
+import { fonts, radius, spacing } from "../theme/tokens";
 import { progressFraction, type summarizeDay } from "./model";
 import { macroCategories } from "./nutrition";
 
 type NutritionTargets = { carbs: number | null; protein: number | null; fat: number | null };
 
+/** Macro progress rows. Sits inside the energy card, so it draws no surface of its own. */
 export function NutritionWidget({
   targets,
   summary,
   width,
-  testIDPrefix = "home",
 }: {
   width?: number;
-  testIDPrefix?: string;
   targets: NutritionTargets;
   summary: ReturnType<typeof summarizeDay>;
 }) {
   const { colors } = useTheme();
-  const compact = width !== undefined && width < 200;
-  const textSize = width !== undefined && width < 150 ? 10 : compact ? 12 : 14;
+  const textSize = width !== undefined && width < 150 ? 12 : 13;
 
   return (
-    <Panel
-      testID={`${testIDPrefix}-macros`}
-      style={{
-        flexGrow: 1,
-        flexShrink: 0,
-        minHeight: width,
-        padding: spacing.layout,
-        justifyContent: "center",
-      }}
-    >
-      <View testID={`${testIDPrefix}-macro-rows`} style={{ gap: spacing.layout }}>
-        {macroCategories.map(({ key, label, icon }) => {
+    <View testID="home-macros" style={{ flex: 1, minWidth: 0, justifyContent: "center" }}>
+      <View testID="home-macro-rows" style={{ gap: spacing.md }}>
+        {macroCategories.map(({ key, label }) => {
           const value = summary[key];
           const target = targets[key];
           const progress = progressFraction(value, target);
           const percentage = Math.round(progress * 100);
           return (
-            <View key={key} style={{ gap: 5 }}>
+            <View key={key} style={{ gap: 6 }}>
               <View
                 style={{
                   flexDirection: "row",
-                  alignItems: "center",
+                  alignItems: "baseline",
                   justifyContent: "space-between",
-                  gap: compact ? 4 : 6,
+                  flexWrap: "wrap",
+                  columnGap: spacing.sm,
                 }}
               >
                 <AppText
+                  testID={`macro-${key}-label`}
                   variant="label"
                   numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.7}
-                  style={{ flex: 1, minWidth: 0, fontSize: textSize }}
+                  style={{ fontSize: textSize + 1, fontFamily: fonts.bold, color: colors[key] }}
                 >
-                  <AppText
-                    testID={`macro-${key}-label`}
-                    variant="label"
-                    style={{ fontSize: textSize, color: colors[key] }}
-                  >
-                    {label}
-                  </AppText>{" "}
-                  <AppText
-                    testID={`macro-${key}-count`}
-                    variant="caption"
-                    muted
-                    selectable
-                    style={{ fontSize: textSize }}
-                  >
-                    {value.toLocaleString(undefined, { maximumFractionDigits: 1 })} /{" "}
-                    {target === null ? "—" : target.toLocaleString()} g
-                  </AppText>
+                  {label}
                 </AppText>
-                <Icon name={icon} size={compact ? 10 : 12} color={colors[key]} />
+                <AppText
+                  testID={`macro-${key}-count`}
+                  variant="caption"
+                  muted
+                  selectable
+                  numberOfLines={1}
+                  style={{ fontSize: textSize, fontVariant: ["tabular-nums"] }}
+                >
+                  {value.toLocaleString(undefined, { maximumFractionDigits: 1 })} /{" "}
+                  {target === null ? "—" : target.toLocaleString()} g
+                </AppText>
               </View>
               <View
                 accessibilityRole="progressbar"
@@ -85,29 +68,23 @@ export function NutritionWidget({
                 aria-valuemax={100}
                 aria-valuenow={percentage}
                 style={{
-                  height: 7,
-                  borderRadius: 4,
+                  height: 6,
+                  borderRadius: radius.pill,
                   backgroundColor: colors.muted,
                   overflow: "hidden",
                 }}
               >
-                <View
-                  testID={`${testIDPrefix}-macro-${key}-fill`}
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    height: "100%",
-                    width: `${progress * 100}%`,
-                    backgroundColor: colors[key],
-                    borderRadius: 4,
-                  }}
+                <ProgressFill
+                  testID={`home-macro-${key}-fill`}
+                  fraction={progress}
+                  color={colors[key]}
+                  style={{ borderRadius: radius.pill }}
                 />
               </View>
             </View>
           );
         })}
       </View>
-    </Panel>
+    </View>
   );
 }

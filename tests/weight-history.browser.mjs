@@ -65,7 +65,8 @@ async function open(t, previousDay = false) {
     await button(page, "Select previous day").click();
     await button(page, "Collapse calendar").click();
   }
-  await button(page, "Profile").click();
+  await button(page, "Profile menu").click();
+  await page.getByRole("menuitem", { name: "Profile", exact: true }).click();
   await page.getByTestId("profile-weight-journal").waitFor();
   return { page, account };
 }

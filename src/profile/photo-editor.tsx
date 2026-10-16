@@ -3,10 +3,18 @@ import { Image } from "expo-image";
 import { Platform } from "react-native";
 import { AppText } from "../components/ui";
 import { DeleteButton } from "../components/delete-button";
-import { Field, ErrorText } from "../onboarding/controls";
+import { InlineMessage } from "../components/inline-message";
+import { TextField } from "../components/text-field";
 import type { MediaEditing, MediaEditSnapshot } from "./media-editing";
 import { PhotoImage } from "./photo-image";
-import { ProfileDialog } from "./profile-controls";
+import { radius } from "../theme/tokens";
+const preview = {
+  height: 220,
+  width: "100%",
+  borderRadius: radius.control + 4,
+  backgroundColor: "rgba(127, 127, 127, 0.12)",
+} as const;
+/** The body of the progress photo sheet, for one attempt. */
 export function PhotoEditor({
   editing,
   snapshot,
@@ -24,13 +32,13 @@ export function PhotoEditor({
     editing.cancel();
   };
   return (
-    <ProfileDialog title={photo ? "Edit progress photo" : "Add progress photo"} dismiss={dismiss}>
+    <>
       {source ? (
         <Image
           source={{ uri: source.uri }}
           contentFit="contain"
           accessibilityLabel="Draft progress photo"
-          style={{ height: 180, width: "100%" }}
+          style={preview}
         />
       ) : (
         photo && (
@@ -38,45 +46,49 @@ export function PhotoEditor({
             image={photo.image}
             contentFit="contain"
             accessibilityLabel={`Progress photo ${photo.date}`}
-            style={{ height: 180, width: "100%" }}
+            style={preview}
           />
         )
       )}
-      <Field
+      <TextField
+        size="large"
         label="Photo date (YYYY-MM-DD)"
         value={date}
-        onChangeText={(date) => {
+        onChange={(date) => {
           editing.change({ date });
         }}
-        editable={!disabled}
+        disabled={disabled}
         maxLength={10}
         placeholder="YYYY-MM-DD"
       />
-      <Field
+      <TextField
+        size="large"
         label="Photo note (optional)"
         value={note}
-        onChangeText={(note) => {
+        onChange={(note) => {
           editing.change({ note });
         }}
-        editable={!disabled}
-        multiline
+        disabled={disabled}
+        kind="multiline"
         maxLength={2000}
       />
       <AppButton
+        icon="images"
         label="Replace from library"
         disabled={disabled}
         onPress={() => void pick("library")}
       />
       {Platform.OS !== "web" && (
         <AppButton
+          icon="camera"
           label="Replace from camera"
           disabled={disabled}
           onPress={() => void pick("camera")}
         />
       )}
-      {error && <ErrorText message={error} />}
+      {error && <InlineMessage>{error}</InlineMessage>}
       {busy && (
-        <AppText accessibilityLiveRegion="polite">
+        <AppText variant="caption" muted accessibilityLiveRegion="polite">
           {picking ? "Opening photo picker…" : "Saving photo changes…"}
         </AppText>
       )}
@@ -84,7 +96,7 @@ export function PhotoEditor({
         <AppButton label="Cancel" disabled={busy} onPress={dismiss} fill />
         <AppButton
           fill
-          primary
+          tone="primary"
           label={busy && !picking ? "Saving photo…" : "Save photo"}
           disabled={disabled}
           onPress={() => void editing.save()}
@@ -92,12 +104,13 @@ export function PhotoEditor({
       </ButtonRow>
       {photo && (
         <DeleteButton
+          icon="trash-can"
           label="Remove photo"
           confirmAccessibilityLabel="Confirm remove photo"
           disabled={disabled}
           onDelete={editing.remove}
         />
       )}
-    </ProfileDialog>
+    </>
   );
 }

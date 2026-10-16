@@ -1,25 +1,28 @@
-import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { View } from "react-native";
-import { ButtonRow, AppButton } from "../components/button";
-import { DeleteButton } from "../components/delete-button";
-import { AppText, Panel } from "../components/ui";
-import { spacing } from "../theme/tokens";
+import { AppText, Overline, Panel } from "../components/ui";
+import { fonts, spacing } from "../theme/tokens";
 import { shortDayLabel } from "../calendar/dates";
 import type { WorkoutTemplate } from "./model";
 import { useExercises } from "./provider";
-import { ExerciseError } from "./controls";
+import { AppButton } from "../components/button";
+import { DeleteButton } from "../components/delete-button";
+import { InlineMessage } from "../components/inline-message";
+import { Hairline } from "./controls";
+import { useSheetBack } from "../components/sheet-page";
+import type { LibraryDrafts } from "./library-drafts";
+import { useLibraryDraft } from "./use-workout-editing";
 
 export function WorkoutLibrary({
+  actions,
   date,
   onEdit,
-  onClose,
-  onAdded,
   onOpen,
 }: {
+  /** Adding and deleting logs for the menu's day. */
+  actions: ReturnType<LibraryDrafts["savedWorkouts"]>;
   date: string;
   onEdit: (workout: WorkoutTemplate) => void;
-  onClose: () => void;
-  onAdded: (id: string) => void;
   onOpen: (id: string) => void;
 }) {
   const store = useExercises();
@@ -28,123 +31,127 @@ export function WorkoutLibrary({
     store.state.kind === "ready"
       ? store.state.document.sessions.filter((workout) => workout.date === date)
       : [];
-  const [busy, setBusy] = useState(false),
-    [error, setError] = useState<string | null>(null);
-  const alive = useRef(true),
-    pending = useRef(false);
-  useEffect(() => {
-    alive.current = true;
-    return () => {
-      alive.current = false;
-    };
-  }, []);
-  async function add(id: string) {
-    if (pending.current) return;
-    pending.current = true;
-    setBusy(true);
-    setError(null);
-    const result = await store.planWorkout({ date, workoutId: id });
-    pending.current = false;
-    if (!alive.current) return;
-    setBusy(false);
-    if (result) onAdded(result);
-    else setError("Couldn't add this workout. Try again.");
-  }
-  async function remove(id: string) {
-    if (pending.current) return;
-    pending.current = true;
-    setBusy(true);
-    setError(null);
-    const success = await store.removeSession(id);
-    pending.current = false;
-    if (!alive.current) return;
-    setBusy(false);
-    if (!success) setError("Couldn't delete this workout. Try again.");
-    return success;
-  }
+  const { busy, error } = useLibraryDraft(actions);
+  // The sheet's back button closes the menu, except while a change is saving.
+  useSheetBack({ disabled: busy });
   return (
-    <Panel testID="workout-library">
-      <AppButton
-        link
-        icon="chevron-left"
-        label="Close saved workouts"
-        onPress={onClose}
-        disabled={busy}
-      />
-      <AppText variant="heading" accessibilityRole="header">
-        Saved workouts
-      </AppText>
+    <Panel style={{ gap: spacing.layout }}>
       {workouts.length === 0 && (
-        <AppText>No workout found. Create a workout to get started.</AppText>
+        <AppText muted>No workout found. Create a workout to get started.</AppText>
       )}
-      {workouts.map((workout) => (
-        <View key={workout.id} style={{ gap: spacing.layout }}>
-          <AppText variant="label">{workout.name}</AppText>
-          <AppText variant="caption" muted>
-            {workout.exercises.map((item) => item.name).join(" · ")}
-          </AppText>
-          <ButtonRow>
-            <AppButton
-              fill
-              label="Add to selected day"
-              accessibilityLabel={`Add ${workout.name} to selected day`}
-              onPress={() => void add(workout.id)}
-              disabled={busy}
-            />
-            <AppButton
-              fill
-              label="Edit"
-              accessibilityLabel={`Edit workout ${workout.name}`}
-              onPress={() => onEdit(workout)}
-              disabled={busy}
-            />
-          </ButtonRow>
+      {workouts.length > 0 && (
+        <View>
+          {workouts.map((workout, index) => (
+            <View key={workout.id}>
+              {index > 0 && <Hairline />}
+              <LibraryRow
+                title={workout.name}
+                detail={`${workout.exercises.length} ${workout.exercises.length === 1 ? "exercise" : "exercises"} · ${workout.exercises.map((item) => item.name).join(", ")}`}
+              >
+                <AppButton
+                  tone="primary"
+                  size="compact"
+                  icon="plus"
+                  label="Add to day"
+                  accessibilityLabel={`Add ${workout.name} to selected day`}
+                  onPress={() => void actions.plan(workout.id)}
+                  disabled={busy}
+                />
+                <AppButton
+                  size="compact"
+                  icon="pen"
+                  label="Edit"
+                  accessibilityLabel={`Edit workout ${workout.name}`}
+                  onPress={() => onEdit(workout)}
+                  disabled={busy}
+                />
+              </LibraryRow>
+            </View>
+          ))}
         </View>
-      ))}
+      )}
       {records.length > 0 && (
-        <AppText variant="heading" accessibilityRole="header">
+        <Overline accessibilityRole="header" style={{ marginTop: spacing.sm }}>
           Workouts for {shortDayLabel(date)}
-        </AppText>
+        </Overline>
       )}
-      {records.map((workout) => (
-        <View
-          key={workout.id}
-          testID={`logged-workout-${workout.id}`}
-          style={{ gap: spacing.layout }}
-        >
-          <AppText variant="label">{workout.name}</AppText>
-          <AppText variant="caption" muted>
-            {workout.status === "active"
-              ? "In progress"
-              : workout.status === "planned"
-                ? "Planned"
-                : "Completed"}{" "}
-            · {workout.exercises.length} {workout.exercises.length === 1 ? "exercise" : "exercises"}
-          </AppText>
-          <ButtonRow>
-            <AppButton
-              fill
-              label={workout.status === "completed" ? "Edit" : "Open"}
-              accessibilityLabel={`${workout.status === "completed" ? "Edit logged workout" : "Open logged workout"} ${workout.name}`}
-              onPress={() => onOpen(workout.id)}
-              disabled={busy}
-            />
-            <DeleteButton
-              fill
-              label={workout.status === "active" ? "Discard" : "Delete"}
-              accessibilityLabel={`${workout.status === "active" ? "Discard workout" : "Delete logged workout"} ${workout.name}`}
-              confirmAccessibilityLabel={
-                workout.status === "active"
-                  ? "Confirm discard workout"
-                  : "Confirm delete logged workout"
-              }
-              onDelete={() => remove(workout.id)}
-              disabled={busy}
-            />
-          </ButtonRow>
+      {records.length > 0 && (
+        <View>
+          {records.map((workout, index) => (
+            <View key={workout.id} testID={`logged-workout-${workout.id}`}>
+              {index > 0 && <Hairline />}
+              <LibraryRow
+                title={workout.name}
+                detail={`${
+                  workout.status === "active"
+                    ? "In progress"
+                    : workout.status === "planned"
+                      ? "Planned"
+                      : "Completed"
+                } · ${workout.exercises.length} ${workout.exercises.length === 1 ? "exercise" : "exercises"}`}
+              >
+                <AppButton
+                  size="compact"
+                  icon={workout.status === "completed" ? "pen" : "arrow-right"}
+                  label={workout.status === "completed" ? "Edit" : "Open"}
+                  accessibilityLabel={`${workout.status === "completed" ? "Edit logged workout" : "Open logged workout"} ${workout.name}`}
+                  onPress={() => onOpen(workout.id)}
+                  disabled={busy}
+                />
+                <DeleteButton
+                  appearance="pill"
+                  icon="trash-can"
+                  label={workout.status === "active" ? "Discard" : "Delete"}
+                  accessibilityLabel={`${workout.status === "active" ? "Discard workout" : "Delete logged workout"} ${workout.name}`}
+                  confirmAccessibilityLabel={
+                    workout.status === "active"
+                      ? "Confirm discard workout"
+                      : "Confirm delete logged workout"
+                  }
+                  onDelete={() => actions.removeLog(workout.id)}
+                  disabled={busy}
+                />
+              </LibraryRow>
+            </View>
+          ))}
         </View>
-      ))}
-      <ExerciseError message={error} />
+      )}
+      <InlineMessage>{error}</InlineMessage>
     </Panel>
+  );
+}
+
+/** A list row: title, one muted line of detail and small actions underneath. */
+function LibraryRow({
+  title,
+  detail,
+  children,
+}: {
+  title: string;
+  detail: string;
+  children: ReactNode;
+}) {
+  return (
+    <View style={{ gap: spacing.sm + 2, paddingVertical: spacing.md + 2 }}>
+      <View style={{ gap: 2 }}>
+        <AppText variant="label" style={{ fontSize: 16, lineHeight: 22, fontFamily: fonts.bold }}>
+          {title}
+        </AppText>
+        <AppText variant="caption" muted numberOfLines={2}>
+          {detail}
+        </AppText>
+      </View>
+      <View
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: spacing.sm,
+          marginLeft: 0,
+        }}
+      >
+        {children}
+      </View>
+    </View>
   );
 }

@@ -1,9 +1,11 @@
 import { useState, type Ref } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { TextInput, View } from "react-native";
+import { Tappable } from "../components/tappable";
+import { inputSurface } from "../components/text-field";
 import { AppText } from "../components/ui";
 import { Icon, type IconName } from "../components/icon";
 import { useTheme } from "../theme/provider";
-import { fonts, radius, spacing } from "../theme/tokens";
+import { cardShadow, fonts, radius, spacing } from "../theme/tokens";
 
 type SearchActionsProps = {
   inputRef?: Ref<TextInput>;
@@ -87,18 +89,24 @@ export function SearchActions(props: SearchActionsProps) {
             hint: "Create an exercise in your local library",
           },
         ];
+  const searchDisabled = props.kind === "food" ? props.searchDisabled : props.disabled;
+  const field = inputSurface(colors, { focused });
   const searchBox = (
     <View
       testID={`${kind}-search-box`}
       style={{
         flexDirection: "row",
         alignItems: "center",
-        gap: spacing.xs,
-        paddingHorizontal: spacing.sm,
-        borderWidth: focused ? 2 : 1,
-        borderRadius: radius.control,
-        borderColor: focused ? colors.ring : colors.input,
+        gap: spacing.sm,
+        minHeight: field.minHeight,
+        paddingLeft: spacing.layout,
+        paddingRight: spacing.xs,
+        borderWidth: field.borderWidth,
+        borderRadius: field.borderRadius,
+        borderColor: focused ? field.borderColor : colors.border,
+        // The search field sits on the page, so it takes the card color rather than a sunken well.
         backgroundColor: colors.card,
+        boxShadow: focused ? undefined : cardShadow(colors),
       }}
     >
       <Icon name="magnifying-glass" size={18} color={colors.mutedForeground} />
@@ -114,7 +122,7 @@ export function SearchActions(props: SearchActionsProps) {
         placeholderTextColor={colors.mutedForeground}
         selectionColor={colors.ring}
         value={query}
-        editable={props.kind === "food" ? !props.searchDisabled : !props.disabled}
+        editable={!searchDisabled}
         onChangeText={onQueryChange}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
@@ -123,67 +131,80 @@ export function SearchActions(props: SearchActionsProps) {
         style={{
           flex: 1,
           minWidth: 0,
-          minHeight: 52,
-          paddingVertical: spacing.layout,
+          minHeight: 48,
+          paddingVertical: spacing.md,
           color: colors.foreground,
-          fontFamily: fonts.regular,
+          fontFamily: fonts.medium,
           fontSize: 16,
           outlineWidth: 0,
           outlineStyle: "solid",
         }}
       />
       {query.length > 0 && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Clear search"
-          disabled={props.kind === "food" ? props.searchDisabled : props.disabled}
+        <Tappable
+          label="Clear search"
+          disabled={searchDisabled}
           onPress={() => onQueryChange("")}
-          style={({ pressed }) => ({
-            width: 44,
-            minHeight: 44,
+          style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
+          surface={({ pressed }) => ({
+            width: 26,
+            height: 26,
+            borderRadius: radius.pill,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: pressed ? colors.accent : "transparent",
-            borderRadius: 8,
+            backgroundColor: pressed ? colors.accent : colors.muted,
           })}
         >
-          <Icon name="xmark" size={18} color={colors.primary} />
-        </Pressable>
+          <Icon name="xmark" size={15} color={colors.mutedForeground} />
+        </Tappable>
       )}
     </View>
   );
   return (
-    <View testID={`${kind}-search-actions`} style={{ gap: spacing.layout }}>
+    <View testID={`${kind}-search-actions`} style={{ gap: spacing.md }}>
       {searchBox}
+      {/* Three equal quiet tiles, 8px apart: icon above a short label that may wrap to two lines. */}
       <View style={{ flexDirection: "row", gap: spacing.sm }}>
         {actions.map((action) => (
-          <Pressable
+          <Tappable
             key={action.label}
-            accessibilityRole="button"
-            accessibilityLabel={action.label}
-            accessibilityState={{ disabled: action.disabled }}
-            accessibilityHint={action.hint}
+            label={action.label}
+            hint={action.hint}
             disabled={action.disabled}
             onPress={action.onPress}
+            // Paddings net of the ring's 2 pt border.
             style={({ pressed }) => ({
               flex: 1,
               minWidth: 0,
-              minHeight: 76,
-              paddingHorizontal: spacing.sm,
-              paddingVertical: spacing.layout,
+              minHeight: 64,
+              paddingHorizontal: spacing.sm - 2,
+              paddingTop: spacing.md - 3,
+              paddingBottom: spacing.md - 4,
               alignItems: "center",
               justifyContent: "flex-start",
-              gap: spacing.sm,
+              gap: 6,
               borderRadius: radius.control,
-              backgroundColor: pressed ? colors.accent : colors.card,
-              opacity: action.disabled ? 0.5 : 1,
+              backgroundColor: pressed ? colors.accent : colors.muted,
             })}
           >
-            <Icon name={action.icon} size={18} color={colors.primary} />
-            <AppText variant="label" style={{ color: colors.foreground, textAlign: "center" }}>
-              {action.label}
+            <Icon name={action.icon} size={20} color={colors.primary} />
+            <AppText
+              variant="caption"
+              numberOfLines={2}
+              style={{
+                color: colors.foreground,
+                fontFamily: fonts.semibold,
+                fontSize: 12.5,
+                lineHeight: 16,
+                textAlign: "center",
+              }}
+            >
+              {/* Longer labels keep their last two words together: "Create food / or meal". */}
+              {action.label.split(" ").length > 2
+                ? action.label.replace(/ (\S+)$/, "\u00a0$1")
+                : action.label}
             </AppText>
-          </Pressable>
+          </Tappable>
         ))}
       </View>
     </View>

@@ -1,4 +1,6 @@
 import { View } from "react-native";
+import Animated from "react-native-reanimated";
+import { useAppear } from "../components/motion";
 import { Icon } from "../components/icon";
 import { useFoodLog } from "../food/log-provider";
 import { useWaterLog } from "../water/provider";
@@ -7,7 +9,9 @@ import { parseDay } from "../calendar/dates";
 import { profileStreak } from "./activity";
 import { SourceStatus } from "./profile-controls";
 import { useTheme } from "../theme/provider";
-import { JournalPanel, JournalText } from "./journal-ui";
+import { AppText, Panel } from "../components/ui";
+import { fonts, radius, spacing } from "../theme/tokens";
+import { JournalHeading } from "./journal-ui";
 export function ProfileStreak({ today }: { today: string }) {
   const food = useFoodLog(),
     water = useWaterLog(),
@@ -23,7 +27,7 @@ export function ProfileStreak({ today }: { today: string }) {
         })
       : null;
   return (
-    <JournalPanel testID="profile-streak" accessibilityLabel="Tracking streaks">
+    <Panel testID="profile-streak" accessibilityLabel="Tracking streaks">
       {food.state.kind !== "ready" && (
         <SourceStatus name="food log" kind={food.state.kind} retry={food.retryLoad} />
       )}
@@ -35,97 +39,115 @@ export function ProfileStreak({ today }: { today: string }) {
       )}
       {streak && (
         <>
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            {(
-              [
-                {
-                  label: "Current streak",
-                  value: streak.current,
-                  icon: "fire",
-                },
-                {
-                  label: "Longest streak",
-                  value: streak.longest,
-                  icon: "trophy",
-                },
-              ] as const
-            ).map((item, i) => (
-              <View
-                key={item.label}
-                style={{
-                  flex: 1,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 10,
-                }}
-              >
-                <Icon name={item.icon} size={18} color={colors.primary} />
-                <View>
-                  <JournalText size={18} variant="heading">
-                    {item.value}
-                    <JournalText size={10}> {item.value === 1 ? "day" : "days"}</JournalText>
-                  </JournalText>
-                  <JournalText size={10} muted>
-                    {item.label}
-                  </JournalText>
-                </View>
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.md }}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <JournalHeading
+                title="Current streak"
+                leading={<Icon name="fire" size={15} color={colors.mutedForeground} />}
+              />
+              <AppText variant="hero">
+                {streak.current}
+                <AppText variant="heading" muted style={{ fontFamily: fonts.semibold }}>
+                  {streak.current === 1 ? " day" : " days"}
+                </AppText>
+              </AppText>
+            </View>
+            <View
+              style={{
+                alignItems: "flex-end",
+                gap: 2,
+                paddingVertical: spacing.sm,
+                paddingHorizontal: spacing.md,
+                borderRadius: radius.control,
+                backgroundColor: colors.muted,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                <Icon name="trophy" size={13} color={colors.mutedForeground} />
+                <AppText variant="caption" muted>
+                  Longest
+                </AppText>
               </View>
-            ))}
+              <AppText variant="label" numeric style={{ fontSize: 15 }}>
+                {streak.longest}
+                <AppText variant="caption" muted>
+                  {streak.longest === 1 ? " day" : " days"}
+                </AppText>
+              </AppText>
+            </View>
           </View>
           <View
             testID="streak-week"
-            style={{
-              flexDirection: "row",
-              gap: 5,
-              marginTop: 15,
-              marginBottom: 8,
-            }}
+            style={{ flexDirection: "row", gap: 4, marginTop: spacing.xs }}
           >
-            {streak.week.map((day) => (
-              <View
-                key={day.date}
-                testID={`streak-day-${day.date}`}
-                accessible
-                accessibilityLabel={`${day.date}: ${day.logged ? "Activity logged" : "No activity logged"}`}
-                style={{ flex: 1, gap: 6, alignItems: "center" }}
-              >
-                <JournalText size={9} muted>
-                  {day.date === today
-                    ? "Today"
-                    : parseDay(day.date).toLocaleDateString(undefined, {
-                        weekday: "narrow",
-                      })}
-                </JournalText>
+            {streak.week.map((day, index) => {
+              const isToday = day.date === today;
+              return (
                 <View
-                  style={{
-                    width: 35,
-                    height: 35,
-                    marginVertical: -4,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: 18,
-                    borderWidth: day.date === today ? 1 : 0,
-                    borderColor: colors.primary,
-                  }}
+                  key={day.date}
+                  testID={`streak-day-${day.date}`}
+                  accessible
+                  accessibilityLabel={`${day.date}: ${day.logged ? "Activity logged" : "No activity logged"}`}
+                  style={{ flex: 1, gap: 6, alignItems: "center" }}
                 >
+                  <AppText
+                    variant="overline"
+                    muted={!isToday}
+                    style={{ letterSpacing: 0.6, textTransform: "none" }}
+                  >
+                    {isToday
+                      ? "Today"
+                      : parseDay(day.date).toLocaleDateString(undefined, { weekday: "narrow" })}
+                  </AppText>
                   <View
                     style={{
-                      width: 27,
-                      height: 27,
-                      borderRadius: 14,
+                      width: "100%",
+                      maxWidth: 38,
+                      aspectRatio: 1,
                       alignItems: "center",
                       justifyContent: "center",
-                      backgroundColor: day.logged ? colors.primary : colors.secondary,
+                      borderRadius: radius.pill,
+                      borderWidth: isToday ? 2 : 0,
+                      borderColor: colors.primary,
                     }}
                   >
-                    {day.logged && <Icon name="check" size={12} color={colors.primaryForeground} />}
+                    <StreakDot
+                      // A day that becomes logged remounts, so its check pops in.
+                      key={day.logged ? "done" : "open"}
+                      logged={day.logged}
+                      today={isToday}
+                      index={index}
+                    />
                   </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         </>
       )}
-    </JournalPanel>
+    </Panel>
+  );
+}
+
+/** A day's dot. Logged days fill in left to right as the card appears. */
+function StreakDot({ logged, today, index }: { logged: boolean; today: boolean; index: number }) {
+  const { colors } = useTheme();
+  const appear = useAppear("pop", { duration: 240, delay: index * 40 });
+  return (
+    <Animated.View
+      style={[
+        {
+          width: today ? "74%" : "84%",
+          aspectRatio: 1,
+          borderRadius: radius.pill,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: logged ? colors.primary : colors.muted,
+        },
+        logged && appear,
+      ]}
+    >
+      {logged && <Icon name="check" size={15} color={colors.primaryForeground} />}
+    </Animated.View>
   );
 }

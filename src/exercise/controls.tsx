@@ -1,77 +1,37 @@
-import { useEffect, useRef, useState } from "react";
-import { TextInput, View } from "react-native";
-import { AppText } from "../components/ui";
+import { StyleSheet, View } from "react-native";
+import { Icon } from "../components/icon";
+import { AppText, Overline } from "../components/ui";
 import { useTheme } from "../theme/provider";
-import { fonts, radius, spacing } from "../theme/tokens";
+import { radius, spacing } from "../theme/tokens";
 
-export function ExerciseField({
-  label,
-  value,
-  onChange,
-  numeric,
-  disabled = false,
-  multiline = false,
-  autoFocus = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  numeric?: boolean;
-  disabled?: boolean;
-  multiline?: boolean;
-  /** Focus on mount, or as soon as the field becomes editable if it starts disabled. */
-  autoFocus?: boolean;
-}) {
-  const { colors } = useTheme();
-  const [focused, setFocused] = useState(false);
-  const input = useRef<TextInput>(null);
-  const focusPending = useRef(autoFocus);
-  // Phones refuse to focus a field that isn't editable, so the platform's own
-  // autoFocus would be lost while the field is disabled at mount.
-  useEffect(() => {
-    if (!focusPending.current || disabled) return;
-    focusPending.current = false;
-    input.current?.focus();
-  }, [disabled]);
-  return (
-    <View style={{ gap: spacing.xs, minWidth: 0 }}>
-      <AppText variant="label">{label}</AppText>
-      <TextInput
-        ref={input}
-        accessibilityLabel={label}
-        value={value}
-        onChangeText={onChange}
-        editable={!disabled}
-        inputMode={numeric ? "decimal" : "text"}
-        keyboardType={numeric ? "decimal-pad" : "default"}
-        multiline={multiline}
-        maxLength={numeric ? 32 : multiline ? 4000 : 400}
-        selectTextOnFocus={numeric}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        selectionColor={colors.ring}
-        style={{
-          minHeight: multiline ? 96 : 48,
-          minWidth: 0,
-          padding: spacing.layout,
-          borderWidth: 1,
-          borderRadius: radius.control,
-          borderColor: focused ? colors.ring : colors.border,
-          backgroundColor: colors.background,
-          color: colors.foreground,
-          fontFamily: fonts.regular,
-          fontSize: 16,
-        }}
-      />
-    </View>
-  );
+/** A section label inside a form; groups the fields below it. */
+export function SectionLabel({ children }: { children: string }) {
+  return <Overline style={{ marginTop: spacing.xs }}>{children}</Overline>;
 }
 
-export function ExerciseError({ message }: { message: string | null }) {
+/** A hairline between rows of a list inside a card. */
+export function Hairline() {
   const { colors } = useTheme();
-  return message ? (
-    <AppText accessibilityRole="alert" style={{ color: colors.error }}>
-      {message}
-    </AppText>
-  ) : null;
+  return <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.border }} />;
+}
+
+/** An exercise's notes, revealed by its notes button. */
+export function ExerciseNotes({ notes }: { notes: string }) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        gap: spacing.sm,
+        padding: spacing.md,
+        borderRadius: radius.tile + 2,
+        backgroundColor: colors.muted,
+      }}
+    >
+      <Icon name="note-sticky" size={16} color={colors.mutedForeground} style={{ marginTop: 1 }} />
+      <AppText variant="caption" muted={!notes} style={{ flex: 1 }}>
+        {notes || "No notes for this exercise."}
+      </AppText>
+    </View>
+  );
 }

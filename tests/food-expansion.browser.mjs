@@ -111,9 +111,15 @@ async function open(t, { deferredCamera = false, cameraMountError = false, foods
   await heading(page, "Daily food log");
   return page;
 }
-async function dismissCreated(page) {
-  await page.getByText("Saved to your foods", { exact: true }).waitFor();
-  assert.equal(await page.getByRole("dialog").count(), 0);
+// Food flows open as pages over the log; their header back button leaves them.
+const back = (page, name) => button(page, name).click();
+// The open page stands in for the calendar's day change behind it, which also happens at midnight.
+const behindPage = (page, name) => button(page, name).dispatchEvent("click");
+async function expectCreated(page, kind = "foods") {
+  await page.getByText(`Saved to your ${kind}`, { exact: true }).waitFor();
+  // The saved item replaces the form on the same page, and no other dialog asks for confirmation.
+  await page.getByRole("dialog").getByTestId("food-nutrition-detail").waitFor();
+  assert.equal(await page.getByRole("dialog").count(), 1);
 }
 async function scan(page, code) {
   await button(page, "Scan barcode").click();
@@ -152,7 +158,7 @@ test("detailed nutrients preserve collapsed drafts, validate, save/edit/reload a
   await field(page, "Sodium (mg)").fill("150");
   await button(page, "More nutrients").click();
   await button(page, "Save food").click();
-  await dismissCreated(page);
+  await expectCreated(page);
   let saved = (await catalog(page)).foods[0];
   assert.equal(saved.details.sodium, 150);
   assert.equal(saved.details.fiber, 0);
@@ -172,6 +178,7 @@ test("detailed nutrients preserve collapsed drafts, validate, save/edit/reload a
   await button(page, "Edit food").click();
   assert.equal(await field(page, "Sodium (mg)").inputValue(), "200");
   await button(page, "Cancel").click();
+  await back(page, "Back to food results");
   await button(page, "Create food or meal").click();
   await page
     .getByTestId("food-creation-switch")
@@ -187,8 +194,7 @@ test("detailed nutrients preserve collapsed drafts, validate, save/edit/reload a
   await field(page, "Sodium (mg)").fill("");
   await button(page, "More nutrients").click();
   await button(page, "Save meal").click();
-  await page.getByText("Saved to your meals", { exact: true }).waitFor();
-  assert.equal(await page.getByRole("dialog").count(), 0);
+  await expectCreated(page, "meals");
   let meal = (await catalog(page)).meals[0];
   assert.equal(meal.details.sodium, 200);
   assert.deepEqual(meal.detailOverrides, { calcium: 0 });
@@ -251,7 +257,7 @@ test("manual barcode lookup opens an editable unsaved draft, retries save and pr
   await page.getByRole("alert").filter({ hasText: "Couldn't save" }).waitFor();
   assert.equal(await field(page, "Food name").inputValue(), "Renamed cereal");
   await button(page, "Save food").click();
-  await dismissCreated(page);
+  await expectCreated(page);
   assert.equal(
     await page.evaluate(() => window.accountFixture.getItem("kinevault-track.food-log.v1")),
     null,
@@ -309,17 +315,21 @@ test("barcode missing/error/retry/manual entry and cancellation never save or re
   await field(page, "Food name").fill("Manual scanned food");
   await fillMacros(page);
   await button(page, "Save food").click();
-  await dismissCreated(page);
+  await expectCreated(page);
   assert.equal((await catalog(page)).foods[0].importSource.provider, "manual");
+  await back(page, "Back to food log");
   await scan(page, "7290004131074");
   await pending;
+  await back(page, "Cancel import");
   await field(page, "Search foods").fill("apple");
   release();
   await page.getByTestId("food-result").first().waitFor();
   assert.equal(await page.getByTestId("food-import-draft").count(), 0);
   assert.equal((await catalog(page)).foods.length, 1);
   await button(page, "Scan barcode").click();
-  await page.getByRole("tab", { name: "Home", exact: true }).click();
+  await heading(page, "Scan food barcode");
+  // Leaving the tab without the page's back button, e.g. from a notification.
+  await page.getByRole("tab", { name: "Home", exact: true }).dispatchEvent("click");
   await page.getByRole("tab", { name: "Food", exact: true }).click();
   assert.equal(await page.getByTestId("food-barcode-scanner").count(), 0);
 });
@@ -343,8 +353,9 @@ test("barcode imports leave unknown and volume nutrition blank until reviewed", 
   await page.getByRole("alert").filter({ hasText: "Enter a number" }).waitFor();
   await field(page, "Fat (g)").fill("0");
   await button(page, "Save food").click();
-  await dismissCreated(page);
+  await expectCreated(page);
   assert.equal((await catalog(page)).foods[0].per100g.fat, 0);
+  await back(page, "Back to food log");
   await scan(page, volumeCode);
   await page.getByText(/This product lists volume amounts/).waitFor();
   for (const name of ["Calories (kcal)", "Carbs (g)", "Protein (g)", "Fat (g)"])
@@ -374,9 +385,9 @@ test("day changes and tab blur cancel pending barcode requests and retain editab
   });
   await scan(page, product.code);
   await started;
-  await button(page, "Expand calendar").click();
-  await button(page, "Select previous day").click();
-  await button(page, "Collapse calendar").click();
+  await behindPage(page, "Expand calendar");
+  await behindPage(page, "Select previous day");
+  await behindPage(page, "Collapse calendar");
   await button(page, "Retry barcode lookup").waitFor();
   release();
   await finished;
@@ -390,10 +401,18 @@ test("day changes and tab blur cancel pending barcode requests and retain editab
   });
   await button(page, "Retry barcode lookup").click();
   await started;
-  await page.getByRole("tab", { name: "Home", exact: true }).click();
+  // Leaving the tab without the page's back button, e.g. from a notification.
+  await page.getByRole("tab", { name: "Home", exact: true }).dispatchEvent("click");
   release();
   await finished;
-  await page.getByRole("tab", { name: "Food", exact: true }).click();
+  await page.getByRole("tab", { name: "Home", exact: true }).waitFor();
+  assert.equal(
+    await page.getByRole("tab", { name: "Home", exact: true }).getAttribute("aria-selected"),
+    "true",
+  );
+  // The Food page steps aside while another tab shows, and returns with the Food tab.
+  await page.getByRole("dialog").waitFor({ state: "detached" });
+  await page.getByRole("tab", { name: "Food", exact: true }).dispatchEvent("click");
   await button(page, "Retry barcode lookup").waitFor();
   assert.equal(await page.getByTestId("food-import-draft").count(), 0);
   assert.equal((await catalog(page)).foods.length, 0);
@@ -402,9 +421,14 @@ test("day changes and tab blur cancel pending barcode requests and retain editab
   await button(page, "Retry barcode lookup").click();
   await heading(page, "Review imported food");
   await field(page, "Food name").fill("Kept import draft");
-  await button(page, "Expand calendar").click();
-  await button(page, "Select previous day").click();
-  await button(page, "Collapse calendar").click();
+  await behindPage(page, "Expand calendar");
+  await behindPage(page, "Select previous day");
+  await behindPage(page, "Collapse calendar");
+  assert.equal(await field(page, "Food name").inputValue(), "Kept import draft");
+  await page.getByRole("tab", { name: "Home", exact: true }).dispatchEvent("click");
+  await page.getByRole("dialog").waitFor({ state: "detached" });
+  await page.getByRole("tab", { name: "Food", exact: true }).dispatchEvent("click");
+  await heading(page, "Review imported food");
   assert.equal(await field(page, "Food name").inputValue(), "Kept import draft");
   await button(page, "Cancel").click();
   assert.equal((await catalog(page)).foods.length, 0);
@@ -495,7 +519,7 @@ test("barcode-imported smart-apostrophe labels remain searchable offline after r
   await heading(page, "Review imported food");
   assert.equal(await field(page, "Food name").inputValue(), item.product_name);
   await button(page, "Save food").click();
-  await dismissCreated(page);
+  await expectCreated(page);
   assert.equal((await catalog(page)).foods[0].name, item.product_name);
   assert.equal((await catalog(page)).foods[0].brand, item.brands);
   await page.reload();
@@ -539,6 +563,7 @@ test("Scan reopens from review and cancels the previous lookup", async (t) => {
   await scan(page, product.code);
   await heading(page, "Review imported food");
   await field(page, "Food name").fill("Discarded scan draft");
+  await back(page, "Back to food log");
   await button(page, "Scan barcode").click();
   await heading(page, "Scan food barcode");
   assert.equal(await page.getByTestId("food-import-draft").count(), 0);
@@ -547,9 +572,12 @@ test("Scan reopens from review and cancels the previous lookup", async (t) => {
   const aborted = page.waitForEvent("requestfailed", {
     predicate: (request) => request.url().includes("/product/7290004131074"),
   });
-  await scan(page, "7290004131074");
+  // The reopened scanner is already open on its page.
+  await field(page, "Product barcode").fill("7290004131074");
+  await button(page, "Look up barcode").click();
   await started;
   await page.getByRole("progressbar", { name: "Looking up barcode...", exact: true }).waitFor();
+  await back(page, "Cancel import");
   await button(page, "Scan barcode").click();
   await heading(page, "Scan food barcode");
   const failedRequest = await aborted;
@@ -636,6 +664,7 @@ test("legacy stored imports stay unbadged through edits, reload and offline ingr
   assert.equal(await field(page, "Calories (kcal)").inputValue(), "2");
   assert.equal(await field(page, "Carbs (g)").inputValue(), "0");
   await button(page, "Cancel").click();
+  await back(page, "Back to food results");
   await button(page, "Create food or meal").click();
   await page
     .getByTestId("food-creation-switch")

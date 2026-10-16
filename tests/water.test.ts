@@ -255,46 +255,18 @@ function editFor(log: ReturnType<typeof createWaterLogPersistence>, editDate = d
   edit.start();
   return edit;
 }
-function delayedRead(initial: string) {
-  const store = memory(initial);
-  const gate = deferred<void>();
-  const read = store.storage.getItem;
-  store.storage.getItem = async (key) => {
-    await gate.promise;
-    return read(key);
-  };
-  const log = createWaterLogPersistence({ storage: store.storage });
-  log.start();
-  return { ...store, log, release: gate.resolve };
-}
-function holdWrite(storage: WaterLogStorage) {
-  const gate = deferred<void>();
-  const write = storage.setItem;
-  storage.setItem = async (key, value) => {
-    await gate.promise;
-    await write(key, value);
-  };
-  return gate;
-}
 
-test("a manual water draft fills once from a late read and never replaces entered text", async () => {
-  const late = delayedRead(days({ [date]: 1000 }));
-  const untouched = editFor(late.log);
-  const typed = editFor(late.log);
-  assert.deepEqual(untouched.getSnapshot(), { draft: "", error: null, busy: false, ready: false });
-  assert.equal(await untouched.save(), false);
-  assert.equal(typed.change("250"), true);
-  late.release();
-  await flush();
-  await flush();
-  assert.equal(untouched.getSnapshot().draft, "1000");
-  assert.equal(untouched.getSnapshot().ready, true);
-  assert.equal(typed.getSnapshot().draft, "250");
-  await late.replace(days({ [date]: 1500 }));
-  assert.equal(documentOf(late.log).days[date], 1500);
-  assert.equal(untouched.getSnapshot().draft, "1000");
-  const missing = editFor(late.log, otherDate);
-  assert.equal(missing.getSnapshot().draft, "0");
+// The edit lifecycle (fill-once seeding, exclusion, feedback ownership, stale
+// completions) is covered once in document-edit.test.ts.
+test("a manual water edit fills from its captured date and saves only that date", async () => {
+  const { log, raw } = await ready(days({ [date]: 1000, [otherDate]: 300 }));
+  const edit = editFor(log);
+  assert.equal(edit.getSnapshot().draft, "1000");
+  assert.equal(editFor(log, "2026-10-03").getSnapshot().draft, "0");
+  edit.change(" 750 ");
+  assert.equal(await edit.save(), true);
+  assert.deepEqual(documentOf(log).days, { [date]: 750, [otherDate]: 300 });
+  assert.equal(raw(), days({ [date]: 750, [otherDate]: 300 }));
 });
 
 test("manual water steps clamp at zero and the safe maximum, and zero clears only that date", async () => {
@@ -334,70 +306,15 @@ test("invalid manual water shows its message until the draft changes and never w
   assert.deepEqual(calls, ["read"]);
 });
 
-test("duplicate manual water saves write once and lock the draft until the write finishes", async () => {
-  const { log, storage, calls } = await ready();
-  const edit = editFor(log);
-  edit.change("500");
-  const gate = holdWrite(storage);
-  const pending = edit.save();
-  assert.equal(await edit.save(), false);
-  assert.equal(edit.change("750"), false);
-  assert.equal(edit.adjust(250), false);
-  assert.equal(edit.getSnapshot().busy, true);
-  assert.equal(edit.getSnapshot().draft, "500");
-  gate.resolve();
-  assert.equal(await pending, true);
-  assert.deepEqual(calls, ["read", "write"]);
-  assert.equal(edit.getSnapshot().busy, false);
-});
-
-test("a closed manual water save keeps its original date and cannot close a newer edit", async () => {
-  const { log, storage } = await ready();
-  const edit = editFor(log);
-  edit.change("500");
-  const gate = holdWrite(storage);
-  const pending = edit.save();
-  // The selected day changes while the write is pending; Home opens another day.
-  edit.stop();
-  const next = editFor(log, otherDate);
-  assert.equal(next.getSnapshot().draft, "0");
-  assert.equal(next.getSnapshot().busy, true);
-  assert.equal(await next.save(), false);
-  gate.resolve();
-  assert.equal(await pending, false);
-  assert.deepEqual(documentOf(log).days, { [date]: 500 });
-  assert.deepEqual(next.getSnapshot(), { draft: "0", error: null, busy: false, ready: true });
-});
-
-test("a failed manual water save stays with its edit and never appears in a new edit", async () => {
+test("a failed manual water save reports the water log message", async () => {
   const { log, storage } = await ready(days({ [date]: 250 }));
-  const write = storage.setItem;
   storage.setItem = async () => {
     throw new Error("disk full");
   };
-  const failed = editFor(log);
-  failed.change("500");
-  assert.equal(await failed.save(), false);
-  assert.equal(failed.getSnapshot().error, "Couldn't save your water log. Try again.");
-  assert.equal(failed.getSnapshot().draft, "500");
-  failed.stop();
-  // The store still reports the old failure, but the next edit starts clean.
-  assert.notEqual(log.getSnapshot().error, null);
-  const next = editFor(log);
-  assert.deepEqual(next.getSnapshot(), { draft: "250", error: null, busy: false, ready: true });
-  // A closed edit's late failure does not reach a newer edit either.
-  const gate = holdWrite(storage);
-  const late = editFor(log, otherDate);
-  late.change("300");
-  const pending = late.save();
-  late.stop();
-  const newer = editFor(log, otherDate);
-  gate.resolve();
-  assert.equal(await pending, false);
-  assert.equal(newer.getSnapshot().error, null);
-  storage.setItem = write;
-  next.change("750");
-  assert.equal(await next.save(), true);
-  assert.equal(next.getSnapshot().error, null);
-  assert.equal(documentOf(log).days[date], 750);
+  const edit = editFor(log);
+  edit.change("500");
+  assert.equal(await edit.save(), false);
+  assert.equal(edit.getSnapshot().error, "Couldn't save your water log. Try again.");
+  assert.equal(edit.getSnapshot().draft, "500");
+  assert.equal(documentOf(log).days[date], 250);
 });

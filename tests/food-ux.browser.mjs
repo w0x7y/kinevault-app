@@ -92,9 +92,13 @@ async function open(t, { foods = [] } = {}) {
   await heading(page, "Daily food log");
   return page;
 }
+// Food flows open as pages over the log; their header back button leaves them.
+const back = (page, name) => button(page, name).click();
 async function expectCatalogSaved(page) {
   await page.getByText("Saved to your foods", { exact: true }).waitFor();
-  assert.equal(await page.getByRole("dialog").count(), 0);
+  // The saved item opens on its own page, and no other dialog asks for confirmation.
+  await page.getByRole("dialog").getByTestId("food-nutrition-detail").waitFor();
+  assert.equal(await page.getByRole("dialog").count(), 1);
 }
 async function scan(page, code) {
   await button(page, "Scan barcode").click();
@@ -121,6 +125,7 @@ test("food and meal drafts survive global navigation, discard and successful sav
   await fillMacros(page);
   await button(page, "More nutrients").click();
   await field(page, "Sodium (mg)").fill("123");
+  await back(page, "Back to food log");
   await field(page, "Search foods").fill("apple");
   await button(page, "Create food or meal").click();
   assert.equal(await field(page, "Food name").inputValue(), "Retained oats");
@@ -130,6 +135,8 @@ test("food and meal drafts survive global navigation, discard and successful sav
   await expectCatalogSaved(page);
   await button(page, "Edit food").click();
   await field(page, "Food name").fill("Edited draft oats");
+  await back(page, "Back to food details");
+  await back(page, "Back to food log");
   await field(page, "Search foods").fill("apple");
   await button(page, "Resume draft: Edited draft oats").click();
   assert.equal(await field(page, "Food name").inputValue(), "Edited draft oats");
@@ -148,6 +155,7 @@ test("food and meal drafts survive global navigation, discard and successful sav
   await field(page, "Calories (kcal)").fill("321");
   await button(page, "More nutrients").click();
   await field(page, "Sodium (mg)").fill("45");
+  await back(page, "Back to food log");
   await field(page, "Search foods").fill("apple");
   await button(page, "Create food or meal").click();
   assert.equal(await field(page, "Meal name").inputValue(), "Retained bowl");
@@ -173,6 +181,7 @@ test("import review resumes without another request and preserves provenance thr
   await field(page, "Food name").fill("Imported draft");
   await field(page, "Brand (optional)").fill("Draft brand");
   await field(page, "Carbs (g)").fill("42");
+  await back(page, "Back to food log");
   await field(page, "Search foods").fill("apple");
   await button(page, "Resume draft: Imported draft").click();
   assert.equal(requests, 1);
@@ -190,6 +199,7 @@ test("import review resumes without another request and preserves provenance thr
   }, storageKey);
   await button(page, "Save food").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save" }).waitFor();
+  await back(page, "Back to food log");
   await field(page, "Search foods").fill("apple");
   await button(page, "Resume draft: Imported draft").click();
   assert.equal(await field(page, "Food name").inputValue(), "Imported draft");
@@ -217,6 +227,7 @@ async function chooseDestination(page, meal) {
   await field(page, "Search foods").fill("banana");
   await button(page, "View nutrition for Banana, raw").click();
   await button(page, meal).click();
+  await back(page, "Back to food results");
 }
 
 test("global search opens nutrition on the first focused click and logs a source portion to Lunch", async (t) => {
@@ -318,6 +329,26 @@ test("global search opens nutrition on the first focused click and logs a source
   }
 });
 
+test("a food page steps aside while another tab shows and returns with its amount and meal", async (t) => {
+  const page = await open(t);
+  await field(page, "Search foods").fill("banana");
+  await button(page, "View nutrition for Banana, raw").click();
+  await field(page, "Amount (g)").fill("42");
+  await button(page, "Lunch").click();
+  // Another tab can open without the page's back button, e.g. from a notification.
+  await page.getByRole("tab", { name: "Home", exact: true }).dispatchEvent("click");
+  await page.getByRole("dialog").waitFor({ state: "detached" });
+  await page.getByRole("tab", { name: "Food", exact: true }).dispatchEvent("click");
+  await page.getByRole("dialog").getByTestId("food-nutrition-detail").waitFor();
+  assert.equal(await field(page, "Amount (g)").inputValue(), "42");
+  assert.equal(await button(page, "Lunch").getAttribute("aria-pressed"), "true");
+  await button(page, "Log food to Lunch").click();
+  await heading(page, "Daily food log");
+  const [entry] = await intake(page);
+  assert.equal(entry.meal, "lunch");
+  assert.equal(entry.grams, 42);
+});
+
 test("compact food entries keep long names readable and confirmation cancellable in both themes", async (t) => {
   const food = {
     id: "long-food-name",
@@ -376,6 +407,7 @@ test("detail meal choice retains Snacks through barcode review resume and catalo
   await scan(page, product.code);
   await heading(page, "Review imported food");
   await field(page, "Food name").fill("Snack cereal");
+  await back(page, "Back to food log");
   await field(page, "Search foods").fill("banana");
   await field(page, "Search foods").fill("");
   await chooseDestination(page, "Lunch");
@@ -396,6 +428,7 @@ test("Lunch creation saves inline without intake and destination remains changea
   await button(page, "Create food or meal").click();
   await field(page, "Food name").fill("Lunch oats");
   await fillMacros(page);
+  await back(page, "Back to food log");
   await field(page, "Search foods").fill("banana");
   await button(page, "Create food or meal").click();
   await button(page, "Save food").click();
@@ -451,6 +484,7 @@ for (const mode of ["barcode", "manual barcode"]) {
     if (mode === "manual barcode") await fillMacros(page);
     await field(page, "Food name").fill(`Retained ${mode} snack`);
     await field(page, "Carbs (g)").fill("42");
+    await back(page, "Back to food log");
     await field(page, "Search foods").fill("banana");
     await field(page, "Search foods").fill("");
     await chooseDestination(page, "Lunch");
@@ -514,6 +548,8 @@ test("changed Dinner destination belongs to a retained catalog-editor draft", as
   await button(page, "Dinner").click();
   await button(page, "Edit food").click();
   await field(page, "Food name").fill("Dinner editor draft");
+  await back(page, "Back to food details");
+  await back(page, "Back to food log");
   await field(page, "Search foods").fill("banana");
   await field(page, "Search foods").fill("");
   await chooseDestination(page, "Snacks");
@@ -571,6 +607,8 @@ for (const kind of ["food", "meal"]) {
     await button(page, `Edit ${kind}`).click();
     const nameField = kind === "food" ? "Food name" : "Meal name";
     await field(page, nameField).fill(`Retained dinner ${kind}`);
+    await back(page, `Back to ${kind} details`);
+    await back(page, "Back to food results");
     await field(page, "Search foods").fill("banana");
     await field(page, "Search foods").fill("");
     await chooseDestination(page, "Snacks");
@@ -584,6 +622,8 @@ for (const kind of ["food", "meal"]) {
     // than only retaining Dinner locally on this detail screen.
     await button(page, `Edit ${kind}`).click();
     await field(page, nameField).fill(`Follow-on dinner ${kind}`);
+    await back(page, `Back to ${kind} details`);
+    await back(page, "Back to food results");
     await field(page, "Search foods").fill("banana");
     await button(page, `Resume draft: Follow-on dinner ${kind}`).click();
     await button(page, `Save ${kind} changes`).click();
@@ -604,14 +644,19 @@ for (const kind of ["food", "meal"]) {
     await field(page, otherKind === "food" ? "Food name" : "Meal name").fill(
       "Unrelated retained editor",
     );
+    await back(page, `Back to ${otherKind} details`);
+    await back(page, "Back to food results");
     await openSavedItem(page, kind);
     await button(page, `Edit ${kind}`).click();
     await field(page, kind === "food" ? "Food name" : "Meal name").fill("Deleted editor draft");
+    await back(page, `Back to ${kind} details`);
+    await back(page, "Back to food results");
     await openSavedItem(page, kind);
     await button(page, `Delete ${kind}`).click();
     const confirmation = button(page, `Confirm delete ${kind}`);
     assert.equal(await confirmation.innerText(), "Are you sure?");
-    assert.equal(await page.getByRole("dialog").count(), 0);
+    // Deleting confirms in place on the item's page rather than in another dialog.
+    assert.equal(await page.getByRole("dialog").count(), 1);
     await page.evaluate((key) => {
       const original = Storage.prototype.setItem;
       Storage.prototype.setItem = function (nextKey, value) {
@@ -630,11 +675,13 @@ for (const kind of ["food", "meal"]) {
     assert.equal(await button(page, "Resume draft: Deleted editor draft").count(), 1);
     assert.equal(await button(page, "Resume draft: Unrelated retained editor").count(), 1);
     assert.equal((await catalog(page))[kind === "food" ? "foods" : "meals"].length, 1);
+    await back(page, "Back to food results");
     await button(page, "Resume draft: Deleted editor draft").click();
     assert.equal(
       await field(page, kind === "food" ? "Food name" : "Meal name").inputValue(),
       "Deleted editor draft",
     );
+    await back(page, "Back to food log");
     await openSavedItem(page, kind);
     await button(page, `Delete ${kind}`).click();
     await confirmation.click();
@@ -657,6 +704,7 @@ test("saving each creation retires only that draft across food and meal switches
   await button(page, "Create food or meal").click();
   await field(page, "Food name").fill("Independent lunch oats");
   await fillMacros(page);
+  await back(page, "Back to food log");
   await chooseDestination(page, "Dinner");
   await button(page, "Create food or meal").click();
   await page
@@ -675,6 +723,7 @@ test("saving each creation retires only that draft across food and meal switches
   await button(page, "Save food").click();
   await expectCatalogSaved(page);
   assert.equal(await button(page, "Lunch").getAttribute("aria-pressed"), "true");
+  await back(page, "Back to food log");
   await button(page, "Create food or meal").click();
   assert.equal(await field(page, "Food name").inputValue(), "");
   await page
@@ -688,6 +737,7 @@ test("saving each creation retires only that draft across food and meal switches
   assert.equal((await catalog(page)).foods.length, 1);
   assert.equal((await catalog(page)).meals.length, 1);
   assert.deepEqual(await intake(page), []);
+  await back(page, "Back to food log");
   await button(page, "Create food or meal").click();
   assert.equal(await field(page, "Meal name").inputValue(), "");
 });

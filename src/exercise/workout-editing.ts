@@ -22,9 +22,14 @@ export type WorkoutView =
     }
   | { kind: "workout"; workout?: WorkoutTemplate }
   | { kind: "library"; date: string }
-  | { kind: "session"; id: string; manual?: boolean; settings?: boolean }
+  | { kind: "session"; id: string; manual?: boolean }
   | { kind: "import"; source?: string };
 export type WorkoutPanel = { content: WorkoutView; token: number };
+/**
+ * How a workout log presents: a compact planned card, the live workspace, manual logging of a
+ * planned log, or an edit of a completed one.
+ */
+export type WorkoutLogMode = "compact" | "active" | "manual" | "completed";
 export type WorkoutFields = { name: string; exercises: SessionExercise[]; minutes: string };
 export type WorkoutEditState = {
   session: WorkoutSession;
@@ -33,6 +38,10 @@ export type WorkoutEditState = {
   busy: boolean;
   error: string | null;
   countError: string | null;
+  /** The exercise row on screen, so a remounted editor (e.g. after "Link demo") reopens on it. */
+  selectedId: string | null;
+  /** Whether a compact card shows its planned-set settings. */
+  settingsOpen: boolean;
 };
 type Store = Pick<
   ReturnType<typeof createExercisePersistence>,
@@ -49,8 +58,6 @@ type Entry = {
   state: WorkoutEditState;
   revision: number;
   pending: Promise<boolean> | null;
-  /** The exercise row on screen, so a remounted editor (e.g. after "Link demo") reopens on it. */
-  selectedId?: string;
 };
 
 const draftFailure =
@@ -71,6 +78,12 @@ function countProblem(row: SessionExercise, raw: string): string | null {
   return count <= lastEntered
     ? `${row.exercise.name} has entered values in later sets. Keep at least ${lastEntered + 1} sets.`
     : null;
+}
+
+/** A planned log is a compact card unless the open view logs it manually. */
+export function workoutLogMode(session: WorkoutSession, view?: WorkoutView | null): WorkoutLogMode {
+  if (session.status !== "planned") return session.status;
+  return view?.kind === "session" && view.id === session.id && view.manual ? "manual" : "compact";
 }
 
 function plannedCountError(fields: WorkoutFields, counts: Record<string, string>) {
@@ -113,14 +126,11 @@ export function createWorkoutEditing(store: Store) {
     return entries.get(id) === entry;
   }
   function countsValid(entry: Entry) {
-    const view = snapshot.panel?.content;
-    if (
-      entry.state.session.status !== "planned" ||
-      (view?.kind === "session" && view.id === entry.state.session.id && view.manual)
-    )
-      return true;
+    // Planned set counts belong to the compact card; manual logging edits the sets themselves.
+    if (workoutLogMode(entry.state.session, snapshot.panel?.content) !== "compact") return true;
     const problem = plannedCountError(entry.state.fields, entry.state.counts);
-    publish(entry, { countError: problem });
+    // A folded settings section opens so its error is never hidden.
+    publish(entry, problem ? { countError: problem, settingsOpen: true } : { countError: problem });
     return !problem;
   }
   function refreshDocument() {
@@ -176,6 +186,8 @@ export function createWorkoutEditing(store: Store) {
           busy: false,
           error: null,
           countError: null,
+          selectedId: null,
+          settingsOpen: false,
         },
       };
       entries.set(id, entry);
@@ -338,7 +350,13 @@ export function createWorkoutEditing(store: Store) {
       const originAttachment = attachment,
         originRequest = request;
       if (!current(id, entry)) return false;
-      if (kind === "retry" || kind === "settings") return flush(id, entry);
+      if (kind === "retry") return flush(id, entry);
+      if (kind === "settings") {
+        const success = await flush(id, entry);
+        // Saved settings fold away; a failure keeps them open beside its feedback.
+        if (success && current(id, entry)) publish(entry, { settingsOpen: false });
+        return success;
+      }
       if (entry.pending) return false;
       if (kind === "cancel") {
         const success = await flush(id, entry);
@@ -411,9 +429,13 @@ export function createWorkoutEditing(store: Store) {
       subscribe,
       change,
       run,
-      selectedId: () => entry.selectedId,
       select(rowId: string) {
-        if (current(id, entry)) entry.selectedId = rowId;
+        if (current(id, entry) && entry.state.selectedId !== rowId)
+          publish(entry, { selectedId: rowId });
+      },
+      showSettings(open: boolean) {
+        if (current(id, entry) && entry.state.settingsOpen !== open)
+          publish(entry, { settingsOpen: open });
       },
     };
   }
@@ -423,16 +445,19 @@ export function createWorkoutEditing(store: Store) {
     refreshDocument,
     edit,
     requestView,
+    /** Leaves panel `token` for the workout it returns to (after "Link demo"), or no panel. */
     closeView(token: number) {
+      const content = snapshot.panel?.content;
       if (attached && snapshot.panel?.token === token) {
         ++request;
-        replace(null);
+        replace((content?.kind === "exercise" && content.returnTo) || null);
       }
     },
-    createdSession(token: number, id: string) {
+    /** Panel `token` hands over to `content`, e.g. Saved workouts opening the log it added. */
+    replaceView(token: number, content: WorkoutView) {
       if (attached && snapshot.panel?.token === token) {
         ++request;
-        replace({ kind: "session", id, manual: false });
+        replace(content);
       }
     },
     resume() {

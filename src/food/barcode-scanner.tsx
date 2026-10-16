@@ -1,11 +1,13 @@
 import { AppButton } from "../components/button";
 import { useEffect, useRef, useState } from "react";
-import { AppState, Linking, Platform, View } from "react-native";
+import { AppState, Linking, Platform, StyleSheet, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { AppText } from "../components/ui";
 import { useTheme } from "../theme/provider";
-import { spacing } from "../theme/tokens";
-import { FoodField } from "./form-fields";
+import { radius, spacing } from "../theme/tokens";
+import { Icon } from "../components/icon";
+import { Section } from "./food-ui";
+import { TextField } from "../components/text-field";
 import { normalizeProductBarcode, supportedProductBarcodeTypes } from "./barcode.ts";
 import { checkFoodCameraAvailability } from "./camera-availability.ts";
 
@@ -71,66 +73,99 @@ export function FoodBarcodeScanner({
     locked.current = true;
     onBarcode(normalized);
   }
+  const unavailable = cameraError || available === false;
+  const live = foreground && permission?.granted && available && !cameraError;
   return (
     <View testID="food-barcode-scanner" style={{ gap: spacing.layout }}>
-      <AppButton link icon="chevron-left" label="Cancel scan" onPress={onClose} />
-      <AppText variant="heading" accessibilityRole="header">
-        Scan food barcode
-      </AppText>
-      <AppText muted>
+      <AppText variant="caption" muted style={{ paddingHorizontal: spacing.xs }}>
         Point the camera at an EAN or UPC barcode, or enter the printed numbers below.
       </AppText>
-      {foreground && permission?.granted && available && !cameraError ? (
-        <CameraView
-          testID="food-barcode-camera"
-          facing="back"
-          mode="picture"
-          style={{ height: 240, width: "100%" }}
-          barcodeScannerSettings={{ barcodeTypes: [...supportedProductBarcodeTypes] }}
-          onMountError={() => setCameraError(true)}
-          onBarcodeScanned={({ data, type }) => detect(data, type)}
-        />
-      ) : (
-        <AppText variant="caption" muted>
-          {cameraError || available === false
-            ? "Camera unavailable. You can enter the barcode manually."
-            : permission && !permission.granted
-              ? "Camera permission is needed to scan. You can enter the barcode manually."
-              : "Opening camera..."}
-        </AppText>
-      )}
-      {permission && !permission.granted && (
-        <AppButton
-          label={permission.canAskAgain ? "Allow camera" : "Open camera settings"}
-          onPress={() => {
-            if (!permission.canAskAgain) {
-              void Linking.openSettings().catch(() => setCameraError(true));
-              return;
-            }
-            permissionPending.current = true;
-            void requestPermission()
-              .catch(() => setCameraError(true))
-              .finally(() => {
-                permissionPending.current = false;
-              });
+      <Section>
+        <View
+          style={{
+            height: 220,
+            borderRadius: radius.control,
+            overflow: "hidden",
+            backgroundColor: live ? "#000" : colors.muted,
+            alignItems: "center",
+            justifyContent: "center",
           }}
+        >
+          {live ? (
+            <CameraView
+              testID="food-barcode-camera"
+              facing="back"
+              mode="picture"
+              style={{ height: "100%", width: "100%" }}
+              barcodeScannerSettings={{ barcodeTypes: [...supportedProductBarcodeTypes] }}
+              onMountError={() => setCameraError(true)}
+              onBarcodeScanned={({ data, type }) => detect(data, type)}
+            />
+          ) : (
+            <View style={{ alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.lg }}>
+              <Icon name="barcode" size={34} color={colors.mutedForeground} />
+              <AppText variant="caption" muted style={{ textAlign: "center" }}>
+                {unavailable
+                  ? "Camera unavailable. You can enter the barcode manually."
+                  : permission && !permission.granted
+                    ? "Camera permission is needed to scan. You can enter the barcode manually."
+                    : "Opening camera..."}
+              </AppText>
+              {permission && !permission.granted && !unavailable && (
+                <AppButton
+                  icon="camera"
+                  label={permission.canAskAgain ? "Allow camera" : "Open camera settings"}
+                  onPress={() => {
+                    if (!permission.canAskAgain) {
+                      void Linking.openSettings().catch(() => setCameraError(true));
+                      return;
+                    }
+                    permissionPending.current = true;
+                    void requestPermission()
+                      .catch(() => setCameraError(true))
+                      .finally(() => {
+                        permissionPending.current = false;
+                      });
+                  }}
+                />
+              )}
+            </View>
+          )}
+          {live && (
+            // A quiet frame marks where the barcode should sit.
+            <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.frameWrap]}>
+              <View style={styles.frame} />
+            </View>
+          )}
+        </View>
+      </Section>
+      <Section title="Enter manually">
+        <TextField
+          label="Product barcode"
+          value={barcode}
+          onChange={(value) => {
+            setBarcode(value);
+            setError(undefined);
+          }}
+          error={error}
+          kind="decimal"
         />
-      )}
-      <FoodField
-        label="Product barcode"
-        value={barcode}
-        onChange={(value) => {
-          setBarcode(value);
-          setError(undefined);
-        }}
-        error={error}
-        disabled={false}
-        numeric
-      />
-      <AppButton label="Look up barcode" primary onPress={() => detect(barcode)} />
-      <AppText variant="caption" style={{ color: colors.mutedForeground }}>
-        Scanning opens a draft. Review and save it to keep it in your foods.
-      </AppText>
+        <AppButton label="Look up barcode" tone="primary" onPress={() => detect(barcode)} />
+        <AppText variant="caption" muted style={{ textAlign: "center" }}>
+          Scanning opens a draft. Review and save it to keep it in your foods.
+        </AppText>
+      </Section>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  frameWrap: { alignItems: "center", justifyContent: "center" },
+  frame: {
+    width: "72%",
+    height: 110,
+    borderRadius: radius.tile,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.85)",
+  },
+});

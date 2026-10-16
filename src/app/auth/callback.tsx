@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Platform, ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ActivityIndicator, Platform, View } from "react-native";
 import * as Linking from "expo-linking";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useAccount } from "../../account/provider";
 import { sanitizedAuthPath } from "../../account/auth-links";
 import { AppText } from "../../components/ui";
-import { Button } from "../../onboarding/controls";
+import { AppButton } from "../../components/button";
+import { InlineMessage } from "../../components/inline-message";
+import { StatusScreen } from "../../onboarding/status-screen";
 import { useTheme } from "../../theme/provider";
 import { spacing } from "../../theme/tokens";
 
@@ -83,50 +84,41 @@ export default function AuthCallbackScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{
-          flexGrow: 1,
-          justifyContent: "center",
-          padding: spacing.layout,
-          gap: spacing.layout,
-          alignSelf: "center",
-          width: "100%",
-          maxWidth: 560,
-        }}
-      >
-        <AppText variant="title" accessibilityRole="header">
-          {showFailure ? "Check your email link" : "Verifying your account"}
-        </AppText>
-        <AppText muted accessibilityLiveRegion="polite">
+    <StatusScreen
+      icon={showFailure ? "link" : "envelope-open-text"}
+      title={showFailure ? "Check your email link" : "Verifying your account"}
+      documentTitle="Account link"
+      message={
+        <AppText muted accessibilityLiveRegion="polite" style={{ textAlign: "center" }}>
           {showFailure
             ? "Request a fresh link if this one has expired. Open it on the device where you requested it."
             : "Please wait while we verify the link from your email."}
         </AppText>
-        {showFailure && (
-          <>
-            <AppText accessibilityRole="alert" style={{ color: colors.error }}>
-              {account.error ?? "This link is incomplete. Request a new one and try again."}
-            </AppText>
-            <Button
-              label={account.busy ? "Verifying…" : "Try again"}
-              disabled={account.busy || account.loading}
-              onPress={() => void retry()}
-            />
-            <Button
-              label="Back to account"
-              secondary
-              disabled={account.busy}
-              onPress={() => {
-                account.acknowledgeAuthLink();
-                router.replace("/account" as Href);
-              }}
-            />
-          </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+      }
+    >
+      {showFailure ? (
+        <View style={{ gap: spacing.md }}>
+          <InlineMessage>
+            {account.error ?? "This link is incomplete. Request a new one and try again."}
+          </InlineMessage>
+          <AppButton
+            label={account.busy ? "Verifying…" : "Try again"}
+            tone="primary"
+            disabled={account.busy || account.loading}
+            onPress={() => void retry()}
+          />
+          <AppButton
+            label="Back to account"
+            disabled={account.busy}
+            onPress={() => {
+              account.acknowledgeAuthLink();
+              router.replace("/account" as Href);
+            }}
+          />
+        </View>
+      ) : (
+        <ActivityIndicator color={colors.mutedForeground} />
+      )}
+    </StatusScreen>
   );
 }

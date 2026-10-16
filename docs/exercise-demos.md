@@ -9,7 +9,7 @@ KineVault exercise. The design is in
 The migration `20261013120000_exercise_demo_catalog` was applied to the hosted
 project on 2026-10-13 and is recorded in `supabase_migrations.schema_migrations`.
 The first publish on 2026-10-14 added 10 demos curated in the local KineVault
-stack with `scripts/curate-local-demos.mjs` (five dumbbell/cable movements and,
+stack with KineVault's `scripts/curate-local-demos.mjs` (five dumbbell/cable movements and,
 with `--full-body`, five full-body movements).
 
 On the current local Supabase, that curation script also needs

@@ -1,16 +1,16 @@
 import { useState } from "react";
-import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Keyboard, View } from "react-native";
 import { router, type Href } from "expo-router";
 import { useAccount } from "../../account/provider";
 import { AppText } from "../../components/ui";
-import { Button, Field } from "../../onboarding/controls";
-import { useTheme } from "../../theme/provider";
+import { AppButton } from "../../components/button";
+import { InlineMessage } from "../../components/inline-message";
+import { TextField } from "../../components/text-field";
+import { StatusScreen } from "../../onboarding/status-screen";
 import { spacing } from "../../theme/tokens";
 
 export default function ResetPasswordScreen() {
   const account = useAccount();
-  const { colors } = useTheme();
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -40,96 +40,78 @@ export default function ResetPasswordScreen() {
     router.replace("/account" as Href);
   }
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          showsHorizontalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{
-            flexGrow: 1,
-            justifyContent: "center",
-            padding: spacing.layout,
-            gap: spacing.layout,
-            width: "100%",
-            maxWidth: 560,
-            alignSelf: "center",
-          }}
-        >
-          <AppText variant="title" accessibilityRole="header">
-            {saved ? "Password updated" : "Choose a new password"}
+    <StatusScreen
+      icon={saved ? "check" : "key"}
+      tone={saved ? "success" : "brand"}
+      title={saved ? "Password updated" : "Choose a new password"}
+      documentTitle={saved ? "Password updated" : "Choose a new password"}
+      message={
+        account.loading ? (
+          <AppText muted style={{ textAlign: "center" }}>
+            Loading your account…
           </AppText>
-          {account.loading ? (
-            <AppText muted>Loading your account…</AppText>
-          ) : saved ? (
-            <AppText role="status" accessibilityLiveRegion="polite">
-              Your new password is ready to use in KineVault.
-            </AppText>
-          ) : canReset ? (
-            <>
-              <AppText muted>
-                Use at least 10 characters. This password belongs to your KineVault account.
-              </AppText>
-              <View style={{ gap: spacing.layout }}>
-                <Field
-                  label="New password"
-                  value={password}
-                  onChangeText={(value) => {
-                    setPassword(value);
-                    setError(null);
-                    account.clearFeedback();
-                  }}
-                  secureTextEntry
-                  autoComplete="new-password"
-                  textContentType="newPassword"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!account.busy}
-                />
-                <Field
-                  label="Confirm new password"
-                  value={confirmation}
-                  onChangeText={(value) => {
-                    setConfirmation(value);
-                    setError(null);
-                  }}
-                  secureTextEntry
-                  autoComplete="new-password"
-                  textContentType="newPassword"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!account.busy}
-                  returnKeyType="done"
-                  onSubmitEditing={() => void save()}
-                />
-              </View>
-              {(error || account.error) && (
-                <AppText accessibilityRole="alert" style={{ color: colors.error }}>
-                  {error ?? account.error}
-                </AppText>
-              )}
-              <Button
+        ) : saved ? (
+          <AppText role="status" accessibilityLiveRegion="polite" style={{ textAlign: "center" }}>
+            Your new password is ready to use in KineVault.
+          </AppText>
+        ) : canReset ? (
+          <AppText muted style={{ textAlign: "center" }}>
+            Use at least 10 characters. This password belongs to your KineVault account.
+          </AppText>
+        ) : (
+          <AppText accessibilityRole="alert" muted style={{ textAlign: "center" }}>
+            Open the password reset link from your email before choosing a new password.
+          </AppText>
+        )
+      }
+    >
+      <View style={{ gap: spacing.md }}>
+        {!account.loading && !saved && canReset && (
+          <>
+            <TextField
+              size="large"
+              label="New password"
+              value={password}
+              onChange={(value) => {
+                setPassword(value);
+                setError(null);
+                account.clearFeedback();
+              }}
+              kind="password"
+              autoComplete="new-password"
+              disabled={account.busy}
+            />
+            <TextField
+              size="large"
+              label="Confirm new password"
+              value={confirmation}
+              onChange={(value) => {
+                setConfirmation(value);
+                setError(null);
+              }}
+              kind="password"
+              autoComplete="new-password"
+              disabled={account.busy}
+              onSubmit={() => void save()}
+            />
+            <InlineMessage>{error ?? account.error}</InlineMessage>
+            <View style={{ marginTop: spacing.xs }}>
+              <AppButton
                 label={account.busy ? "Updating password…" : "Save new password"}
+                tone="primary"
                 disabled={account.busy}
                 onPress={() => void save()}
               />
-            </>
-          ) : (
-            <AppText accessibilityRole="alert">
-              Open the password reset link from your email before choosing a new password.
-            </AppText>
-          )}
-          <Button
-            label={saved ? "Continue" : account.busy ? "Please wait…" : "Back to account"}
-            secondary={!saved}
-            disabled={account.busy || account.loading}
-            onPress={() => void leave()}
-          />
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            </View>
+          </>
+        )}
+        <AppButton
+          label={saved ? "Continue" : account.busy ? "Please wait…" : "Back to account"}
+          tone={!saved && canReset ? "secondary" : "primary"}
+          disabled={account.busy || account.loading}
+          onPress={() => void leave()}
+        />
+      </View>
+    </StatusScreen>
   );
 }

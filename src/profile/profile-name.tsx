@@ -1,34 +1,40 @@
+import { useState } from "react";
 import { Platform, TextInput, View } from "react-native";
 import { IconButton } from "../components/button";
-import { ErrorText } from "../onboarding/controls";
+import { InlineMessage } from "../components/inline-message";
+import { useDocumentEdit } from "../persistence/use-document-edit";
 import { useTheme } from "../theme/provider";
 import { fonts } from "../theme/tokens";
-import { JournalText } from "./journal-ui";
-import { useProfile } from "./provider";
-import { useFocusedProfileEdit } from "./use-focused-edit";
+import { AppText } from "../components/ui";
+import { createFocusedProfileEdit, focusedEditFeedback } from "./focused-editing";
+import { useProfile, useProfilePersistence } from "./provider";
 
 export function ProfileName() {
   const profile = useProfile();
+  const persistence = useProfilePersistence();
   const { colors } = useTheme();
-  const { edit, attempt, busy } = useFocusedProfileEdit();
+  const { edit, draft, error, busy, saving } = useDocumentEdit(() =>
+    createFocusedProfileEdit(persistence, "name"),
+  );
+  const [editing, setEditing] = useState(false);
   if (profile.state.kind !== "ready") return null;
   const name = profile.state.document.answers.name;
-  const editing = attempt !== null;
-  const draft = attempt?.draft.name || "";
-  const error = attempt?.error
+  const feedback = focusedEditFeedback(error);
+  const message = feedback.message
     ? "Couldn't save your name. Try again."
-    : Object.values(attempt?.errors || {})[0];
+    : Object.values(feedback.errors)[0];
   function start() {
-    edit.begin("name");
+    // Each opening starts from the latest saved name, even while another save runs.
+    if (edit.cancel()) setEditing(true);
   }
   function cancel() {
-    edit.cancel();
+    if (edit.cancel()) setEditing(false);
   }
-  function save() {
-    return edit.save();
+  async function save() {
+    if (await edit.save()) setEditing(false);
   }
   return (
-    <View style={{ maxWidth: "100%", alignItems: "center", marginBottom: 4 }}>
+    <View style={{ maxWidth: "100%", alignItems: "center", marginBottom: 2 }}>
       <View
         testID="profile-name"
         style={{ flexDirection: "row", alignItems: "center", maxWidth: "100%" }}
@@ -38,7 +44,7 @@ export function ProfileName() {
             <IconButton label="Cancel name editing" icon="xmark" onPress={cancel} disabled={busy} />
             <TextInput
               accessibilityLabel="Profile name"
-              value={draft}
+              value={draft.name}
               maxLength={40}
               autoFocus
               selectTextOnFocus
@@ -60,19 +66,19 @@ export function ProfileName() {
                 minHeight: 48,
                 paddingHorizontal: 4,
                 paddingVertical: 4,
-                fontFamily: fonts.medium,
-                fontSize: 20,
+                fontFamily: fonts.display,
+                fontSize: 24,
                 color: colors.foreground,
                 textAlign: "center",
                 borderBottomWidth: 1,
-                borderBottomColor: colors.primary,
+                borderBottomColor: colors.ring,
                 ...(Platform.OS === "web"
                   ? { outlineWidth: 0, outlineStyle: "solid" as const }
                   : {}),
               }}
             />
             <IconButton
-              label={busy ? "Saving profile name…" : "Save profile name"}
+              label={saving ? "Saving profile name…" : "Save profile name"}
               icon="check"
               onPress={() => void save()}
               disabled={busy}
@@ -81,19 +87,19 @@ export function ProfileName() {
         ) : (
           <>
             <View style={{ width: 48 }} />
-            <JournalText
-              size={20}
-              variant="heading"
+            <AppText
+              variant="title"
               accessibilityRole="header"
+              numberOfLines={2}
               style={{ textAlign: "center", flexShrink: 1 }}
             >
-              {name.trim() || "Your journal"}
-            </JournalText>
+              {name.trim() || "Your profile"}
+            </AppText>
             <IconButton label="Edit profile name" icon="pen" onPress={start} />
           </>
         )}
       </View>
-      {error && <ErrorText message={error} />}
+      {message && <InlineMessage>{message}</InlineMessage>}
     </View>
   );
 }

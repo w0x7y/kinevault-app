@@ -3,9 +3,10 @@ import { Image } from "expo-image";
 import { useIsFocused } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Platform, Pressable, View } from "react-native";
+import { Platform, View } from "react-native";
 import { AppButton } from "../../components/button";
 import { Icon } from "../../components/icon";
+import { Tappable } from "../../components/tappable";
 import { AppText } from "../../components/ui";
 import { useConnectivity } from "../../connectivity/provider";
 import { useTheme } from "../../theme/provider";
@@ -15,7 +16,7 @@ import { useExercises } from "../provider";
 import { demoCatalogConfig, demoObjectUrl } from "./config";
 import { demoStatus, resolveDemoLink } from "./demo-link";
 import { useDemoCatalog } from "./provider";
-import { RetryButton } from "./retry-button";
+import { RetryButton } from "../../components/load-failure";
 import { StatusLine } from "./status-line";
 
 function Frame({ children }: { children: ReactNode }) {
@@ -25,7 +26,9 @@ function Frame({ children }: { children: ReactNode }) {
       style={{
         width: "100%",
         aspectRatio: 4 / 3,
-        borderRadius: radius.panel,
+        // Capped so a demo never pushes the workout's actions far below the fold.
+        maxHeight: 260,
+        borderRadius: radius.control,
         overflow: "hidden",
         backgroundColor: colors.muted,
       }}
@@ -123,7 +126,7 @@ export function ExerciseDemo({ link, label }: { link: CatalogLink; label: string
         ready
           ? { gap: spacing.xs }
           : {
-              borderRadius: radius.panel,
+              borderRadius: radius.control,
               backgroundColor: colors.muted,
               padding: spacing.layout,
               gap: spacing.sm,
@@ -133,6 +136,7 @@ export function ExerciseDemo({ link, label }: { link: CatalogLink; label: string
       <StatusLine text={notice?.text ?? ""} />
       {notice?.onRetry && (
         <RetryButton
+          label="Retry"
           accessibilityLabel="Retry loading the demonstration"
           onRetry={notice.onRetry}
         />
@@ -148,11 +152,12 @@ export function ExerciseDemo({ link, label }: { link: CatalogLink; label: string
                 onError={fail}
               />
             ) : (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Play demonstration of ${label}`}
+              // The poster itself is the control; it doesn't shrink inside its frame.
+              <Tappable
+                label={`Play demonstration of ${label}`}
                 onPress={() => setPlaying(true)}
-                style={{ flex: 1 }}
+                feedback="none"
+                style={{ flex: 1, borderRadius: radius.control }}
               >
                 <Image
                   key={`poster-${attempt}`}
@@ -178,18 +183,20 @@ export function ExerciseDemo({ link, label }: { link: CatalogLink; label: string
                 >
                   <View
                     style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 22,
+                      width: 56,
+                      height: 56,
+                      borderRadius: 28,
+                      paddingLeft: 3,
                       backgroundColor: colors.primary,
+                      boxShadow: "0px 6px 18px rgba(0, 0, 0, 0.18)",
                       alignItems: "center",
                       justifyContent: "center",
                     }}
                   >
-                    <Icon name="play" size={18} color={colors.primaryForeground} />
+                    <Icon name="play" size={22} color={colors.primaryForeground} />
                   </View>
                 </View>
-              </Pressable>
+              </Tappable>
             )}
           </Frame>
           <AppText variant="caption" muted>
@@ -216,7 +223,7 @@ export function DemoThumbnail({ link }: { link: CatalogLink }) {
       contentFit="contain"
       transition={0}
       accessible={false}
-      style={{ width: 64, height: 48, borderRadius: radius.control, backgroundColor: colors.muted }}
+      style={{ width: 64, height: 48, borderRadius: radius.tile, backgroundColor: colors.muted }}
     />
   );
 }
@@ -245,7 +252,6 @@ export function ExerciseDemoSlot({
   if (!onLinkDemo || !definition) return null;
   return (
     <AppButton
-      link
       icon="link"
       label="Link demo"
       accessibilityLabel={`Link a KineVault demo to ${label}`}

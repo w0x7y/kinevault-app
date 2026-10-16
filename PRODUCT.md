@@ -23,15 +23,20 @@ Appearance supports System, Light, and Dark, with a saved preference.
 A local profile and editable, goal-adjusted calorie estimates are included.
 Profile also logs dated body-weight measurements with editing, removal and an accessible trend chart. These measurements do not change the separately configured calorie or macro goals.
 Settings exports account tracking data and local photos as JSON. Password-confirmed account deletion includes owner-scoped device cleanup; its server endpoint requires deployment before live deletion is available. See [account management](docs/account-management.md).
+Settings also holds profile editing, the water goal, reminders, appearance and an
+Import workouts shortcut. Reminders are device notifications at a chosen time on
+selected weekdays for a weigh-in, water, a workout, food logging, a progress photo
+or a custom note; tapping one opens its screen. Import workouts previews a workout
+shared as a Tracked link and saves it as a reusable workout.
 Macro targets start at 50% carbs, 25% protein, and 25% fat, with editable gram
-overrides. Home starts with an even split between macro progress and Kine,
-followed by a full-width calorie count and horizontal progress bar.
-Macro counts share a line with their labels above each bar.
-Macro rows center vertically beside Kine. Carbs use amber, protein blue, and fat
-purple throughout the macro breakdown and stacked calorie bar. Calorie progress
+overrides. Home starts with a two-line greeting beside a small Kine: the time of
+day, then the first name on Today, or the weekday on other days. A
+Calories card follows: a ring for kcal left or over, filled with each macro's share of
+the calories eaten, with macro rows beside it. Carbs use honey, protein Kine blue, and fat rose throughout the
+macro breakdown and the calorie ring. Calorie progress
 uses logged calories; the colored shares estimate macro energy using 4/4/9 kcal/g.
-Workout totals, steps, and water follow below. Widget icons sit at the right of their headers.
-Tap Water to add manual water in millilitres for the selected day. Home combines
+Steps and water tiles, then workout totals, follow below. Widget icons sit at the right of their headers.
+Tap Water to add manual water in milliliters for the selected day. Home combines
 manual water with saved Drinks volumes and displays the total in litres.
 The tile and entry form explain that Drinks are already included. Cancel makes no change; failed saves retain the amount
 for retry, and unreadable water storage offers recovery without replacing its data.
@@ -39,34 +44,41 @@ Food groups meals into Breakfast, Lunch, Dinner, Snacks, and Drinks. Logging or
 editing drinks requires one whole amount from 1 to 10,000 ml for nutrition and
 hydration. Beverages log automatically to Drinks without gram or meal controls. Saved edits and removals update hydration
 with the same food-log write. Legacy snacks remain Snacks without guessed ml. Exercise
-shows summaries for active or completed workouts; totals include completed
+is titled Daily workout log, with the day's weight lifted and minutes (or "No
+workouts yet") on the right. It shows summaries for active or completed workouts; totals include completed
 workouts only, with sets, reps, and actual weight ranges. Exercise search opens
 library definitions for editing and matches Food's search and result styling,
 matching from the first character and showing
 20 results per page. Exercises linked to KineVault show a small demo poster.
-The button beside search opens saved workouts and that day's drafts and
-logs. Logging starts only from a saved workout. Empty days show a button-only
-Add workout widget opening the same menu. Exercise hides its daily widget while
+Three tiles below search open Saved workouts (saved workouts and that day's
+drafts and logs), Create workout and Create exercise. Logging starts only from a
+saved workout. Empty days show an Add workout card opening the same menu. Exercise hides its daily widget while
 search, a form, the saved menu, or a workout editor occupies the screen. Storage
 recovery stays visible. Home opens the menu in Exercise for the selected day.
 An empty menu says “No workout found. Create a workout to get started.” The sessions and exercise
 library widgets are removed. Steps displays Not connected until a source exists.
 Workout creation searches available exercises above the ordered list. Selecting
-a saved workout shows a compact card with Start workout, Settings and manual logging.
-Templates and pre-start Settings can set exercise counts from 0 to 100; new
+a saved workout shows a compact card with Start workout, Log completed workout and
+Workout settings. Templates and pre-start Workout settings can set exercise counts from 0 to 100; new
 template exercises default to three. Start expands the card into a horizontally
 scrolling exercise bar above the selected-exercise sets table,
 with notes and the exercise's KineVault demo, or a Link demo button.
 Add set and View notes sit on the exercise
-title row; dividers sit above and below the exercise bar. The workout name and
-elapsed timer share the active widget's title row. Date/status text, the separate
+title row. Exercise chips show short names (initials for long names); full names
+stay in accessible labels. The active workout has a blue Live workout header with
+its name and, on the right, the elapsed timer. Date/status text, the separate
 timer panel, Close workout and explanatory footer are removed. Active workouts
-automatically expand on the default Exercise view. Discard and End workout share
-equal halves of the bottom row. Ending saves completion before stopping the timer.
+automatically expand on the default Exercise view. End workout leads the bottom
+actions, with Discard workout below it. Ending saves completion before stopping the timer.
 Template and completed editing use the same bar and selected exercise detail,
-with name/search/order or name/duration under Settings. Templates show a linked
+with name/search/order under Exercises or name/duration under Details. Templates show a linked
 demo without a Link demo button, because leaving would discard unsaved changes.
-Completed edits require Save changes. Exercise selection, search and
+Completed edits require Save changes. Saved workouts, exercise and workout
+forms, workout import, manual logging and completed workouts open as a page that
+slides up over the tab, with a back button; compact cards and the active workout
+stay on the tab. Blank set fields show the reps and weights of the latest
+completed workout with that exercise, or the set above, as hints.
+Exercise selection, search and
 calendar changes preserve entered sets. Set counts cannot remove entered data.
 Workout logging has no remove-set or remove-exercise buttons. Entirely blank
 sets and unlogged exercises do not contribute to completion totals; partially
@@ -74,13 +86,16 @@ entered sets must be valid. Delete, remove and discard actions
 are red and confirm by changing their own label to "Are you sure?" before a
 second tap. Failed deletion keeps the saved data and editable drafts.
 Drink search includes existing named energy drinks and common aliases for generic
-cola and pepper-style soda. Generic alternatives are labelled rather than treated as
-current branded nutrition. Food provides two search-row controls: offline Search and barcode Scan, using
-a 75/25 width split. Saved imports join offline food and ingredient search. Formatting
+cola and pepper-style soda. Generic alternatives are labeled rather than treated as
+current branded nutrition. Food is titled Daily food log, with the day's eaten and goal kcal on the right.
+Three tiles below its search field open Scan barcode, Create food or meal, and
+Daily macros. Saved imports join offline food and ingredient search. Formatting
 differences and bounded typos in eligible words match locally, with every query term
 required and diet/zero variants preserved. Scan looks up exact products by barcode.
-Food displays one daily log below search. Search text filters logged names and
-also finds catalog foods. Solid serving presets precede nutrition and destination
+Food displays the daily log below search, one card per meal. Typing at least two
+letters replaces the log with matching catalog foods and meals, with foods the
+user has logged ranked first. Food details, logged-entry edits, creation, resumed
+drafts, Daily macros, barcode scan and import review open as a page over the log. Solid serving presets precede nutrition and destination
 choices for the selected date. Long solid lists show 100 g and two source servings
 first. Drink details show only Drink amount (ml), nutrition per that volume, and
 Log drink to Drinks. Selecting a result dismisses the native keyboard.
@@ -90,7 +105,7 @@ macro previews for a solid gram amount or a beverage volume. Choose a meal to
 save that amount to the selected day. Entries persist locally, can be edited or removed,
 and contribute to Home's daily calories and macros. Food results are separate
 from the daily log. Edit changes the amount or meal after a successful save;
-cancel and failed saves preserve the original entry. View macros for the day
+cancel and failed saves preserve the original entry. Daily macros
 shows the selected date's calories and progress first, then calories, carbs, protein,
 fat, its saturated/trans subtypes, fiber, total sugars, sodium, cholesterol,
 potassium, calcium, iron, vitamin D, caffeine, and alcohol in their metric units.
@@ -115,7 +130,7 @@ Meals persist locally, appear in meal search with a custom-item icon, and can be
 logged as one entry for a complete meal or a gram portion. Saving shows an inline
 Saved to your foods/meals message on its serving screen. Switching Food/Meal or calendar dates preserves open
 creation drafts.
-The small barcode button beside Food search supports EAN/UPC product scanning
+Scan barcode supports EAN/UPC product scanning
 and manual barcode entry with on-demand camera permission. QR codes are excluded.
 Open Food Facts barcode lookup open editable, unsaved
 food drafts. Users review nutrition and brand before saving for offline reuse.
@@ -154,8 +169,8 @@ Timed holds, cardio, coaching notes and the broader KineVault program integratio
 
 The agreed strength/bodyweight Exercise v1 is implemented. The user confirmed
 physical-iPhone verification, including keyboard, exercise scrolling,
-background/reopen, completion, and completed editing. Previous reps/weights,
-workout duplication and a rest timer are optional
+background/reopen, completion, and completed editing; that check predates the
+October 2026 redesign. Workout duplication and a rest timer are optional
 ideas, not scheduled requirements. See [TODO.md](TODO.md) for outstanding work.
 
 Profile uses the selected Personal journal layout with Overview, Goals, and
@@ -182,22 +197,22 @@ requirements remain undecided.
 
 ## Brand commitments
 
-Follow the supplied DESIGN.md palette and flat panels. The companion uses
-Comfortaa for titles, Nunito for text and figures, and Font Awesome 6 icons. Preserve mobile spacing and
-accessible touch targets. Screens use 12px outer margins, panel padding, and
-gaps between cards or form groups. Local label spacing stays compact.
-The compact top bar has a calendar chevron on the left,
-the selected date in the middle, and a saved avatar or initials on the right.
+Follow the "Quiet Vault" direction in [the redesign notes](docs/redesign-2026-10.md):
+cool blue-gray surfaces, white cards with hairlines, slate-blue primary actions,
+and color reserved for meaning. The companion uses rounded Comfortaa for display
+titles, Manrope for text and figures, and Ionicons outline icons. Preserve
+accessible touch targets. Screens use 20px outer margins, 18px card padding and
+14px gaps between cards.
+The top bar shows the selected date with a calendar chip on the left and a
+saved avatar or initials on the right; Settings and Profile show their name instead
+of the date. The tabs sit in a floating rounded bar over the page.
 Its calendar has seven columns and five rows, with the current week centered.
 Home, Food, and Exercise share the selected day; Settings and Profile have no calendar.
 Dates follow the device's local time zone. Selecting Today resumes automatic
 day advancement; deliberately selecting another date preserves that choice.
 Kine guides onboarding, which starts with welcome and goals before asking age,
-and stays on Home, Food, Exercise, and Settings. Home places him beside
-nutrition; Food and Exercise place their action buttons to his left, and
-Settings places its title to his left. Food and Exercise search fields follow
-the action/Kine row. These four tabs use the same even split and
-mascot size for a given content width. Full-body page poses are separate from
+and greets on Home beside the day's greeting, and appears in loading states. Onboarding and account screens
+stand him on a soft brand-tinted disc. Full-body page poses are separate from
 the purpose-built Kine launcher icon and splash branding.
 Motion is brief and respects system reduced-motion preferences.
 Keep interface copy short and conversational; omit repeated introductions.

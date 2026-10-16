@@ -178,24 +178,14 @@ test("invalid goals never reach durable storage", async () => {
 
 async function editing(initial: string | null = encode(1500)) {
   const store = await ready(initial);
-  const open = () => {
-    const edit = createWaterGoalEdit(store.goal);
-    edit.start();
-    return edit;
-  };
-  return { ...store, open, edit: open() };
-}
-function hold(storage: WaterGoalStorage) {
-  const gate = deferred<void>();
-  const write = storage.setItem;
-  storage.setItem = async (key, value) => {
-    await gate.promise;
-    await write(key, value);
-  };
-  return gate;
+  const edit = createWaterGoalEdit(store.goal);
+  edit.start();
+  return { ...store, edit };
 }
 
-test("an untouched goal draft follows external refreshes and an entered draft is kept", async () => {
+// The edit lifecycle (exclusion, feedback ownership, stale completions) is
+// covered once in document-edit.test.ts.
+test("an untouched goal draft follows the saved goal, including after its own save", async () => {
   const { edit, goal, replace } = await editing();
   assert.equal(edit.getSnapshot().draft, "1500");
   await replace(encode(2500));
@@ -203,29 +193,15 @@ test("an untouched goal draft follows external refreshes and an entered draft is
   assert.equal(edit.change("1800"), true);
   await replace(encode(3000));
   assert.equal(edit.getSnapshot().draft, "1800");
-  // A full reload hides the goal; the entered draft survives until it returns.
-  goal.stop();
-  goal.start();
-  assert.equal(goal.getSnapshot().state.kind, "loading");
-  assert.equal(edit.getSnapshot().draft, "1800");
-  await flush();
-  assert.equal(edit.getSnapshot().draft, "1800");
   assert.equal(edit.cancel(), true);
   assert.equal(edit.getSnapshot().draft, "3000");
-  await replace(encode(2000));
-  assert.equal(edit.getSnapshot().draft, "2000");
-});
-
-test("a saved goal edit confirms once and its draft resumes following the saved goal", async () => {
-  const { edit, goal, replace } = await editing();
   edit.change(" 2000 ");
   assert.equal(await edit.save(), true);
   assert.equal(mlOf(goal), 2000);
-  assert.deepEqual(edit.getSnapshot(), { draft: "2000", error: null, busy: false, saved: true });
+  assert.equal(edit.getSnapshot().draft, "2000");
+  assert.equal(edit.getSnapshot().saved, true);
   await replace(encode(2200));
   assert.equal(edit.getSnapshot().draft, "2200");
-  edit.change("2300");
-  assert.equal(edit.getSnapshot().saved, false);
 });
 
 test("invalid goal text shows the range message and never writes", async () => {
@@ -240,29 +216,8 @@ test("invalid goal text shows the range message and never writes", async () => {
   assert.deepEqual(calls, ["read"]);
 });
 
-test("duplicate goal saves write once and block other goal edits until the write finishes", async () => {
-  const { edit, open, storage, calls } = await editing();
-  const other = open();
-  edit.change("2000");
-  const gate = hold(storage);
-  const pending = edit.save();
-  assert.equal(await edit.save(), false);
-  assert.equal(await other.save(), false);
-  assert.equal(edit.change("2100"), false);
-  assert.equal(other.change("2100"), false);
-  assert.equal(edit.cancel(), false);
-  assert.equal(edit.getSnapshot().busy, true);
-  assert.equal(other.getSnapshot().busy, true);
-  gate.resolve();
-  assert.equal(await pending, true);
-  assert.deepEqual(calls, ["read", "write"]);
-  assert.equal(other.getSnapshot().draft, "2000");
-  assert.equal(other.getSnapshot().saved, false);
-});
-
-test("a failed goal save stays with its edit and a new edit starts without it", async () => {
-  const { edit, open, goal, storage } = await editing();
-  const write = storage.setItem;
+test("a failed goal save reports the water goal message and keeps the entered goal", async () => {
+  const { edit, goal, storage } = await editing();
   storage.setItem = async () => {
     throw new Error("disk full");
   };
@@ -270,30 +225,5 @@ test("a failed goal save stays with its edit and a new edit starts without it", 
   assert.equal(await edit.save(), false);
   assert.equal(edit.getSnapshot().error, "Couldn't save your water goal. Try again.");
   assert.equal(edit.getSnapshot().draft, "2000");
-  assert.equal(goal.getSnapshot().error, "Couldn't save your water goal. Try again.");
-  const fresh = open();
-  assert.equal(fresh.getSnapshot().error, null);
-  assert.equal(fresh.getSnapshot().draft, "1500");
-  edit.cancel();
-  assert.deepEqual(edit.getSnapshot(), { draft: "1500", error: null, busy: false, saved: false });
-  storage.setItem = write;
-  edit.change("2000");
-  assert.equal(await edit.save(), true);
-  assert.equal(fresh.getSnapshot().error, null);
-  assert.equal(fresh.getSnapshot().draft, "2000");
-});
-
-test("a detached goal edit's late completion reports nothing and keeps its draft", async () => {
-  const { edit, goal, storage } = await editing();
-  edit.change("2000");
-  const gate = hold(storage);
-  const pending = edit.save();
-  edit.stop();
-  gate.resolve();
-  assert.equal(await pending, false);
-  assert.equal(mlOf(goal), 2000);
-  assert.equal(edit.getSnapshot().saved, false);
-  edit.start();
-  assert.equal(edit.getSnapshot().draft, "2000");
-  assert.equal(edit.getSnapshot().busy, false);
+  assert.equal(mlOf(goal), 1500);
 });

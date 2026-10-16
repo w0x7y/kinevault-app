@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, View } from "react-native";
+import { Platform, View } from "react-native";
 import { AppButton, ButtonRow } from "../../components/button";
 import { AppText } from "../../components/ui";
 import { useConnectivity } from "../../connectivity/provider";
 import { useTheme } from "../../theme/provider";
 import { radius, spacing } from "../../theme/tokens";
-import { ExerciseField } from "../controls";
+import { Icon } from "../../components/icon";
+import { Tappable } from "../../components/tappable";
+import { TextField } from "../../components/text-field";
+import { SectionLabel } from "../controls";
 import type { CatalogLink } from "../model";
 import type { CatalogExercise } from "./catalog";
 import { createDemoCatalogSearch } from "./catalog-search";
 import { DemoThumbnail, ExerciseDemo } from "./exercise-demo";
 import { useDemoCatalog } from "./provider";
-import { RetryButton } from "./retry-button";
+import { RetryButton } from "../../components/load-failure";
 import { StatusLine } from "./status-line";
 
 function DemoResult({
@@ -26,24 +29,24 @@ function DemoResult({
   const { colors } = useTheme();
   const metadata = [entry.muscleGroup, entry.equipment].filter(Boolean).join(" · ");
   return (
-    <Pressable
+    <Tappable
       testID="kinevault-demo-result"
-      accessibilityRole="button"
-      accessibilityLabel={`Link ${entry.name}`}
+      label={`Link ${entry.name}`}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => ({
         minHeight: 64,
-        padding: spacing.sm,
+        padding: spacing.sm - 2,
+        paddingRight: spacing.md - 2,
         flexDirection: "row",
         alignItems: "center",
-        gap: spacing.sm,
+        gap: spacing.md,
         borderRadius: radius.control,
         backgroundColor: pressed ? colors.accent : colors.secondary,
       })}
     >
       <DemoThumbnail link={entry} />
-      <View style={{ flex: 1, minWidth: 0, gap: spacing.xs }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
         <AppText variant="label">{entry.name}</AppText>
         {Boolean(metadata) && (
           <AppText variant="caption" muted>
@@ -51,7 +54,8 @@ function DemoResult({
           </AppText>
         )}
       </View>
-    </Pressable>
+      <Icon name="link" size={17} color={colors.mutedForeground} />
+    </Tappable>
   );
 }
 
@@ -91,6 +95,7 @@ export function KineVaultDemoSection({
   onLink: (entry: CatalogExercise) => void;
   onUnlink: () => void;
 }) {
+  const { colors } = useTheme();
   const catalog = useDemoCatalog();
   const offline = useConnectivity() === "offline";
   const { refreshIfStale } = catalog;
@@ -122,16 +127,20 @@ export function KineVaultDemoSection({
   }, [showLinked]);
   return (
     <View testID="kinevault-demo" style={{ gap: spacing.layout }}>
-      <AppText variant="label">KineVault demo</AppText>
+      <SectionLabel>KineVault demo</SectionLabel>
       {showLinked ? (
         <>
           <ExerciseDemo key={link.id} link={link} label={label} />
-          <AppText variant="caption" muted>
-            {`Linked to ${linked?.name ?? "a KineVault exercise"}`}
-          </AppText>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Icon name="link" size={15} color={colors.mutedForeground} />
+            <AppText variant="caption" muted style={{ flex: 1 }}>
+              {`Linked to ${linked?.name ?? "a KineVault exercise"}`}
+            </AppText>
+          </View>
           <ButtonRow>
             <AppButton
               ref={changeButton}
+              icon="rotate"
               label="Change"
               accessibilityLabel="Change KineVault demo"
               fill
@@ -142,6 +151,7 @@ export function KineVaultDemoSection({
               }}
             />
             <AppButton
+              icon="xmark"
               label="Unlink"
               accessibilityLabel="Unlink KineVault demo"
               fill
@@ -156,7 +166,8 @@ export function KineVaultDemoSection({
       ) : (
         <>
           {!failed && (
-            <ExerciseField
+            <TextField
+              labelTone="muted"
               label="Find in KineVault"
               value={query}
               onChange={setQuery}
@@ -167,6 +178,7 @@ export function KineVaultDemoSection({
           <StatusLine text={statusText} />
           {failed ? (
             <RetryButton
+              label="Retry"
               accessibilityLabel="Retry loading KineVault demos"
               onRetry={catalog.retry}
             />
@@ -189,6 +201,7 @@ export function KineVaultDemoSection({
       )}
       {link !== undefined && changing && (
         <AppButton
+          icon="chevron-left"
           label="Keep current demo"
           disabled={disabled}
           onPress={() => {

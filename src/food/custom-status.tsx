@@ -1,5 +1,4 @@
-import { AppButton } from "../components/button";
-import { AppText, Panel } from "../components/ui";
+import { LoadFailure } from "../components/load-failure";
 import { useCustomFoods } from "./custom-provider";
 import { KineLoading } from "../components/kine-loading";
 
@@ -9,15 +8,12 @@ export function CustomFoodStatus() {
   if (foods.state.kind === "loading")
     return <KineLoading compact label="Loading your custom foods..." />;
   return (
-    <Panel accessibilityRole="alert">
-      <AppText variant="heading" accessibilityRole="header">
-        Couldn't load your custom foods
-      </AppText>
-      <AppText muted>
-        Retry to access saved foods and meals and create new ones. You can still search the USDA
-        database.
-      </AppText>
-      <AppButton label="Retry custom foods" onPress={foods.retryLoad} />
-    </Panel>
+    <LoadFailure
+      appearance="panel"
+      message="Couldn't load your custom foods"
+      description="Retry to access saved foods and meals and create new ones. You can still search the USDA database."
+      retryLabel="Retry custom foods"
+      onRetry={foods.retryLoad}
+    />
   );
 }

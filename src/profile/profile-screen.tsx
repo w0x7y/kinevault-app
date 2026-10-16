@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import { View } from "react-native";
+import Animated from "react-native-reanimated";
+import { useAppear } from "../components/motion";
 import { Screen } from "../components/ui";
 import { useSelectedDay } from "../calendar/provider";
 import { useRouteRequest } from "../navigation/use-route-request";
@@ -18,6 +19,8 @@ export function ProfileScreen() {
   const [section, setSection] = useState<ProfileSection>("Overview");
   const [editor, setEditor] = useState<ProfileEditorInstance | null>(null);
   const nextEditorId = useRef(0);
+  // Sections are peers, so switching fades the new section in rather than sliding.
+  const appear = useAppear("fade");
   // `/profile?section=photos` opens a section, e.g. from a Progress photo reminder.
   // It never closes an open editor, which would discard unsaved changes.
   useRouteRequest("section", { ready: true }, (requested) => {
@@ -47,10 +50,11 @@ export function ProfileScreen() {
     >
       <ProfileIdentity />
       <ProfileControls section={section} select={select} />
-      <View
+      <Animated.View
+        key={section}
         testID="profile-section"
         accessibilityLabel={`${section} section`}
-        style={{ gap: spacing.layout }}
+        style={[{ gap: spacing.layout }, appear]}
       >
         {section === "Overview" && (
           <>
@@ -65,7 +69,7 @@ export function ProfileScreen() {
           <ProfileGoals today={today} editor={editor} edit={edit} close={closeEditor} />
         )}
         {section === "Photos" && <ProgressPhotos today={today} />}
-      </View>
+      </Animated.View>
     </Screen>
   );
 }

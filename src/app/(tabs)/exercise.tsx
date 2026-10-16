@@ -1,33 +1,34 @@
 import { AppButton } from "../../components/button";
-import { useRef, useState } from "react";
+import { StepFade, useLayoutMotion } from "../../components/motion";
+import { useIsFocused } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import { View, type ScrollView } from "react-native";
+import Animated from "react-native-reanimated";
 import { parseDay } from "../../calendar/dates";
-import { AppText, Panel, Screen } from "../../components/ui";
+import { SheetPage } from "../../components/sheet-page";
+import { AppText, Panel, Screen, ScreenTitle } from "../../components/ui";
 import { useDayActivity } from "../../daily/use-day";
 import { SearchActions } from "../../daily/search-actions";
-import { WorkoutWidget } from "../../daily/workout-widget";
-import { exerciseDayLayout } from "../../exercise/day-layout";
+import { WorkoutWidget, workoutSummary } from "../../daily/workout-widget";
 import { WorkoutImport } from "../../exercise/import/workout-import";
 import { ExerciseForm, WorkoutForm } from "../../exercise/library-forms";
 import { useExercises } from "../../exercise/provider";
 import { ExerciseSearchResults } from "../../exercise/search-results";
 import { SessionEditor } from "../../exercise/session-editor";
 import { useWorkoutEditing } from "../../exercise/use-workout-editing";
+import { exerciseTabView } from "../../exercise/tab-view";
 import { WorkoutLibrary } from "../../exercise/workout-library";
 import { useRouteRequest } from "../../navigation/use-route-request";
-
-type DemoScrollTarget = { token: number; panelY?: number; sectionY?: number };
 
 export default function ExerciseScreen() {
   const activity = useDayActivity(),
     store = useExercises();
-  const { editing, panel: openPanel } = useWorkoutEditing();
+  const { editing, drafts, panel: openPanel } = useWorkoutEditing();
   const open = editing.requestView;
   const [query, setQuery] = useState("");
+  const focused = useIsFocused();
   const scrollRef = useRef<ScrollView>(null),
-    resultsTop = useRef(0),
-    scrolledPanel = useRef<number | null>(null),
-    demoScroll = useRef<DemoScrollTarget>({ token: -1 });
+    resultsTop = useRef(0);
   const document = store.state.kind === "ready" ? store.state.document : null;
   useRouteRequest("workoutMenu", { ready: document !== null }, (date) => {
     try {
@@ -37,41 +38,40 @@ export default function ExerciseScreen() {
     }
     void open({ kind: "library", date });
   });
-  // `/exercise?workoutImport=tracked` opens the import panel, e.g. from a Settings shortcut.
+  // `/exercise?workoutImport=tracked` opens the import sheet, e.g. from a Settings shortcut.
   // An import already open keeps its link, preview or pending save.
   const importOpen = openPanel?.content.kind === "import";
   useRouteRequest("workoutImport", { ready: document !== null }, (source) => {
     if (importOpen) return;
     void open({ kind: "import", source });
   });
-  const layout = exerciseDayLayout({
+  const view = exerciseTabView({
     document,
     date: activity.date,
     panel: openPanel,
     query,
     workoutState: activity.workoutState,
-    workoutName: activity.workout.name,
   });
-  const { panel, editingSession } = layout;
-  const content = panel?.content;
+  const { inline, sheet } = view;
+  // Ending (or discarding) the live workout swaps its workspace for the day's card; the card
+  // fades in where the workspace was. A card that is simply there on arrival doesn't animate.
+  const { fade } = useLayoutMotion();
+  const hadWorkspace = useRef(false);
+  const workspace = inline?.mode === "active" && !inline.panel;
+  const workspaceEnded = hadWorkspace.current && !workspace;
+  useEffect(() => {
+    hadWorkspace.current = workspace;
+  });
+  const content = sheet?.panel.content;
   function scrollToResults() {
     scrollRef.current?.scrollTo({ y: resultsTop.current, animated: false });
   }
-  // A form opened from "Link demo" scrolls to its KineVault search instead of the panel top,
-  // once both the panel and the section have reported their position.
-  function scrollToDemoSection(token: number, position: Omit<DemoScrollTarget, "token">) {
-    const target: DemoScrollTarget = {
-      ...(demoScroll.current.token === token ? demoScroll.current : { token }),
-      ...position,
-    };
-    demoScroll.current = target;
-    if (target.panelY === undefined || target.sectionY === undefined) return;
-    if (scrolledPanel.current === token) return;
-    scrolledPanel.current = token;
-    scrollRef.current?.scrollTo({ y: target.panelY + target.sectionY, animated: false });
-  }
   return (
     <Screen title="Exercise" showTitle={false} scrollRef={scrollRef} adjustKeyboardInsets>
+      <ScreenTitle
+        title="Daily workout log"
+        trailing={workoutSummary(activity.workout, activity.workoutState)}
+      />
       <SearchActions
         kind="exercise"
         query={query}
@@ -81,9 +81,9 @@ export default function ExerciseScreen() {
         onCreateWorkout={() => void open({ kind: "workout" })}
         onSavedWorkouts={() => void open({ kind: "library", date: activity.date })}
       />
-      {document && layout.search && (
+      {document && view.search && (
         <ExerciseSearchResults
-          key={layout.search}
+          key={view.search}
           query={query}
           exercises={document.exercises}
           onLayout={(event) => {
@@ -93,99 +93,95 @@ export default function ExerciseScreen() {
           onSelect={(exercise) => void open({ kind: "exercise", exercise })}
         />
       )}
-      {layout.showDailyWorkout && (
-        <WorkoutWidget
-          workout={activity.workout}
-          detailed
-          showEmptyGuidance
-          activeWorkoutName={activity.activeWorkoutName}
-          sourceState={activity.workoutState}
-          onRetry={store.retryLoad}
-          onAddWorkout={() => void open({ kind: "library", date: activity.date })}
-        />
+      {view.showDailyWorkout && (
+        <Animated.View entering={workspaceEnded ? fade : undefined}>
+          <WorkoutWidget
+            workout={activity.workout}
+            detailed
+            showEmptyGuidance
+            activeWorkoutName={activity.activeWorkoutName}
+            sourceState={activity.workoutState}
+            onRetry={store.retryLoad}
+            onAddWorkout={() => void open({ kind: "library", date: activity.date })}
+          />
+        </Animated.View>
       )}
-      {layout.plannedCards.map((session) => (
+      {view.plannedCards.map((session) => (
         <View key={session.id} testID={`planned-workout-${session.id}`}>
-          <SessionEditor editing={editing} session={session} />
+          <SessionEditor editing={editing} session={session} mode="compact" />
         </View>
       ))}
-      {layout.workspace && (
+      {inline && (
         <SessionEditor
-          key={`workspace-${layout.workspace.id}`}
+          key={inline.panel?.token ?? `workspace-${inline.session.id}`}
           editing={editing}
-          session={layout.workspace}
+          session={inline.session}
+          mode={inline.mode}
+          closeLabel={inline.closeLabel}
         />
       )}
-      {layout.showImport && (
+      {view.showImport && (
         <AppButton
+          icon="file-import"
           label="Import workouts"
           accessibilityHint="Adds a workout shared from another app to your saved workouts"
           onPress={() => void open({ kind: "import" })}
         />
       )}
-      {panel && (
-        <View
-          key={panel.token}
-          onLayout={(event) => {
-            if (content?.kind === "exercise" && content.linkDemo) {
-              scrollToDemoSection(panel.token, { panelY: event.nativeEvent.layout.y });
-            } else if (
-              (content?.kind === "exercise" ||
-                content?.kind === "library" ||
-                content?.kind === "import") &&
-              scrolledPanel.current !== panel.token
-            ) {
-              scrolledPanel.current = panel.token;
-              scrollRef.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: false });
-            }
-          }}
+      {/* Away from the tab the sheet hides; its page's draft waits with the panel. */}
+      {sheet && focused && (
+        <SheetPage
+          title={sheet.title}
+          closeLabel={sheet.closeLabel}
+          testID={sheet.testID}
+          page={sheet.panel.token}
+          onClose={() => editing.closeView(sheet.panel.token)}
         >
-          {content?.kind === "exercise" && (
-            <ExerciseForm
-              exercise={content.exercise}
-              linkDemo={content.linkDemo}
-              onDemoSectionLayout={(sectionY) =>
-                content.linkDemo && scrollToDemoSection(panel.token, { sectionY })
-              }
-              onClose={() =>
-                content.returnTo ? void open(content.returnTo) : editing.closeView(panel.token)
-              }
-            />
-          )}
-          {content?.kind === "workout" && (
-            <WorkoutForm workout={content.workout} onClose={() => editing.closeView(panel.token)} />
-          )}
-          {content?.kind === "library" && (
-            <WorkoutLibrary
-              date={content.date}
-              onClose={() => editing.closeView(panel.token)}
-              onEdit={(workout) => void open({ kind: "workout", workout })}
-              onAdded={(id) => editing.createdSession(panel.token, id)}
-              onOpen={(id) => void open({ kind: "session", id })}
-            />
-          )}
-          {content?.kind === "import" && (
-            <WorkoutImport
-              initialSource={content.source}
-              onClose={() => editing.closeView(panel.token)}
-              onOpenLibrary={() => void open({ kind: "library", date: activity.date })}
-            />
-          )}
-          {content?.kind === "session" &&
-            (editingSession ? (
-              <SessionEditor
-                editing={editing}
-                session={editingSession}
-                manual={content.manual}
-                initialSettings={content.settings}
+          {/* The sheet stays up while its page changes (the library opening a workout); each new
+              page fades in over the last. */}
+          <StepFade step={sheet.panel.token}>
+            {content?.kind === "exercise" && (
+              <ExerciseForm
+                draft={drafts.exercise(sheet.panel.token, content.exercise)}
+                exercise={content.exercise}
+                linkDemo={content.linkDemo}
               />
-            ) : (
-              <Panel>
-                <AppText>This workout is no longer available.</AppText>
-                <AppButton label="Close workout" onPress={() => editing.closeView(panel.token)} />
-              </Panel>
-            ))}
-        </View>
+            )}
+            {content?.kind === "workout" && (
+              <WorkoutForm
+                draft={drafts.template(sheet.panel.token, content.workout)}
+                workout={content.workout}
+              />
+            )}
+            {content?.kind === "library" && (
+              <WorkoutLibrary
+                actions={drafts.savedWorkouts(sheet.panel.token, content.date)}
+                date={content.date}
+                onEdit={(workout) => void open({ kind: "workout", workout })}
+                onOpen={(id) => void open({ kind: "session", id })}
+              />
+            )}
+            {content?.kind === "import" && (
+              <WorkoutImport
+                flow={drafts.workoutImport(sheet.panel.token, content.source)}
+                onClose={() => editing.closeView(sheet.panel.token)}
+                onOpenLibrary={() => void open({ kind: "library", date: activity.date })}
+              />
+            )}
+            {content?.kind === "session" &&
+              (sheet.log ? (
+                <SessionEditor
+                  editing={editing}
+                  session={sheet.log.session}
+                  mode={sheet.log.mode}
+                />
+              ) : (
+                <Panel>
+                  <AppText>This workout is no longer available.</AppText>
+                </Panel>
+              ))}
+          </StepFade>
+        </SheetPage>
       )}
     </Screen>
   );

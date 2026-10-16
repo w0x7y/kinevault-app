@@ -1,15 +1,12 @@
-import { parseProfile } from "../profile/model.ts";
 import { parseProfileMedia, type StoredPhoto } from "../profile/media-model.ts";
 import {
   profileMediaOwnershipKey,
+  profileMediaStorageKey,
   createMediaOwnershipInventory,
   removeOwnedMedia,
 } from "../profile/media-ownership.ts";
-import { parseExerciseDocument } from "../exercise/model.ts";
-import { parseFoodLog } from "../food/log-model.ts";
-import { parseCustomFoods } from "../food/custom-model.ts";
-import { parseWaterLog } from "../water/model.ts";
-import { parseWaterGoal } from "../water/goal-model.ts";
+import { profileStorageKey } from "../profile/persistence.ts";
+import { accountTrackingDocuments } from "./tracking-documents.ts";
 import {
   createPartitionedLocalStorage,
   isHistoryKey,
@@ -41,22 +38,17 @@ export type AccountStorageSnapshot = {
   error: string | null;
   conflicts: readonly string[];
 };
-const documentParsers: Record<string, (raw: string | null) => unknown> = {
-  "kinevault-track.profile.v1": parseProfile,
-  "kinevault-track.exercise.v1": parseExerciseDocument,
-  "kinevault-track.food-log.v1": parseFoodLog,
-  "kinevault-track.custom-foods.v1": parseCustomFoods,
-  "kinevault-track.water-log.v1": parseWaterLog,
-  "kinevault-track.water-goal.v1": parseWaterGoal,
-};
+const documentParsers: Record<string, (raw: string | null) => unknown> = Object.fromEntries(
+  accountTrackingDocuments.map((document) => [document.key, document.parse]),
+);
 export const accountDocumentKeys = Object.keys(documentParsers);
-const mediaKey = "kinevault-track.profile-media.v1";
+const mediaKey = profileMediaStorageKey;
 export const localOnlyAccountDocumentKeys = [mediaKey, profileMediaOwnershipKey];
 const guestClaimKey = "kinevault-track.account.guest-claim.v1";
 const guestImportCompleteKey = "kinevault-track.account.guest-import-complete.v1";
 const freshGuestPrefix = "kinevault-track.account.guest-current.";
 const freshGuestClaimKey = `${freshGuestPrefix}claim`;
-const profileKey = "kinevault-track.profile.v1";
+const profileKey = profileStorageKey;
 export const recoveredSetupStorageKey = "kinevault-track.recovered-setup.v1";
 type Envelope = {
   version: 1;

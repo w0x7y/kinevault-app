@@ -1,123 +1,82 @@
-import { Icon, type IconName } from "../../components/icon";
-import { Pressable, View } from "react-native";
-import { useState } from "react";
-import { AppText, Destination, Panel, Screen } from "../../components/ui";
+import { View } from "react-native";
+import { AppText, Screen } from "../../components/ui";
+import { SegmentedControl, type SegmentOption } from "../../components/segmented-control";
 import { useProfile } from "../../profile/provider";
 import { useTheme } from "../../theme/provider";
 import type { AppearancePreference } from "../../theme/preferences";
-import { radius, spacing } from "../../theme/tokens";
+import { spacing } from "../../theme/tokens";
 import { WaterGoalSettings } from "../../water/goal-settings";
 import { ReminderSettings } from "../../reminders/settings";
 import { AccountSettings } from "../../account/settings-panel";
+import { AppButton } from "../../components/button";
+import { InlineMessage } from "../../components/inline-message";
+import { RowContent, SettingsGroup, SettingsLinkRow } from "../../account/settings-list";
 
-const choices: {
-  value: AppearancePreference;
-  label: string;
-  icon: IconName;
-}[] = [
+const choices: SegmentOption<AppearancePreference>[] = [
   { value: "system", label: "System", icon: "desktop" },
   { value: "light", label: "Light", icon: "sun" },
   { value: "dark", label: "Dark", icon: "moon" },
 ];
 
 export default function SettingsScreen() {
-  const { colors, preference, setPreference, saving, error, retryLoad } = useTheme();
-  const [focused, setFocused] = useState<AppearancePreference | null>(null);
   const { state } = useProfile();
   return (
     <Screen title="Settings" showTitle={false} adjustKeyboardInsets>
-      <AccountSettings>
-        {state.kind === "ready" && state.document.kind === "complete" && (
-          <Destination
-            href="/onboarding"
-            title="Edit profile"
-            description="Goal, body details and daily targets"
-            icon="user-pen"
+      <AccountSettings
+        importRow={
+          <SettingsLinkRow
+            href="/exercise?workoutImport=tracked"
+            icon="file-import"
+            title="Import workouts"
+            description="Save a shared Tracked workout to your library"
           />
+        }
+      >
+        {state.kind === "ready" && state.document.kind === "complete" && (
+          <SettingsGroup title="Profile">
+            <SettingsLinkRow
+              href="/onboarding"
+              icon="user"
+              title="Edit profile"
+              description="Goal, body details and daily targets"
+            />
+          </SettingsGroup>
         )}
         <WaterGoalSettings />
         <ReminderSettings />
-        <Destination
-          href="/exercise?workoutImport=tracked"
-          title="Import workouts"
-          description="Save a shared Tracked workout to your library."
-          icon="file-import"
-        />
-        <Panel>
-          <AppText variant="heading" accessibilityRole="header">
-            Appearance
-          </AppText>
-          <AppText muted>System follows your device's theme.</AppText>
-          <View
-            accessibilityRole="radiogroup"
-            accessibilityLabel="Appearance"
-            style={{ gap: spacing.layout }}
-          >
-            {choices.map(({ value, label, icon }) => {
-              const selected = value === preference;
-              return (
-                <Pressable
-                  key={value}
-                  accessibilityRole="radio"
-                  accessibilityLabel={label}
-                  aria-checked={selected}
-                  aria-disabled={saving}
-                  accessibilityState={{ checked: selected, disabled: saving }}
-                  disabled={saving}
-                  onPress={() => void setPreference(value)}
-                  onFocus={() => setFocused(value)}
-                  onBlur={() => setFocused(null)}
-                  style={({ pressed }) => ({
-                    minHeight: 52,
-                    padding: spacing.layout,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: spacing.layout,
-                    borderRadius: radius.control,
-                    borderWidth: 2,
-                    borderColor:
-                      focused === value ? colors.ring : selected ? colors.primary : "transparent",
-                    backgroundColor: selected || pressed ? colors.accent : colors.secondary,
-                    opacity: saving ? 0.6 : 1,
-                  })}
-                >
-                  <Icon
-                    name={icon}
-                    size={20}
-                    color={selected ? colors.primary : colors.mutedForeground}
-                  />
-                  <AppText variant="label" style={{ flex: 1 }}>
-                    {label}
-                  </AppText>
-                  {selected && <Icon name="check" size={18} color={colors.primary} />}
-                </Pressable>
-              );
-            })}
-          </View>
-          <AppText variant="caption" muted accessibilityLiveRegion="polite">
-            {saving ? "Saving…" : "Applies to this device."}
-          </AppText>
-          {error && (
-            <View style={{ gap: spacing.layout }}>
-              <AppText accessibilityRole="alert" style={{ color: colors.error }}>
-                {error}
-              </AppText>
-              <Pressable
-                accessibilityRole="button"
-                onPress={retryLoad}
-                style={{ minHeight: 48, justifyContent: "center" }}
-              >
-                <AppText variant="label" style={{ color: colors.primary }}>
-                  Try again
-                </AppText>
-              </Pressable>
-            </View>
-          )}
-        </Panel>
+        <SettingsGroup title="Appearance">
+          <AppearanceControl />
+        </SettingsGroup>
       </AccountSettings>
-      <AppText variant="caption" muted style={{ textAlign: "center" }}>
+      <AppText variant="caption" muted style={{ textAlign: "center", paddingTop: spacing.sm }}>
         English · Metric (kg, cm, km, ml) · Version 1.0.0
       </AppText>
     </Screen>
+  );
+}
+
+/** Three segments on a sunken track; one radio group for assistive tech. */
+function AppearanceControl() {
+  const { preference, setPreference, saving, error, retryLoad } = useTheme();
+  return (
+    <RowContent>
+      <SegmentedControl
+        label="Appearance"
+        semantics="radio"
+        options={choices}
+        value={preference}
+        disabled={saving}
+        onChange={(value) => void setPreference(value)}
+      />
+      <AppText variant="caption" muted accessibilityLiveRegion="polite">
+        {saving ? "Saving…" : "System follows your device's theme. Applies to this device."}
+      </AppText>
+      {error && (
+        <View style={{ gap: spacing.sm, alignItems: "flex-start" }}>
+          <InlineMessage>{error}</InlineMessage>
+          <AppButton size="compact" label="Try again" icon="rotate-right" onPress={retryLoad} />
+        </View>
+      )}
+    </RowContent>
   );
 }
