@@ -188,22 +188,27 @@ async function openHistoricalWorkout(page) {
   return page.getByTestId("session-editor");
 }
 
+const mediaFailedText = "Couldn't load this demonstration. Check your connection and try again.";
+const startedClip = () => {
+  const video = document.querySelector("video");
+  return video !== null && video.readyState >= 3;
+};
+
 test("a linked exercise plays its demo from the workout detail", async (t) => {
   const { page } = await open(t, documentWith([press], { sessions: [historical([press])] }));
   const editor = await openHistoricalWorkout(page);
   await editor.getByText(credit, { exact: true }).waitFor();
-  assert.equal(
-    await editor
-      .getByText("Exercise videos are upcoming with KineVault studio integration.")
-      .count(),
-    0,
-  );
   await button(editor, "Play demonstration of Shoulder press").click();
   await page.waitForFunction(() => {
     const video = document.querySelector("video");
     const source = video?.currentSrc || video?.src || video?.querySelector("source")?.src || "";
     return source.includes("/storage/v1/object/public/exercise-demos/");
   });
+  // A clip that starts is not failed by the start timeout.
+  await page.waitForFunction(startedClip);
+  await page.clock.fastForward(30_000);
+  assert.equal(await editor.getByText(mediaFailedText).count(), 0);
+  assert.equal(await page.locator("video").count(), 1);
 });
 
 test("withdrawn demos are unavailable and failed media can be retried", async (t) => {
@@ -259,10 +264,6 @@ test("linked exercises show a poster thumbnail in search", async (t) => {
     await button(page, "Edit exercise Squat").getByTestId("exercise-demo-thumbnail").count(),
     0,
   );
-  assert.equal(
-    await page.getByText("Exercise videos are upcoming with KineVault studio integration.").count(),
-    0,
-  );
 });
 
 test("linking from the form fills blank fields and saves the link", async (t) => {
@@ -277,6 +278,7 @@ test("linking from the form fills blank fields and saves the link", async (t) =>
   assert.equal(await field(form, "Muscle group (optional)").inputValue(), "Shoulders");
   assert.equal(await field(form, "Equipment (optional)").inputValue(), "Dumbbell");
   await form.getByText("Linked to Dumbbell shoulder press", { exact: true }).waitFor();
+  await expectFocused(page, "Change KineVault demo");
   await button(form, "Play demonstration of Overhead press").waitFor();
   await button(form, "Save exercise").click();
   await page.waitForFunction(
@@ -288,67 +290,30 @@ test("linking from the form fills blank fields and saves the link", async (t) =>
   );
 });
 
-test("Unlink removes the link and Change keeps it until another is chosen", async (t) => {
+test("Change keeps the link until another is chosen, Unlink removes it, and focus follows each step", async (t) => {
   const { page } = await open(t, documentWith([press]));
   await field(page, "Search exercises").fill("shoulder");
   await button(page, "Edit exercise Shoulder press").click();
   const form = page.getByTestId("exercise-form");
+  const linked = form.getByText("Linked to Dumbbell shoulder press", { exact: true });
   await button(form, "Change KineVault demo").click();
+  await expectFocused(page, "Find in KineVault");
   await button(form, "Keep current demo").click();
-  await form.getByText("Linked to Dumbbell shoulder press", { exact: true }).waitFor();
+  await linked.waitFor();
+  await expectFocused(page, "Change KineVault demo");
+  await button(form, "Change KineVault demo").click();
+  await field(form, "Find in KineVault").fill("db overhead");
+  await button(form, "Link Dumbbell shoulder press").click();
+  await linked.waitFor();
+  await expectFocused(page, "Change KineVault demo");
   await button(form, "Unlink KineVault demo").click();
   await field(form, "Find in KineVault").waitFor();
+  await expectFocused(page, "Find in KineVault");
   await button(form, "Save exercise").click();
   await page.waitForFunction(
     (key) => !("catalog" in JSON.parse(window.accountFixture.getItem(key)).exercises[0]),
     storageKey,
   );
-});
-
-for (const action of ["Change", "Unlink"]) {
-  test(`${action} moves focus to the KineVault search`, async (t) => {
-    const { page } = await open(t, documentWith([press]));
-    await field(page, "Search exercises").fill("shoulder");
-    await button(page, "Edit exercise Shoulder press").click();
-    const form = page.getByTestId("exercise-form");
-    await button(form, `${action} KineVault demo`).click();
-    await field(form, "Find in KineVault").waitFor();
-    await expectFocused(page, "Find in KineVault");
-  });
-}
-
-test("Keep current demo moves focus back to Change", async (t) => {
-  const { page } = await open(t, documentWith([press]));
-  await field(page, "Search exercises").fill("shoulder");
-  await button(page, "Edit exercise Shoulder press").click();
-  const form = page.getByTestId("exercise-form");
-  await button(form, "Change KineVault demo").click();
-  await expectFocused(page, "Find in KineVault");
-  await button(form, "Keep current demo").click();
-  await form.getByText("Linked to Dumbbell shoulder press", { exact: true }).waitFor();
-  await expectFocused(page, "Change KineVault demo");
-});
-
-test("choosing a result moves focus to Change", async (t) => {
-  const { page } = await open(t, documentWith([press, squat]));
-  await field(page, "Search exercises").fill("shoulder");
-  await button(page, "Edit exercise Shoulder press").click();
-  const form = page.getByTestId("exercise-form");
-  await button(form, "Change KineVault demo").click();
-  await field(form, "Find in KineVault").fill("db overhead");
-  await button(form, "Link Dumbbell shoulder press").click();
-  await form.getByText("Linked to Dumbbell shoulder press", { exact: true }).waitFor();
-  await expectFocused(page, "Change KineVault demo");
-});
-
-test("linking a first demo moves focus to Change", async (t) => {
-  const { page } = await open(t, documentWith([squat]));
-  await button(page, "Create exercise").click();
-  const form = page.getByTestId("exercise-form");
-  await field(form, "Find in KineVault").fill("db overhead");
-  await button(form, "Link Dumbbell shoulder press").click();
-  await form.getByText("Linked to Dumbbell shoulder press", { exact: true }).waitFor();
-  await expectFocused(page, "Change KineVault demo");
 });
 
 test("Link demo opens the form at its search and returns to the workout", async (t) => {
@@ -406,14 +371,6 @@ test("Link demo focuses the search once the catalog finishes loading", async (t)
 });
 
 const deadlift = { ...squat, id: "deadlift", name: "Deadlift" };
-const activeWorkout = {
-  ...historical([squat, deadlift]),
-  id: "running",
-  name: "Active training",
-  status: "active",
-  startedAt: time.getTime() - 90000,
-  durationSeconds: null,
-};
 const plannedWorkout = {
   ...historical([squat, deadlift]),
   id: "later",
@@ -439,42 +396,31 @@ async function linkDemoFromSecond(page, finish) {
   await button(form, finish).click();
 }
 
-test("a workout opens on its first exercise and reopens there after Cancel", async (t) => {
+test("a completed workout opens on its first exercise, keeps the selected one through Link demo and reopens on the first after Cancel", async (t) => {
   const { page } = await open(
     t,
     documentWith([squat, deadlift], { sessions: [historical([squat, deadlift])] }),
   );
   const editor = await openHistoricalWorkout(page);
   const heading = editor.getByTestId("exercise-detail-heading");
-  await heading.getByText("Squat", { exact: true }).waitFor();
-  await button(editor, "Select exercise Deadlift").click();
+  const workspace = page.getByTestId("completed-workout-workspace");
+  await linkDemoFromSecond(page, "Cancel");
+  await workspace.waitFor();
   await heading.getByText("Deadlift", { exact: true }).waitFor();
+  assert.equal(await heading.getByText("Squat", { exact: true }).count(), 0);
+  await button(editor, "Link a KineVault demo to Deadlift").click();
+  const form = page.getByTestId("exercise-form");
+  await field(form, "Find in KineVault").fill("shoulder press");
+  await button(form, "Link Dumbbell shoulder press").click();
+  await button(form, "Save exercise").click();
+  await workspace.waitFor();
+  await expectSelected(editor, "Deadlift");
+  assert.equal(await heading.getByText("Squat", { exact: true }).count(), 0);
   await button(editor, "Cancel").click();
-  await page.getByTestId("session-editor").waitFor({ state: "detached" });
-  const reopened = await openHistoricalWorkout(page);
-  await reopened
-    .getByTestId("exercise-detail-heading")
-    .getByText("Squat", { exact: true })
-    .waitFor();
+  await editor.waitFor({ state: "detached" });
+  await openHistoricalWorkout(page);
+  await heading.getByText("Squat", { exact: true }).waitFor();
 });
-
-for (const finish of ["Save exercise", "Cancel"]) {
-  test(`a completed workout keeps the selected exercise after Link demo and ${finish}`, async (t) => {
-    const { page } = await open(
-      t,
-      documentWith([squat, deadlift], { sessions: [historical([squat, deadlift])] }),
-    );
-    await openHistoricalWorkout(page);
-    await linkDemoFromSecond(page, finish);
-    const returned = page.getByTestId("session-editor");
-    await page.getByTestId("completed-workout-workspace").waitFor();
-    const heading = returned.getByTestId("exercise-detail-heading");
-    await heading.getByText("Deadlift", { exact: true }).waitFor();
-    assert.equal(await heading.getByText("Squat", { exact: true }).count(), 0);
-    if (finish === "Save exercise") await expectSelected(returned, "Deadlift");
-    else await button(returned, "Link a KineVault demo to Deadlift").waitFor();
-  });
-}
 
 test("a manual workout keeps the selected exercise after Link demo", async (t) => {
   const { page } = await open(t, documentWith([squat, deadlift], { sessions: [plannedWorkout] }));
@@ -485,66 +431,6 @@ test("a manual workout keeps the selected exercise after Link demo", async (t) =
   await expectSelected(page.getByTestId("session-editor"), "Deadlift");
 });
 
-test("an active workout keeps the selected exercise after Link demo", async (t) => {
-  const { page } = await open(t, documentWith([squat, deadlift], { sessions: [activeWorkout] }));
-  await page.getByTestId("active-workout-workspace").waitFor();
-  await linkDemoFromSecond(page, "Save exercise");
-  await page.getByTestId("active-workout-workspace").waitFor();
-  await expectSelected(page.getByTestId("session-editor"), "Deadlift");
-});
-
-test("a failed catalog load while online says demos are unavailable and offers Retry", async (t) => {
-  const { page, fixture } = await open(t, documentWith([squat]), { catalogFailure: true });
-  await button(page, "Create exercise").click();
-  const form = page.getByTestId("exercise-form");
-  await form
-    .getByText("KineVault demos aren't available right now. Try again later.", { exact: true })
-    .waitFor();
-  assert.equal(await form.getByText("Connect to search KineVault demos.").count(), 0);
-  fixture.catalogFailure = false;
-  await button(form, "Retry loading KineVault demos").click();
-  await field(form, "Find in KineVault").waitFor();
-});
-
-test("a failed catalog load while offline asks to connect in the form", async (t) => {
-  const { page, fixture } = await open(t, documentWith([squat]), { catalogFailure: true });
-  await button(page, "Create exercise").click();
-  const form = page.getByTestId("exercise-form");
-  const unavailable = form.getByText(
-    "KineVault demos aren't available right now. Try again later.",
-    {
-      exact: true,
-    },
-  );
-  await unavailable.waitFor();
-  await setNetwork(page, false);
-  await form.getByText("Connect to search KineVault demos.", { exact: true }).waitFor();
-  await button(form, "Retry loading KineVault demos").waitFor();
-  await goOnlineAndWaitForReload(page);
-  await unavailable.waitFor();
-  fixture.catalogFailure = false;
-  await button(form, "Retry loading KineVault demos").click();
-  await field(form, "Find in KineVault").waitFor();
-});
-
-test("a failed catalog load in the player follows the connection", async (t) => {
-  const { page, fixture } = await open(
-    t,
-    documentWith([press], { sessions: [historical([press])] }),
-    { catalogFailure: true },
-  );
-  const editor = await openHistoricalWorkout(page);
-  const message = (text) => editor.getByText(text, { exact: true });
-  await message("KineVault demos aren't available right now. Try again later.").waitFor();
-  await setNetwork(page, false);
-  await message("Connect to load this demonstration.").waitFor();
-  await goOnlineAndWaitForReload(page);
-  await message("KineVault demos aren't available right now. Try again later.").waitFor();
-  fixture.catalogFailure = false;
-  await button(editor, "Retry loading the demonstration").click();
-  await button(editor, "Play demonstration of Shoulder press").waitFor();
-});
-
 // The held catalog request keeps the retry running. The button is disabled and,
 // for screen readers, busy.
 async function expectRetrying(retry) {
@@ -553,42 +439,7 @@ async function expectRetrying(retry) {
   assert.equal(await retry.getAttribute("aria-busy"), "true");
 }
 
-test("Retry in the form stays disabled until the catalog loads", async (t) => {
-  const { page, fixture } = await open(t, documentWith([squat]), { catalogFailure: true });
-  await button(page, "Create exercise").click();
-  const form = page.getByTestId("exercise-form");
-  const retry = button(form, "Retry loading KineVault demos");
-  await retry.waitFor();
-  assert.equal(await retry.getAttribute("aria-busy"), null);
-  fixture.catalogFailure = false;
-  fixture.catalogHeld = true;
-  await retry.click();
-  await expectRetrying(retry);
-  fixture.releaseCatalog();
-  await field(form, "Find in KineVault").waitFor();
-  assert.equal(await retry.count(), 0);
-});
-
-test("Retry in the player stays disabled until the catalog loads", async (t) => {
-  const { page, fixture } = await open(
-    t,
-    documentWith([press], { sessions: [historical([press])] }),
-    { catalogFailure: true },
-  );
-  const editor = await openHistoricalWorkout(page);
-  const retry = button(editor, "Retry loading the demonstration");
-  await retry.waitFor();
-  assert.equal(await retry.getAttribute("aria-busy"), null);
-  fixture.catalogFailure = false;
-  fixture.catalogHeld = true;
-  await retry.click();
-  await expectRetrying(retry);
-  fixture.releaseCatalog();
-  await button(editor, "Play demonstration of Shoulder press").waitFor();
-});
-
 for (const [situation, fixtureState] of [
-  ["is still loading", { catalogHeld: true }],
   ["failed to load", { catalogFailure: true }],
   ["has no entry for the link", { catalog: [] }],
 ]) {
@@ -608,6 +459,7 @@ test("the form caption names the exercise once the catalog loads", async (t) => 
   await button(page, "Edit exercise Shoulder press").click();
   const form = page.getByTestId("exercise-form");
   await form.getByText("Linked to a KineVault exercise", { exact: true }).waitFor();
+  assert.equal(await form.getByText("dumbbell-shoulder-press").count(), 0);
   fixture.releaseCatalog();
   await form.getByText("Linked to Dumbbell shoulder press", { exact: true }).waitFor();
   assert.equal(await form.getByText("Linked to a KineVault exercise").count(), 0);
@@ -661,15 +513,22 @@ test("the form announces catalog messages in the same live region", async (t) =>
   );
   await setNetwork(page, false);
   await expectLiveText(page, region, "Connect to search KineVault demos.");
+  const retry = button(form, "Retry loading KineVault demos");
+  await retry.waitFor();
   await goOnlineAndWaitForReload(page);
   await expectLiveText(
     page,
     region,
     "KineVault demos aren't available right now. Try again later.",
   );
+  assert.equal(await retry.getAttribute("aria-busy"), null);
   fixture.catalogFailure = false;
-  await button(form, "Retry loading KineVault demos").click();
+  fixture.catalogHeld = true;
+  await retry.click();
+  await expectRetrying(retry);
+  fixture.releaseCatalog();
   await field(form, "Find in KineVault").waitFor();
+  assert.equal(await retry.count(), 0);
   await expectLiveText(page, region, "");
 });
 
@@ -697,17 +556,16 @@ test("the player announces its status in the same live region", async (t) => {
     region,
     "KineVault demos aren't available right now. Try again later.",
   );
+  const retry = button(editor, "Retry loading the demonstration");
+  assert.equal(await retry.getAttribute("aria-busy"), null);
   fixture.catalogFailure = false;
-  await button(editor, "Retry loading the demonstration").click();
+  fixture.catalogHeld = true;
+  await retry.click();
+  await expectRetrying(retry);
+  fixture.releaseCatalog();
   await button(editor, "Play demonstration of Shoulder press").waitFor();
   await expectLiveText(page, region, "");
 });
-
-const mediaFailedText = "Couldn't load this demonstration. Check your connection and try again.";
-const startedClip = () => {
-  const video = document.querySelector("video");
-  return video !== null && video.readyState >= 3;
-};
 
 test("a clip that never starts fails after 20 seconds and can be retried", async (t) => {
   const { page, fixture } = await open(
@@ -728,14 +586,4 @@ test("a clip that never starts fails after 20 seconds and can be retried", async
   await button(editor, "Play demonstration of Shoulder press").click();
   await page.waitForFunction(startedClip);
   assert.equal(await editor.getByText(mediaFailedText).count(), 0);
-});
-
-test("a clip that starts is not failed by the start timeout", async (t) => {
-  const { page } = await open(t, documentWith([press], { sessions: [historical([press])] }));
-  const editor = await openHistoricalWorkout(page);
-  await button(editor, "Play demonstration of Shoulder press").click();
-  await page.waitForFunction(startedClip);
-  await page.clock.fastForward(30_000);
-  assert.equal(await editor.getByText(mediaFailedText).count(), 0);
-  assert.equal(await page.locator("video").count(), 1);
 });

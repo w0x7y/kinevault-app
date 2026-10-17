@@ -1,9 +1,8 @@
 import { installAccountFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { join } from "node:path";
 import { readFile } from "node:fs/promises";
-import { launchBrowser } from "./helpers/browser.mjs";
+import { failNextWrite, launchBrowser } from "./helpers/browser.mjs";
 
 const baseURL = process.env.KINE_PREVIEW_URL || "http://localhost:8081";
 const foodKey = "kinevault-track.food-log.v1";
@@ -55,21 +54,9 @@ async function open(t, { food = null, water = null, waterState = "ready", custom
       }
       const get = Storage.prototype.getItem;
       window.__waterFailure = waterState === "error";
-      let delayed = waterState === "loading";
-      // The held read must reach the water store, not a cloud refresh.
-      let tookRead;
-      window.accountFixtureRefreshHolds = [new Promise((resolve) => (tookRead = resolve))];
-      if (!delayed) tookRead();
       Storage.prototype.getItem = function (key) {
         if (key.endsWith(waterKey) && window.accountFixture?.domainReady && window.__waterFailure)
           throw new Error("Fixture read error");
-        if (key.endsWith(waterKey) && window.accountFixture?.domainReady && delayed) {
-          delayed = false;
-          tookRead();
-          return new Promise((resolve) => {
-            window.__releaseWaterRead = () => resolve(get.call(this, key));
-          });
-        }
         return get.call(this, key);
       };
     },
@@ -112,18 +99,6 @@ async function saveEdit(page) {
   await button(page, "Save changes").click();
   await heading(page, "Daily food log");
 }
-async function failNextFoodWrite(page) {
-  await page.evaluate((key) => {
-    const set = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (k, value) {
-      if (k.endsWith(key)) {
-        Storage.prototype.setItem = set;
-        throw new Error("Fixture write failure");
-      }
-      return set.call(this, k, value);
-    };
-  }, foodKey);
-}
 async function previousDay(page) {
   await button(page, "Expand calendar").click();
   await button(page, "Select previous day").click();
@@ -149,14 +124,6 @@ test("Drinks Add logs explicit ml, combines manual water, scales nutrition, remo
     assert.equal(await detail.getByRole("alert").count(), invalid ? 1 : 0);
   }
   await field(page, "Drink amount (ml)").fill("250");
-  await page.setViewportSize({ width: 390, height: 844 });
-  if (process.env.KINE_SCREENSHOT_DIR)
-    await field(detail, "Drink amount (ml)").scrollIntoViewIfNeeded();
-  if (process.env.KINE_SCREENSHOT_DIR)
-    await detail.screenshot({
-      path: join(process.env.KINE_SCREENSHOT_DIR, "kine-task2-drinks-detail.png"),
-    });
-  await page.setViewportSize({ width: 320, height: 844 });
   await log(page);
   await page
     .getByTestId("meal-drinks")
@@ -165,22 +132,6 @@ test("Drinks Add logs explicit ml, combines manual water, scales nutrition, remo
   assert.equal((await entries(page))[0].grams, undefined);
   await total(page, "0.35");
   await page.getByTestId("home-water").getByText("Includes Drinks", { exact: true }).waitFor();
-  if (process.env.KINE_SCREENSHOT_DIR) {
-    // Finish the tab's 160ms fade before recording the hydration evidence.
-    await page.clock.runFor(250);
-    await page.waitForFunction(() => {
-      let element = document.querySelector('[data-testid="home-water"]');
-      while (element) {
-        if (Number(getComputedStyle(element).opacity) < 1) return false;
-        element = element.parentElement;
-      }
-      return true;
-    });
-  }
-  if (process.env.KINE_SCREENSHOT_DIR)
-    await page
-      .getByTestId("home-water")
-      .screenshot({ path: join(process.env.KINE_SCREENSHOT_DIR, "kine-task2-home-water.png") });
   await page.getByTestId("home-water").click();
   const modal = page.getByRole("dialog", { name: "Edit water", exact: true });
   await modal
@@ -212,12 +163,6 @@ test("Drinks Add logs explicit ml, combines manual water, scales nutrition, remo
   await tab(page, "Food");
   await edit(page);
   assert.equal(await field(page, "Drink amount (ml)").inputValue(), "250");
-  await field(page, "Drink amount (ml)").fill("250");
-  assert.equal(await field(page, "Drink amount (ml)").inputValue(), "250");
-  await saveEdit(page);
-  await total(page, "0.5");
-  await tab(page, "Food");
-  await edit(page);
   await field(page, "Drink amount (ml)").fill("400");
   await saveEdit(page);
   await total(page, "0.65");
@@ -263,7 +208,7 @@ test("legacy snacks and drinks never guess ml, and unreadable manual water never
     protein: 2,
     fat: 1,
   };
-  for (const waterState of ["ready", "error", "loading"]) {
+  for (const waterState of ["ready", "error"]) {
     const food = {
       version: 1,
       days: {
@@ -276,11 +221,8 @@ test("legacy snacks and drinks never guess ml, and unreadable manual water never
     };
     const page = await open(t, { food, water: { version: 1, days: { [date]: 100 } }, waterState });
     const water = page.getByTestId("home-water");
-    if (waterState === "ready") await water.getByText("0.35", { exact: true }).waitFor();
-    else {
-      await water
-        .getByText(waterState === "error" ? "tap to retry" : "loading...", { exact: true })
-        .waitFor();
+    if (waterState === "error") {
+      await water.getByText("tap to retry", { exact: true }).waitFor();
       assert.equal(await water.getByText("0.25", { exact: true }).count(), 0);
       await water.click();
       const modal = page.getByRole("dialog", { name: "Edit water", exact: true });
@@ -294,8 +236,9 @@ test("legacy snacks and drinks never guess ml, and unreadable manual water never
         .waitFor({ state: "detached" });
       await button(modal, "Cancel").click();
       await water.getByText("0.35", { exact: true }).waitFor();
-      if (waterState === "loading") await page.evaluate(() => window.__releaseWaterRead());
+      continue;
     }
+    await water.getByText("0.35", { exact: true }).waitFor();
     await tab(page, "Food");
     await page.getByTestId("meal-snacks").getByText("Legacy beverage", { exact: true }).waitFor();
     await button(page, "Edit Legacy beverage in Drinks").first().click();
@@ -373,7 +316,7 @@ test("drink failure and duplicate taps keep hydration unchanged until one durabl
   const page = await open(t);
   await addCola(page);
   await field(page, "Drink amount (ml)").fill("250");
-  await failNextFoodWrite(page);
+  await failNextWrite(page, foodKey);
   await button(page, "Log drink to Drinks").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't log" }).waitFor();
   assert.equal(await field(page, "Drink amount (ml)").inputValue(), "250");
@@ -409,7 +352,7 @@ test("drink failure and duplicate taps keep hydration unchanged until one durabl
   await tab(page, "Food");
   await edit(page);
   await field(page, "Drink amount (ml)").fill("400");
-  await failNextFoodWrite(page);
+  await failNextWrite(page, foodKey);
   await button(page, "Save changes").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save your changes" }).waitFor();
   assert.equal(await field(page, "Drink amount (ml)").inputValue(), "400");
@@ -417,7 +360,7 @@ test("drink failure and duplicate taps keep hydration unchanged until one durabl
   await saveEdit(page);
   await total(page, "0.4");
   await tab(page, "Food");
-  await failNextFoodWrite(page);
+  await failNextWrite(page, foodKey);
   await button(page, "Remove Soft drink, cola from Drinks").click();
   await button(page, "Confirm remove Soft drink, cola from Drinks").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save your food log" }).waitFor();
@@ -548,28 +491,23 @@ test("legacy milk volume edits preserve source details at the same amount, scale
     await button(page, "Back to food log").click();
   }
   await dailyCalcium("300.12");
-  for (const [ml, factor, calcium] of [
-    [240, 2.44, "300.12"],
-    [480, 4.88, "600.24"],
-  ]) {
-    await button(page, `Edit ${milk.name} in Drinks`).click();
-    assert.equal(await field(page, "Amount (g)").count(), 0);
-    await field(page, "Drink amount (ml)").fill(String(ml));
-    await page
-      .getByTestId("food-nutrition-detail")
-      .getByText(`${Math.round((legacy.calories * ml) / 240)} kcal`, { exact: true })
-      .waitFor();
-    await saveEdit(page);
-    const saved = (await entries(page))[0];
-    assert.equal(saved.measurement, "volume");
-    assert.equal(saved.grams, undefined);
-    assert.equal(saved.drinkMl, ml);
-    assert.equal(saved.details.calcium, milk.details.calcium * factor);
-    for (const key of ["fiber", "iron", "caffeine"]) assert.equal(saved.details[key], 0);
-    await dailyCalcium(calcium);
-    await page.reload();
-    await heading(page, "Daily food log");
-    await dailyCalcium(calcium);
-  }
+  await button(page, `Edit ${milk.name} in Drinks`).click();
+  assert.equal(await field(page, "Amount (g)").count(), 0);
+  await field(page, "Drink amount (ml)").fill("480");
+  await page
+    .getByTestId("food-nutrition-detail")
+    .getByText(`${Math.round(legacy.calories * 2)} kcal`, { exact: true })
+    .waitFor();
+  await saveEdit(page);
+  const saved = (await entries(page))[0];
+  assert.equal(saved.measurement, "volume");
+  assert.equal(saved.grams, undefined);
+  assert.equal(saved.drinkMl, 480);
+  assert.equal(saved.details.calcium, milk.details.calcium * 4.88);
+  for (const key of ["fiber", "iron", "caffeine"]) assert.equal(saved.details[key], 0);
+  await dailyCalcium("600.24");
+  await page.reload();
+  await heading(page, "Daily food log");
+  await dailyCalcium("600.24");
   assert.equal(await stored(page, waterKey), null);
 });

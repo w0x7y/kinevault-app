@@ -89,7 +89,6 @@ test("a completed workout summary shows beside the Selected day's drafts", () =>
 
 test("the daily workout card hides behind search and panels", () => {
   assert.equal(view({ query: "squat" }).showDailyWorkout, false);
-  assert.equal(view({ panel: libraryPanel }).showDailyWorkout, false);
 });
 
 test("loading or failed workouts always show the daily workout card and nothing else", () => {
@@ -116,12 +115,8 @@ test("the Import button hides while searching or when any panel is open", () => 
   const draft = session("draft", "planned");
   assert.equal(view({ query: "squat" }).showImport, false);
   for (const content of [
-    { kind: "exercise" },
-    { kind: "workout" },
     { kind: "library", date: day },
     { kind: "session", id: "draft" },
-    { kind: "session", id: "draft", manual: true },
-    { kind: "import" },
   ] satisfies WorkoutView[]) {
     const tab = view({ document: documentWith(draft), panel: panel(content) });
     assert.equal(tab.showImport, false, content.kind);

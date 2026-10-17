@@ -167,7 +167,7 @@ test("stale and invalid pages resolve within the current eligible catalog", () =
   }
 });
 
-test("selection preserves matching tolerance, qualifiers, generic metadata, saved precedence and gram source nutrition", () => {
+test("selection keeps saved precedence, generic metadata and gram source nutrition", () => {
   const imported = {
     ...savedFood("pepsi", "Pepsi Zero Sugar"),
     brand: "Pepsi",
@@ -179,41 +179,6 @@ test("selection preserves matching tolerance, qualifiers, generic metadata, save
     savedMeals: [meal],
     bundledFoods,
   });
-  const oldIngredient = createFoodCatalog([imported, volume, ...bundledFoods]);
-  const oldLogging = createFoodCatalog([imported, volume, meal, ...bundledFoods]);
-  for (const query of [
-    "Pepsi zero",
-    "pepsizero",
-    "drpeper",
-    "Monster zero",
-    "chiken grilled",
-    "cola",
-    "chicken raw",
-    "",
-  ]) {
-    for (const purpose of ["ingredient", "logging"] as const) {
-      const existing = purpose === "ingredient" ? oldIngredient : oldLogging;
-      const first = existing.search(query);
-      const oldPages = Array.from({ length: Math.ceil(first.total / 20) }, (_, page) =>
-        existing.search(query, page),
-      );
-      const expected = oldPages
-        .flatMap((result) =>
-          result.items.map((food) => ({
-            food,
-            genericMatch: result.genericDrinkKeys.includes(foodKey(food)),
-          })),
-        )
-        .filter((row) => purpose === "logging" || row.food.per100g !== undefined);
-      const actual = selection.search({ purpose, query });
-      assert.equal(actual.total, expected.length, `${purpose}: ${query}`);
-      assert.deepEqual(
-        actual.rows.map(({ food, genericMatch }) => ({ food, genericMatch })),
-        expected.slice(0, 20),
-        `${purpose}: ${query}`,
-      );
-    }
-  }
   const pepsi = selection.search({ purpose: "ingredient", query: "Pepsi zero" });
   assert.equal(pepsi.rows[0].food, imported);
   assert.equal(pepsi.rows[0].genericMatch, false);

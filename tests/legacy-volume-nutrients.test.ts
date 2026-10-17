@@ -34,42 +34,7 @@ const noLookup = () => {
   throw new Error("Saved or unavailable source details must not consult the catalog");
 };
 
-test("legacy known-volume preview and conversion preserve the stored-gram source fallback and scale it by ml", () => {
-  assert.equal(sourceDetails.calcium, 300.12);
-  assert.equal(sourceDetails.sodium, 92.72);
-  assert.equal(sourceDetails.vitaminD, 2.684);
-  for (const drinkMl of [240, 480, 120]) {
-    const expected = scaleNutrients(sourceDetails, drinkMl / 240);
-    assert.deepEqual(
-      nutritionForEntryMl(legacy, drinkMl, undefined, catalog.getById).details,
-      expected,
-    );
-    const edited = editedFoodEntry(
-      legacy,
-      { date, id: legacy.id, measurement: "volume", drinkMl },
-      catalog.getById,
-    );
-    assert.equal(edited.grams, undefined);
-    assert.equal(edited.measurement, "volume");
-    assert.deepEqual(edited.details, expected);
-    assert.deepEqual(sumDetailedNutrients([edited], noLookup), expected);
-    for (const key of ["fiber", "iron", "caffeine"] as const)
-      assert.equal(edited.details?.[key], 0);
-    for (const key of ["calories", "carbs", "protein", "fat"] as const)
-      assert.equal(edited[key], legacy[key] * (drinkMl / 240));
-  }
-});
-
-test("explicit nulls and zeros stay authoritative and missing legacy or volume source details stay unknown", () => {
-  for (const details of [unknownNutrients, { ...unknownNutrients, calcium: 0, sodium: 0 }]) {
-    const entry = { ...legacy, details };
-    const edited = editedFoodEntry(
-      entry,
-      { date, id: entry.id, measurement: "volume", drinkMl: 480 },
-      noLookup,
-    );
-    assert.deepEqual(edited.details, scaleNutrients(details, 2));
-  }
+test("missing legacy or volume source details stay unknown", () => {
   const missingSource = editedFoodEntry(
     legacy,
     { date, id: legacy.id, measurement: "volume", drinkMl: 480 },

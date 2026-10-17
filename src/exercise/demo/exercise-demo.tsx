@@ -10,17 +10,16 @@ import { Tappable } from "../../components/tappable";
 import { AppText } from "../../components/ui";
 import { useConnectivity } from "../../connectivity/provider";
 import { useTheme } from "../../theme/provider";
-import { radius, spacing } from "../../theme/tokens";
+import { darkColors, radius, spacing } from "../../theme/tokens";
 import type { CatalogLink, ExerciseDefinition } from "../model";
 import { useExercises } from "../provider";
-import { demoCatalogConfig, demoObjectUrl } from "./config";
+import { demoBackdrop, demoCatalogConfig, demoObjectUrl } from "./config";
 import { demoStatus, resolveDemoLink } from "./demo-link";
 import { useDemoCatalog } from "./provider";
 import { RetryButton } from "../../components/load-failure";
 import { StatusLine } from "./status-line";
 
 function Frame({ children }: { children: ReactNode }) {
-  const { colors } = useTheme();
   return (
     <View
       style={{
@@ -30,7 +29,7 @@ function Frame({ children }: { children: ReactNode }) {
         maxHeight: 260,
         borderRadius: radius.control,
         overflow: "hidden",
-        backgroundColor: colors.muted,
+        backgroundColor: demoBackdrop,
       }}
     >
       {children}
@@ -181,19 +180,20 @@ export function ExerciseDemo({ link, label }: { link: CatalogLink; label: string
                     pointerEvents: "none",
                   }}
                 >
+                  {/* Dark-theme colors in both themes, to stand out on the dark backdrop. */}
                   <View
                     style={{
                       width: 56,
                       height: 56,
                       borderRadius: 28,
                       paddingLeft: 3,
-                      backgroundColor: colors.primary,
+                      backgroundColor: darkColors.primary,
                       boxShadow: "0px 6px 18px rgba(0, 0, 0, 0.18)",
                       alignItems: "center",
                       justifyContent: "center",
                     }}
                   >
-                    <Icon name="play" size={22} color={colors.primaryForeground} />
+                    <Icon name="play" size={22} color={darkColors.primaryForeground} />
                   </View>
                 </View>
               </Tappable>
@@ -210,7 +210,6 @@ export function ExerciseDemo({ link, label }: { link: CatalogLink; label: string
 
 /** A small 4:3 poster for search results; nothing when no published demo exists. */
 export function DemoThumbnail({ link }: { link: CatalogLink }) {
-  const { colors } = useTheme();
   const { state } = useDemoCatalog();
   const config = demoCatalogConfig;
   const entry = state.kind === "ready" ? state.byId.get(link.id) : undefined;
@@ -223,7 +222,7 @@ export function DemoThumbnail({ link }: { link: CatalogLink }) {
       contentFit="contain"
       transition={0}
       accessible={false}
-      style={{ width: 64, height: 48, borderRadius: radius.tile, backgroundColor: colors.muted }}
+      style={{ width: 64, height: 48, borderRadius: radius.tile, backgroundColor: demoBackdrop }}
     />
   );
 }

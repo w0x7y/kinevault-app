@@ -43,7 +43,7 @@ async function open(t, viewport = { width: 390, height: 844 }) {
   return page;
 }
 
-test("profile trigger is accessible, toggles the ordered dropdown, and is mutually exclusive with calendar", async (t) => {
+test("profile menu is accessible, exclusive with the calendar, disables upcoming entries and marks Profile current; Home and Settings show steps and formats", async (t) => {
   const page = await open(t);
   assert.equal(await trigger(page).getAttribute("aria-expanded"), "false");
   const hit = await trigger(page).boundingBox();
@@ -70,10 +70,7 @@ test("profile trigger is accessible, toggles the ordered dropdown, and is mutual
   await button(page, "Expand calendar").click();
   await menu(page).waitFor({ state: "detached" });
   await button(page, "Select today").waitFor();
-});
-
-test("upcoming menu entries are visibly labelled and disabled without changing routes or data", async (t) => {
-  const page = await open(t);
+  // Upcoming entries are labelled and disabled without changing routes or data.
   const originalURL = page.url();
   const initialProfile = await page.evaluate(() =>
     window.accountFixture.getItem("kinevault-track.profile.v1"),
@@ -94,31 +91,9 @@ test("upcoming menu entries are visibly labelled and disabled without changing r
     await page.evaluate(() => window.accountFixture.getItem("kinevault-track.profile.v1")),
     initialProfile,
   );
-});
-
-test("keyboard opens the menu, skips disabled entries, selects Profile, and dismisses with Escape", async (t) => {
-  const page = await open(t);
-  await trigger(page).focus();
-  await page.keyboard.press("Enter");
-  await menu(page).waitFor();
-  const focusedName = () => page.evaluate(() => document.activeElement.getAttribute("aria-label"));
-  assert.equal(await focusedName(), "Profile");
-  for (const key of ["ArrowDown", "End", "ArrowDown", "ArrowUp", "Home"]) {
-    await page.keyboard.press(key);
-    assert.equal(await focusedName(), "Profile");
-  }
-  await page.keyboard.press("Escape");
+  await trigger(page).click();
   await menu(page).waitFor({ state: "detached" });
-  assert.equal(await focusedName(), "Profile menu");
-  await page.keyboard.press("Space");
-  await menu(page).waitFor();
-  await page.keyboard.press("Enter");
-  await page.waitForURL("**/profile");
-  await menu(page).waitFor({ state: "detached" });
-});
-
-test("pointer opening keeps Profile neutral on Home and marks it current only on Profile", async (t) => {
-  const page = await open(t);
+  // Pointer opening keeps Profile neutral on Home and marks it current only on Profile.
   await trigger(page).click();
   const profile = menu(page).getByRole("menuitem", { name: "Profile", exact: true });
   const friends = menu(page).getByRole("menuitem", { name: entryLabel("Friends"), exact: true });
@@ -155,6 +130,41 @@ test("pointer opening keeps Profile neutral on Home and marks it current only on
     await profile.evaluate((node) => getComputedStyle(node).backgroundColor),
     await friends.evaluate((node) => getComputedStyle(node).backgroundColor),
   );
+  await page.keyboard.press("Escape");
+  // Home distinguishes unconnected steps and Settings states the supported app formats.
+  const steps = page.getByTestId("home-steps");
+  await steps.waitFor();
+  assert.equal(await steps.getByText("Not connected", { exact: true }).count(), 1);
+  assert.equal(await steps.getByText("—", { exact: true }).count(), 1);
+  assert.equal(await steps.getByText("0", { exact: true }).count(), 0);
+  assert.equal(await steps.getByRole("button").count(), 0);
+  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  // The supported formats are a footer line rather than a settings group.
+  await page
+    .getByText("English · Metric (kg, cm, km, ml) · Version 1.0.0", { exact: true })
+    .waitFor();
+  assert.equal(await page.getByRole("radiogroup", { name: "Appearance", exact: true }).count(), 1);
+});
+
+test("keyboard opens the menu, skips disabled entries, selects Profile, and dismisses with Escape", async (t) => {
+  const page = await open(t);
+  await trigger(page).focus();
+  await page.keyboard.press("Enter");
+  await menu(page).waitFor();
+  const focusedName = () => page.evaluate(() => document.activeElement.getAttribute("aria-label"));
+  assert.equal(await focusedName(), "Profile");
+  for (const key of ["ArrowDown", "End", "ArrowDown", "ArrowUp", "Home"]) {
+    await page.keyboard.press(key);
+    assert.equal(await focusedName(), "Profile");
+  }
+  await page.keyboard.press("Escape");
+  await menu(page).waitFor({ state: "detached" });
+  assert.equal(await focusedName(), "Profile menu");
+  await page.keyboard.press("Space");
+  await menu(page).waitFor();
+  await page.keyboard.press("Enter");
+  await page.waitForURL("**/profile");
+  await menu(page).waitFor({ state: "detached" });
 });
 
 test("outside click, keyboard focus leaving, and route changes close the dropdown; it fits small and wide screens", async (t) => {
@@ -203,38 +213,4 @@ test("outside click, keyboard focus leaving, and route changes close the dropdow
   );
   await page.keyboard.press("Escape");
   await menu(page).waitFor({ state: "detached" });
-});
-
-test("Profile menu navigates to the journal and returns to the previous tab", async (t) => {
-  const page = await open(t);
-  await page.getByRole("tab", { name: "Food", exact: true }).click();
-  await trigger(page).click();
-  await menu(page).getByRole("menuitem", { name: "Profile", exact: true }).click();
-  await page.waitForURL("**/profile");
-  await button(page, "Overview").waitFor();
-  assert.equal(await page.getByRole("tab").count(), 4);
-  assert.equal(await button(page, "Expand calendar").count(), 0);
-  await button(page, "Back from Profile").click();
-  await page.waitForURL("**/food");
-});
-
-test("Home distinguishes unconnected steps and Settings states the supported app formats", async (t) => {
-  const page = await open(t);
-  const steps = page.getByTestId("home-steps");
-  await steps.waitFor();
-  assert.equal(await steps.getByText("Not connected", { exact: true }).count(), 1);
-  assert.equal(await steps.getByText("—", { exact: true }).count(), 1);
-  assert.equal(await steps.getByText("0", { exact: true }).count(), 0);
-  assert.equal(await steps.getByRole("button").count(), 0);
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
-  // The supported formats are a footer line rather than a settings group.
-  await page
-    .getByText("English · Metric (kg, cm, km, ml) · Version 1.0.0", { exact: true })
-    .waitFor();
-  assert.equal(
-    await page.getByRole("button", { name: /Language|Units|English|Metric/ }).count(),
-    0,
-  );
-  assert.equal(await page.getByRole("combobox").count(), 0);
-  assert.equal(await page.getByRole("radiogroup", { name: "Appearance", exact: true }).count(), 1);
 });

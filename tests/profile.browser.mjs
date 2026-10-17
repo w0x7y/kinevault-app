@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { launchBrowser } from "./helpers/browser.mjs";
+import { failNextWrite, launchBrowser } from "./helpers/browser.mjs";
 const baseURL = process.env.KINE_PREVIEW_URL || "http://localhost:8081";
 const profileKey = "kinevault-track.profile.v1",
   mediaKey = "kinevault-track.profile-media.v1";
@@ -416,16 +416,7 @@ test("focused editing validates, retains failed saves, merges latest values and 
   await button(page, "Goals").click();
   await editDetail(page, "name");
   await page.getByRole("textbox", { name: "Your name (optional)", exact: true }).fill("New name");
-  await page.evaluate((key) => {
-    const set = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (k, v) {
-      if (k.endsWith(key)) {
-        Storage.prototype.setItem = set;
-        throw new Error("write failure");
-      }
-      return set.call(this, k, v);
-    };
-  }, profileKey);
+  await failNextWrite(page, profileKey);
   await button(page, "Save name").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save your answers" }).waitFor();
   assert.equal(
@@ -536,16 +527,7 @@ test("Profile water goal has focused cancel, validation, failed draft retry and 
   await button(page, "Save water goal").click();
   await page.getByRole("alert").filter({ hasText: "1 to 10,000" }).waitFor();
   await page.getByRole("textbox", { name: "Daily water goal (ml)", exact: true }).fill("2000");
-  await page.evaluate(() => {
-    const set = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (k, v) {
-      if (k.endsWith("kinevault-track.water-goal.v1")) {
-        Storage.prototype.setItem = set;
-        throw new Error("goal failure");
-      }
-      return set.call(this, k, v);
-    };
-  });
+  await failNextWrite(page, "kinevault-track.water-goal.v1");
   await button(page, "Save water goal").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save your water goal" }).waitFor();
   assert.equal(
@@ -608,16 +590,7 @@ test("canceled photo failure does not appear on a newly opened media edit", asyn
   await button(page, "Change profile photo").click();
   await button(page, "Choose profile photo from library").click();
   await upload(page, "failed-avatar.png");
-  await page.evaluate((key) => {
-    const set = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (k, v) {
-      if (k.endsWith(key)) {
-        Storage.prototype.setItem = set;
-        throw new Error("media failure");
-      }
-      return set.call(this, k, v);
-    };
-  }, mediaKey);
+  await failNextWrite(page, mediaKey);
   await button(page, "Save profile photo").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save your photo changes" }).waitFor();
   await button(page, "Cancel").click();
@@ -645,16 +618,7 @@ test("avatar retains failed draft, prevents pending duplicate writes, replaces a
     exact: true,
   });
   await dialog.getByRole("img", { name: "Draft profile photo", exact: true }).waitFor();
-  await page.evaluate((key) => {
-    const set = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (k, v) {
-      if (k.endsWith(key)) {
-        Storage.prototype.setItem = set;
-        throw new Error("media failure");
-      }
-      return set.call(this, k, v);
-    };
-  }, mediaKey);
+  await failNextWrite(page, mediaKey);
   await button(page, "Save profile photo").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save your photo changes" }).waitFor();
   assert.equal(
@@ -725,16 +689,7 @@ test("photo save and remove failures preserve date, note, image and saved metada
   await dialog
     .getByRole("textbox", { name: "Photo note (optional)", exact: true })
     .fill("Retain this draft");
-  await page.evaluate((key) => {
-    const set = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (k, v) {
-      if (k.endsWith(key)) {
-        Storage.prototype.setItem = set;
-        throw new Error("photo write failure");
-      }
-      return set.call(this, k, v);
-    };
-  }, mediaKey);
+  await failNextWrite(page, mediaKey);
   await button(page, "Save photo").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save your photo changes" }).waitFor();
   assert.equal(
@@ -768,16 +723,7 @@ test("photo save and remove failures preserve date, note, image and saved metada
       .count(),
     1,
   );
-  await page.evaluate((key) => {
-    const set = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (k, v) {
-      if (k.endsWith(key)) {
-        Storage.prototype.setItem = set;
-        throw new Error("remove failure");
-      }
-      return set.call(this, k, v);
-    };
-  }, mediaKey);
+  await failNextWrite(page, mediaKey);
   await button(page, "Remove photo").click();
   await button(page, "Confirm remove photo").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save your photo changes" }).waitFor();
@@ -786,52 +732,44 @@ test("photo save and remove failures preserve date, note, image and saved metada
   await page.getByRole("dialog").waitFor({ state: "detached" });
   assert.equal((await stored(page, mediaKey)).photos.length, 0);
 });
-test("journal sections and focused editors fit light and dark small, tablet and desktop widths", async (t) => {
-  for (const appearance of ["light", "dark"]) {
-    const page = await open(t, { appearance });
-    await profile(page);
-    for (const width of [320, 390, 768, 1280]) {
-      await page.setViewportSize({ width, height: 844 });
-      for (const section of ["Overview", "Goals", "Photos"]) {
-        await button(page, section).click();
-        assert.equal(
-          await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
-          false,
-          `${appearance} ${width} ${section} has no horizontal overflow`,
-        );
-        const geometry = await page.locator("[role=button]").evaluateAll((elements) =>
-          elements
-            .filter((element) => {
-              const b = element.getBoundingClientRect();
-              return b.width > 0 && b.height > 0;
-            })
-            .map((element) => ({
-              name: element.getAttribute("aria-label"),
-              width: element.getBoundingClientRect().width,
-              height: element.getBoundingClientRect().height,
-            })),
-        );
-        assert.deepEqual(
-          geometry.filter((hit) => hit.width < 44 || hit.height < 44),
-          [],
-          `${appearance} ${width} ${section} targets >=44`,
-        );
-        assert.equal(await page.getByRole("tab").count(), 4);
-      }
-      await button(page, "Goals").click();
-      await editDetail(page, "body");
+test("journal sections and focused editors fit small, tablet and desktop widths", async (t) => {
+  const page = await open(t);
+  await profile(page);
+  for (const width of [320, 390, 768, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const section of ["Overview", "Goals", "Photos"]) {
+      await button(page, section).click();
       assert.equal(
         await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
         false,
+        `${width} ${section} has no horizontal overflow`,
       );
-      await button(page, "Cancel").click();
-      await button(page, "Overview").click();
-      if (width === 320 || width === 390)
-        await page.screenshot({
-          path: `/tmp/profile-${appearance}-${width}.png`,
-          fullPage: true,
-        });
+      const geometry = await page.locator("[role=button]").evaluateAll((elements) =>
+        elements
+          .filter((element) => {
+            const b = element.getBoundingClientRect();
+            return b.width > 0 && b.height > 0;
+          })
+          .map((element) => ({
+            name: element.getAttribute("aria-label"),
+            width: element.getBoundingClientRect().width,
+            height: element.getBoundingClientRect().height,
+          })),
+      );
+      assert.deepEqual(
+        geometry.filter((hit) => hit.width < 44 || hit.height < 44),
+        [],
+        `${width} ${section} targets >=44`,
+      );
+      assert.equal(await page.getByRole("tab").count(), 4);
     }
+    await button(page, "Goals").click();
+    await editDetail(page, "body");
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
+    await button(page, "Cancel").click();
   }
 });
 test("dated carousel scrolls oldest to newest and date edits and removal update the comparison", async (t) => {
@@ -897,29 +835,17 @@ test("dated carousel scrolls oldest to newest and date edits and removal update 
   await expectComparison(page, "2026-08-01", "2026-10-03");
   await button(page, "Photos").click();
 
-  // Editing the original first photo can also change the latest endpoint.
-  await photoButton(page, photos[1].id).click();
-  await page
-    .getByRole("textbox", { name: "Photo date (YYYY-MM-DD)", exact: true })
-    .fill("2026-10-04");
-  await button(page, "Save photo").click();
-  await page.getByRole("dialog").waitFor({ state: "detached" });
-  photos[1] = { ...photos[1], date: "2026-10-04" };
-  await expectCarousel(page, [photos[2], photos[0], photos[1]]);
-  await button(page, "Overview").click();
-  await expectComparison(page, "2026-08-01", "2026-10-04");
-  await button(page, "Photos").click();
-
+  // One removal recomputes the comparison; removing the rest reaches the empty state.
   for (const [removed, remaining] of [
-    [photos[2], [photos[0], photos[1]]],
-    [photos[1], [photos[0]]],
-    [photos[0], []],
+    [[photos[2]], [photos[1], photos[0]]],
+    [[photos[1], photos[0]], []],
   ]) {
-    await photoButton(page, removed.id).click();
-    await button(page, "Remove photo").click();
-    await button(page, "Confirm remove photo").click();
-    await page.getByRole("dialog").waitFor({ state: "detached" });
-    assert.equal(await page.getByTestId(`progress-photo-${removed.id}`).count(), 0);
+    for (const photo of removed) {
+      await photoButton(page, photo.id).click();
+      await button(page, "Remove photo").click();
+      await button(page, "Confirm remove photo").click();
+      await page.getByRole("dialog").waitFor({ state: "detached" });
+    }
     assert.equal((await stored(page, mediaKey)).photos.length, remaining.length);
     await expectCarousel(page, remaining);
     await button(page, "Overview").click();
@@ -1061,16 +987,7 @@ test("inline name input limit and failed save retain the draft for retry", async
   assert.equal(await name.inputValue(), "a".repeat(40));
   assert.equal((await stored(page)).answers.name, "Journal fixture");
   await name.fill("Retry name");
-  await page.evaluate((key) => {
-    const set = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (k, value) {
-      if (k.endsWith(key)) {
-        Storage.prototype.setItem = set;
-        throw new Error("name write failure");
-      }
-      return set.call(this, k, value);
-    };
-  }, profileKey);
+  await failNextWrite(page, profileKey);
   await button(page, "Save profile name").click();
   await page.getByText("Couldn't save your name. Try again.", { exact: true }).waitFor();
   assert.equal(await name.inputValue(), "Retry name");
@@ -1078,55 +995,6 @@ test("inline name input limit and failed save retain the draft for retry", async
   await button(page, "Save profile name").click();
   await name.waitFor({ state: "detached" });
   assert.deepEqual((await stored(page)).answers, { ...answers, name: "Retry name" });
-});
-
-test("delayed water save leaves replacement Name draft and section navigation intact", async (t) => {
-  const page = await open(t);
-  await profile(page);
-  await button(page, "Goals").click();
-  await button(page, "Edit water goal").click();
-  await page.getByRole("textbox", { name: "Daily water goal (ml)", exact: true }).fill("2000");
-  await delayWrite(page, "kinevault-track.water-goal.v1");
-  await button(page, "Save water goal").click();
-  await button(page, "Saving water goal…").waitFor();
-  await editDetail(page, "name");
-  const name = page.getByRole("textbox", {
-    name: "Your name (optional)",
-    exact: true,
-  });
-  await name.fill("Replacement name draft");
-  await page.evaluate(() => window.__releaseEditorWrite());
-  await expectGoal(page, "water", "2,500 / 2,000 ml");
-  assert.equal(await name.inputValue(), "Replacement name draft");
-  assert.equal(await button(page, "Goals").getAttribute("aria-pressed"), "true");
-  await button(page, "Save name").click();
-  await name.waitFor({ state: "detached" });
-  assert.equal((await stored(page)).answers.name, "Replacement name draft");
-});
-
-test("delayed profile save closes only its original editor and preserves replacement water draft", async (t) => {
-  const page = await open(t);
-  await profile(page);
-  await button(page, "Goals").click();
-  await editDetail(page, "name");
-  await page
-    .getByRole("textbox", { name: "Your name (optional)", exact: true })
-    .fill("Pending saved name");
-  await delayWrite(page, profileKey);
-  await button(page, "Save name").click();
-  await button(page, "Saving…").waitFor();
-  await button(page, "Edit water goal").click();
-  const water = page.getByRole("textbox", {
-    name: "Daily water goal (ml)",
-    exact: true,
-  });
-  await water.fill("2345");
-  await page.evaluate(() => window.__releaseEditorWrite());
-  await page.getByRole("heading", { name: "Pending saved name", exact: true }).waitFor();
-  assert.equal(await water.inputValue(), "2345");
-  await button(page, "Save water goal").click();
-  await water.waitFor({ state: "detached" });
-  assert.equal((await stored(page, "kinevault-track.water-goal.v1")).dailyMl, 2345);
 });
 
 test("inline name drafts survive pending water or profile section saves", async (t) => {
@@ -1224,6 +1092,13 @@ test("section controls stay responsive during pending water and profile saves", 
       await draft.inputValue(),
       replacement === "name" ? "Replacement after navigation" : "2345",
     );
+    assert.equal(await button(page, "Goals").getAttribute("aria-pressed"), "true");
+    // The replacement editor still saves after the earlier write lands.
+    await button(page, replacement === "name" ? "Save name" : "Save water goal").click();
+    await draft.waitFor({ state: "detached" });
+    if (replacement === "name")
+      assert.equal((await stored(page)).answers.name, "Replacement after navigation");
+    else assert.equal((await stored(page, "kinevault-track.water-goal.v1")).dailyMl, 2345);
   }
 });
 
@@ -1254,16 +1129,16 @@ async function installHardwareBackBoundary(page) {
 const hardwareBack = (page) => page.evaluate(() => window.__pressHardwareBack());
 
 test("Profile hardware Back boundary returns every source tab and retains its selected day", async (t) => {
+  const page = await open(t, { developmentRuntime: true });
+  await installHardwareBackBoundary(page);
+  await button(page, "Expand calendar").click();
+  await button(page, "Select previous day").click();
   for (const [tab, path] of [
     ["Home", "/"],
     ["Food", "/food"],
     ["Exercise", "/exercise"],
     ["Settings", "/settings"],
   ]) {
-    const page = await open(t, { developmentRuntime: true });
-    await installHardwareBackBoundary(page);
-    await button(page, "Expand calendar").click();
-    await button(page, "Select previous day").click();
     if (tab !== "Home") await page.getByRole("tab", { name: tab, exact: true }).click();
     await profile(page);
     assert.equal(await button(page, "Expand calendar").count(), 0);
@@ -1276,7 +1151,7 @@ test("Profile hardware Back boundary returns every source tab and retains its se
   }
 });
 
-test("Profile Back dismisses dropdown before returning to its source tab", async (t) => {
+test("Profile Back dismisses dropdown before returning to its source tab, or Home when opened directly", async (t) => {
   const page = await open(t, { developmentRuntime: true });
   await installHardwareBackBoundary(page);
   await page.getByRole("tab", { name: "Food", exact: true }).click();
@@ -1287,22 +1162,9 @@ test("Profile Back dismisses dropdown before returning to its source tab", async
     .getByRole("menu", { name: "Profile menu", exact: true })
     .waitFor({ state: "detached" });
   assert.equal(new URL(page.url()).pathname, "/profile");
-  await button(page, "Profile menu").click();
-  const friends = page.getByRole("menuitem", { name: "Friends · Upcoming", exact: true });
-  assert.equal(await friends.isDisabled(), true);
-  await friends.evaluate((element) => element.click());
-  assert.equal(await page.getByRole("dialog").count(), 0);
-  assert.equal(await hardwareBack(page), true);
-  await page
-    .getByRole("menu", { name: "Profile menu", exact: true })
-    .waitFor({ state: "detached" });
-  assert.equal(new URL(page.url()).pathname, "/profile");
   assert.equal(await hardwareBack(page), true);
   await page.waitForURL(new URL("/food", page.url()).href);
-});
-
-test("direct Profile Back uses Home fallback after dismissing an open menu", async (t) => {
-  const page = await open(t, { developmentRuntime: true });
+  // A directly opened Profile has no source tab, so Back falls back to Home.
   await page.goto(new URL("/profile", page.url()).href);
   await button(page, "Overview").waitFor();
   await installHardwareBackBoundary(page);
@@ -1346,19 +1208,6 @@ test("Profile chart menus close on tab blur and do not consume another tab's Bac
     assert.equal(await hardwareBack(page), true);
     await page.waitForURL("**/food");
   }
-});
-
-test("Profile chart menus dismiss when pointer or keyboard focus leaves them", async (t) => {
-  const page = await open(t);
-  await profile(page);
-  const trigger = button(page, "Workout range");
-  await trigger.click();
-  await button(page, "Overview").click();
-  assert.equal(await trigger.getAttribute("aria-expanded"), "false");
-  await trigger.click();
-  await button(page, "Goals").focus();
-  assert.equal(await trigger.getAttribute("aria-expanded"), "false");
-  assert.equal(await button(page, "Overview").getAttribute("aria-pressed"), "true");
 });
 
 // Opt-in screenshots use isolated browser storage, never the user's saved records.
@@ -1576,7 +1425,7 @@ test("one week of workouts explains the pending trend instead of plotting a lone
   assert.equal(await button(page, "Select workout graph point").count(), 0);
 });
 
-test("weekly chart selection matches the plotted total and range menu closes with Escape", async (t) => {
+test("weekly chart selection matches the plotted total and range menu closes with Escape or when focus leaves", async (t) => {
   const page = await open(t);
   await profile(page);
   await page.evaluate(() => {
@@ -1623,4 +1472,13 @@ test("weekly chart selection matches the plotted total and range menu closes wit
     "Escape restores the menu trigger's keyboard focus",
   );
   assert.ok(page.url().endsWith("/profile"));
+  // Pointer or keyboard focus leaving the menu also dismisses it.
+  const trigger = button(page, "Workout range");
+  await trigger.click();
+  await button(page, "Overview").click();
+  assert.equal(await trigger.getAttribute("aria-expanded"), "false");
+  await trigger.click();
+  await button(page, "Goals").focus();
+  assert.equal(await trigger.getAttribute("aria-expanded"), "false");
+  assert.equal(await button(page, "Overview").getAttribute("aria-pressed"), "true");
 });

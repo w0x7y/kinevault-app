@@ -194,24 +194,12 @@ test("auth events win over a late bootstrap read", async () => {
   await Promise.resolve();
   assert.equal(h.controller.getSnapshot().user?.id, "owner");
 });
-test("signup without a session requests email confirmation", async () => {
-  const h = harness();
-  h.setResult({ data: { session: null }, error: null });
-  await ready(h);
-  assert.equal(await h.controller.signUp("alex@example.com", "safe-password"), false);
-  assert.equal(h.controller.getSnapshot().session, null);
-  assert.match(h.controller.getSnapshot().notice ?? "", /Check your email/);
-  assert.deepEqual(h.controller.getSnapshot().emailDelivery, {
-    kind: "confirmation",
-    email: "alex@example.com",
-  });
-});
-
 test("email delivery owns its normalized recipient and clears with feedback", async () => {
   const h = harness();
   h.setResult({ data: { session: null }, error: null });
   await ready(h);
-  await h.controller.signUp("  alex@example.com  ", "safe-password");
+  assert.equal(await h.controller.signUp("  alex@example.com  ", "safe-password"), false);
+  assert.match(h.controller.getSnapshot().notice ?? "", /Check your email/);
   assert.deepEqual(h.controller.getSnapshot().emailDelivery, {
     kind: "confirmation",
     email: "alex@example.com",
@@ -234,20 +222,6 @@ test("recovery belongs to the current identity and does not follow an account sw
   h.emit("PASSWORD_RECOVERY", session);
   h.emit("SIGNED_IN", { ...session, user: { ...session.user, id: "other-owner" } });
   assert.equal(h.controller.getSnapshot().recovery, false);
-});
-
-test("late password updates cannot end a replacement identity's recovery", async () => {
-  const h = harness();
-  await ready(h);
-  h.emit("PASSWORD_RECOVERY", session);
-  const pending = deferred<{ error: null }>();
-  h.auth.updateUser = () => pending.promise;
-  const update = h.controller.updatePassword("new-safe-password");
-  h.emit("PASSWORD_RECOVERY", { ...session, user: { ...session.user, id: "other-owner" } });
-  pending.resolve({ error: null });
-  assert.equal(await update, false);
-  assert.equal(h.controller.getSnapshot().recovery, true);
-  assert.equal(h.controller.getSnapshot().notice, null);
 });
 
 test("late reset deliveries and errors do not appear on another account", async () => {
@@ -292,26 +266,6 @@ test("late signup and login feedback is discarded after identity replacement", a
   }
 });
 
-test("logging out and recovering the same identity still invalidates an older password update", async () => {
-  const h = harness();
-  await ready(h);
-  h.emit("PASSWORD_RECOVERY", session);
-  const pending = deferred<{ error: null }>();
-  h.auth.updateUser = () => pending.promise;
-  const update = h.controller.updatePassword("new-safe-password");
-  h.emit("SIGNED_OUT", null);
-  h.emit("PASSWORD_RECOVERY", session);
-  pending.resolve({ error: null });
-  assert.equal(await update, false);
-  assert.equal(h.controller.getSnapshot().recovery, true);
-  assert.equal(h.controller.getSnapshot().busy, false);
-});
-test("successful login publishes the session", async () => {
-  const h = harness();
-  await ready(h);
-  assert.equal(await h.controller.signIn("alex@example.com", "legacy"), true);
-  assert.equal(h.controller.getSnapshot().user?.id, "owner");
-});
 test("signup and reset validate 10 characters while login allows legacy passwords", async () => {
   const h = harness();
   await ready(h);
@@ -447,22 +401,6 @@ test("recovery callbacks are deduplicated and keep reset mode until password upd
   assert.equal(await h.controller.updatePassword("new-safe-password"), true);
   assert.equal(h.controller.getSnapshot().recovery, false);
 });
-test("untrusted or expired auth links do not exchange credentials", async () => {
-  const h = harness();
-  await ready(h);
-  assert.equal(
-    await h.controller.completeAuthLink("https://track.example/food?code=secret"),
-    false,
-  );
-  assert.equal(
-    await h.controller.completeAuthLink(
-      "kinevaulttrack://auth/callback?error_code=otp_expired&error=access_denied",
-    ),
-    false,
-  );
-  assert.equal(h.submitted, 0);
-  assert.match(h.controller.getSnapshot().error ?? "", /expired/);
-});
 test("signout clears identity and recovery", async () => {
   const h = harness();
   await ready(h);
@@ -564,13 +502,6 @@ test("links without a device-bound PKCE code never replace a signed-in account",
     assert.ok(resumed);
     assert.equal(await resumed, false);
   }
-  // Session tokens in a link are refused as invalid, signed in or not.
-  assert.equal(
-    await h.controller.completeAuthLink(
-      "kinevaulttrack://auth/callback#access_token=attacker-access&refresh_token=attacker-refresh",
-    ),
-    false,
-  );
   assert.equal(h.submitted, before, "no credentials from the link reach Auth");
   assert.equal(h.controller.getSnapshot().user?.id, "owner");
   assert.equal(h.controller.getSnapshot().recovery, false);

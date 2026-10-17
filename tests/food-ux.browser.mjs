@@ -1,7 +1,7 @@
 import { installAccountFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { launchBrowser } from "./helpers/browser.mjs";
+import { failNextWrite, launchBrowser } from "./helpers/browser.mjs";
 
 const baseURL = process.env.KINE_PREVIEW_URL || "http://localhost:8081";
 const storageKey = "kinevault-track.custom-foods.v1";
@@ -187,16 +187,7 @@ test("import review resumes without another request and preserves provenance thr
   assert.equal(requests, 1);
   assert.equal(await field(page, "Food name").inputValue(), "Imported draft");
   assert.equal(await field(page, "Carbs (g)").inputValue(), "42");
-  await page.evaluate((key) => {
-    const original = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (nextKey, value) {
-      if (nextKey.endsWith(key)) {
-        Storage.prototype.setItem = original;
-        throw new Error("Fixture save failure");
-      }
-      return original.call(this, nextKey, value);
-    };
-  }, storageKey);
+  await failNextWrite(page, storageKey);
   await button(page, "Save food").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save" }).waitFor();
   await back(page, "Back to food log");
@@ -230,17 +221,8 @@ async function chooseDestination(page, meal) {
   await back(page, "Back to food results");
 }
 
-test("global search opens nutrition on the first focused click and logs a source portion to Lunch", async (t) => {
+test("global search opens nutrition on the first focused click and logs an expanded source serving to Lunch", async (t) => {
   const page = await open(t);
-  for (const width of [320, 390, 1280]) {
-    await page.setViewportSize({ width, height: 844 });
-    assert.equal(
-      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
-      false,
-    );
-    assert.equal(await page.getByRole("button", { name: /^Add food to / }).count(), 0);
-  }
-  await page.setViewportSize({ width: 390, height: 844 });
   await field(page, "Search foods").fill("banana");
   assert.ok(
     await field(page, "Search foods").evaluate((input) => document.activeElement === input),
@@ -256,11 +238,15 @@ test("global search opens nutrition on the first focused click and logs a source
   );
   assert.equal(await button(page, "Breakfast").getAttribute("aria-pressed"), "true");
   await button(page, "Lunch").click();
-  const detail = page.getByTestId("food-nutrition-detail");
-  const portion = detail.getByRole("button", { name: /, [0-9.]+ g$/ }).first();
+  const portion = button(page, "1 cup, mashed, 225 g");
+  assert.equal(await portion.count(), 0);
+  assert.equal(await button(page, "More serving sizes").getAttribute("aria-expanded"), "false");
+  await button(page, "More serving sizes").click();
+  assert.equal(await button(page, "Fewer serving sizes").getAttribute("aria-expanded"), "true");
   await portion.click();
-  const grams = Number(await field(page, "Amount (g)").inputValue());
-  assert.notEqual(grams, 100);
+  assert.equal(await field(page, "Amount (g)").inputValue(), "225");
+  await page.getByText("Nutrition for 225 g", { exact: true }).waitFor();
+  await page.getByText("218 kcal", { exact: true }).waitFor();
   assert.equal(await button(page, "Lunch").getAttribute("aria-pressed"), "true");
   assert.deepEqual(await intake(page), []);
   // Serving presets precede nutrition and the final log action in reading order.
@@ -280,53 +266,38 @@ test("global search opens nutrition on the first focused click and logs a source
   const entries = await intake(page);
   assert.equal(entries.length, 1);
   assert.equal(entries[0].meal, "lunch");
-  assert.equal(entries[0].grams, grams);
+  assert.equal(entries[0].grams, 225);
+  assert.equal(entries[0].calories, 218.25);
   const lunch = page.getByTestId("meal-lunch");
-  for (const width of [320, 390, 1280]) {
-    await page.setViewportSize({ width, height: 844 });
-    assert.equal(
-      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
-      false,
-    );
-    const [edit, name, remove] = await elementBoxes(
-      page,
-      button(lunch, "Edit Banana, raw in Lunch"),
-      lunch.getByText("Banana, raw", { exact: true }),
-      button(lunch, "Remove Banana, raw from Lunch"),
-    );
-    assert.ok(edit.height >= 44 && edit.width >= 44);
-    assert.ok(remove.height >= 44 && remove.width >= 44);
-    assert.ok(name.x + name.width <= edit.x, "entry text stays left of its actions");
-    assert.ok(name.y < edit.y + edit.height && name.y + name.height > edit.y);
-    assert.ok(edit.x + edit.width <= remove.x, "Edit and Remove stay together in one row");
-    assert.ok(Math.abs(edit.width - remove.width) <= 1, "entry actions have equal widths");
-    assert.ok(Math.abs(edit.height - remove.height) <= 1, "entry actions have equal heights");
-    await button(lunch, "Remove Banana, raw from Lunch").click();
-    assert.equal((await intake(page)).length, 1, "the trash icon only opens confirmation");
-    await button(lunch, "Confirm remove Banana, raw from Lunch").waitFor();
-    assert.equal(
-      await button(lunch, "Cancel removing Banana, raw from Lunch").evaluate(
-        (element) => document.activeElement === element,
-      ),
-      true,
-      "confirmation focuses the safe Cancel action",
-    );
-    const confirmedName = await lunch.getByText("Banana, raw", { exact: true }).boundingBox();
-    assert.equal(confirmedName.width, name.width, "confirmation keeps the food name's full width");
-    await button(lunch, "Cancel removing Banana, raw from Lunch").click();
-    assert.equal(await button(lunch, "Confirm remove Banana, raw from Lunch").count(), 0);
-    assert.equal(
-      await button(lunch, "Remove Banana, raw from Lunch").evaluate(
-        (element) => document.activeElement === element,
-      ),
-      true,
-      "Cancel restores focus to the trash icon",
-    );
-    await button(lunch, "Remove Banana, raw from Lunch").click();
-    await page.keyboard.press("Escape");
-    assert.equal(await button(lunch, "Confirm remove Banana, raw from Lunch").count(), 0);
-    assert.equal(await page.getByRole("button", { name: /^Add food to / }).count(), 0);
-  }
+  const name = lunch.getByText("Banana, raw", { exact: true });
+  const nameWidth = (await name.boundingBox()).width;
+  await button(lunch, "Remove Banana, raw from Lunch").click();
+  assert.equal((await intake(page)).length, 1, "the trash icon only opens confirmation");
+  await button(lunch, "Confirm remove Banana, raw from Lunch").waitFor();
+  assert.equal(
+    await button(lunch, "Cancel removing Banana, raw from Lunch").evaluate(
+      (element) => document.activeElement === element,
+    ),
+    true,
+    "confirmation focuses the safe Cancel action",
+  );
+  assert.equal(
+    (await name.boundingBox()).width,
+    nameWidth,
+    "confirmation keeps the food name's full width",
+  );
+  await button(lunch, "Cancel removing Banana, raw from Lunch").click();
+  assert.equal(await button(lunch, "Confirm remove Banana, raw from Lunch").count(), 0);
+  assert.equal(
+    await button(lunch, "Remove Banana, raw from Lunch").evaluate(
+      (element) => document.activeElement === element,
+    ),
+    true,
+    "Cancel restores focus to the trash icon",
+  );
+  await button(lunch, "Remove Banana, raw from Lunch").click();
+  await page.keyboard.press("Escape");
+  assert.equal(await button(lunch, "Confirm remove Banana, raw from Lunch").count(), 0);
 });
 
 test("a food page steps aside while another tab shows and returns with its amount and meal", async (t) => {
@@ -349,7 +320,7 @@ test("a food page steps aside while another tab shows and returns with its amoun
   assert.equal(entry.grams, 42);
 });
 
-test("compact food entries keep long names readable and confirmation cancellable in both themes", async (t) => {
+test("compact food entries keep long names readable and confirmation cancellable", async (t) => {
   const food = {
     id: "long-food-name",
     fdcId: 173944,
@@ -362,105 +333,40 @@ test("compact food entries keep long names readable and confirmation cancellable
     fat: 20,
   };
   const page = await open(t, { foods: [food] });
-  for (const theme of ["light", "dark"]) {
-    await page.evaluate(
-      (theme) => window.accountFixture.setItem("kinevault-track.appearance", theme),
-      theme,
+  const entry = page.getByTestId(`food-log-entry-${food.id}`);
+  for (const width of [320, 390, 768]) {
+    await page.setViewportSize({ width, height: 844 });
+    const name = entry.getByText(food.name, { exact: true });
+    const [textBox, edit, remove] = await elementBoxes(
+      page,
+      name,
+      button(entry, `Edit ${food.name} in Lunch`),
+      button(entry, `Remove ${food.name} from Lunch`),
     );
-    await page.reload();
-    await heading(page, "Daily food log");
-    const entry = page.getByTestId(`food-log-entry-${food.id}`);
-    for (const width of [320, 390, 768]) {
-      await page.setViewportSize({ width, height: 844 });
-      const name = entry.getByText(food.name, { exact: true });
-      const textBox = await name.boundingBox();
-      const edit = await button(entry, `Edit ${food.name} in Lunch`).boundingBox();
-      const remove = await button(entry, `Remove ${food.name} from Lunch`).boundingBox();
-      assert.ok(textBox.x + textBox.width <= edit.x);
-      assert.ok(edit.x + edit.width <= remove.x);
-      assert.ok(edit.width >= 48 && edit.height >= 48);
-      assert.ok(remove.width >= 48 && remove.height >= 48);
-      assert.equal(await name.evaluate((node) => node.scrollWidth > node.clientWidth), false);
-      assert.equal(
-        await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
-        false,
-      );
-      if (width < 400) assert.ok(textBox.height > 24, "long names wrap instead of being truncated");
-      await entry.getByText("325 g · 420 kcal", { exact: true }).waitFor();
-      await button(entry, `Remove ${food.name} from Lunch`).click();
-      const confirm = button(entry, `Confirm remove ${food.name} from Lunch`);
-      const cancel = button(entry, `Cancel removing ${food.name} from Lunch`);
-      const confirmation = await confirm.boundingBox();
-      assert.ok(confirmation.height >= 48);
-      assert.equal((await name.boundingBox()).width, textBox.width);
-      await cancel.click();
-      assert.equal(await confirm.count(), 0);
-      assert.equal((await intake(page)).length, 1);
-    }
+    assert.ok(textBox.x + textBox.width <= edit.x, "entry text stays left of its actions");
+    assert.ok(textBox.y < edit.y + edit.height && textBox.y + textBox.height > edit.y);
+    assert.ok(edit.x + edit.width <= remove.x, "Edit and Remove stay together in one row");
+    assert.ok(edit.width >= 48 && edit.height >= 48);
+    assert.ok(remove.width >= 48 && remove.height >= 48);
+    assert.ok(Math.abs(edit.width - remove.width) <= 1, "entry actions have equal widths");
+    assert.ok(Math.abs(edit.height - remove.height) <= 1, "entry actions have equal heights");
+    assert.equal(await name.evaluate((node) => node.scrollWidth > node.clientWidth), false);
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
+    if (width < 400) assert.ok(textBox.height > 24, "long names wrap instead of being truncated");
+    await entry.getByText("325 g · 420 kcal", { exact: true }).waitFor();
+    await button(entry, `Remove ${food.name} from Lunch`).click();
+    const confirm = button(entry, `Confirm remove ${food.name} from Lunch`);
+    const cancel = button(entry, `Cancel removing ${food.name} from Lunch`);
+    const confirmation = await confirm.boundingBox();
+    assert.ok(confirmation.height >= 48);
+    assert.equal((await name.boundingBox()).width, textBox.width);
+    await cancel.click();
+    assert.equal(await confirm.count(), 0);
+    assert.equal((await intake(page)).length, 1);
   }
-});
-
-test("detail meal choice retains Snacks through barcode review resume and catalog save", async (t) => {
-  const page = await open(t);
-  await page.route("**/api/v2/product/**", (route) => json(route, { status: 1, product }));
-  await chooseDestination(page, "Snacks");
-  await scan(page, product.code);
-  await heading(page, "Review imported food");
-  await field(page, "Food name").fill("Snack cereal");
-  await back(page, "Back to food log");
-  await field(page, "Search foods").fill("banana");
-  await field(page, "Search foods").fill("");
-  await chooseDestination(page, "Lunch");
-  await button(page, "Resume draft: Snack cereal").click();
-  await button(page, "Save food").click();
-  await expectCatalogSaved(page);
-  assert.deepEqual(await intake(page), []);
-  assert.equal((await catalog(page)).foods.length, 1);
-  assert.equal(await button(page, "Snacks").getAttribute("aria-pressed"), "true");
-  await button(page, "Log food to Snacks").click();
-  await heading(page, "Daily food log");
-  assert.equal((await intake(page))[0].meal, "snacks");
-});
-
-test("Lunch creation saves inline without intake and destination remains changeable", async (t) => {
-  const page = await open(t);
-  await chooseDestination(page, "Lunch");
-  await button(page, "Create food or meal").click();
-  await field(page, "Food name").fill("Lunch oats");
-  await fillMacros(page);
-  await back(page, "Back to food log");
-  await field(page, "Search foods").fill("banana");
-  await button(page, "Create food or meal").click();
-  await button(page, "Save food").click();
-  await expectCatalogSaved(page);
-  assert.deepEqual(await intake(page), []);
-  assert.equal(await button(page, "Lunch").getAttribute("aria-pressed"), "true");
-  await button(page, "Dinner").click();
-  await button(page, "Log food to Dinner").click();
-  await heading(page, "Daily food log");
-  assert.equal((await intake(page))[0].meal, "dinner");
-});
-
-test("expanded source servings scale nutrition and keep the Lunch destination", async (t) => {
-  const page = await open(t);
-  await field(page, "Search foods").fill("banana");
-  await button(page, "View nutrition for Banana, raw").click();
-  await button(page, "Lunch").click();
-  assert.equal(await button(page, "1 cup, mashed, 225 g").count(), 0);
-  assert.equal(await button(page, "More serving sizes").getAttribute("aria-expanded"), "false");
-  await button(page, "More serving sizes").click();
-  assert.equal(await button(page, "Fewer serving sizes").getAttribute("aria-expanded"), "true");
-  await button(page, "1 cup, mashed, 225 g").click();
-  assert.equal(await field(page, "Amount (g)").inputValue(), "225");
-  await page.getByText("Nutrition for 225 g", { exact: true }).waitFor();
-  await page.getByText("218 kcal", { exact: true }).waitFor();
-  assert.equal(await button(page, "Lunch").getAttribute("aria-pressed"), "true");
-  await button(page, "Log food to Lunch").click();
-  await heading(page, "Daily food log");
-  const [entry] = await intake(page);
-  assert.equal(entry.meal, "lunch");
-  assert.equal(entry.grams, 225);
-  assert.equal(entry.calories, 218.25);
 });
 
 for (const mode of ["barcode", "manual barcode"]) {
@@ -514,53 +420,36 @@ async function createLunchFood(page) {
   await expectCatalogSaved(page);
 }
 
-for (const outcome of ["Cancel", "Save food changes"]) {
-  test(`changed Dinner destination survives catalog editor ${outcome}`, async (t) => {
-    const page = await open(t);
-    await createLunchFood(page);
-    await button(page, "Dinner").click();
-    await button(page, "Edit food").click();
-    await field(page, "Food name").fill("Dinner oats");
-    await button(page, outcome).click();
-    assert.equal(await button(page, "Dinner").getAttribute("aria-pressed"), "true");
-    assert.deepEqual(await intake(page), []);
-    await button(page, "Log food to Dinner").click();
-    await heading(page, "Daily food log");
-    const [entry] = await intake(page);
-    assert.equal(entry.meal, "dinner");
-    assert.equal(entry.name, outcome === "Cancel" ? "Destination oats" : "Dinner oats");
-    // Returning to the daily log resets add intent to Breakfast. Intake edit must
-    // still initialize from the saved Dinner entry.
-    await button(page, `Edit ${entry.name} in Dinner`).click();
-    assert.equal(await button(page, "Dinner").getAttribute("aria-pressed"), "true");
-    await field(page, "Amount (g)").fill("75");
-    await button(page, "Save changes").click();
-    await heading(page, "Daily food log");
-    const [edited] = await intake(page);
-    assert.equal(edited.meal, "dinner");
-    assert.equal(edited.grams, 75);
-  });
-}
-
-test("changed Dinner destination belongs to a retained catalog-editor draft", async (t) => {
+test("changed Dinner destination survives catalog editor Cancel and Save", async (t) => {
   const page = await open(t);
   await createLunchFood(page);
   await button(page, "Dinner").click();
   await button(page, "Edit food").click();
-  await field(page, "Food name").fill("Dinner editor draft");
-  await back(page, "Back to food details");
-  await back(page, "Back to food log");
-  await field(page, "Search foods").fill("banana");
-  await field(page, "Search foods").fill("");
-  await chooseDestination(page, "Snacks");
-  await button(page, "Resume draft: Dinner editor draft").click();
+  await field(page, "Food name").fill("Dinner oats");
+  await button(page, "Cancel").click();
+  assert.equal(await button(page, "Dinner").getAttribute("aria-pressed"), "true");
+  assert.deepEqual(await intake(page), []);
+  await button(page, "Edit food").click();
+  assert.equal(await field(page, "Food name").inputValue(), "Destination oats");
+  await field(page, "Food name").fill("Dinner oats");
   await button(page, "Save food changes").click();
-  await expectCatalogSaved(page);
   assert.equal(await button(page, "Dinner").getAttribute("aria-pressed"), "true");
   assert.deepEqual(await intake(page), []);
   await button(page, "Log food to Dinner").click();
   await heading(page, "Daily food log");
-  assert.equal((await intake(page))[0].meal, "dinner");
+  const [entry] = await intake(page);
+  assert.equal(entry.meal, "dinner");
+  assert.equal(entry.name, "Dinner oats");
+  // Returning to the daily log resets add intent to Breakfast. Intake edit must
+  // still initialize from the saved Dinner entry.
+  await button(page, `Edit ${entry.name} in Dinner`).click();
+  assert.equal(await button(page, "Dinner").getAttribute("aria-pressed"), "true");
+  await field(page, "Amount (g)").fill("75");
+  await button(page, "Save changes").click();
+  await heading(page, "Daily food log");
+  const [edited] = await intake(page);
+  assert.equal(edited.meal, "dinner");
+  assert.equal(edited.grams, 75);
 });
 
 async function seedEditableCatalog(page) {
@@ -634,69 +523,59 @@ for (const kind of ["food", "meal"]) {
     assert.equal(entry.meal, "dinner");
     assert.equal(entry.name, `Follow-on dinner ${kind}`);
   });
-
-  test(`paused editor deletion reconciles only the ${kind} draft after success`, async (t) => {
-    const page = await open(t);
-    await seedEditableCatalog(page);
-    const otherKind = kind === "food" ? "meal" : "food";
-    await openSavedItem(page, otherKind);
-    await button(page, `Edit ${otherKind}`).click();
-    await field(page, otherKind === "food" ? "Food name" : "Meal name").fill(
-      "Unrelated retained editor",
-    );
-    await back(page, `Back to ${otherKind} details`);
-    await back(page, "Back to food results");
-    await openSavedItem(page, kind);
-    await button(page, `Edit ${kind}`).click();
-    await field(page, kind === "food" ? "Food name" : "Meal name").fill("Deleted editor draft");
-    await back(page, `Back to ${kind} details`);
-    await back(page, "Back to food results");
-    await openSavedItem(page, kind);
-    await button(page, `Delete ${kind}`).click();
-    const confirmation = button(page, `Confirm delete ${kind}`);
-    assert.equal(await confirmation.innerText(), "Are you sure?");
-    // Deleting confirms in place on the item's page rather than in another dialog.
-    assert.equal(await page.getByRole("dialog").count(), 1);
-    await page.evaluate((key) => {
-      const original = Storage.prototype.setItem;
-      Storage.prototype.setItem = function (nextKey, value) {
-        if (nextKey.endsWith(key)) {
-          Storage.prototype.setItem = original;
-          throw new Error("Fixture delete failure");
-        }
-        return original.call(this, nextKey, value);
-      };
-    }, storageKey);
-    await confirmation.click();
-    await page.getByRole("alert").waitFor();
-    await confirmation.focus();
-    await button(page, `Edit ${kind}`).focus();
-    assert.equal(await button(page, `Delete ${kind}`).innerText(), `Delete ${kind}`);
-    assert.equal(await button(page, "Resume draft: Deleted editor draft").count(), 1);
-    assert.equal(await button(page, "Resume draft: Unrelated retained editor").count(), 1);
-    assert.equal((await catalog(page))[kind === "food" ? "foods" : "meals"].length, 1);
-    await back(page, "Back to food results");
-    await button(page, "Resume draft: Deleted editor draft").click();
-    assert.equal(
-      await field(page, kind === "food" ? "Food name" : "Meal name").inputValue(),
-      "Deleted editor draft",
-    );
-    await back(page, "Back to food log");
-    await openSavedItem(page, kind);
-    await button(page, `Delete ${kind}`).click();
-    await confirmation.click();
-    await confirmation.waitFor({ state: "hidden" });
-    assert.equal((await catalog(page))[kind === "food" ? "foods" : "meals"].length, 0);
-    assert.equal(await button(page, "Resume draft: Deleted editor draft").count(), 0);
-    assert.equal(await button(page, "Resume draft: Unrelated retained editor").count(), 1);
-    await button(page, "Resume draft: Unrelated retained editor").click();
-    assert.equal(
-      await field(page, otherKind === "food" ? "Food name" : "Meal name").inputValue(),
-      "Unrelated retained editor",
-    );
-    assert.deepEqual(await intake(page), []);
-  });
 }
+
+test("paused editor deletion reconciles only the deleted item's draft after success", async (t) => {
+  const page = await open(t);
+  await seedEditableCatalog(page);
+  await openSavedItem(page, "meal");
+  await button(page, "Edit meal").click();
+  await field(page, "Meal name").fill("Unrelated retained editor");
+  await back(page, "Back to meal details");
+  await back(page, "Back to food results");
+  await openSavedItem(page, "food");
+  await button(page, "Edit food").click();
+  await field(page, "Food name").fill("Deleted editor draft");
+  await back(page, "Back to food details");
+  await back(page, "Back to food results");
+  await openSavedItem(page, "food");
+  await button(page, "Delete food").click();
+  const confirmation = button(page, "Confirm delete food");
+  assert.equal(await confirmation.innerText(), "Are you sure?");
+  // Deleting confirms in place on the item's page rather than in another dialog.
+  assert.equal(await page.getByRole("dialog").count(), 1);
+  await failNextWrite(page, storageKey);
+  await confirmation.click();
+  await page.getByRole("alert").waitFor();
+  await confirmation.focus();
+  await button(page, "Edit food").focus();
+  assert.equal(await button(page, "Delete food").innerText(), "Delete food");
+  assert.equal(await button(page, "Resume draft: Deleted editor draft").count(), 1);
+  assert.equal(await button(page, "Resume draft: Unrelated retained editor").count(), 1);
+  assert.equal((await catalog(page)).foods.length, 1);
+  await back(page, "Back to food results");
+  await button(page, "Resume draft: Deleted editor draft").click();
+  assert.equal(await field(page, "Food name").inputValue(), "Deleted editor draft");
+  await back(page, "Back to food log");
+  await openSavedItem(page, "food");
+  await button(page, "Delete food").click();
+  await confirmation.click();
+  await confirmation.waitFor({ state: "hidden" });
+  assert.equal((await catalog(page)).foods.length, 0);
+  assert.equal(await button(page, "Resume draft: Deleted editor draft").count(), 0);
+  assert.equal(await button(page, "Resume draft: Unrelated retained editor").count(), 1);
+  await button(page, "Resume draft: Unrelated retained editor").click();
+  assert.equal(await field(page, "Meal name").inputValue(), "Unrelated retained editor");
+  // A meal deletion retires its own paused draft too.
+  await back(page, "Back to food log");
+  await openSavedItem(page, "meal");
+  await button(page, "Delete meal").click();
+  await button(page, "Confirm delete meal").click();
+  await page.getByRole("dialog").waitFor({ state: "detached" });
+  assert.equal((await catalog(page)).meals.length, 0);
+  assert.equal(await button(page, "Resume draft: Unrelated retained editor").count(), 0);
+  assert.deepEqual(await intake(page), []);
+});
 
 test("saving each creation retires only that draft across food and meal switches", async (t) => {
   const page = await open(t);

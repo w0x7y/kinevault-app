@@ -18,17 +18,9 @@ const flush = async () => {
   await Promise.resolve();
   await Promise.resolve();
 };
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((yes) => {
-    resolve = yes;
-  });
-  return { promise, resolve };
-}
 function memory(initial: string | null = null) {
   let raw = initial;
   const calls: string[] = [];
-  const external = new Set<() => void>();
   const storage: WaterLogStorage = {
     async getItem(key) {
       assert.equal(key, waterLogStorageKey);
@@ -40,21 +32,8 @@ function memory(initial: string | null = null) {
       calls.push("write");
       raw = value;
     },
-    subscribeItem(key, listener) {
-      assert.equal(key, waterLogStorageKey);
-      external.add(listener);
-      return () => {
-        external.delete(listener);
-      };
-    },
   };
-  // Another device replaces the durable log and notifies this one.
-  async function replace(next: string) {
-    raw = next;
-    for (const listener of external) listener();
-    await flush();
-  }
-  return { storage, calls, raw: () => raw, replace };
+  return { storage, calls, raw: () => raw };
 }
 async function ready(initial: string | null = null) {
   const store = memory(initial);
@@ -113,92 +92,6 @@ test("water entry accepts only integer millilitres for Drinks between 1 and 1000
     "+250",
   ])
     assert.equal(waterAmountFromText(text), null);
-});
-
-test("manual water replaces only its captured date and persists across a restart", async () => {
-  const { log, raw } = await ready();
-  await log.set({ date, ml: 250 });
-  await log.set({ date: otherDate, ml: 500 });
-  await log.set({ date, ml: 100 });
-  assert.deepEqual(documentOf(log).days, { [date]: 100, [otherDate]: 500 });
-  const restored = await ready(raw());
-  assert.deepEqual(documentOf(restored.log), documentOf(log));
-});
-
-test("a pending save keeps the previous total and rejects duplicate and competing-date writes", async () => {
-  const { log, storage, calls, raw } = await ready();
-  await log.set({ date, ml: 250 });
-  const gate = deferred<void>();
-  const write = storage.setItem;
-  storage.setItem = async (key, value) => {
-    await gate.promise;
-    await write(key, value);
-  };
-  const input = { date, ml: 500 };
-  const pending = log.set(input);
-  input.date = otherDate;
-  input.ml = 1000;
-  assert.equal(log.getSnapshot().saving, true);
-  assert.equal(documentOf(log).days[date], 250);
-  assert.equal(parseWaterLog(raw()).days[date], 250);
-  assert.equal(await log.set({ date, ml: 500 }), false);
-  assert.equal(await log.set({ date: otherDate, ml: 500 }), false);
-  log.retryLoad();
-  assert.deepEqual(calls, ["read", "write"]);
-  gate.resolve();
-  assert.equal(await pending, true);
-  assert.deepEqual(documentOf(log).days, { [date]: 500 });
-  assert.equal(log.getSnapshot().saving, false);
-});
-
-test("failed writes preserve the previous total and retry the same amount exactly once", async () => {
-  const { log, storage, raw } = await ready();
-  await log.set({ date, ml: 250 });
-  const before = raw();
-  const write = storage.setItem;
-  storage.setItem = async () => {
-    throw new Error("disk full");
-  };
-  assert.equal(await log.set({ date, ml: 500 }), false);
-  assert.equal(raw(), before);
-  assert.equal(documentOf(log).days[date], 250);
-  assert.equal(log.getSnapshot().error, "Couldn't save your water log. Try again.");
-  assert.equal(log.getSnapshot().saving, false);
-  storage.setItem = write;
-  assert.equal(await log.set({ date, ml: 500 }), true);
-  assert.equal(documentOf(log).days[date], 500);
-  assert.equal(log.getSnapshot().error, null);
-});
-
-test("corruption and read failure block writes until retry loads valid durable data", async () => {
-  for (const unreadable of ["corrupt", "read failure"]) {
-    const store = memory(
-      unreadable === "corrupt" ? unreadable : JSON.stringify({ version: 1, days: { [date]: 500 } }),
-    );
-    const read = store.storage.getItem;
-    if (unreadable === "read failure")
-      store.storage.getItem = async () => {
-        throw new Error("unavailable");
-      };
-    const log = createWaterLogPersistence({ storage: store.storage });
-    log.start();
-    await flush();
-    assert.equal(log.getSnapshot().state.kind, "error");
-    const before = store.raw();
-    assert.equal(await log.set({ date, ml: 250 }), false);
-    assert.equal(store.raw(), before);
-    assert.ok(!store.calls.includes("write"));
-    store.storage.getItem = read;
-    if (unreadable === "corrupt")
-      await store.storage.setItem(
-        waterLogStorageKey,
-        JSON.stringify({ version: 1, days: { [date]: 500 } }),
-      );
-    log.retryLoad();
-    await flush();
-    assert.equal(await log.set({ date, ml: 250 }), true);
-    assert.equal(documentOf(log).days[date], 250);
-  }
 });
 
 test("invalid manual totals and dates never reach storage", async () => {

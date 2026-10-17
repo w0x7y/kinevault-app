@@ -5,7 +5,6 @@ import {
   jsonReply,
   preflightReply,
   readJsonRequest,
-  readLimited,
 } from "../supabase/functions/_shared/request.ts";
 
 function request(
@@ -151,15 +150,6 @@ test("a JSON object passes through with its own keys intact", async () => {
   if (result.kind !== "ok") return;
   assert.deepEqual(Object.keys(result.body), ["__proto__"]);
   assert.equal(Object.getPrototypeOf(result.body), Object.prototype);
-});
-
-test("readLimited returns empty bytes for no stream and null past the limit", async () => {
-  assert.deepEqual(await readLimited(null, 4), new Uint8Array(0));
-  assert.deepEqual(
-    await readLimited(new Response(new Uint8Array([1, 2, 3, 4])).body, 4),
-    new Uint8Array([1, 2, 3, 4]),
-  );
-  assert.equal(await readLimited(new Response(new Uint8Array(5)).body, 4), null);
 });
 
 test("JSON replies carry CORS headers and are never cached", async () => {

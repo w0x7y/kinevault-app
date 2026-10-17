@@ -142,6 +142,21 @@ async function setup(
   };
 }
 
+async function deletionAwaitingServer() {
+  const entered = deferred<void>();
+  const server = deferred<void>();
+  const h = await setup({
+    deleteOnServer: async () => {
+      entered.resolve();
+      return server.promise;
+    },
+  });
+  h.deletionForm();
+  const deleting = h.attempts.deleteData();
+  await entered.promise;
+  return { ...h, server, deleting };
+}
+
 test("management delivers the logical device export and retires feedback when canceled or departed", async () => {
   const h = await setup();
   assert.equal(await h.attempts.exportData(), true);
@@ -278,33 +293,6 @@ test("a replacement owner during sharing receives no old success or failure feed
   }
 });
 
-test("the live Account reader aborts export before delivery while the rendered owner is still stale", async () => {
-  const entered = deferred<void>();
-  const photo = deferred<string>();
-  const h = await setup({
-    readPhoto: async () => {
-      entered.resolve();
-      return photo.promise;
-    },
-  });
-  await h.storage.setItem(
-    "kinevault-track.profile-media.v1",
-    JSON.stringify({ version: 1, avatar: { id: "a-photo", width: 1, height: 1 }, photos: [] }),
-  );
-  const renderedAccount = h.controller.getSnapshot();
-  const exporting = h.attempts.exportData();
-  await entered.promise;
-  h.replaceOwner("b");
-  // No caller rerender, stop, start, or updated render snapshot intervenes.
-  assert.equal(renderedAccount.user?.id, "a");
-  assert.equal(h.controller.getSnapshot().user?.id, "b");
-  photo.resolve(btoa("\xff\xd8\xff\xe0\x00\xff\xd9"));
-  assert.equal(await exporting, false);
-  assert.deepEqual(h.delivered, []);
-  assert.equal(h.attempts.getSnapshot().notice, null);
-  assert.equal(h.attempts.getSnapshot().error, null);
-});
-
 test("submission clears the password before observers, freezes data and waits for server confirmation before auth retirement", async () => {
   const entered = deferred<void>();
   const server = deferred<void>();
@@ -434,21 +422,11 @@ test("offline submission preserves the field and online invalid confirmation nev
 });
 
 test("abandoned deletion rejection cannot publish feedback into a newer caller for the same owner", async () => {
-  const entered = deferred<void>();
-  const server = deferred<void>();
-  const h = await setup({
-    deleteOnServer: async () => {
-      entered.resolve();
-      return server.promise;
-    },
-  });
-  h.deletionForm();
-  const deleting = h.attempts.deleteData();
-  await entered.promise;
+  const h = await deletionAwaitingServer();
   h.attempts.stop();
   h.attempts.start();
-  server.reject(new Error("Old caller's deletion failed"));
-  assert.equal(await deleting, false);
+  h.server.reject(new Error("Old caller's deletion failed"));
+  assert.equal(await h.deleting, false);
   assert.equal(h.controller.getSnapshot().error, null);
   assert.equal(h.attempts.getSnapshot().error, null);
   assert.deepEqual(h.attempts.getSnapshot().deletion, { kind: "closed" });
@@ -457,43 +435,12 @@ test("abandoned deletion rejection cannot publish feedback into a newer caller f
   assert.deepEqual(h.events, []);
 });
 
-test("confirmed server deletion finishes immutable-owner cleanup after replacement without clearing its session or navigating", async () => {
-  const entered = deferred<void>();
-  const server = deferred<void>();
-  const h = await setup({
-    deleteOnServer: async () => {
-      entered.resolve();
-      return server.promise;
-    },
-  });
-  h.deletionForm();
-  const deleting = h.attempts.deleteData();
-  await entered.promise;
-  h.replaceOwner("b");
-  server.resolve();
-  assert.equal(await deleting, false);
-  assert.equal(h.controller.getSnapshot().user?.id, "b");
-  assert.equal(h.controller.getSnapshot().notice, null);
-  assert.deepEqual(h.events, []);
-  assert.deepEqual([...h.values], [[`${prefix}deleted.v1`, "1"]]);
-});
-
 test("an A to B to A replacement cannot revive the earlier deletion's auth retirement or navigation", async () => {
-  const entered = deferred<void>();
-  const server = deferred<void>();
-  const h = await setup({
-    deleteOnServer: async () => {
-      entered.resolve();
-      return server.promise;
-    },
-  });
-  h.deletionForm();
-  const deleting = h.attempts.deleteData();
-  await entered.promise;
+  const h = await deletionAwaitingServer();
   h.replaceOwner("b");
   h.replaceOwner("a");
-  server.resolve();
-  assert.equal(await deleting, false);
+  h.server.resolve();
+  assert.equal(await h.deleting, false);
   assert.equal(h.controller.getSnapshot().user?.id, "a");
   assert.equal(h.controller.getSnapshot().notice, null);
   assert.deepEqual(h.events, []);
@@ -501,20 +448,10 @@ test("an A to B to A replacement cannot revive the earlier deletion's auth retir
 });
 
 test("confirmed deletion after caller departure retains Account feedback but never navigates that caller", async () => {
-  const entered = deferred<void>();
-  const server = deferred<void>();
-  const h = await setup({
-    deleteOnServer: async () => {
-      entered.resolve();
-      return server.promise;
-    },
-  });
-  h.deletionForm();
-  const deleting = h.attempts.deleteData();
-  await entered.promise;
+  const h = await deletionAwaitingServer();
   h.attempts.stop();
-  server.resolve();
-  assert.equal(await deleting, false);
+  h.server.resolve();
+  assert.equal(await h.deleting, false);
   assert.equal(h.controller.getSnapshot().user, null);
   assert.equal(h.controller.getSnapshot().notice, "Your KineVault account has been deleted.");
   assert.deepEqual(h.events, ["clear-session"]);

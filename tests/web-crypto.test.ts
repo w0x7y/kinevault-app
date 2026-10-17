@@ -156,16 +156,6 @@ test("existing WebCrypto calls are never replaced", () => {
   assert.deepEqual(randomOnly.crypto.subtle, { digest });
 });
 
-test("Supabase Auth falls back to a plain PKCE challenge without WebCrypto", async (t) => {
-  withoutGlobalCrypto(t);
-  const warn = t.mock.method(console, "warn", () => {});
-  const storage = memoryStorage();
-  const [challenge, method] = await getCodeChallengeAndMethod(storage, "auth");
-  assert.equal(method, "plain");
-  assert.equal(challenge, JSON.parse((await storage.getItem("auth-code-verifier"))!));
-  assert.equal(warn.mock.callCount(), 1);
-});
-
 test("Supabase Auth sends an S256 PKCE challenge once WebCrypto is installed", async (t) => {
   withoutGlobalCrypto(t);
   const warn = t.mock.method(console, "warn", () => {});

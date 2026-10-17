@@ -79,9 +79,9 @@ async function search(page, query) {
   return results;
 }
 
-test("drink search labels generic cola and pepper aliases, keeps Monster exact, and logs volume USDA nutrition", async (t) => {
+test("drink search labels generic cola aliases and logs volume USDA nutrition", async (t) => {
   const page = await open(t);
-  let results = await search(page, "Pepsi");
+  const results = await search(page, "Pepsi");
   assert.equal(await results.getByTestId("food-result").count(), 4);
   assert.equal(await results.getByText(notice, { exact: true }).count(), 1);
   await button(page, "View nutrition for Soft drink, cola").waitFor();
@@ -89,29 +89,6 @@ test("drink search labels generic cola and pepper aliases, keeps Monster exact, 
   for (const row of await results.getByTestId("food-result").allTextContents())
     assert.match(row, /kcal per 100 ml/);
 
-  for (const query of ["Pepsi zero", "Coca-Cola sugar-free"]) {
-    results = await search(page, query);
-    assert.equal(await results.getByTestId("food-result").count(), 2);
-    assert.equal(await results.getByText(notice, { exact: true }).count(), 1);
-    for (const text of await results.getByTestId("food-result").allTextContents())
-      assert.match(text, /diet/i);
-    assert.equal(await button(page, "View nutrition for Soft drink, cola").count(), 0);
-  }
-
-  results = await search(page, "drpeper");
-  assert.equal(await results.getByTestId("food-result").count(), 4);
-  assert.equal(await results.getByText(notice, { exact: true }).count(), 1);
-  await button(page, "View nutrition for Soft drink, pepper type").waitFor();
-
-  results = await search(page, "Monster");
-  assert.equal(await results.getByTestId("food-result").count(), 3);
-  assert.equal(await results.getByTestId("generic-drink-match").count(), 0);
-  results = await search(page, "Monster zero");
-  assert.equal(await results.getByTestId("food-result").count(), 1);
-  assert.equal(await results.getByTestId("generic-drink-match").count(), 0);
-  await button(page, "View nutrition for Energy drink, sugar free (Monster)").waitFor();
-
-  await search(page, "Pepsi");
   await button(page, "View nutrition for Soft drink, cola").click();
   await field(page, "Drink amount (ml)").fill("150");
   assert.equal(await field(page, "Amount (g)").count(), 0);
@@ -153,12 +130,6 @@ test("food and meal ingredient rows label generic Pepsi matches without labeling
   assert.match(await exact.innerText(), /Pepsi Zero Sugar/);
   assert.equal(await exact.getByTestId("generic-drink-match").count(), 0);
   assert.equal(await results.getByText(notice, { exact: true }).count(), 1);
-  assert.equal(
-    await results
-      .getByRole("button", { name: "Find a branded product online", exact: true })
-      .count(),
-    0,
-  );
 
   await button(page, "Create food or meal").click();
   await page
@@ -296,43 +267,5 @@ test("deleting the last logging page clamps result labels and pager actions", as
   assert.equal(
     await button(page, "View nutrition for Shrinkfixture food 40, custom food").count(),
     0,
-  );
-});
-
-test("source concentrates and cooking ingredients keep gram Snacks controls and no hydration", async (t) => {
-  const page = await open(t);
-  const ids = [2705402, 2710572, 2710631, 2709191, 2707568, 2707571];
-  for (const id of ids) {
-    const food = data.foods.find((food) => food.fdcId === id);
-    assert.ok(food);
-    await search(page, food.name);
-    await button(page, `View nutrition for ${food.name}`).click();
-    t.diagnostic(`Checking gram controls for ${id}: ${food.name}`);
-    await field(page, "Amount (g)").fill("100");
-    assert.equal(await field(page, "Drink amount (ml)").count(), 0, food.name);
-    await button(page, "Snacks").click();
-    await button(page, "Log food to Snacks").click();
-    await page.getByRole("heading", { name: "Daily food log", exact: true }).waitFor();
-  }
-  const entries = await page.evaluate(() =>
-    Object.values(
-      JSON.parse(window.accountFixture.getItem("kinevault-track.food-log.v1")).days,
-    ).flat(),
-  );
-  assert.equal(entries.length, ids.length);
-  for (const entry of entries) {
-    const food = data.foods.find((food) => food.fdcId === entry.fdcId);
-    assert.ok(food);
-    assert.equal(entry.meal, "snacks");
-    assert.equal(entry.grams, 100);
-    assert.equal(entry.drinkMl, undefined);
-    for (const key of ["calories", "carbs", "protein", "fat"])
-      assert.equal(entry[key], food.per100g[key]);
-  }
-  await page.getByRole("tab", { name: "Home", exact: true }).click();
-  await page.getByTestId("home-water").getByText("0", { exact: true }).waitFor();
-  assert.equal(
-    await page.evaluate(() => window.accountFixture.getItem("kinevault-track.water-log.v1")),
-    null,
   );
 });

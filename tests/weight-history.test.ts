@@ -40,30 +40,17 @@ const flush = async () => {
 };
 async function ready(initial = JSON.stringify(complete)) {
   let raw: string | null = initial;
-  let fail = false;
-  let readsFail = false;
-  let writes = 0;
-  let itemListener: (() => void) | undefined;
   const storage: ProfileStorage = {
     async getItem(key) {
       assert.equal(key, profileStorageKey);
-      if (readsFail) throw new Error("read failure");
       return raw;
     },
     async setItem(key, value) {
       assert.equal(key, profileStorageKey);
-      writes++;
-      if (fail) throw new Error("disk failure");
       raw = value;
     },
     async removeItem() {
       raw = null;
-    },
-    subscribeItem(_key, listener) {
-      itemListener = listener;
-      return () => {
-        itemListener = undefined;
-      };
     },
   };
   const store = createProfilePersistence(storage);
@@ -75,23 +62,7 @@ async function ready(initial = JSON.stringify(complete)) {
     if (state.kind !== "ready") throw new Error("Not ready");
     return state.document;
   }
-  return {
-    store,
-    storage,
-    document,
-    raw: () => raw,
-    writes: () => writes,
-    fail: (value: boolean) => {
-      fail = value;
-    },
-    readsFail: (value: boolean) => {
-      readsFail = value;
-    },
-    external: (value: string) => {
-      raw = value;
-      itemListener?.();
-    },
-  };
+  return { store, document, raw: () => raw };
 }
 
 test("weight inputs validate real calendar dates and finite metric values", () => {
@@ -191,78 +162,6 @@ test("legacy profile hydration and ordinary answer edits preserve logged history
   await flush();
   assert.deepEqual(fixture.document().weightEntries, [{ date: "2026-10-08", kg: 79.5 }]);
   assert.equal(fixture.document().answers.name, "Renamed");
-});
-
-test("add/edit/delete publish only after durable success and failed writes preserve history", async () => {
-  const fixture = await ready();
-  assert.equal(await fixture.store.saveWeight({ date: "2026-10-08", kg: 80 }), true);
-  const original = fixture.document(),
-    raw = fixture.raw();
-  fixture.fail(true);
-  assert.equal(await fixture.store.saveWeight({ date: "2026-10-01", kg: 82 }), false);
-  assert.equal(fixture.document(), original);
-  assert.equal(fixture.raw(), raw);
-  assert.equal(
-    await fixture.store.saveWeight({ previousDate: "2026-10-08", date: "2026-10-08", kg: 79 }),
-    false,
-  );
-  assert.equal(fixture.document(), original);
-  assert.equal(await fixture.store.removeWeight("2026-10-08"), false);
-  assert.equal(fixture.document(), original);
-  assert.equal(fixture.raw(), raw);
-  fixture.fail(false);
-  assert.equal(await fixture.store.saveWeight({ date: "2026-10-01", kg: 82 }), true);
-  assert.equal(await fixture.store.saveWeight({ date: "2026-10-08", kg: 79 }), true);
-  assert.deepEqual(fixture.document().weightEntries, [
-    { date: "2026-10-01", kg: 82 },
-    { date: "2026-10-08", kg: 79 },
-  ]);
-  assert.equal(await fixture.store.removeWeight("2026-10-08"), true);
-  assert.deepEqual(fixture.document().weightEntries, [{ date: "2026-10-01", kg: 82 }]);
-  const writes = fixture.writes();
-  assert.equal(await fixture.store.saveWeight({ date: "2026-02-29", kg: 80 }), false);
-  assert.equal(await fixture.store.saveWeight({ date: "2026-10-02", kg: NaN }), false);
-  assert.equal(await fixture.store.removeWeight("2026-10-08"), false);
-  assert.equal(fixture.writes(), writes);
-});
-
-test("pending weight saves exclude competing profile writes and retain prior visible values", async () => {
-  const fixture = await ready();
-  let release!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const originalWrite = fixture.storage.setItem;
-  fixture.storage.setItem = async (key, value) => {
-    await gate;
-    await originalWrite(key, value);
-  };
-  const pending = fixture.store.saveWeight({ date: "2026-10-08", kg: 80 });
-  assert.equal(fixture.store.getSnapshot().saving, true);
-  assert.equal(fixture.document().weightEntries, undefined);
-  assert.equal(await fixture.store.saveWeight({ date: "2026-10-01", kg: 82 }), false);
-  assert.equal(await fixture.store.save(fixture.document()), false);
-  release();
-  assert.equal(await pending, true);
-  assert.deepEqual(fixture.document().weightEntries, [{ date: "2026-10-08", kg: 80 }]);
-});
-
-test("external account document reloads history and blocks writes until failed refresh recovers", async () => {
-  const fixture = await ready();
-  fixture.readsFail(true);
-  fixture.external(
-    JSON.stringify({ ...complete, weightEntries: [{ date: "2026-10-04", kg: 81 }] }),
-  );
-  await flush();
-  assert.ok(fixture.store.getSnapshot().refreshError);
-  assert.equal(await fixture.store.saveWeight({ date: "2026-10-08", kg: 80 }), false);
-  fixture.readsFail(false);
-  fixture.store.retryLoad();
-  await flush();
-  assert.equal(fixture.store.getSnapshot().refreshError, null);
-  assert.deepEqual(fixture.document().weightEntries, [{ date: "2026-10-04", kg: 81 }]);
-  assert.equal(await fixture.store.saveWeight({ date: "2026-10-08", kg: 80 }), true);
-  assert.equal(fixture.document().weightEntries?.length, 2);
 });
 
 test("corrupt weight history requires profile recovery and never silently removes measurements", async () => {

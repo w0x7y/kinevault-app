@@ -19,3 +19,21 @@ export async function launchBrowser() {
   browser.newPage = (options = {}) => newPage({ reducedMotion: "reduce", ...options });
   return browser;
 }
+
+// Makes the next localStorage write to a key ending in `suffix` throw, then restores normal
+// writes. With `dirty`, only a write that carries unsynced changes (`"dirty": true`) fails.
+export function failNextWrite(page, suffix, { dirty = false } = {}) {
+  return page.evaluate(
+    ({ suffix, dirty }) => {
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key.endsWith(suffix) && (!dirty || JSON.parse(value).dirty)) {
+          Storage.prototype.setItem = setItem;
+          throw new Error("Fixture write failure");
+        }
+        return setItem.call(this, key, value);
+      };
+    },
+    { suffix, dirty },
+  );
+}

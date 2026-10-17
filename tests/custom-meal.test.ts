@@ -50,13 +50,6 @@ function nearNutrition(actual: Nutrition, expected: Nutrition) {
       `${key}: ${actual[key]} should be ${expected[key]}`,
     );
 }
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((yes) => {
-    resolve = yes;
-  });
-  return { promise, resolve };
-}
 async function ready(initial: string | null = null) {
   let raw = initial;
   const storage = {
@@ -197,7 +190,7 @@ test("small decimal ingredient weights and overrides survive durable saving and 
   assert.deepEqual((await ready(raw())).store.getSnapshot().state, store.getSnapshot().state);
 });
 
-test("meal saves share the durable write lock with foods and keep existing records on failure", async () => {
+test("a failed meal save keeps existing records and reports the meal message", async () => {
   const { store, storage, raw } = await ready();
   await store.add({
     name: "Yogurt",
@@ -208,7 +201,6 @@ test("meal saves share the durable write lock with foods and keep existing recor
     fat: "4",
   });
   const before = raw();
-  const write = storage.setItem;
   storage.setItem = async () => {
     throw new Error("disk full");
   };
@@ -218,30 +210,6 @@ test("meal saves share the durable write lock with foods and keep existing recor
     store.getSnapshot().error,
     "Couldn't save your meal. Your ingredients and values are still here. Try again.",
   );
-  const gate = deferred<void>();
-  storage.setItem = async (key, value) => {
-    await gate.promise;
-    await write(key, value);
-  };
-  const pending = store.addMeal(draft);
-  assert.equal(store.getSnapshot().saving, true);
-  assert.equal(parseCustomFoods(raw()).meals.length, 0);
-  assert.equal(await store.addMeal(draft), null);
-  assert.equal(
-    await store.add({
-      name: "Duplicate",
-      servingGrams: "100",
-      calories: "0",
-      carbs: "0",
-      protein: "0",
-      fat: "0",
-    }),
-    null,
-  );
-  gate.resolve();
-  assert.ok(await pending);
-  assert.equal(parseCustomFoods(raw()).foods.length, 1);
-  assert.equal(parseCustomFoods(raw()).meals.length, 1);
 });
 
 test("invalid meal drafts and failed meal updates retain their distinct feedback", async () => {

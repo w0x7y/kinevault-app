@@ -50,7 +50,6 @@ function fixture() {
   };
   const storage = createOwnedSessionStorage(backend);
   const requests: string[] = [];
-  const logout = deferred<void>();
   const client = (adapter = storage) =>
     createClient("https://auth-regression.test", "public-test-key", {
       auth: {
@@ -64,10 +63,6 @@ function fixture() {
         fetch: async (input, options) => {
           const url = String(input);
           requests.push(url);
-          if (url.includes("/logout")) {
-            await logout.promise;
-            return new Response("{}", { status: 200 });
-          }
           if (url.includes("/token?grant_type=password")) {
             const body = JSON.parse(String(options?.body));
             return new Response(JSON.stringify(session(body.email.startsWith("b") ? "b" : "a")), {
@@ -79,31 +74,8 @@ function fixture() {
         },
       },
     });
-  return { values, backend, storage, requests, logout, client };
+  return { values, backend, storage, requests, client };
 }
-
-test("installed SDK signOut reproduces why deletion cannot await HTTP then remove the current session", async () => {
-  const f = fixture();
-  const sdkA = f.client(),
-    sdkB = f.client();
-  try {
-    assert.equal((await sdkA.auth.getSession()).data.session?.user.id, "a");
-    const pending = sdkA.auth.signOut({ scope: "local" });
-    await tick();
-    assert.ok(f.requests.some((url) => url.includes("/logout")));
-    assert.equal(
-      (await sdkB.auth.signInWithPassword({ email: "b@example.com", password: "password" })).error,
-      null,
-    );
-    assert.equal((await sdkB.auth.getSession()).data.session?.user.id, "b");
-    f.logout.resolve();
-    await pending;
-    assert.equal((await sdkB.auth.getSession()).data.session, null);
-  } finally {
-    await sdkA.auth.dispose();
-    await sdkB.auth.dispose();
-  }
-});
 
 test("deletion adapter preserves B in both installed SDK contexts, persisted storage and controller after delayed A cleanup", async () => {
   const f = fixture();

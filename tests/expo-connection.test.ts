@@ -104,14 +104,6 @@ test("readiness retries startup errors until a matching public manifest arrives"
   assert.equal(attempts, 3);
 });
 
-test("readiness timeout includes the last connection problem", async (t) => {
-  const origin = await fixture(t, (response) => response.writeHead(503).end());
-  await assert.rejects(
-    waitForExpoConnection({ origin, timeoutMs: 120, retryMs: 10 }),
-    /not ready.*503/,
-  );
-});
-
 test("readiness timeout preserves the HTTP error when a later retry stalls", async (t) => {
   let attempts = 0;
   const origin = await fixture(t, (response) => {

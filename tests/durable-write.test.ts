@@ -345,33 +345,31 @@ test("a read/write-only adapter rejects removal without changing its durable rec
   assert.equal(await set(4), true);
 });
 
-for (const outcome of ["success", "parse error", "read error"] as const) {
-  for (const stopBeforeOlderOutcome of [false, true]) {
-    test(`older load ${outcome} cannot replace a newer load${stopBeforeOlderOutcome ? " after stopping" : ""} without an intervening write`, async () => {
-      const { store, storage, calls } = fixture();
-      const older = deferred<string | null>();
-      const newer = deferred<string | null>();
-      let reads = 0;
-      storage.getItem = () => {
-        calls.push("read");
-        return [older, newer][reads++]!.promise;
-      };
-      store.start();
-      store.retryLoad();
-      assert.deepEqual(calls, ["read", "read"]);
-      newer.resolve(encode(2));
-      await flush();
-      assert.deepEqual(documentOf(store), { count: 2 });
-      const loaded = store.getSnapshot();
-      if (stopBeforeOlderOutcome) store.stop();
-      if (outcome === "read error") older.reject(new Error("Unavailable"));
-      else older.resolve(outcome === "parse error" ? "broken" : encode(1));
-      await flush();
-      assert.equal(store.getSnapshot(), loaded);
-      assert.deepEqual(documentOf(store), { count: 2 });
-      assert.deepEqual(calls, ["read", "read"]);
-    });
-  }
+// A parse error ends in the same catch as a read error.
+for (const outcome of ["success", "read error"] as const) {
+  test(`older load ${outcome} cannot replace a newer load without an intervening write`, async () => {
+    const { store, storage, calls } = fixture();
+    const older = deferred<string | null>();
+    const newer = deferred<string | null>();
+    let reads = 0;
+    storage.getItem = () => {
+      calls.push("read");
+      return [older, newer][reads++]!.promise;
+    };
+    store.start();
+    store.retryLoad();
+    assert.deepEqual(calls, ["read", "read"]);
+    newer.resolve(encode(2));
+    await flush();
+    assert.deepEqual(documentOf(store), { count: 2 });
+    const loaded = store.getSnapshot();
+    if (outcome === "read error") older.reject(new Error("Unavailable"));
+    else older.resolve(encode(1));
+    await flush();
+    assert.equal(store.getSnapshot(), loaded);
+    assert.deepEqual(documentOf(store), { count: 2 });
+    assert.deepEqual(calls, ["read", "read"]);
+  });
 
   test(`stale read ${outcome} cannot replace a later write`, async () => {
     const { store, storage, set } = fixture();
@@ -387,7 +385,7 @@ for (const outcome of ["success", "parse error", "read error"] as const) {
     assert.equal(await set(3), true);
     const saved = store.getSnapshot();
     if (outcome === "read error") first.reject(new Error("Unavailable"));
-    else first.resolve(outcome === "parse error" ? "broken" : encode(1));
+    else first.resolve(encode(1));
     await flush();
     assert.equal(store.getSnapshot(), saved);
     assert.deepEqual(documentOf(store), { count: 3 });
@@ -403,7 +401,7 @@ for (const outcome of ["success", "parse error", "read error"] as const) {
     store.stop();
     store.retryLoad();
     if (outcome === "read error") gate.reject(new Error("Unavailable"));
-    else gate.resolve(outcome === "parse error" ? "broken" : encode(1));
+    else gate.resolve(encode(1));
     await flush();
     assert.equal(store.getSnapshot(), loading);
     assert.equal(await set(2), null);

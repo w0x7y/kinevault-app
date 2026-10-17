@@ -1,6 +1,8 @@
 // Demo clips and the catalog list come from the same Supabase project as accounts.
 export type DemoCatalogConfig = { url: string; key: string };
 export const demoBucket = "exercise-demos";
+/** Publishing flattens every clip onto this color (scripts/publish-catalog.mjs), so demo frames use it in both themes. */
+export const demoBackdrop = "#232f3b";
 
 /** The project that serves demos, or null when this build isn't configured for one. */
 export function demoCatalogConfigFrom(

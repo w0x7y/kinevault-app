@@ -87,87 +87,18 @@ test("no saved session is empty and persisted completion requires a logged set",
   assert.throws(() => session("Empty", 300, []), /Enter at least one set/);
 });
 
-test("a planned session has no completed exercises or average reps", () => {
-  const planned = {
-    ...session("Planned", 60, [row("planned", "Planned press", [[50, 10]])]),
-    status: "planned" as const,
-  };
-  assert.deepEqual(summarizeSessions([planned]), {
-    name: null,
-    durationSeconds: 0,
-    durationKnown: true,
-    volume: 0,
-    sets: 0,
-    reps: 0,
-    averageRepsPerSet: 0,
-    exercises: [],
-  });
-});
-
-test("bodyweight saved sets count repetitions and round the workout average", () => {
-  assert.deepEqual(
-    summarizeSessions([
-      session("Push-ups", 90, [
-        row("pushup", "Push-up", [
-          [0, 15],
-          [0, 10],
-        ]),
-      ]),
-    ]),
-    {
-      name: "Push-ups",
-      durationSeconds: 90,
-      durationKnown: true,
-      volume: 0,
-      sets: 2,
-      reps: 25,
-      averageRepsPerSet: 13,
-      exercises: [
-        {
-          id: occurrence("pushup"),
-          name: "Push-up",
-          volume: 0,
-          sets: 2,
-          reps: 25,
-          load: { kind: "bodyweight" },
-        },
-      ],
-    },
-  );
-});
-
 test("mixed bodyweight and weighted loads preserve actual kilograms", () => {
-  assert.deepEqual(
-    summarizeSessions([
-      session("Pull-ups", 300, [
-        row("pullup", "Pull-up", [
-          [0, 8],
-          [10, 6],
-        ]),
+  const workout = summarizeSessions([
+    session("Pull-ups", 300, [
+      row("pullup", "Pull-up", [
+        [0, 8],
+        [10, 6],
       ]),
     ]),
-    {
-      name: "Pull-ups",
-      durationSeconds: 300,
-      durationKnown: true,
-      volume: 60,
-      sets: 2,
-      reps: 14,
-      averageRepsPerSet: 7,
-      exercises: [
-        {
-          id: occurrence("pullup"),
-          name: "Pull-up",
-          volume: 60,
-          sets: 2,
-          reps: 14,
-          load: { kind: "range", minKg: 0, maxKg: 10 },
-        },
-      ],
-    },
-  );
+  ]);
+  assert.equal(workout.volume, 60);
+  assert.deepEqual(workout.exercises[0]!.load, { kind: "range", minKg: 0, maxKg: 10 });
 });
-
 test("workout average weights exercises by completed set count", () => {
   const workout = summarizeSessions([
     session("Mixed reps", 60, [

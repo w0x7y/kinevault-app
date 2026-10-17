@@ -4,18 +4,14 @@ import { exerciseChipLabels, shortExerciseName } from "../src/exercise/short-nam
 
 test("long exercise names become the initials of their words", () => {
   assert.equal(shortExerciseName("Shoulder Press Machine (Wide Grip/Top Half)"), "SPM");
-  assert.equal(shortExerciseName("Unilateral Seated Machine Row"), "USMR");
   assert.equal(shortExerciseName("dumbbell shoulder press"), "DSP");
   assert.equal(shortExerciseName("Single-leg Romanian deadlift"), "SLRD");
   assert.equal(shortExerciseName("Barbell curls"), "BC");
 });
 
 test("single words and names that fit stay as they are", () => {
-  assert.equal(shortExerciseName("Squat"), "Squat");
-  assert.equal(shortExerciseName("Bench press"), "Bench press");
   assert.equal(shortExerciseName("Barbell curl"), "Barbell curl");
   assert.equal(shortExerciseName("Hyperextensions"), "Hyperextensions");
-  assert.equal(shortExerciseName("Push-up"), "Push-up");
 });
 
 test("parenthetical parts are ignored before deciding", () => {

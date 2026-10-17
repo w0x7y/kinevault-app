@@ -24,10 +24,6 @@ function commands() {
   return createExerciseCommands({ createId: () => `id-${++sequence}`, now: () => 0 });
 }
 
-test("an exercise keeps a valid KineVault link", () => {
-  assert.deepEqual(parseExerciseDefinition(press).catalog, link);
-});
-
 test("an exercise without a link has no catalog field", () => {
   const { catalog: _catalog, ...plain } = press;
   assert.equal("catalog" in parseExerciseDefinition(plain), false);

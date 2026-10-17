@@ -11,6 +11,8 @@ project on 2026-10-13 and is recorded in `supabase_migrations.schema_migrations`
 The first publish on 2026-10-14 added 10 demos curated in the local KineVault
 stack with KineVault's `scripts/curate-local-demos.mjs` (five dumbbell/cable movements and,
 with `--full-body`, five full-body movements).
+On 2026-10-17 the same 10 were republished reframed (see below), straight from
+the hosted copies, which are byte-identical to KineVault's renders.
 
 On the current local Supabase, that curation script also needs
 `grant select on public.render_jobs to service_role;` in KineVault's local
@@ -32,6 +34,14 @@ project:
   and `<exercise id>/<hash>.webp`. Each name is a content hash, so a new render
   gets a new link and device caches stay correct.
 
+KineVault's renders show its viewer page: an off-white background, an
+attribution strip and a menu button. Before uploading, the script reframes both
+files with ffmpeg: it cuts the strip, pads the clip to the app's 4:3 frame and
+replaces the page color with the dark backdrop `#232f3b` that the app's demo
+frame also uses. The credit under each demo carries the attribution. If
+KineVault changes its render size or layout, re-measure the crop in
+`reframeFilter`.
+
 The app (`src/exercise/demo/`) downloads the catalog list, keeps a copy on the
 device, refreshes it once that copy is 24 hours old or older (or empty), and links exercises
 through `ExerciseDefinition.catalog`. A saved copy loads at launch whatever its age;
@@ -45,7 +55,8 @@ old or more. Without a saved copy it has no offline list.
 ## Publishing
 
 1. Start KineVault's local Supabase stack (see KineVault's `LOCAL_USE.md`).
-2. Create `.env.catalog.local` in this directory. Git ignores it.
+2. Install ffmpeg, or set `FFMPEG_PATH` to its binary.
+3. Create `.env.catalog.local` in this directory. Git ignores it.
 
    ```
    KINEVAULT_SUPABASE_URL=http://127.0.0.1:15421
@@ -54,10 +65,10 @@ old or more. Without a saved copy it has no offline list.
    TRACK_SUPABASE_SERVICE_ROLE_KEY=<Track's service role key>
    ```
 
-3. `npm run catalog:publish` prints the rows it would insert, update and
+4. `npm run catalog:publish` prints the rows it would insert, update and
    withdraw, the files it would upload and the exercises it skips. It writes
    nothing.
-4. `npm run catalog:publish -- --apply` uploads new files, then writes rows,
+5. `npm run catalog:publish -- --apply` uploads new files, then writes rows,
    then withdraws exercises KineVault no longer publishes.
 
 Run it again after KineVault approves or re-renders exercises. Withdrawn rows
