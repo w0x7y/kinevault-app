@@ -232,6 +232,59 @@ test("planned counts retain invalid text, reject shrink over entered sets, and r
   assert.equal(f.saved().exercises[0]!.sets.length, 1);
 });
 
+test("starting a card from the day opens the Active workout's page; a manual page stays up", async () => {
+  const f = await fixture("planned");
+  assert.equal(await f.editing.edit("log").run("start"), true);
+  assert.deepEqual(f.editing.getSnapshot().panel?.content, { kind: "session", id: "log" });
+  const manual = await fixture("planned");
+  await manual.editing.requestView({ kind: "session", id: "log", manual: true });
+  const page = manual.editing.getSnapshot().panel;
+  assert.equal(await manual.editing.edit("log").run("start"), true);
+  assert.equal(manual.editing.getSnapshot().panel, page);
+});
+
+test("leaving the Active workout's page saves its fields and keeps the edit for the next visit", async () => {
+  const f = await fixture("active");
+  await f.editing.requestView({ kind: "session", id: "log" });
+  const edit = f.editing.edit("log");
+  edit.select("row");
+  edit.change({
+    kind: "set",
+    rowId: "row",
+    setId: "blank",
+    build: (set) => ({ ...set, reps: "6" }),
+  });
+  assert.equal(await f.editing.edit("log").run("leave"), true);
+  assert.equal(f.editing.getSnapshot().panel, null);
+  assert.deepEqual(f.saved().exercises[0]!.sets[1], {
+    id: "blank",
+    kind: "single",
+    reps: "6",
+    weightKg: "",
+  });
+  assert.equal(f.saved().status, "active");
+  assert.equal(f.editing.edit("log").getSnapshot().selectedId, "row");
+});
+
+test("the Active workout's page opens while its draft can't save, but nothing else does", async () => {
+  const f = await fixture("active");
+  f.storage.setItem = async () => {
+    throw new Error("Storage full");
+  };
+  const edit = f.editing.edit("log");
+  edit.change({
+    kind: "set",
+    rowId: "row",
+    setId: "blank",
+    build: (set) => ({ ...set, reps: "6" }),
+  });
+  await tick();
+  assert.equal(await f.editing.requestView({ kind: "session", id: "log" }), true);
+  assert.deepEqual(f.editing.getSnapshot().panel?.content, { kind: "session", id: "log" });
+  assert.equal(await f.editing.requestView({ kind: "library", date: "2026-10-05" }), false);
+  assert.deepEqual(f.editing.getSnapshot().panel?.content, { kind: "session", id: "log" });
+});
+
 test("a cleared manual workout name stays editable until corrected before Start", async () => {
   const f = await fixture("planned");
   await f.editing.requestView({ kind: "session", id: "log", manual: true });

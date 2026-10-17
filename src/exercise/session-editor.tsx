@@ -19,7 +19,6 @@ import { TextField } from "../components/text-field";
 import { ExerciseNotes, SectionLabel } from "./controls";
 import { ExerciseSetTable } from "./set-table";
 import { exerciseRowLabel, WorkoutWorkspace } from "./workout-workspace";
-import { ActiveWorkoutTimer } from "./timer";
 import { useSheetBack } from "../components/sheet-page";
 
 function durationCaption(minutes: string) {
@@ -59,14 +58,15 @@ export function SessionEditor({
   const sessions = store.state.kind === "ready" ? store.state.document.sessions : [];
   const [detailsOpen, setDetailsOpen] = useState(false),
     [notesId, setNotesId] = useState<string | null>(null);
-  // In a sheet, its back button is this workout's Cancel.
-  const inSheet = useSheetBack({ onPress: () => void edit.run("cancel"), disabled: busy });
   const active = mode === "active",
     completed = mode === "completed";
-  // Active workouts reopen on the default view; others reopen their sheet.
-  const returnTo: WorkoutView | undefined = active
-    ? undefined
-    : { kind: "session", id: session.id, manual: mode === "manual" };
+  // In a sheet, its back button is this workout's Cancel. The Active workout keeps running.
+  const inSheet = useSheetBack({
+    onPress: () => void edit.run(active ? "leave" : "cancel"),
+    disabled: busy,
+  });
+  // "Link demo" returns to this workout's page.
+  const returnTo: WorkoutView = { kind: "session", id: session.id, manual: mode === "manual" };
   function renderExercise(row: SessionExercise, index: number) {
     const rowLabel = exerciseRowLabel(draft.exercises, row, index);
     return (
@@ -135,7 +135,7 @@ export function SessionEditor({
       )}
     </>
   );
-  // Manual and completed logs open on a sheet, whose back button is their Cancel.
+  // Manual and completed logs can rename the workout and set its duration.
   const headerActions = !active && (
     <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
       <AppButton
@@ -290,8 +290,7 @@ export function SessionEditor({
       ) : (
         <WorkoutWorkspace
           name={draft.name}
-          live={active}
-          overline={completed ? "Logged workout" : "Log a workout"}
+          overline={active ? undefined : completed ? "Logged workout" : "Log a workout"}
           testID={
             active
               ? "active-workout-workspace"
@@ -299,7 +298,6 @@ export function SessionEditor({
                 ? "completed-workout-workspace"
                 : "manual-workout-workspace"
           }
-          headerRight={active ? <ActiveWorkoutTimer session={session} /> : undefined}
           headerActions={headerActions}
           toolbar={toolbar}
           exercises={draft.exercises}

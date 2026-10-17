@@ -202,7 +202,7 @@ test("Home keeps workout totals and independent recovery visible when Food stora
   await page.getByTestId("home-workout-empty").waitFor();
 });
 
-test("active timer restores elapsed time and drafts after reload and remains visible on another selected date", async (t) => {
+test("the live timer sits in the header and restores after reload; the tab shows a live card that opens the workout", async (t) => {
   const startedAt = time.getTime() - 90000;
   const active = {
     id: "active",
@@ -230,35 +230,63 @@ test("active timer restores elapsed time and drafts after reload and remains vis
     freeze: true,
     document: { ...empty(), exercises: [sides], sessions: [active] },
   });
-  const timer = page.getByTestId("active-workout-timer");
-  await timer.waitFor();
-  await page.getByTestId("active-workout-workspace").waitFor();
-  assert.match(await timer.innerText(), /1:30/);
+  const headerTimer = page.getByRole("button", { name: /^Open live workout, elapsed time / });
+  await headerTimer.waitFor();
+  assert.equal(
+    await headerTimer.getAttribute("aria-label"),
+    "Open live workout, elapsed time 1:30",
+  );
+  // The tab shows the live card in place of the day's cards, not the workout itself.
+  const card = page.getByTestId("exercise-live-workout");
+  assert.match(await card.innerText(), /Active training/);
+  assert.equal(await card.getByTestId("kine-exercise").count(), 1);
+  assert.equal(await page.getByTestId("active-workout-workspace").count(), 0);
   assert.equal(await page.getByTestId("exercise-workout").count(), 0);
-  assert.equal(await button(page, "Open active workout").count(), 0);
-  assert.equal(await button(page, "Close workout").count(), 0);
+  assert.equal(await button(page, "Import workouts").count(), 0);
+  assert.equal(await page.getByText("Live workout", { exact: true }).count(), 0);
   await page.clock.fastForward(31000);
-  assert.match(await timer.innerText(), /2:01/);
+  assert.equal(
+    await headerTimer.getAttribute("aria-label"),
+    "Open live workout, elapsed time 2:01",
+  );
   await page.clock.resume();
   await page.reload();
-  await timer.waitFor();
+  await headerTimer.waitFor();
   await page.clock.pauseAt(new Date(time.getTime() + 60000));
-  assert.match(await timer.innerText(), /2:30/);
+  assert.equal(
+    await headerTimer.getAttribute("aria-label"),
+    "Open live workout, elapsed time 2:30",
+  );
   assert.deepEqual((await documentFrom(page)).sessions[0], active);
   await button(page, "Expand calendar").click();
   await page.getByRole("button", { name: "Saturday, October 3, 2026", exact: true }).click();
   await button(page, "Collapse calendar").click();
-  assert.equal(await timer.isVisible(), true);
-  assert.match(await page.getByTestId("active-workout-workspace").innerText(), /Active training/);
+  assert.match(await card.innerText(), /Active training/);
   assert.equal(await page.getByTestId("exercise-workout-empty").count(), 0);
-  assert.equal(await page.getByTestId("exercise-workout").count(), 0);
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth),
       false,
     );
+    // The timer is centered in the header.
+    const box = await headerTimer.boundingBox();
+    assert.ok(Math.abs(box.x + box.width / 2 - width / 2) <= 8, `${width}: ${JSON.stringify(box)}`);
   }
+  // The header timer opens the workout's page, which centers the timer in its own top bar.
+  await headerTimer.click();
+  const workout = page.getByTestId("active-workout");
+  await workout.getByTestId("active-workout-workspace").waitFor();
+  assert.match(await workout.getByTestId("active-workout-timer").innerText(), /2:30/);
+  assert.match(await workout.innerText(), /Active training/);
+  assert.equal(await workout.getByText("Live workout", { exact: true }).count(), 0);
+  // Back leaves the workout running and returns to the live card.
+  await button(workout, "Back to Exercise").click();
+  await workout.waitFor({ state: "detached" });
+  await card.waitFor();
+  assert.equal((await documentFrom(page)).sessions[0].status, "active");
+  await button(card, "Open live workout").click();
+  await page.getByTestId("active-workout").getByTestId("active-workout-workspace").waitFor();
 });
 
 test("create exercises and ordered workouts, then add a planned session without starting a timer", async (t) => {
@@ -422,8 +450,11 @@ test("exercise search edits definitions without adding them to a running or plan
   assert.equal(await page.getByTestId("active-workout-timer").count(), 0);
   assert.deepEqual((await documentFrom(page)).sessions, [active, planned]);
   await button(page.getByTestId("exercise-form"), "Cancel").click();
-  await page.getByTestId("active-workout-workspace").waitFor();
-  assert.equal(await page.getByTestId("active-workout-timer").count(), 1);
+  await page.getByRole("button", { name: /^Open live workout, elapsed time / }).waitFor();
+  // The live card returns with the default view once the search is cleared.
+  assert.equal(await page.getByTestId("exercise-live-workout").count(), 0);
+  await field(page, "Search exercises").fill("");
+  await page.getByTestId("exercise-live-workout").waitFor();
 });
 
 test("the saved workout menu restores manual duration, blocks Start without a name and starts a timed workout", async (t) => {
@@ -480,12 +511,14 @@ test("the saved workout menu restores manual duration, blocks Start without a na
   await name.fill("Corrected workout");
   await button(editor, "Start workout").click();
   const active = await storedWhen(page, (document) => document.sessions[0].status === "active");
-  await page.getByTestId("active-workout-timer").waitFor();
-  await page.getByTestId("active-workout-workspace").waitFor();
-  assert.equal(await field(editor, "Workout name").count(), 0);
+  // The manual page stays up as the live workout's page.
+  const live = page.getByTestId("active-workout");
+  await live.getByTestId("active-workout-timer").waitFor();
+  await live.getByTestId("active-workout-workspace").waitFor();
+  assert.equal(await field(live, "Workout name").count(), 0);
   assert.equal(active.sessions[0].durationSeconds, null);
   await page.clock.fastForward(61000);
-  await button(editor, "End workout").click();
+  await button(live, "End workout").click();
   const completed = await storedWhen(
     page,
     (document) => document.sessions[0].status === "completed",
@@ -516,8 +549,9 @@ test("failed active completion retains local edits and the running timer, then r
     failure: true,
     document: { ...empty(), exercises: [single], sessions: [active] },
   });
-  await page.getByTestId("active-workout-workspace").waitFor();
-  const editor = page.getByTestId("session-editor");
+  await button(page, "Open live workout").click();
+  const editor = page.getByTestId("active-workout");
+  await editor.getByTestId("active-workout-workspace").waitFor();
   await field(editor, "Squat set 1 reps").fill("12");
   await button(editor, "End workout").click();
   await editor.getByRole("alert").first().waitFor();
@@ -936,45 +970,27 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
   const workspace = page.getByTestId("active-workout-workspace"),
     topbar = page.getByTestId("exercise-topbar");
   const details = page.getByTestId("exercise-details");
+  // Starting from the day opens the live workout on its own page.
+  const live = page.getByTestId("active-workout");
   await workspace.waitFor();
   assert.equal(await compact.count(), 0);
-  assert.equal(await page.getByTestId("session-editor").count(), 1);
+  assert.equal(await live.count(), 1);
   assert.equal(await field(page, "Workout name").count(), 0);
-  assert.equal(
-    await page
-      .getByTestId("active-workout-timer")
-      .getByText("Strength day", { exact: true })
-      .count(),
-    0,
-  );
-  assert.equal(
-    await page
-      .getByTestId("session-editor")
-      .getByRole("heading", { name: "Strength day", exact: true })
-      .count(),
-    1,
-  );
-  assert.equal(await button(page.getByTestId("session-editor"), /Remove/).count(), 0);
+  assert.equal(await live.getByRole("heading", { name: "Strength day", exact: true }).count(), 1);
+  assert.equal(await button(live, /Remove/).count(), 0);
   assert.doesNotMatch(
     await workspace.innerText(),
-    /2026-10-04|In progress|Blank weight means|Close workout|Open active workout/,
+    /2026-10-04|In progress|Blank weight means|Close workout|Live workout/,
   );
-  // The timer answers the workout's name on the right of the live header, without an
+  // The timer is centered in the page's top bar, above the workout's name, without an
   // "elapsed" caption; the exercise bar has no rules.
-  const timerBox = await workspace.getByTestId("active-workout-timer").boundingBox();
+  const timer = live.getByTestId("active-workout-timer");
+  const timerBox = await timer.boundingBox();
   const headingBox = await workspace.getByTestId("workout-workspace-heading").boundingBox();
-  const workspaceBox = await workspace.boundingBox();
-  assert.ok(timerBox.x >= headingBox.x + headingBox.width, "the timer sits right of the name");
-  assert.ok(
-    timerBox.y < headingBox.y + headingBox.height && headingBox.y < timerBox.y + timerBox.height,
-    "the timer shares the name's row",
-  );
-  assert.ok(
-    workspaceBox.x + workspaceBox.width - (timerBox.x + timerBox.width) < 40,
-    "the timer is aligned to the right",
-  );
-  assert.match(await workspace.getByTestId("active-workout-timer").innerText(), /^\d+:\d{2}$/);
-  assert.doesNotMatch(await workspace.innerText(), /elapsed/i);
+  assert.ok(Math.abs(timerBox.x + timerBox.width / 2 - 390 / 2) <= 2, "the timer is centered");
+  assert.ok(timerBox.y + timerBox.height <= headingBox.y, "the timer sits above the name");
+  assert.match(await timer.innerText(), /\b\d+:\d{2}$/);
+  assert.doesNotMatch(await live.innerText(), /elapsed/i);
   const borders = await workspace.getByTestId("exercise-topbar-frame").evaluate((node) => {
     const style = getComputedStyle(node);
     return [parseFloat(style.borderTopWidth), parseFloat(style.borderBottomWidth)];
@@ -1006,6 +1022,8 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
     (document) => document.sessions[0].exercises[1].sets[0].right.weightKg === "12",
   );
   await page.reload();
+  // After a reload the tab shows the live card; it reopens the workout.
+  await button(page, "Open live workout").click();
   await workspace.waitFor();
   assert.equal(await field(details, "Squat set 1 reps").inputValue(), "5");
   await button(topbar, "Select exercise Curl").click();
@@ -1440,7 +1458,7 @@ test("cloud sync preserves an unfinished workout across failure, unchanged succe
   await verifyDraft();
 });
 
-test("failed active draft edits survive search and calendar changes before a guarded retry", async (t) => {
+test("a failed active draft save keeps the workout page up across calendar changes until a retry saves it", async (t) => {
   const active = {
     id: "running",
     date,
@@ -1460,18 +1478,19 @@ test("failed active draft edits survive search and calendar changes before a gua
     failure: true,
     document: { ...empty(), exercises: [single], sessions: [active] },
   });
-  const editor = page.getByTestId("session-editor");
-  await page.getByTestId("active-workout-workspace").waitFor();
+  await button(page, "Open live workout").click();
+  const editor = page.getByTestId("active-workout");
+  await editor.getByTestId("active-workout-workspace").waitFor();
   await field(editor, "Squat set 1 reps").fill("12");
   await editor.getByRole("alert").first().waitFor();
-  await field(page, "Search exercises").fill("S");
+  // Back can't leave unsaved sets behind.
+  await button(editor, "Back to Exercise").click();
+  await sheetSettled(page);
+  assert.equal(await editor.count(), 1);
   assert.equal(await field(editor, "Squat set 1 reps").inputValue(), "12");
-  await button(page, "Edit exercise Squat").click();
-  assert.equal(await page.getByTestId("exercise-form").count(), 0);
-  assert.equal(await field(editor, "Squat set 1 reps").inputValue(), "12");
-  await button(page, "Expand calendar").click();
-  await page.getByRole("button", { name: "Saturday, October 3, 2026", exact: true }).click();
-  await button(page, "Collapse calendar").click();
+  await pressBehindSheet(page, "Expand calendar");
+  await pressBehindSheet(page, "Saturday, October 3, 2026");
+  await pressBehindSheet(page, "Collapse calendar");
   assert.equal(await field(editor, "Squat set 1 reps").inputValue(), "12");
   assert.deepEqual((await documentFrom(page)).sessions[0], active);
   await page.evaluate(() => {
@@ -1479,6 +1498,9 @@ test("failed active draft edits survive search and calendar changes before a gua
   });
   await button(editor, "Retry draft save").click();
   await storedWhen(page, (document) => document.sessions[0].exercises[0].sets[0].reps === "12");
+  await button(editor, "Back to Exercise").click();
+  await editor.waitFor({ state: "detached" });
+  await field(page, "Search exercises").fill("S");
   await button(page, "Edit exercise Squat").click();
   await page.getByTestId("exercise-form").waitFor();
   assert.equal((await documentFrom(page)).sessions[0].date, date);

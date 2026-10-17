@@ -53,7 +53,7 @@ type Change =
   | { kind: "count"; rowId: string; value: string }
   | { kind: "add-set"; rowId: string }
   | { kind: "set"; rowId: string; setId: string; build: (set: ExerciseSet) => ExerciseSet };
-type Action = "retry" | "settings" | "cancel" | "start" | "complete" | "save" | "discard";
+type Action = "retry" | "settings" | "cancel" | "leave" | "start" | "complete" | "save" | "discard";
 type Entry = {
   state: WorkoutEditState;
   revision: number;
@@ -240,7 +240,13 @@ export function createWorkoutEditing(store: Store) {
     snapshot = { panel: content ? { content, token: ++sequence } : null };
     emit();
   }
-  function closeOrigin(token: number | null, originAttachment: number, originRequest: number) {
+  /** Replaces panel `token` with `content` unless another view took over since the action began. */
+  function leaveOrigin(
+    token: number | null,
+    originAttachment: number,
+    originRequest: number,
+    content: WorkoutView | null = null,
+  ) {
     if (
       attached &&
       attachment === originAttachment &&
@@ -248,7 +254,7 @@ export function createWorkoutEditing(store: Store) {
       (snapshot.panel?.token ?? null) === token
     ) {
       ++request;
-      replace(null);
+      replace(content);
     }
   }
   async function requestView(content: WorkoutView) {
@@ -269,6 +275,8 @@ export function createWorkoutEditing(store: Store) {
                 )
                 .map(([id]) => id);
     for (const id of departing) {
+      // Opening a workout's own page doesn't leave it.
+      if (content.kind === "session" && content.id === id) continue;
       if (!document()?.sessions.some((session) => session.id === id)) continue;
       if (!(await flush(id, entryFor(id)))) return false;
     }
@@ -358,11 +366,12 @@ export function createWorkoutEditing(store: Store) {
         return success;
       }
       if (entry.pending) return false;
-      if (kind === "cancel") {
+      // Cancel releases the edit; leaving the Active workout's page keeps it for the next visit.
+      if (kind === "cancel" || kind === "leave") {
         const success = await flush(id, entry);
         if (success && current(id, entry)) {
-          entries.delete(id);
-          closeOrigin(originToken, originAttachment, originRequest);
+          if (kind === "cancel") entries.delete(id);
+          leaveOrigin(originToken, originAttachment, originRequest);
         }
         return success;
       }
@@ -406,9 +415,12 @@ export function createWorkoutEditing(store: Store) {
           if (kind === "start") {
             const session = document()?.sessions.find((value) => value.id === id);
             if (session) publish(entry, { session, error: null });
+            // A card started from the day opens the Active workout's page; a page stays up.
+            if (originToken === null)
+              leaveOrigin(null, originAttachment, originRequest, { kind: "session", id });
           } else {
             entries.delete(id);
-            closeOrigin(originToken, originAttachment, originRequest);
+            leaveOrigin(originToken, originAttachment, originRequest);
             snapshot = { ...snapshot };
             emit();
           }

@@ -12,9 +12,11 @@ import { SearchActions } from "../../daily/search-actions";
 import { WorkoutWidget, workoutSummary } from "../../daily/workout-widget";
 import { WorkoutImport } from "../../exercise/import/workout-import";
 import { ExerciseForm, WorkoutForm } from "../../exercise/library-forms";
+import { LiveWorkoutCard } from "../../exercise/live-workout-card";
 import { useExercises } from "../../exercise/provider";
 import { ExerciseSearchResults } from "../../exercise/search-results";
 import { SessionEditor } from "../../exercise/session-editor";
+import { ActiveWorkoutTimer } from "../../exercise/timer";
 import { useWorkoutEditing } from "../../exercise/use-workout-editing";
 import { exerciseTabView } from "../../exercise/tab-view";
 import { WorkoutLibrary } from "../../exercise/workout-library";
@@ -45,6 +47,12 @@ export default function ExerciseScreen() {
     if (importOpen) return;
     void open({ kind: "import", source });
   });
+  // `/exercise?liveWorkout=<id>` opens the Active workout's page, e.g. from the header timer.
+  useRouteRequest("liveWorkout", { ready: document !== null }, (id) => {
+    if (openPanel?.content.kind === "session" && openPanel.content.id === id) return;
+    if (document?.sessions.some((session) => session.id === id && session.status === "active"))
+      void open({ kind: "session", id });
+  });
   const view = exerciseTabView({
     document,
     date: activity.date,
@@ -53,14 +61,14 @@ export default function ExerciseScreen() {
     workoutState: activity.workoutState,
   });
   const { inline, sheet } = view;
-  // Ending (or discarding) the live workout swaps its workspace for the day's card; the card
-  // fades in where the workspace was. A card that is simply there on arrival doesn't animate.
+  // Ending (or discarding) the live workout swaps its card for the day's card, which fades in
+  // where the live card was. A card that is simply there on arrival doesn't animate.
   const { fade } = useLayoutMotion();
-  const hadWorkspace = useRef(false);
-  const workspace = inline?.mode === "active" && !inline.panel;
-  const workspaceEnded = hadWorkspace.current && !workspace;
+  const hadLive = useRef(false);
+  const live = view.live !== null || sheet?.log?.mode === "active";
+  const liveEnded = hadLive.current && !live;
   useEffect(() => {
-    hadWorkspace.current = workspace;
+    hadLive.current = live;
   });
   const content = sheet?.panel.content;
   function scrollToResults() {
@@ -94,7 +102,7 @@ export default function ExerciseScreen() {
         />
       )}
       {view.showDailyWorkout && (
-        <Animated.View entering={workspaceEnded ? fade : undefined}>
+        <Animated.View entering={liveEnded ? fade : undefined}>
           <WorkoutWidget
             workout={activity.workout}
             detailed
@@ -111,9 +119,15 @@ export default function ExerciseScreen() {
           <SessionEditor editing={editing} session={session} mode="compact" />
         </View>
       ))}
+      {view.live && (
+        <LiveWorkoutCard
+          session={view.live}
+          onOpen={() => void open({ kind: "session", id: view.live!.id })}
+        />
+      )}
       {inline && (
         <SessionEditor
-          key={inline.panel?.token ?? `workspace-${inline.session.id}`}
+          key={inline.panel.token}
           editing={editing}
           session={inline.session}
           mode={inline.mode}
@@ -134,6 +148,11 @@ export default function ExerciseScreen() {
           title={sheet.title}
           closeLabel={sheet.closeLabel}
           testID={sheet.testID}
+          center={
+            sheet.log?.mode === "active" ? (
+              <ActiveWorkoutTimer session={sheet.log.session} />
+            ) : undefined
+          }
           page={sheet.panel.token}
           onClose={() => editing.closeView(sheet.panel.token)}
         >

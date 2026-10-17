@@ -6,9 +6,8 @@ import { Chip } from "../components/chip";
 import { useLayoutMotion } from "../components/motion";
 import { AppText, Overline } from "../components/ui";
 import { useTheme } from "../theme/provider";
-import { radius, spacing } from "../theme/tokens";
+import { spacing } from "../theme/tokens";
 import { exerciseChipLabels } from "./short-name";
-import { LiveDot, useLiveTone } from "./timer";
 export type WorkspaceExercise = { id: string; exercise: { name: string } };
 
 export function exerciseRowLabel(
@@ -24,8 +23,6 @@ export function exerciseRowLabel(
 export function WorkoutWorkspace({
   name,
   overline,
-  live = false,
-  headerRight,
   headerActions,
   toolbar,
   exercises,
@@ -40,10 +37,6 @@ export function WorkoutWorkspace({
   name: string;
   /** A small label above the name, e.g. "Saved workout". */
   overline?: string;
-  /** Sets the name and timer on an ink "live" header that spans the card. */
-  live?: boolean;
-  /** On the live header, beside the name at the right: the active workout's timer. */
-  headerRight?: ReactNode;
   headerActions?: ReactNode;
   toolbar?: ReactNode;
   exercises: WorkspaceExercise[];
@@ -55,21 +48,17 @@ export function WorkoutWorkspace({
   feedback?: ReactNode;
   actions: ReactNode;
 }) {
-  const tone = useLiveTone();
   const heading = (
     <View
       testID="workout-workspace-heading"
       style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, minWidth: 0 }}
     >
       <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-        {overline && !live && <Overline>{overline}</Overline>}
+        {overline && <Overline>{overline}</Overline>}
         <AppText
           variant="heading"
           accessibilityRole="header"
-          style={[
-            { fontSize: 22, lineHeight: 28, letterSpacing: -0.4 },
-            live && { color: tone.foreground },
-          ]}
+          style={{ fontSize: 22, lineHeight: 28, letterSpacing: -0.4 }}
         >
           {name || "Workout"}
         </AppText>
@@ -83,39 +72,7 @@ export function WorkoutWorkspace({
   );
   return (
     <View testID={testID} style={{ gap: spacing.layout + 2, minWidth: 0 }}>
-      {live ? (
-        // The live header bleeds to the card's edges, so the card reads as one object. The name
-        // leads on the left and the timer answers it on the right.
-        <View
-          style={{
-            marginTop: -spacing.card,
-            marginHorizontal: -spacing.card,
-            paddingHorizontal: spacing.card + 2,
-            paddingTop: spacing.card + 2,
-            paddingBottom: spacing.card + 2,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: spacing.md,
-            borderTopLeftRadius: radius.panel - 1,
-            borderTopRightRadius: radius.panel - 1,
-            backgroundColor: tone.background,
-          }}
-        >
-          <View style={{ flex: 1, minWidth: 0, gap: spacing.xs }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <LiveDot color={tone.pulse} />
-              <Overline style={{ color: tone.muted }}>Live workout</Overline>
-            </View>
-            {heading}
-          </View>
-          {headerRight && <View style={{ flexShrink: 0 }}>{headerRight}</View>}
-        </View>
-      ) : (
-        <>
-          {heading}
-          {headerRight}
-        </>
-      )}
+      {heading}
       {toolbar}
       <ExerciseBar exercises={exercises} selectedId={selectedId} onSelect={onSelect} busy={busy} />
       <View testID="exercise-details" style={{ minWidth: 0, gap: spacing.layout }}>

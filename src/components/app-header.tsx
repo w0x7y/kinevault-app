@@ -25,6 +25,9 @@ import { fonts, radius, spacing } from "../theme/tokens";
 import { Icon } from "./icon";
 import { AppText } from "./ui";
 import { ProfileAvatar } from "../profile/profile-identity";
+import { useExercises } from "../exercise/provider";
+import type { WorkoutSession } from "../exercise/model";
+import { TimerPillContent, timerPill, useElapsedTime, useLiveTone } from "../exercise/timer";
 import { ProfileMenu } from "./profile-menu";
 import { PopoverSurface, usePopover } from "./popover";
 import { Tappable, type TappableState } from "./tappable";
@@ -79,6 +82,31 @@ function HeaderButton({
     >
       {children}
     </Tappable>
+  );
+}
+
+/** The Active workout's timer in the middle of the header; it opens the workout's page. */
+function LiveWorkoutButton({ session }: { session: WorkoutSession }) {
+  const router = useRouter();
+  const time = useElapsedTime(session);
+  const tone = useLiveTone();
+  // Narrow phones drop the stopwatch so the date and screen name beside it still fit.
+  const narrow = useWindowDimensions().width < 360;
+  return (
+    <HeaderButton
+      label={`Open live workout, elapsed time ${time}`}
+      onPress={() =>
+        router.navigate({ pathname: "/exercise", params: { liveWorkout: session.id } })
+      }
+      surfaceHeight={timerPill.height}
+      style={[
+        timerPill,
+        { backgroundColor: tone.background },
+        narrow && { paddingHorizontal: spacing.sm },
+      ]}
+    >
+      <TimerPillContent time={time} icon={!narrow} />
+    </HeaderButton>
   );
 }
 
@@ -203,6 +231,11 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
   const isSettings = path === "/settings";
   const isProfile = path === "/profile";
   const router = useRouter();
+  const exercises = useExercises();
+  const live =
+    exercises.state.kind === "ready"
+      ? exercises.state.document.sessions.find((session) => session.status === "active")
+      : undefined;
   const previousTab = useRef<Href>("/");
   useEffect(() => {
     if (!isProfile && ["/", "/food", "/exercise", "/settings"].includes(path))
@@ -244,12 +277,13 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
     });
     return () => back.remove();
   }, [isProfile, popover, returnFromProfile]);
-  const dateLabel = parseDay(selectedDay).toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  // A live timer takes the middle of the bar, so the date shortens to leave it room.
+  const dateLabel = parseDay(selectedDay).toLocaleDateString(
+    undefined,
+    live
+      ? { month: "short", day: "numeric" }
+      : { weekday: "short", month: "short", day: "numeric", year: "numeric" },
+  );
   return (
     <View pointerEvents="box-none" style={styles.overlay}>
       {popover === "profile" && (
@@ -278,66 +312,79 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
         }}
       >
         <View style={styles.bar}>
-          {isProfile && (
-            <HeaderButton
-              label="Back from Profile"
-              onPress={returnFromProfile}
-              style={styles.round}
-            >
-              <Icon name="chevron-left" size={20} color={colors.primary} />
-            </HeaderButton>
-          )}
-          {/* A larger tap area for pointers; keyboard and screen readers use the calendar chip. */}
-          <Pressable
-            accessible={false}
-            tabIndex={-1}
-            disabled={isProfile || isSettings}
-            onPress={() => setPopover((previous) => (previous === "calendar" ? null : "calendar"))}
-            style={styles.titleArea}
-          >
-            <AppText
-              variant="heading"
-              accessibilityLabel={
-                isProfile
-                  ? "Profile"
-                  : isSettings
-                    ? "Settings"
-                    : `${fullDate(selectedDay)}${selectedDay === today ? ", today" : ""}`
-              }
-              numberOfLines={1}
-              style={[styles.selectedDate, (isProfile || isSettings) && styles.screenName]}
-            >
-              {isProfile ? "Profile" : isSettings ? "Settings" : dateLabel}
-            </AppText>
-            {!isProfile && !isSettings && (
+          {/* With a live timer the two sides share the width equally, so the timer is centered. */}
+          <View style={styles.lead}>
+            {isProfile && (
               <HeaderButton
-                ref={calendarChip}
-                label={expanded ? "Collapse calendar" : "Expand calendar"}
-                expanded={expanded}
-                surfaceHeight={36}
-                onPress={() =>
-                  setPopover((previous) => (previous === "calendar" ? null : "calendar"))
-                }
-                style={[styles.chip, { backgroundColor: expanded ? colors.accent : colors.muted }]}
+                label="Back from Profile"
+                onPress={returnFromProfile}
+                style={styles.round}
               >
-                <Icon name="calendar" size={16} color={colors.primary} />
-                <Icon
-                  name={expanded ? "chevron-up" : "chevron-down"}
-                  size={13}
-                  color={colors.mutedForeground}
-                />
+                <Icon name="chevron-left" size={20} color={colors.primary} />
               </HeaderButton>
             )}
-          </Pressable>
-          <HeaderButton
-            ref={profileButton}
-            label="Profile menu"
-            expanded={popover === "profile"}
-            onPress={() => setPopover((previous) => (previous === "profile" ? null : "profile"))}
-            style={styles.round}
-          >
-            <ProfileAvatar />
-          </HeaderButton>
+            {/* A larger tap area for pointers; keyboard and screen readers use the calendar chip. */}
+            <Pressable
+              accessible={false}
+              tabIndex={-1}
+              disabled={isProfile || isSettings}
+              onPress={() =>
+                setPopover((previous) => (previous === "calendar" ? null : "calendar"))
+              }
+              style={styles.titleArea}
+            >
+              <AppText
+                variant="heading"
+                accessibilityLabel={
+                  isProfile
+                    ? "Profile"
+                    : isSettings
+                      ? "Settings"
+                      : `${fullDate(selectedDay)}${selectedDay === today ? ", today" : ""}`
+                }
+                numberOfLines={1}
+                style={[styles.selectedDate, (isProfile || isSettings) && styles.screenName]}
+              >
+                {isProfile ? "Profile" : isSettings ? "Settings" : dateLabel}
+              </AppText>
+              {!isProfile && !isSettings && (
+                <HeaderButton
+                  ref={calendarChip}
+                  label={expanded ? "Collapse calendar" : "Expand calendar"}
+                  expanded={expanded}
+                  surfaceHeight={36}
+                  onPress={() =>
+                    setPopover((previous) => (previous === "calendar" ? null : "calendar"))
+                  }
+                  style={[
+                    styles.chip,
+                    { backgroundColor: expanded ? colors.accent : colors.muted },
+                  ]}
+                >
+                  <Icon name="calendar" size={16} color={colors.primary} />
+                  {!live && (
+                    <Icon
+                      name={expanded ? "chevron-up" : "chevron-down"}
+                      size={13}
+                      color={colors.mutedForeground}
+                    />
+                  )}
+                </HeaderButton>
+              )}
+            </Pressable>
+          </View>
+          {live && <LiveWorkoutButton session={live} />}
+          <View style={live && styles.trail}>
+            <HeaderButton
+              ref={profileButton}
+              label="Profile menu"
+              expanded={popover === "profile"}
+              onPress={() => setPopover((previous) => (previous === "profile" ? null : "profile"))}
+              style={styles.round}
+            >
+              <ProfileAvatar />
+            </HeaderButton>
+          </View>
         </View>
       </SafeAreaView>
       {!isProfile && !isSettings && expanded && (
@@ -403,6 +450,8 @@ const styles = StyleSheet.create({
     maxWidth: 768,
     alignSelf: "center",
   },
+  lead: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  trail: { flex: 1, alignItems: "flex-end" },
   button: { borderRadius: 14, alignItems: "center", justifyContent: "center" },
   round: { borderRadius: radius.pill, marginLeft: -6 },
   titleArea: {
