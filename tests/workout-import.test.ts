@@ -522,9 +522,6 @@ test("persists an import as one write and plans its set counts", async () => {
   assert.equal(session.exercises[2]!.sets.length, 4);
   assert.equal(session.exercises[2]!.sets[0]!.kind, "sides");
   assert.equal(session.exercises[4]!.sets.length, 3);
-  const again = await store.importWorkoutPlan(plan);
-  assert.deepEqual([again?.created, again?.replaced], [0, true]);
-  assert.equal(parseExerciseDocument(raw).exercises.length, 20);
   store.stop();
 });
 

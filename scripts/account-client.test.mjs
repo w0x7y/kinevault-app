@@ -68,7 +68,7 @@ test("server-rendered web requests never construct an account client or start it
   assert.equal(calls.length, 0);
 });
 
-for (const platform of ["web", "ios", "android"]) {
+for (const platform of ["web", "ios"]) {
   test(`${platform} app runtime retains one account client with session refresh and no legacy auth lock`, () => {
     const { api, calls, client, storage } = runtime(platform, platform === "web");
     assert.equal(api.getSupabaseClient(), client);

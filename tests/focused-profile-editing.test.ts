@@ -149,6 +149,8 @@ test("draft changes own calorie policy and focused age Save preserves newer macr
   assert.equal(raw().answers.customProtein, "0");
   assert.equal(raw().answers.customCalories, "");
   assert.equal(raw().answers.estimateEnabled, false);
+  assert.equal(raw().answers.eligible, false);
+  assert.equal(raw().answers.sex, null);
 });
 
 test("validation reports field errors with the raw draft and never writes", async () => {

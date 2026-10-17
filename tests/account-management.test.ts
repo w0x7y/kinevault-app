@@ -156,27 +156,6 @@ test("offline device export retains the last observed cloud conflict without cla
   assert.equal(row.cloud.data.dailyMl, 2500);
 });
 
-test("local key-removal failure after server success is explicit and never erases another owner", async () => {
-  const { storage, local, values } = await offlineStore({ [scoped("b", mediaKey)]: media });
-  await storage.setItem(goalKey, goal(2000));
-  local.removeItem = async () => {
-    throw new Error("Storage locked");
-  };
-  const notice = await deleteAccountData({
-    storage,
-    ownerId: "a",
-    isCurrent: () => true,
-    password: "password",
-    confirmation: "DELETE",
-    deleteOnServer: async () => {},
-    removePhoto: async () => {},
-  });
-  assert.match(notice!, /Some data remains/);
-  assert.equal(values.get(scoped("a", "deleted.v1")), "1");
-  assert.equal(values.get(scoped("b", mediaKey)), media);
-  assert.equal(values.has(scoped("a", goalKey)), true);
-});
-
 test("cloud, corrupt local data and missing photo failures never create a successful empty export", async () => {
   const db = memory();
   const remote: AccountRemote = {

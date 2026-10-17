@@ -447,29 +447,21 @@ test("a successful save confirms until the next change; a following draft follow
 });
 
 test("load failure blocks saves and the edit's retry restores the saved document", async () => {
-  for (const unreadable of ["corrupt", "read failure"]) {
-    const store = memory(unreadable === "corrupt" ? "broken" : encode("Saved"));
-    const read = store.storage.getItem;
-    if (unreadable === "read failure")
-      store.storage.getItem = async () => {
-        throw new Error("unavailable");
-      };
-    store.document.start();
-    const edit = started(store);
-    await flush();
-    assert.equal(edit.getSnapshot().load.kind, "error");
-    edit.change("Unsaved");
-    assert.equal(await edit.save(), false);
-    assert.ok(!store.calls.includes("write"));
-    store.storage.getItem = read;
-    if (unreadable === "corrupt") await store.storage.setItem(key, encode("Repaired"));
-    edit.retryLoad();
-    await flush();
-    assert.equal(edit.getSnapshot().load.kind, "ready");
-    assert.equal(edit.getSnapshot().draft, "Unsaved");
-    assert.equal(edit.cancel(), true);
-    assert.equal(edit.getSnapshot().draft, unreadable === "corrupt" ? "Repaired" : "Saved");
-  }
+  const store = memory("broken");
+  store.document.start();
+  const edit = started(store);
+  await flush();
+  assert.equal(edit.getSnapshot().load.kind, "error");
+  edit.change("Unsaved");
+  assert.equal(await edit.save(), false);
+  assert.ok(!store.calls.includes("write"));
+  await store.storage.setItem(key, encode("Repaired"));
+  edit.retryLoad();
+  await flush();
+  assert.equal(edit.getSnapshot().load.kind, "ready");
+  assert.equal(edit.getSnapshot().draft, "Unsaved");
+  assert.equal(edit.cancel(), true);
+  assert.equal(edit.getSnapshot().draft, "Repaired");
 });
 
 test("a background refresh holds the edit busy without reporting a save", async () => {

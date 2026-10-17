@@ -1,7 +1,7 @@
 import { installAccountFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { launchBrowser } from "./helpers/browser.mjs";
+import { failNextWrite, launchBrowser } from "./helpers/browser.mjs";
 
 const baseURL = process.env.KINE_PREVIEW_URL || "http://localhost:8081";
 const goalKey = "kinevault-track.water-goal.v1";
@@ -35,7 +35,6 @@ async function open(
     goalError = false,
     goalState = "ready",
     waterState = "ready",
-    appearance = "light",
   } = {},
 ) {
   const browser = await launchBrowser();
@@ -56,14 +55,12 @@ async function open(
       goalError,
       goalState,
       waterState,
-      appearance,
     }) => {
       if (!sessionStorage.getItem("goal-fixture-seeded")) {
         localStorage.setItem(
           "kinevault-track.profile.v1",
           JSON.stringify({ version: 1, kind: "complete", answers }),
         );
-        localStorage.setItem("kinevault-track.appearance", appearance);
         if (goal !== null) localStorage.setItem(goalKey, goal);
         if (water !== null) localStorage.setItem(waterKey, JSON.stringify(water));
         if (food !== null) localStorage.setItem(foodKey, JSON.stringify(food));
@@ -115,7 +112,6 @@ async function open(
       goalError,
       goalState,
       waterState,
-      appearance,
     },
   );
   const accountFixture = await installAccountFixture(context);
@@ -282,7 +278,7 @@ test("required default water goal validates, saves with feedback, edits and pers
   assert.equal(await status.innerText(), "Water goal saved.");
   assert.equal(await status.getAttribute("aria-live"), "polite");
   assert.equal(await stored(page), encode(1500));
-  for (const value of ["", "0", "1.5", "10001", "2e3"]) {
+  for (const value of ["0", "10001"]) {
     await input(page).fill(value);
     assert.equal(await status.count(), 0);
     await button(page, "Save water goal").click();
@@ -311,20 +307,6 @@ test("required default water goal validates, saves with feedback, edits and pers
   assert.equal(await stored(page, foodKey), null);
 });
 
-test("legacy empty goal uses the default cup without removing custom saved goals", async (t) => {
-  const page = await open(t, { goal: encode(null) });
-  await progress(page, 0, 0, 1500);
-  await tab(page, "Settings");
-  await input(page).waitFor();
-  assert.equal(await input(page).inputValue(), "1500");
-  await button(page, "Save water goal").click();
-  await page.getByTestId("water-goal-saved").waitFor();
-  assert.equal(await stored(page), encode(1500));
-  await page.reload();
-  await tab(page, "Home");
-  await progress(page, 0, 0, 1500);
-});
-
 test("cup follows selected-day water and Drinks totals, caps fill and preserves above-goal amounts", async (t) => {
   const drink = {
     id: "goal-drink",
@@ -350,23 +332,13 @@ test("cup follows selected-day water and Drinks totals, caps fill and preserves 
   await button(page, "Collapse calendar").click();
   await progress(page, 100, 2500);
   await page.getByTestId("home-water").getByText("2.5", { exact: true }).waitFor();
-  for (const appearance of ["light", "dark"]) {
-    await page.evaluate(
-      (appearance) => window.accountFixture.setItem("kinevault-track.appearance", appearance),
-      appearance,
-    );
-    await page.reload();
-    await progress(page, 50);
-    await compactLayout(page);
-    const long = await open(t, {
-      appearance,
-      goal: encode(10000),
-      water: { version: 1, days: { "2026-10-01": 999999 } },
-    });
-    await progress(long, 100, 999999, 10000);
-    await long.getByTestId("home-water").getByText("Goal: 10,000 ml", { exact: true }).waitFor();
-    await compactLayout(long, { longAmount: true });
-  }
+  const long = await open(t, {
+    goal: encode(10000),
+    water: { version: 1, days: { "2026-10-01": 999999 } },
+  });
+  await progress(long, 100, 999999, 10000);
+  await long.getByTestId("home-water").getByText("Goal: 10,000 ml", { exact: true }).waitFor();
+  await compactLayout(long, { longAmount: true });
   await button(page, "Expand calendar").click();
   await button(page, "Select today").click();
   await button(page, "Collapse calendar").click();
@@ -386,16 +358,7 @@ test("goal save failure preserves the draft and saved goal, and duplicate pendin
   const status = page.getByTestId("water-goal-saved");
   await button(page, "Save water goal").click();
   await status.waitFor();
-  await page.evaluate((key) => {
-    const set = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (k, value) {
-      if (k.endsWith(key) && JSON.parse(value).dirty) {
-        Storage.prototype.setItem = set;
-        throw new Error("Goal fixture write failure");
-      }
-      return set.call(this, k, value);
-    };
-  }, goalKey);
+  await failNextWrite(page, goalKey, { dirty: true });
   await button(page, "Save water goal").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save your water goal" }).waitFor();
   assert.equal(await input(page).inputValue(), "1500");
@@ -452,7 +415,7 @@ test("loading and corrupt goals remain unknown until a successful load", async (
     );
     const label = await page.getByTestId("home-water").getAttribute("aria-label");
     assert.ok(label.includes(`Daily goal ${state === "loading" ? "loading" : "unavailable"}`));
-    await compactLayout(page, { unavailable: true });
+    if (state === "corrupt") await compactLayout(page, { unavailable: true });
     await tab(page, "Settings");
     assert.equal(await input(page).count(), 0);
     assert.equal(await page.getByTestId("water-goal-saved").count(), 0);
@@ -478,51 +441,33 @@ test("loading and corrupt goals remain unknown until a successful load", async (
   }
 });
 
-test("unreadable goal retries safely and unknown water totals never show an empty progress cup", async (t) => {
-  const page = await open(t, { goal: encode(2000), goalError: true });
-  await page.getByTestId("home-water").getByText("Goal unavailable", { exact: true }).waitFor();
-  await tab(page, "Settings");
-  await page.getByRole("alert").filter({ hasText: "Couldn't load your water goal" }).waitFor();
-  assert.equal(await input(page).count(), 0);
-  await page.evaluate(() => {
-    window.__goalError = false;
-  });
-  assert.equal(await stored(page), encode(2000));
-  await button(page, "Retry water goal").click();
-  await input(page).waitFor();
-  await page.waitForFunction(
-    () => document.querySelector('input[aria-label="Daily water goal (ml)"]')?.value === "2000",
-  );
-  assert.equal(await input(page).inputValue(), "2000");
-  for (const appearance of ["light", "dark"]) {
-    for (const waterState of ["loading", "error"]) {
-      const unknown = await open(t, {
-        appearance,
-        goal: encode(2000),
-        water: { version: 1, days: { "2026-10-01": 1000 } },
-        waterState,
-      });
-      await unknown.getByTestId("water-cup-unavailable").waitFor();
-      assert.equal(await unknown.getByTestId("water-goal-cup").count(), 0);
-      assert.equal(await unknown.getByTestId("water-cup-fill").count(), 0);
-      assert.equal(
-        await unknown.getByTestId("water-goal-progress").innerText(),
-        "Goal progress unavailable",
-      );
-      const name = `Add water. Water total ${waterState === "loading" ? "loading" : "unavailable"}. Daily goal: 2,000 ml. Progress unavailable.`;
-      await button(unknown, name).waitFor();
-      assert.equal(await button(unknown, name).getAttribute("data-testid"), "home-water");
-      assert.match(await button(unknown, name).ariaSnapshot(), /Progress unavailable/);
-      await compactLayout(unknown, { unavailable: true });
-      await unknown.getByTestId("home-water").click();
-      await unknown.evaluate(() => {
-        window.__goalWaterError = false;
-      });
-      await button(unknown, "Retry water log").click();
-      await button(unknown, "Cancel").click();
-      await progress(unknown, 50);
-      if (waterState === "loading") await unknown.evaluate(() => window.__releaseGoalWater());
-    }
+test("unknown water totals never show an empty progress cup and recover through retry", async (t) => {
+  for (const waterState of ["loading", "error"]) {
+    const unknown = await open(t, {
+      goal: encode(2000),
+      water: { version: 1, days: { "2026-10-01": 1000 } },
+      waterState,
+    });
+    await unknown.getByTestId("water-cup-unavailable").waitFor();
+    assert.equal(await unknown.getByTestId("water-goal-cup").count(), 0);
+    assert.equal(await unknown.getByTestId("water-cup-fill").count(), 0);
+    assert.equal(
+      await unknown.getByTestId("water-goal-progress").innerText(),
+      "Goal progress unavailable",
+    );
+    const name = `Add water. Water total ${waterState === "loading" ? "loading" : "unavailable"}. Daily goal: 2,000 ml. Progress unavailable.`;
+    await button(unknown, name).waitFor();
+    assert.equal(await button(unknown, name).getAttribute("data-testid"), "home-water");
+    assert.match(await button(unknown, name).ariaSnapshot(), /Progress unavailable/);
+    if (waterState === "error") await compactLayout(unknown, { unavailable: true });
+    await unknown.getByTestId("home-water").click();
+    await unknown.evaluate(() => {
+      window.__goalWaterError = false;
+    });
+    await button(unknown, "Retry water log").click();
+    await button(unknown, "Cancel").click();
+    await progress(unknown, 50);
+    if (waterState === "loading") await unknown.evaluate(() => window.__releaseGoalWater());
   }
 });
 

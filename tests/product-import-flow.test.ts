@@ -125,7 +125,12 @@ for (const outcome of ["resolve", "reject"] as const) {
     assert.equal(drafts.getSnapshot().resumable.length, 1);
   });
 
-  for (const interruption of ["cancel", "stop", "day", "inactive", "scan"] as const) {
+  // One rejection proves the shared stale-result guard; resolve covers every interruption.
+  const interruptions =
+    outcome === "resolve"
+      ? (["cancel", "stop", "day", "inactive", "scan"] as const)
+      : (["day"] as const);
+  for (const interruption of interruptions) {
     test(`${interruption} prevents late ${outcome} from reopening review`, async () => {
       const { flow, drafts, requests, start } = fixture();
       start();
@@ -349,51 +354,36 @@ for (const manual of [false, true]) {
   });
 }
 
-for (const outcome of ["resolve", "reject"] as const) {
-  for (const interruption of ["cancel", "stop", "inactive", "day"] as const) {
-    test(`replacement abort listener ${interruption} wins before adapter work and late ${outcome}`, async () => {
-      const { flow, drafts, requests, start } = fixture();
-      start();
-      const first = flow.lookupBarcode(barcode);
-      requests[0].signal.addEventListener(
-        "abort",
-        () => {
-          switch (interruption) {
-            case "cancel":
-              flow.cancel();
-              break;
-            case "stop":
-              flow.stop();
-              break;
-            case "inactive":
-              flow.setContext({ ...context, active: false });
-              break;
-            case "day":
-              flow.setContext({ ...context, scopeKey: "2026-10-01" });
-              break;
-          }
-        },
-        { once: true },
-      );
-      const replacement = flow.lookupBarcode(otherBarcode);
-      const winning = flow.getSnapshot();
-      const expected =
-        interruption === "cancel"
-          ? { kind: "scanner" }
-          : { kind: "error", barcode, message: "Lookup cancelled. Retry when you're ready." };
-      // Settle even an erroneously issued replacement so the regression cannot hang.
-      if (outcome === "resolve") requests[0].resolve(product());
-      else requests[0].reject(new Error("Late first request"));
-      requests.slice(1).forEach((request) => request.resolve(product(otherBarcode)));
-      await Promise.all([first, replacement]);
-      assert.deepEqual(winning, expected);
-      assert.equal(requests.length, 1);
-      assert.equal(flow.getSnapshot(), winning);
-      assert.equal(drafts.getSnapshot().session, null);
-      assert.equal(drafts.getSnapshot().resumable.length, 0);
-    });
-  }
+// stop, inactive and day all interrupt through the same path, and both late outcomes share one guard.
+for (const interruption of ["cancel", "stop"] as const) {
+  test(`replacement abort listener ${interruption} wins before adapter work and a late result`, async () => {
+    const { flow, drafts, requests, start } = fixture();
+    start();
+    const first = flow.lookupBarcode(barcode);
+    requests[0].signal.addEventListener(
+      "abort",
+      () => (interruption === "cancel" ? flow.cancel() : flow.stop()),
+      { once: true },
+    );
+    const replacement = flow.lookupBarcode(otherBarcode);
+    const winning = flow.getSnapshot();
+    const expected =
+      interruption === "cancel"
+        ? { kind: "scanner" }
+        : { kind: "error", barcode, message: "Lookup cancelled. Retry when you're ready." };
+    // Settle even an erroneously issued replacement so the regression cannot hang.
+    requests[0].resolve(product());
+    requests.slice(1).forEach((request) => request.resolve(product(otherBarcode)));
+    await Promise.all([first, replacement]);
+    assert.deepEqual(winning, expected);
+    assert.equal(requests.length, 1);
+    assert.equal(flow.getSnapshot(), winning);
+    assert.equal(drafts.getSnapshot().session, null);
+    assert.equal(drafts.getSnapshot().resumable.length, 0);
+  });
+}
 
+for (const outcome of ["resolve", "reject"] as const) {
   test(`scanAgain abort listener stop keeps the retryable barcode through late ${outcome} and restart`, async () => {
     const { flow, drafts, requests, start } = fixture();
     start();

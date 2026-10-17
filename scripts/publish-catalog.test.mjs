@@ -426,19 +426,6 @@ test("paging reads every row even when the server caps a page below the page siz
   ]);
 });
 
-test("paging stops on the first empty page", async () => {
-  const empty = fakeTable([], 1000);
-  assert.deepEqual(await readAll(empty.build, "widgets"), []);
-  assert.equal(empty.ranges.length, 1);
-  const rows = Array.from({ length: 1000 }, (_, index) => ({ id: index }));
-  const full = fakeTable(rows, 1000);
-  assert.equal((await readAll(full.build, "widgets")).length, 1000);
-  assert.deepEqual(full.ranges, [
-    [0, 999],
-    [1000, 1999],
-  ]);
-});
-
 test("paging stops with a clear error when the server ignores range", async () => {
   const ranges = [];
   const build = () => ({

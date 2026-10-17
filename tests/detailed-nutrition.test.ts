@@ -64,7 +64,6 @@ test("older entries resolve nutrients by source ID and grams without replacing s
     fat: 0.56,
   } as const;
   const catalog = createFoodCatalog([food]);
-  assert.equal(typeof catalog.getById, "function");
   assert.equal(sumDetailedNutrients([old], catalog.getById).potassium, 652);
   const snapshot = { ...old, details: { ...details, potassium: 123 } };
   assert.equal(sumDetailedNutrients([snapshot], catalog.getById).potassium, 123);

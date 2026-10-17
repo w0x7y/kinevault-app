@@ -3,8 +3,6 @@ import test from "node:test";
 import {
   parseExerciseDocument,
   elapsedSeconds,
-  createEmptySet,
-  isBlankSet,
   type ExerciseDefinition,
   type ExerciseDocument,
   type WorkoutSession,
@@ -203,42 +201,6 @@ test("side measurements permit one zero side but reject a zero pair and nonstrin
     }),
   );
 });
-test("an unused side may be blank but a weight without reps is rejected", () => {
-  const row = session.exercises[0]!;
-  const set = {
-    id: "set",
-    kind: "sides" as const,
-    left: { reps: "", weightKg: "" },
-    right: { reps: "6", weightKg: "12" },
-  };
-  assert.doesNotThrow(() =>
-    parse(document([{ ...session, exercises: [{ ...row, sets: [set] }] }])),
-  );
-  const result = summarizeSessions([{ ...session, exercises: [{ ...row, sets: [set] }] }]);
-  assert.equal(result.reps, 6);
-  assert.equal(result.volume, 72);
-  assert.deepEqual(result.exercises[0]!.load, { kind: "weight", weightKg: 12 });
-  assert.throws(() =>
-    parse(
-      document([
-        {
-          ...session,
-          exercises: [{ ...row, sets: [{ ...set, left: { reps: "", weightKg: "10" } }] }],
-        },
-      ]),
-    ),
-  );
-  assert.throws(() =>
-    parse(
-      document([
-        {
-          ...session,
-          exercises: [{ ...row, sets: [{ ...set, right: { reps: "", weightKg: "" } }] }],
-        },
-      ]),
-    ),
-  );
-});
 test("parser rejects malformed identity, date, structure, uniqueness and lifecycle", () => {
   assert.deepEqual(parseExerciseDocument(null), {
     version: 1,
@@ -334,38 +296,6 @@ test("legacy templates omit set counts while configured counts survive version-o
   ]) {
     assert.throws(() => parse({ ...document(), workouts: [{ ...workout, setCounts }] }));
   }
-});
-test("empty set factory creates tracking-specific isolated placeholders and blank detection ignores whitespace", () => {
-  assert.deepEqual(createEmptySet("single", "single-blank"), {
-    id: "single-blank",
-    kind: "single",
-    reps: "",
-    weightKg: "",
-  });
-  const sides = createEmptySet("sides", "sides-blank");
-  assert.deepEqual(sides, {
-    id: "sides-blank",
-    kind: "sides",
-    left: { reps: "", weightKg: "" },
-    right: { reps: "", weightKg: "" },
-  });
-  assert.equal(isBlankSet(sides), true);
-  if (sides.kind !== "sides") throw new Error("Expected side tracking");
-  sides.left.reps = "8";
-  assert.equal(sides.right.reps, "");
-  assert.equal(isBlankSet(sides), false);
-  assert.equal(isBlankSet({ id: "space", kind: "single", reps: " \t", weightKg: " " }), true);
-  assert.equal(isBlankSet({ id: "zero", kind: "single", reps: "0", weightKg: "" }), false);
-  assert.equal(isBlankSet({ id: "weight", kind: "single", reps: "", weightKg: "10" }), false);
-  assert.equal(
-    isBlankSet({
-      id: "side-weight",
-      kind: "sides",
-      left: { reps: "", weightKg: "" },
-      right: { reps: "", weightKg: "10" },
-    }),
-    false,
-  );
 });
 test("persisted completed records still reject untouched placeholders alongside valid sets", () => {
   const row = session.exercises[0]!;

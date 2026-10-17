@@ -4,6 +4,7 @@ import {
   createAccountStorage,
   type AccountLocalStorage,
   type AccountRemote,
+  type AccountStorage,
   type CloudDocument,
 } from "../src/account/storage.ts";
 import { parseProfile } from "../src/profile/model.ts";
@@ -69,6 +70,21 @@ function server(initial: CloudDocument[] = []) {
       online = true;
     },
   };
+}
+
+async function conflictOnGoal(
+  store: AccountStorage,
+  cloud: ReturnType<typeof server>,
+  localMl: number,
+  cloudMl: number,
+  revision: number,
+) {
+  cloud.offline();
+  await store.setItem(goalKey, goal(localMl));
+  await store.retry();
+  cloud.rows.set(goalKey, { document_key: goalKey, payload: goal(cloudMl), revision });
+  cloud.online();
+  await store.retry();
 }
 
 test("guest reads and writes legacy data without cloud calls", async () => {
@@ -233,34 +249,13 @@ test("conflicts preserve both versions until the user chooses cloud", async () =
     cloud = server([{ document_key: goalKey, payload: goal(1800), revision: 1 }]);
   const store = createAccountStorage({ userId: "a", local: local.storage, remote: cloud.remote });
   await store.start();
-  cloud.offline();
-  await store.setItem(goalKey, goal(2100));
-  await store.retry();
-  cloud.rows.set(goalKey, { document_key: goalKey, payload: goal(2500), revision: 2 });
-  cloud.online();
-  await store.retry();
+  await conflictOnGoal(store, cloud, 2100, 2500, 2);
   assert.equal(await store.getItem(goalKey), goal(2100));
   assert.equal(cloud.rows.get(goalKey)?.payload, goal(2500));
   assert.deepEqual(store.getSnapshot().conflicts, [goalKey]);
   await store.resolveConflict(goalKey, "cloud");
   assert.equal(await store.getItem(goalKey), goal(2500));
   assert.equal(store.getSnapshot().state, "idle");
-});
-
-test("choosing local resolves a conflict against the current server revision", async () => {
-  const local = memory(),
-    cloud = server([{ document_key: goalKey, payload: goal(1800), revision: 1 }]);
-  const store = createAccountStorage({ userId: "a", local: local.storage, remote: cloud.remote });
-  await store.start();
-  cloud.offline();
-  await store.setItem(goalKey, goal(2100));
-  await store.retry();
-  cloud.rows.set(goalKey, { document_key: goalKey, payload: goal(2500), revision: 2 });
-  cloud.online();
-  await store.retry();
-  await store.resolveConflict(goalKey, "local");
-  assert.equal(cloud.rows.get(goalKey)?.payload, goal(2100));
-  assert.equal(cloud.rows.get(goalKey)?.revision, 3);
 });
 
 test("a local edit while an upload is pending remains dirty and reaches the cloud", async () => {
@@ -401,33 +396,6 @@ test("an edit to an already uploaded document is automatically synced after a la
   gate.resolve();
   for (let index = 0; index < 30; index++) await flush();
   assert.equal(JSON.parse(cloud.rows.get(exerciseKey)!.payload!).exercises[0]?.name, "Press");
-});
-
-test("restarting an instance during an old download starts a fresh lifecycle", async () => {
-  const local = memory(),
-    cloud = server([{ document_key: goalKey, payload: goal(2200), revision: 1 }]);
-  const gate = deferred<CloudDocument[]>(),
-    entered = deferred<void>(),
-    list = cloud.remote.list;
-  let first = true;
-  cloud.remote.list = () => {
-    if (first) {
-      first = false;
-      entered.resolve();
-      return gate.promise;
-    }
-    return list();
-  };
-  const store = createAccountStorage({ userId: "a", local: local.storage, remote: cloud.remote });
-  const initial = store.start();
-  await entered.promise;
-  store.stop();
-  const restarting = store.start();
-  await flush();
-  gate.resolve([]);
-  await initial;
-  await restarting;
-  assert.equal(await store.getItem(goalKey), goal(2200));
 });
 
 test("a restarted lifecycle finishes without waiting for an abandoned download", async () => {
@@ -580,20 +548,12 @@ test("choosing cloud invalidates its saved document but keeping this device does
   store.subscribeItem(goalKey, () => {
     changes++;
   });
-  cloud.offline();
-  await store.setItem(goalKey, goal(2100));
-  await store.retry();
-  cloud.rows.set(goalKey, { document_key: goalKey, payload: goal(2500), revision: 2 });
-  cloud.online();
-  await store.retry();
+  await conflictOnGoal(store, cloud, 2100, 2500, 2);
   assert.equal(await store.resolveConflict(goalKey, "local"), true);
   assert.equal(changes, 0);
-  cloud.offline();
-  await store.setItem(goalKey, goal(2200));
-  await store.retry();
-  cloud.rows.set(goalKey, { document_key: goalKey, payload: goal(2700), revision: 4 });
-  cloud.online();
-  await store.retry();
+  assert.equal(cloud.rows.get(goalKey)?.payload, goal(2100));
+  assert.equal(cloud.rows.get(goalKey)?.revision, 3);
+  await conflictOnGoal(store, cloud, 2200, 2700, 4);
   assert.equal(await store.resolveConflict(goalKey, "cloud"), true);
   assert.equal(changes, 1);
   assert.equal(await store.getItem(goalKey), goal(2700));
@@ -638,12 +598,7 @@ test("keeping cloud invalidates its document even when another pending upload fa
   store.subscribeItem(goalKey, () => {
     changes++;
   });
-  cloud.offline();
-  await store.setItem(goalKey, goal(2100));
-  await store.retry();
-  cloud.online();
-  cloud.rows.set(goalKey, { document_key: goalKey, payload: goal(2500), revision: 2 });
-  await store.retry();
+  await conflictOnGoal(store, cloud, 2100, 2500, 2);
   cloud.offline();
   await store.setItem(
     exerciseKey,
@@ -713,12 +668,7 @@ test("a conflict on one document does not stop unrelated automatic uploads", asy
     cloud = server([{ document_key: goalKey, payload: goal(1800), revision: 1 }]);
   const store = createAccountStorage({ userId: "a", local: local.storage, remote: cloud.remote });
   await store.start();
-  cloud.offline();
-  await store.setItem(goalKey, goal(2100));
-  await store.retry();
-  cloud.rows.set(goalKey, { document_key: goalKey, payload: goal(2500), revision: 2 });
-  cloud.online();
-  await store.retry();
+  await conflictOnGoal(store, cloud, 2100, 2500, 2);
   await store.setItem(exerciseKey, '{"version":1,"exercises":[],"workouts":[],"sessions":[]}');
   for (let index = 0; index < 4; index++) await flush();
   assert.equal(cloud.rows.get(exerciseKey)?.revision, 1);

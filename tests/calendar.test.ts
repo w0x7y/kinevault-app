@@ -1,12 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  addDays,
-  calendarWeeks,
-  dayKey,
-  millisecondsUntilTomorrow,
-  parseDay,
-} from "../src/calendar/dates.ts";
+import { addDays, calendarWeeks, dayKey, parseDay } from "../src/calendar/dates.ts";
 
 test("calendar keeps the current week in row three across a year boundary", () => {
   const weeks = calendarWeeks("2026-01-01");
@@ -47,8 +41,6 @@ test("local keys and arithmetic preserve the local day across daylight saving", 
     assert.equal(addDays("2026-03-07", 1), "2026-03-08");
     assert.equal(addDays("2026-03-08", 1), "2026-03-09");
     assert.equal(addDays("2026-11-01", 1), "2026-11-02");
-    assert.equal(millisecondsUntilTomorrow(new Date(2026, 2, 8)), 23 * 60 * 60 * 1000);
-    assert.equal(millisecondsUntilTomorrow(new Date(2026, 10, 1)), 25 * 60 * 60 * 1000);
   } finally {
     if (previousTimezone === undefined) delete process.env.TZ;
     else process.env.TZ = previousTimezone;

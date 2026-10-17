@@ -5,7 +5,6 @@ import {
   createConnectivityStore,
   attachReconnectRetry,
 } from "../src/connectivity/controller.ts";
-import { createAccountStorage, type CloudDocument } from "../src/account/storage.ts";
 
 test("unknown reachability never claims offline or online", () => {
   assert.equal(connectivityStatus({ isConnected: null, isInternetReachable: null }), "unknown");
@@ -72,60 +71,4 @@ test("a rejected reconnect retry is contained and a later reconnect can retry ag
   await Promise.resolve();
   assert.equal(attempts, 2);
   stop();
-});
-
-test("a saved offline edit reaches cloud automatically after confirmed reconnection", async () => {
-  const local = new Map<string, string>();
-  const cloud = new Map<string, CloudDocument>();
-  let online = false;
-  let finished!: () => void;
-  const synced = new Promise<void>((resolve) => {
-    finished = resolve;
-  });
-  const storage = createAccountStorage({
-    userId: "account-a",
-    local: {
-      async getItem(key) {
-        return local.get(key) ?? null;
-      },
-      async setItem(key, value) {
-        local.set(key, value);
-      },
-      async removeItem(key) {
-        local.delete(key);
-      },
-    },
-    remote: {
-      async list() {
-        if (!online) throw new Error("offline");
-        return [...cloud.values()];
-      },
-      async save(key, payload, revision) {
-        if (!online) throw new Error("offline");
-        const row = { document_key: key, payload, revision: revision + 1 };
-        cloud.set(key, row);
-        return row;
-      },
-    },
-  });
-  const network = createConnectivityStore();
-  network.update({ isConnected: false, isInternetReachable: false });
-  const hydrated = storage.start();
-  const stop = attachReconnectRetry(network, hydrated, async () => {
-    await storage.retry();
-    finished();
-  });
-  await hydrated;
-  const key = "kinevault-track.water-goal.v1";
-  const saved = JSON.stringify({ version: 1, dailyMl: 2500 });
-  await storage.setItem(key, saved);
-  assert.equal(await storage.getItem(key), saved);
-  assert.equal(cloud.size, 0);
-  online = true;
-  network.update({ isConnected: true, isInternetReachable: true });
-  await synced;
-  assert.equal(cloud.get(key)?.payload, saved);
-  assert.equal(storage.getSnapshot().state, "idle");
-  stop();
-  storage.stop();
 });

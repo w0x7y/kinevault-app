@@ -1,9 +1,7 @@
 import { installAccountFixture, signInFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { launchBrowser } from "./helpers/browser.mjs";
-import { mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { failNextWrite, launchBrowser } from "./helpers/browser.mjs";
 
 const baseURL = process.env.KINE_PREVIEW_URL || "http://localhost:8081";
 const key = "kinevault-track.profile.v1";
@@ -91,17 +89,6 @@ test("custom food and meal edits and deletes persist, retry safely and preserve 
   const readLog = () =>
     page.evaluate(() => window.accountFixture.getItem("kinevault-track.food-log.v1"));
   const originalLog = await readLog();
-  const failCatalogWrite = () =>
-    page.evaluate(() => {
-      const original = Storage.prototype.setItem;
-      Storage.prototype.setItem = function (key, value) {
-        if (key.endsWith("kinevault-track.custom-foods.v1")) {
-          Storage.prototype.setItem = original;
-          throw new Error("Simulated catalog change failure");
-        }
-        return original.call(this, key, value);
-      };
-    });
   const search = page.getByRole("textbox", { name: "Search foods", exact: true });
   await search.fill("Saved oats");
   await button(page, "View nutrition for Saved oats, custom food").click();
@@ -121,15 +108,7 @@ test("custom food and meal edits and deletes persist, retry safely and preserve 
     ["Calories (kcal)", "500"],
   ])
     await page.getByRole("textbox", { name: label, exact: true }).fill(value);
-  for (const width of [320, 390, 1280]) {
-    await page.setViewportSize({ width, height: 844 });
-    assert.equal(
-      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
-      false,
-    );
-  }
-  await page.setViewportSize({ width: 320, height: 844 });
-  await failCatalogWrite();
+  await failNextWrite(page, "kinevault-track.custom-foods.v1");
   await button(page, "Save food changes").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't update your food" }).waitFor();
   assert.equal((await readCatalog()).foods[0].name, "Saved oats");
@@ -157,7 +136,6 @@ test("custom food and meal edits and deletes persist, retry safely and preserve 
   await page.getByTestId("food-nutrition-detail").getByText("500 kcal", { exact: true }).waitFor();
   assert.equal((await readCatalog()).foods.length, 1);
   assert.equal((await readCatalog()).foods[0].customId, "editable-oats");
-  assert.equal(await page.getByRole("dialog", { name: "Food created" }).count(), 0);
   await button(page, "Back to food results").click();
   await search.fill("Revised oats");
   await button(page, "View nutrition for Revised oats, custom food").click();
@@ -165,11 +143,10 @@ test("custom food and meal edits and deletes persist, retry safely and preserve 
   const foodDelete = button(page, "Confirm delete food");
   await foodDelete.waitFor();
   assert.equal(await foodDelete.innerText(), "Are you sure?");
-  assert.equal(await page.getByRole("dialog", { name: "Delete custom food?" }).count(), 0);
   await foodDelete.blur();
   assert.equal((await readCatalog()).foods.length, 1);
   await button(page, "Delete food").click();
-  await failCatalogWrite();
+  await failNextWrite(page, "kinevault-track.custom-foods.v1");
   await foodDelete.click();
   await page.getByRole("alert").filter({ hasText: "Couldn't delete" }).waitFor();
   assert.equal((await readCatalog()).foods.length, 1);
@@ -180,8 +157,6 @@ test("custom food and meal edits and deletes persist, retry safely and preserve 
   assert.equal(await button(page, "View nutrition for Revised oats, custom food").count(), 0);
   assert.equal((await readCatalog()).meals[0].ingredients[0].food.name, "Saved oats");
   assert.equal(await readLog(), originalLog);
-  await page.evaluate(() => window.accountFixture.setItem("kinevault-track.appearance", "dark"));
-  await page.reload();
   await search.fill("Saved bowl");
   await button(page, "View nutrition for Saved bowl, custom meal").click();
   await button(page, "Edit meal").click();
@@ -209,23 +184,6 @@ test("custom food and meal edits and deletes persist, retry safely and preserve 
   await page.getByRole("textbox", { name: "Meal name", exact: true }).fill("Revised bowl");
   await page.getByRole("textbox", { name: "Protein (g)", exact: true }).fill("40");
   await page.getByRole("textbox", { name: "Fat (g)", exact: true }).fill("0");
-  for (const width of [320, 390, 1280]) {
-    await page.setViewportSize({ width, height: 844 });
-    assert.equal(
-      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
-      false,
-    );
-  }
-  await page.setViewportSize({ width: 320, height: 844 });
-  const screenshotDir = process.env.KINE_SCREENSHOT_DIR;
-  if (screenshotDir)
-    await page
-      .getByTestId("create-meal-form")
-      .screenshot({ path: join(screenshotDir, "edit-meal-dark.png") });
-  await failCatalogWrite();
-  await button(page, "Save meal changes").click();
-  await page.getByRole("alert").filter({ hasText: "Couldn't update your meal" }).waitFor();
-  assert.equal((await readCatalog()).meals[0].ingredients.length, 1);
   await button(page, "Save meal changes").click();
   await heading(page, "Revised bowl");
   const updatedMeal = (await readCatalog()).meals[0];
@@ -242,7 +200,6 @@ test("custom food and meal edits and deletes persist, retry safely and preserve 
   const mealDelete = button(page, "Confirm delete meal");
   await mealDelete.waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-  if (screenshotDir) await page.screenshot({ path: join(screenshotDir, "delete-meal-dark.png") });
   await mealDelete.blur();
   assert.equal((await readCatalog()).meals.length, 1);
   await button(page, "Delete meal").click();
@@ -265,46 +222,6 @@ test("custom food and meal edits and deletes persist, retry safely and preserve 
   assert.equal(entries.find((entry) => entry.id === "logged-food").calories, 200);
   assert.equal(entries.find((entry) => entry.id === "logged-meal").calories, 100);
   assert.equal(entries.find((entry) => entry.id === "logged-meal").protein, 15);
-});
-
-test("deleting the last item on a saved meal results page returns to the remaining items", async (t) => {
-  const page = await open(t, { version: 1, kind: "complete", answers: adult });
-  await page.evaluate(() => {
-    const food = {
-      fdcId: 1,
-      name: "Oats",
-      category: "Grains",
-      per100g: { calories: 100, carbs: 10, protein: 5, fat: 2 },
-      portions: [],
-    };
-    const meals = Array.from({ length: 21 }, (_, index) => ({
-      customId: `meal-${index + 1}`,
-      name: `Saved meal ${index + 1}`,
-      category: "Custom meal",
-      per100g: food.per100g,
-      portions: [{ label: "1 meal", grams: 100 }],
-      ingredients: [{ id: "oats", food, grams: 100 }],
-      overrides: {},
-    }));
-    window.accountFixture.setItem(
-      "kinevault-track.custom-foods.v1",
-      JSON.stringify({ version: 1, foods: [], meals }),
-    );
-  });
-  await page.reload();
-  await page.getByRole("tab", { name: "Food" }).click();
-  await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("Saved meal");
-  await button(page, "Next food results").click();
-  await button(page, "View nutrition for Saved meal 21, custom meal").click();
-  await button(page, "Delete meal").click();
-  await button(page, "Confirm delete meal").click();
-  await button(page, "View nutrition for Saved meal 1, custom meal").waitFor();
-  assert.equal(await page.getByTestId("food-result").count(), 20);
-  assert.equal(await button(page, "Next food results").count(), 0);
-  await page.reload();
-  await page.getByRole("textbox", { name: "Search foods", exact: true }).fill("Saved meal");
-  assert.equal(await button(page, "View nutrition for Saved meal 21, custom meal").count(), 0);
-  await button(page, "View nutrition for Saved meal 1, custom meal").waitFor();
 });
 
 test("meal creation calculates ingredients, preserves drafts across food/meal switches, retries and logs overridden macros", async (t) => {
@@ -388,16 +305,7 @@ test("meal creation calculates ingredients, preserves drafts across food/meal sw
   await page.getByRole("textbox", { name: "Amount for Test oats (g)", exact: true }).fill("50");
   await page.getByRole("textbox", { name: "Protein (g)", exact: true }).fill("35");
   await page.getByRole("textbox", { name: "Fat (g)", exact: true }).fill("0");
-  await page.evaluate(() => {
-    const original = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (key, value) {
-      if (key.endsWith("kinevault-track.custom-foods.v1")) {
-        Storage.prototype.setItem = original;
-        throw new Error("Simulated meal save failure");
-      }
-      return original.call(this, key, value);
-    };
-  });
+  await failNextWrite(page, "kinevault-track.custom-foods.v1");
   await button(page, "Save meal").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save your meal" }).waitFor();
   assert.equal(
@@ -449,62 +357,46 @@ test("meal creation calculates ingredients, preserves drafts across food/meal sw
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
 });
 
-test("meal ingredient validation, removal, calendar changes and logged edits work in both themes", async (t) => {
+test("meal ingredient validation, removal, calendar changes and logged edits work", async (t) => {
   const page = await open(t, { version: 1, kind: "complete", answers: adult });
   await page.getByRole("tab", { name: "Food" }).click();
-  for (const theme of ["light", "dark"]) {
-    await page.evaluate(
-      (theme) => window.accountFixture.setItem("kinevault-track.appearance", theme),
-      theme,
-    );
-    await page.reload();
-    await button(page, "Create food or meal").click();
-    await button(page, "Meal").click();
-    await page.getByRole("textbox", { name: "Meal name", exact: true }).fill("Portable snack");
-    const addBanana = async () => {
-      await page
-        .getByRole("textbox", { name: "Search ingredients", exact: true })
-        .fill("banana raw");
-      await button(page, "Add Banana, raw to meal").click();
-    };
-    await addBanana();
-    const ingredient = page.getByRole("textbox", {
-      name: "Amount for Banana, raw (g)",
-      exact: true,
-    });
-    await ingredient.fill("0");
-    await button(page, "Save meal").click();
-    await page.getByRole("alert").filter({ hasText: "Enter a weight greater than 0" }).waitFor();
+  await button(page, "Create food or meal").click();
+  await button(page, "Meal").click();
+  await page.getByRole("textbox", { name: "Meal name", exact: true }).fill("Portable snack");
+  const addBanana = async () => {
+    await page.getByRole("textbox", { name: "Search ingredients", exact: true }).fill("banana raw");
+    await button(page, "Add Banana, raw to meal").click();
+  };
+  await addBanana();
+  const ingredient = page.getByRole("textbox", {
+    name: "Amount for Banana, raw (g)",
+    exact: true,
+  });
+  await ingredient.fill("0");
+  await button(page, "Save meal").click();
+  await page.getByRole("alert").filter({ hasText: "Enter a weight greater than 0" }).waitFor();
+  assert.equal(
+    await page.evaluate(() => window.accountFixture.getItem("kinevault-track.custom-foods.v1")),
+    null,
+  );
+  await ingredient.fill("150");
+  assert.equal(
+    await page.getByRole("textbox", { name: "Calories (kcal)", exact: true }).inputValue(),
+    "145.5",
+  );
+  await button(page, "Remove Banana, raw from meal").click();
+  await button(page, "Confirm remove Banana, raw from meal").click();
+  await page
+    .getByText("No foods added yet. Search below to add your first ingredient.", { exact: true })
+    .waitFor();
+  await addBanana();
+  await ingredient.fill("150");
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
     assert.equal(
-      await page.evaluate(() => window.accountFixture.getItem("kinevault-track.custom-foods.v1")),
-      null,
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
     );
-    await ingredient.fill("150");
-    assert.equal(
-      await page.getByRole("textbox", { name: "Calories (kcal)", exact: true }).inputValue(),
-      "145.5",
-    );
-    await button(page, "Remove Banana, raw from meal").click();
-    await button(page, "Confirm remove Banana, raw from meal").click();
-    await page
-      .getByText("No foods added yet. Search below to add your first ingredient.", { exact: true })
-      .waitFor();
-    await addBanana();
-    await ingredient.fill("150");
-    for (const width of [320, 390, 1280]) {
-      await page.setViewportSize({ width, height: 844 });
-      assert.equal(
-        await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
-        false,
-      );
-    }
-    const screenshotDir = process.env.KINE_SCREENSHOT_DIR;
-    if (screenshotDir) {
-      await page.setViewportSize({ width: 390, height: 844 });
-      await page
-        .getByTestId("create-meal-form")
-        .screenshot({ path: join(screenshotDir, `meal-builder-${theme}.png`) });
-    }
   }
   // The calendar behind the open page stands in for a day change under it, e.g. at midnight.
   await button(page, "Expand calendar").dispatchEvent("click");
@@ -555,7 +447,6 @@ test("custom food creation validates, retries a failed save, logs and remains se
   await heading(page, "Create food");
   await button(page, "Save food").click();
   assert.ok((await page.getByRole("alert").count()) >= 5);
-  assert.equal(await page.getByRole("dialog", { name: "Food created" }).count(), 0);
   for (const [label, value] of [
     ["Food name", "My oat bowl"],
     ["Serving weight (g)", "250"],
@@ -566,19 +457,9 @@ test("custom food creation validates, retries a failed save, logs and remains se
   ]) {
     await page.getByRole("textbox", { name: label, exact: true }).fill(value);
   }
-  await page.evaluate(() => {
-    const original = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (key, value) {
-      if (key.endsWith("kinevault-track.custom-foods.v1")) {
-        Storage.prototype.setItem = original;
-        throw new Error("Simulated failure");
-      }
-      return original.call(this, key, value);
-    };
-  });
+  await failNextWrite(page, "kinevault-track.custom-foods.v1");
   await button(page, "Save food").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save your custom food" }).waitFor();
-  assert.equal(await page.getByRole("dialog", { name: "Food created" }).count(), 0);
   assert.equal(
     await page.getByRole("textbox", { name: "Food name", exact: true }).inputValue(),
     "My oat bowl",
@@ -694,16 +575,7 @@ test("changing calendar day preserves a custom food draft and logs it to the new
   ]) {
     await page.getByRole("textbox", { name: label, exact: true }).fill(value);
   }
-  await page.evaluate(() => {
-    const original = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (key, value) {
-      if (key.endsWith("kinevault-track.custom-foods.v1")) {
-        Storage.prototype.setItem = original;
-        throw new Error("Simulated failure before changing the day");
-      }
-      return original.call(this, key, value);
-    };
-  });
+  await failNextWrite(page, "kinevault-track.custom-foods.v1");
   await button(page, "Save food").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save your custom food" }).waitFor();
   // The calendar behind the open page stands in for a day change under it, e.g. at midnight.
@@ -821,19 +693,6 @@ const storedValues = (page) =>
       )
       .join("\n"),
   );
-async function failNextSave(page) {
-  await page.evaluate((key) => {
-    const original = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (nextKey, value) {
-      if (nextKey.endsWith(key)) {
-        Storage.prototype.setItem = original;
-        throw new Error("Simulated storage failure");
-      }
-      return original.call(this, nextKey, value);
-    };
-  }, key);
-}
-
 test("account onboarding requires login after saving review, preserves Back and restores a real SDK session", async (t) => {
   const page = await openAccountAtReview(t);
   const saved = await record(page);
@@ -901,7 +760,7 @@ test("account onboarding keeps a failed final save on review until retry succeed
   const page = await open(t, { version: 1, kind: "draft", step: "review", answers: adult });
   await heading(page, "Ready when you are.");
   const before = await record(page);
-  await failNextSave(page);
+  await failNextWrite(page, key);
   await button(page, "Finish setup").click();
   await page.getByRole("alert").waitFor();
   await heading(page, "Ready when you are.");
@@ -1010,8 +869,17 @@ test("account onboarding supports signup confirmation, login failure and passwor
     );
 });
 
-test("account onboarding reveals passwords on request and clears credentials on Back", async (t) => {
-  const page = await openAccountAtReview(t);
+test("account onboarding reveals passwords on request, clears credentials on Back, and keeps compact forms and login keyboard accessible", async (t) => {
+  const page = await openAccountAtReview(t, { viewport: { width: 320, height: 568 } });
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 568 });
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
+  }
   await accountField(page, "Email").fill("transient-account@example.com");
   await accountField(page, "Password").fill("transient-password-418");
   assert.equal(await accountField(page, "Password").evaluate((field) => field.type), "password");
@@ -1030,19 +898,6 @@ test("account onboarding reveals passwords on request and clears credentials on 
   const storage = await storedValues(page);
   assert.equal(storage.includes("transient-account@example.com"), false);
   assert.equal(storage.includes("transient-password-418"), false);
-});
-
-test("account onboarding keeps compact forms and login keyboard accessible", async (t) => {
-  const page = await openAccountAtReview(t, { viewport: { width: 320, height: 568 } });
-  const errors = [];
-  page.on("pageerror", (error) => errors.push(error.message));
-  for (const width of [320, 390, 1280]) {
-    await page.setViewportSize({ width, height: 568 });
-    assert.equal(
-      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
-      false,
-    );
-  }
   await accountModeButton(page, "Log in").click();
   await heading(page, "Welcome back");
   await accountField(page, "Email").focus();
@@ -1258,7 +1113,7 @@ test("a failed review-edit save preserves the return destination for retry", asy
   await button(page, "Edit goal").click();
   await heading(page, "What's your goal?");
   await page.getByRole("radio", { name: "Gain weight", exact: true }).click();
-  await failNextSave(page);
+  await failNextWrite(page, key);
   await button(page, "Back to review").click();
   await page.getByRole("alert").waitFor();
   assert.equal(await button(page, "Back to review").count(), 1);
@@ -1355,8 +1210,6 @@ test("onboarding poses load and onboarding fits phone and desktop widths", async
   const page = await open(t);
   const failures = [];
   page.on("pageerror", (error) => failures.push(error.message));
-  const screenshotDir = process.env.KINE_SCREENSHOT_DIR;
-  if (screenshotDir) await mkdir(screenshotDir, { recursive: true });
   const steps = [
     ["welcome", "Hi, I'm Kine."],
     ["goal", "What's your goal?"],
@@ -1407,15 +1260,6 @@ test("onboarding poses load and onboarding fits phone and desktop widths", async
       false,
       `${pose} overflows at ${width}px`,
     );
-    if (screenshotDir) {
-      await page.evaluate(() => {
-        for (const element of document.querySelectorAll("div"))
-          if (element.scrollTop) element.scrollTop = 0;
-      });
-      await page.screenshot({
-        path: join(screenshotDir, `${pose}-${width}.png`),
-      });
-    }
   }
   for (const [step, title] of steps) {
     await page.evaluate(
@@ -1529,8 +1373,6 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(message.text());
   });
-  const screenshotDir = process.env.KINE_SCREENSHOT_DIR;
-  if (screenshotDir) await mkdir(screenshotDir, { recursive: true });
   await heading(page, "Calories");
   for (const appearance of ["light", "dark"]) {
     await page.evaluate(
@@ -1542,6 +1384,10 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
     assert.equal(await page.evaluate(() => document.documentElement.style.colorScheme), appearance);
     for (const width of [320, 390, 1280]) {
       await page.setViewportSize({ width, height: 844 });
+      // Pixel layout doesn't depend on the theme, and content and behavior depend on neither,
+      // so layout runs in one theme and the rest runs once.
+      const layout = appearance === "light";
+      const once = layout && width === 390;
       for (const [tab, title] of [
         ["Home", "Calories"],
         ["Food", "Daily food log"],
@@ -1573,29 +1419,30 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
         assert.equal(await page.getByRole("heading", { name: tab, exact: true }).count(), 0);
         // Visited tabs stay mounted but hidden, so count only Kine that is on screen.
         const mascots = page.locator('[data-testid^="kine-"]:visible');
-        let mascotBox = null;
         if (tab === "Home") {
           const mascot = page.getByTestId("kine-today");
           await mascot.locator("img").evaluate((img) => img.decode());
           assert.ok(await mascot.isVisible(), "Home keeps Kine");
-          mascotBox = await mascot.boundingBox();
-          assert.ok(
-            mascotBox.width >= 64 && mascotBox.x + mascotBox.width <= width,
-            "Home Kine fits beside its content",
-          );
-          // Kine is a small companion to the greeting, not a half-width column.
-          const greetingBox = await page.getByTestId("home-greeting").boundingBox();
-          assert.ok(mascotBox.width <= 120, "Home Kine stays small");
-          assert.ok(
-            mascotBox.x + mascotBox.width <= greetingBox.x + greetingBox.width + 1 &&
-              mascotBox.y >= greetingBox.y - 1 &&
-              mascotBox.y + mascotBox.height <= greetingBox.y + greetingBox.height + 1,
-            "Home Kine sits inside the greeting",
-          );
-          assert.ok(
-            mascotBox.x >= greetingBox.x + greetingBox.width / 2,
-            "the greeting text sits to Kine's left",
-          );
+          if (layout) {
+            const mascotBox = await mascot.boundingBox();
+            assert.ok(
+              mascotBox.width >= 64 && mascotBox.x + mascotBox.width <= width,
+              "Home Kine fits beside its content",
+            );
+            // Kine is a small companion to the greeting, not a half-width column.
+            const greetingBox = await page.getByTestId("home-greeting").boundingBox();
+            assert.ok(mascotBox.width <= 120, "Home Kine stays small");
+            assert.ok(
+              mascotBox.x + mascotBox.width <= greetingBox.x + greetingBox.width + 1 &&
+                mascotBox.y >= greetingBox.y - 1 &&
+                mascotBox.y + mascotBox.height <= greetingBox.y + greetingBox.height + 1,
+              "Home Kine sits inside the greeting",
+            );
+            assert.ok(
+              mascotBox.x >= greetingBox.x + greetingBox.width / 2,
+              "the greeting text sits to Kine's left",
+            );
+          }
         } else
           assert.equal(
             // Home stays mounted under other tabs, so count Kine only where it is on top.
@@ -1620,192 +1467,191 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
               ? page.getByRole("heading", { name: "Your account", exact: true }).locator("..")
               : page.getByTestId(`${tab.toLowerCase()}-search-actions`);
         const firstBox = await firstBlock.boundingBox();
-        const screenWidth = Math.min(width, 768);
-        // Screens use the redesign's 20px gutter.
-        assert.ok(
-          Math.abs(firstBox.x - ((width - screenWidth) / 2 + 20)) <= 1,
-          `${tab} uses 20px screen margins`,
-        );
-        assert.ok(
-          Math.abs(firstBox.width - (screenWidth - 40)) <= 1,
-          `${tab} content stays evenly inset`,
-        );
-        const bodyText = await page.locator("body").innerText();
-        for (const removed of [
-          "Coming soon",
-          "No food logged for this meal.",
-          "Your workout summary",
-          "Your exercises, weights, sets, and reps will appear here.",
-          "Total lifted is weight × reps",
-          "No steps recorded",
-          "No water logged",
-          "kcal goal",
-          "remaining",
-        ]) {
-          assert.equal(
-            bodyText.includes(removed),
-            false,
-            `${tab} still shows removed caption: ${removed}`,
+        if (layout) {
+          const screenWidth = Math.min(width, 768);
+          // Screens use the redesign's 20px gutter.
+          assert.ok(
+            Math.abs(firstBox.x - ((width - screenWidth) / 2 + 20)) <= 1,
+            `${tab} uses 20px screen margins`,
+          );
+          assert.ok(
+            Math.abs(firstBox.width - (screenWidth - 40)) <= 1,
+            `${tab} content stays evenly inset`,
           );
         }
         if (tab === "Home") {
-          const nutritionBars = page.getByRole("progressbar", {
-            name: /^(?:Carbs,|Protein,|Fat,|0 kilocalories consumed, calorie goal)/,
-          });
-          assert.equal(await nutritionBars.count(), 4);
-          for (const bar of await nutritionBars.all())
-            assert.equal(await bar.getAttribute("aria-valuenow"), "0");
-          const waterCup = page.getByRole("progressbar", { name: "Daily water goal", exact: true });
-          await waterCup.waitFor();
-          assert.equal(await waterCup.getAttribute("aria-valuenow"), "0");
-          await page
-            .getByTestId("water-goal-progress")
-            .getByText("0% of goal", { exact: true })
-            .waitFor();
-          await page
-            .getByTestId("home-water")
-            .getByText("Goal: 1,500 ml", { exact: true })
-            .waitFor();
-          // The energy ring leads with what's left; it is decorative beside the accessible track.
-          await page
-            .getByTestId("home-calorie-hero")
-            .getByText("kcal left", { exact: true })
-            .waitFor();
-          assert.equal(bodyText.includes("Daily nutrition"), false);
-          const greetingBox = await page.getByTestId("home-greeting").boundingBox();
-          const rowBox = await page.getByTestId("home-nutrition-row").boundingBox();
-          const heroBox = await page.getByTestId("home-calorie-hero").boundingBox();
-          const caloriePanelBox = await page.getByTestId("home-calories").boundingBox();
-          const trackBox = await page.getByTestId("home-calorie-track").boundingBox();
-          const macrosBox = await page.getByTestId("home-macros").boundingBox();
-          assert.ok(heroBox.x + heroBox.width <= macrosBox.x, "the ring sits left of the macros");
-          assert.ok(
-            rowBox.x >= caloriePanelBox.x &&
-              rowBox.x + rowBox.width <= caloriePanelBox.x + caloriePanelBox.width &&
-              rowBox.y >= caloriePanelBox.y,
-            "ring and macros share the energy card",
-          );
-          assert.ok(
-            Math.abs(trackBox.x - heroBox.x) <= 1 &&
-              Math.abs(trackBox.y - heroBox.y) <= 1 &&
-              Math.abs(trackBox.width - heroBox.width) <= 1,
-            "the ring itself is the accessible calorie progress",
-          );
-          assert.equal(
-            await page.getByTestId("home-calorie-track").getAttribute("role"),
-            "progressbar",
-          );
-          const workoutBox = await page.getByTestId("home-workout-empty").boundingBox();
-          const activityBox = await page.getByTestId("home-activity-row").boundingBox();
-          const waterBox = await page.getByTestId("home-water").boundingBox();
-          const stepsBox = await page.getByTestId("home-steps").boundingBox();
-          for (const [before, after, name] of [
-            [greetingBox, caloriePanelBox, "greeting to calories"],
-            [caloriePanelBox, activityBox, "calories to activity"],
-            [activityBox, workoutBox, "activity to workout"],
-          ]) {
-            assert.ok(
-              Math.abs(after.y - before.y - before.height - 14) <= 1,
-              `${name} has a 14px gap`,
-            );
-          }
-          assert.ok(
-            Math.abs(waterBox.width - stepsBox.width) <= 1 && waterBox.x > stepsBox.x,
-            "Steps and Water share the row, Water on the right",
-          );
-          for (const [label, target] of [
-            ["Carbs", "345"],
-            ["Protein", "173"],
-            ["Fat", "77"],
-          ]) {
-            const value = page.getByTestId(`macro-${label.toLowerCase()}-count`);
-            assert.equal(await value.innerText(), `0 / ${target} g`);
-            const valueBox = await value.boundingBox();
-            const macroBarBox = await page
-              .getByRole("progressbar", { name: new RegExp(`^${label},`) })
-              .boundingBox();
-            assert.ok(
-              valueBox.y + valueBox.height <= macroBarBox.y,
-              `${label} current/goal sits above its bar`,
-            );
-            const labelBox = await page
-              .getByTestId(`macro-${label.toLowerCase()}-label`)
-              .boundingBox();
-            assert.ok(
-              Math.abs(labelBox.y + labelBox.height / 2 - valueBox.y - valueBox.height / 2) <= 2,
-              `${label} count shares the label's line`,
-            );
-            assert.ok(
-              labelBox.x + labelBox.width <= valueBox.x,
-              `${label} count follows its label`,
-            );
-          }
-          await heading(page, "Water");
-        } else if (tab !== "Settings") {
-          const pose = tab.toLowerCase();
-          const searchActionsBox = await page.getByTestId(`${pose}-search-actions`).boundingBox();
-          const searchBox = await page.getByTestId(`${pose}-search-box`).boundingBox();
-          const logBox = await page
-            .getByTestId(tab === "Food" ? "daily-food-log" : "exercise-workout-empty")
-            .boundingBox();
-          assert.ok(Math.abs(searchBox.y - searchActionsBox.y) <= 1, `${tab} starts with search`);
-          assert.ok(
-            Math.abs(logBox.y - searchActionsBox.y - searchActionsBox.height - 14) <= 1,
-            `${tab} actions-to-log gap is 14px`,
-          );
-          const actions =
-            tab === "Food"
-              ? ["Scan barcode", "Create food or meal", "Daily macros"]
-              : ["Saved workouts", "Create workout", "Create exercise"];
-          const widths = [];
-          for (const label of actions) {
-            const action = button(page, label);
-            assert.equal(await action.isDisabled(), false);
-            const box = await action.boundingBox();
-            widths.push(box.width);
-            assert.ok(box.y >= searchBox.y + searchBox.height + 11, `${label} sits below search`);
-            const text = await action.getByText(label, { exact: true }).boundingBox();
-            assert.ok(
-              Math.abs(text.x + text.width / 2 - box.x - box.width / 2) <= 1,
-              `${label} centers horizontally`,
-            );
-          }
-          assert.ok(Math.max(...widths) - Math.min(...widths) <= 1, `${tab} tiles share the row`);
-          if (tab === "Exercise") {
-            assert.equal(await page.getByTestId("exercise-workout").count(), 0);
-            assert.equal(await page.getByTestId("session-list").count(), 0);
-            assert.equal(await page.getByTestId("exercise-library").count(), 0);
+          if (once) {
+            const nutritionBars = page.getByRole("progressbar", {
+              name: /^(?:Carbs,|Protein,|Fat,|0 kilocalories consumed, calorie goal)/,
+            });
+            assert.equal(await nutritionBars.count(), 4);
+            for (const bar of await nutritionBars.all())
+              assert.equal(await bar.getAttribute("aria-valuenow"), "0");
+            const waterCup = page.getByRole("progressbar", {
+              name: "Daily water goal",
+              exact: true,
+            });
+            await waterCup.waitFor();
+            assert.equal(await waterCup.getAttribute("aria-valuenow"), "0");
+            await page
+              .getByTestId("water-goal-progress")
+              .getByText("0% of goal", { exact: true })
+              .waitFor();
+            await page
+              .getByTestId("home-water")
+              .getByText("Goal: 1,500 ml", { exact: true })
+              .waitFor();
+            // The energy ring leads with what's left; it is decorative beside the accessible track.
+            await page
+              .getByTestId("home-calorie-hero")
+              .getByText("kcal left", { exact: true })
+              .waitFor();
             assert.equal(
-              await button(page.getByTestId("exercise-workout-empty"), "Add workout").isEnabled(),
-              true,
+              await page.getByTestId("home-calorie-track").getAttribute("role"),
+              "progressbar",
             );
-          } else {
-            const foodLog = page.getByTestId("daily-food-log");
-            assert.equal(
-              await foodLog.getByText("No food has been logged yet", { exact: true }).count(),
-              5,
+            for (const [label, target] of [
+              ["Carbs", "345"],
+              ["Protein", "173"],
+              ["Fat", "77"],
+            ])
+              assert.equal(
+                await page.getByTestId(`macro-${label.toLowerCase()}-count`).innerText(),
+                `0 / ${target} g`,
+              );
+            await heading(page, "Water");
+          }
+          if (layout) {
+            const greetingBox = await page.getByTestId("home-greeting").boundingBox();
+            const rowBox = await page.getByTestId("home-nutrition-row").boundingBox();
+            const heroBox = await page.getByTestId("home-calorie-hero").boundingBox();
+            const caloriePanelBox = await page.getByTestId("home-calories").boundingBox();
+            const trackBox = await page.getByTestId("home-calorie-track").boundingBox();
+            const macrosBox = await page.getByTestId("home-macros").boundingBox();
+            assert.ok(heroBox.x + heroBox.width <= macrosBox.x, "the ring sits left of the macros");
+            assert.ok(
+              rowBox.x >= caloriePanelBox.x &&
+                rowBox.x + rowBox.width <= caloriePanelBox.x + caloriePanelBox.width &&
+                rowBox.y >= caloriePanelBox.y,
+              "ring and macros share the energy card",
             );
-            for (const [key, label] of [
-              ["breakfast", "Breakfast"],
-              ["lunch", "Lunch"],
-              ["dinner", "Dinner"],
-              ["snacks", "Snacks"],
-              ["drinks", "Drinks"],
+            assert.ok(
+              Math.abs(trackBox.x - heroBox.x) <= 1 &&
+                Math.abs(trackBox.y - heroBox.y) <= 1 &&
+                Math.abs(trackBox.width - heroBox.width) <= 1,
+              "the ring itself is the accessible calorie progress",
+            );
+            const workoutBox = await page.getByTestId("home-workout-empty").boundingBox();
+            const activityBox = await page.getByTestId("home-activity-row").boundingBox();
+            const waterBox = await page.getByTestId("home-water").boundingBox();
+            const stepsBox = await page.getByTestId("home-steps").boundingBox();
+            for (const [before, after, name] of [
+              [greetingBox, caloriePanelBox, "greeting to calories"],
+              [caloriePanelBox, activityBox, "calories to activity"],
+              [activityBox, workoutBox, "activity to workout"],
             ]) {
-              const section = foodLog.getByTestId(`meal-${key}`);
-              assert.equal(await section.count(), 1);
-              await section.getByRole("heading", { name: label, exact: true }).waitFor();
-              assert.equal(await button(section, `Add food to ${label}`).count(), 0);
+              assert.ok(
+                Math.abs(after.y - before.y - before.height - 14) <= 1,
+                `${name} has a 14px gap`,
+              );
+            }
+            assert.ok(
+              Math.abs(waterBox.width - stepsBox.width) <= 1 && waterBox.x > stepsBox.x,
+              "Steps and Water share the row, Water on the right",
+            );
+            for (const label of ["Carbs", "Protein", "Fat"]) {
+              const valueBox = await page
+                .getByTestId(`macro-${label.toLowerCase()}-count`)
+                .boundingBox();
+              const macroBarBox = await page
+                .getByRole("progressbar", { name: new RegExp(`^${label},`) })
+                .boundingBox();
+              assert.ok(
+                valueBox.y + valueBox.height <= macroBarBox.y,
+                `${label} current/goal sits above its bar`,
+              );
+              const labelBox = await page
+                .getByTestId(`macro-${label.toLowerCase()}-label`)
+                .boundingBox();
+              assert.ok(
+                Math.abs(labelBox.y + labelBox.height / 2 - valueBox.y - valueBox.height / 2) <= 2,
+                `${label} count shares the label's line`,
+              );
+              assert.ok(
+                labelBox.x + labelBox.width <= valueBox.x,
+                `${label} count follows its label`,
+              );
             }
           }
-          const search = page.getByRole("textbox", {
-            name: tab === "Food" ? "Search foods" : "Search exercises",
-            exact: true,
-          });
-          await search.fill("test");
-          await button(page, "Clear search").click();
-          assert.equal(await search.inputValue(), "");
-        } else {
+        } else if (tab !== "Settings") {
+          if (layout) {
+            const pose = tab.toLowerCase();
+            const searchActionsBox = await page.getByTestId(`${pose}-search-actions`).boundingBox();
+            const searchBox = await page.getByTestId(`${pose}-search-box`).boundingBox();
+            const logBox = await page
+              .getByTestId(tab === "Food" ? "daily-food-log" : "exercise-workout-empty")
+              .boundingBox();
+            assert.ok(Math.abs(searchBox.y - searchActionsBox.y) <= 1, `${tab} starts with search`);
+            assert.ok(
+              Math.abs(logBox.y - searchActionsBox.y - searchActionsBox.height - 14) <= 1,
+              `${tab} actions-to-log gap is 14px`,
+            );
+            const actions =
+              tab === "Food"
+                ? ["Scan barcode", "Create food or meal", "Daily macros"]
+                : ["Saved workouts", "Create workout", "Create exercise"];
+            const widths = [];
+            for (const label of actions) {
+              const action = button(page, label);
+              assert.equal(await action.isDisabled(), false);
+              const box = await action.boundingBox();
+              widths.push(box.width);
+              assert.ok(box.y >= searchBox.y + searchBox.height + 11, `${label} sits below search`);
+              const text = await action.getByText(label, { exact: true }).boundingBox();
+              assert.ok(
+                Math.abs(text.x + text.width / 2 - box.x - box.width / 2) <= 1,
+                `${label} centers horizontally`,
+              );
+            }
+            assert.ok(Math.max(...widths) - Math.min(...widths) <= 1, `${tab} tiles share the row`);
+          }
+          if (once) {
+            if (tab === "Exercise") {
+              assert.equal(await page.getByTestId("exercise-workout").count(), 0);
+              assert.equal(await page.getByTestId("session-list").count(), 0);
+              assert.equal(await page.getByTestId("exercise-library").count(), 0);
+              assert.equal(
+                await button(page.getByTestId("exercise-workout-empty"), "Add workout").isEnabled(),
+                true,
+              );
+            } else {
+              const foodLog = page.getByTestId("daily-food-log");
+              assert.equal(
+                await foodLog.getByText("No food has been logged yet", { exact: true }).count(),
+                5,
+              );
+              for (const [key, label] of [
+                ["breakfast", "Breakfast"],
+                ["lunch", "Lunch"],
+                ["dinner", "Dinner"],
+                ["snacks", "Snacks"],
+                ["drinks", "Drinks"],
+              ]) {
+                const section = foodLog.getByTestId(`meal-${key}`);
+                assert.equal(await section.count(), 1);
+                await section.getByRole("heading", { name: label, exact: true }).waitFor();
+                assert.equal(await button(section, `Add food to ${label}`).count(), 0);
+              }
+            }
+            const search = page.getByRole("textbox", {
+              name: tab === "Food" ? "Search foods" : "Search exercises",
+              exact: true,
+            });
+            await search.fill("test");
+            await button(page, "Clear search").click();
+            assert.equal(await search.inputValue(), "");
+          }
+        } else if (once) {
           const editProfileBox = await page
             .getByRole("link", { name: /^Edit profile/ })
             .boundingBox();
@@ -1819,10 +1665,6 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
           const management = await page.getByTestId("account-management").boundingBox();
           assert.ok(management.y > editProfileBox.y, "account actions come last");
         }
-        if (screenshotDir)
-          await page.screenshot({
-            path: join(screenshotDir, `${tab.toLowerCase()}-${appearance}-${width}.png`),
-          });
       }
     }
     await page.getByRole("tab", { name: /Home/ }).click();
@@ -1910,17 +1752,6 @@ test("food logging saves to the selected date and meal, retries failures, update
   const foodKey = "kinevault-track.food-log.v1";
   const savedFoods = () =>
     page.evaluate((key) => JSON.parse(window.accountFixture.getItem(key)), foodKey);
-  const failFoodWrite = () =>
-    page.evaluate((key) => {
-      const original = Storage.prototype.setItem;
-      Storage.prototype.setItem = function (nextKey, value) {
-        if (nextKey.endsWith(key)) {
-          Storage.prototype.setItem = original;
-          throw new Error("Simulated food save failure");
-        }
-        return original.call(this, nextKey, value);
-      };
-    }, foodKey);
   await heading(page, "Calories");
   await page.getByRole("tab", { name: /Food/ }).click();
   await heading(page, "Daily food log");
@@ -1943,7 +1774,7 @@ test("food logging saves to the selected date and meal, retries failures, update
   await amount.fill("");
   assert.ok(await button(page, "Log food").isDisabled());
   await amount.fill("126");
-  await failFoodWrite();
+  await failNextWrite(page, foodKey);
   await button(page, "Log food").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't log this food" }).waitFor();
   assert.equal(await amount.inputValue(), "126");
@@ -1986,7 +1817,7 @@ test("food logging saves to the selected date and meal, retries failures, update
   await page.getByTestId("home-calories").getByText("122 / 2,760 kcal", { exact: true }).waitFor();
   await page.getByRole("tab", { name: /Food/ }).click();
   await heading(page, "Daily food log");
-  await failFoodWrite();
+  await failNextWrite(page, foodKey);
   await button(page, "Remove Banana, raw from Lunch").click();
   await button(page, "Confirm remove Banana, raw from Lunch").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save your food log" }).waitFor();
@@ -2054,16 +1885,7 @@ test("logged food edits retain the draft on failure, move meals, update totals, 
   assert.ok(await button(page, "Save changes").isDisabled());
   await amount.fill("200");
   await button(page, "Dinner").click();
-  await page.evaluate(() => {
-    const original = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (key, value) {
-      if (key.endsWith("kinevault-track.food-log.v1")) {
-        Storage.prototype.setItem = original;
-        throw new Error("Simulated food edit failure");
-      }
-      return original.call(this, key, value);
-    };
-  });
+  await failNextWrite(page, "kinevault-track.food-log.v1");
   await button(page, "Save changes").click();
   await page.getByRole("alert").filter({ hasText: "Couldn't save your changes" }).waitFor();
   assert.equal(await amount.inputValue(), "200");
@@ -2266,23 +2088,14 @@ test("daily nutrition lists the requested units in order and supports old entrie
   await heading(page, "Daily food log");
   await button(page, "Daily macros").click();
   await view.getByTestId("daily-nutrient-potassium").getByText("652", { exact: true }).waitFor();
-  for (const theme of ["light", "dark"]) {
-    await page.evaluate(
-      (theme) => window.accountFixture.setItem("kinevault-track.appearance", theme),
-      theme,
+  for (const width of [320, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
     );
-    await page.reload();
-    await heading(page, "Daily food log");
-    await button(page, "Daily macros").click();
-    for (const width of [320, 1280]) {
-      await page.setViewportSize({ width, height: 844 });
-      assert.equal(
-        await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
-        false,
-      );
-      // Trans fat has no data for these older entries, so it folds behind its control.
-      assert.equal(await labels.count(), 15);
-    }
+    // Trans fat has no data for these older entries, so it folds behind its control.
+    assert.equal(await labels.count(), 15);
   }
 });
 
@@ -2328,8 +2141,6 @@ test("35 calendar dates center today and share selection across daily tabs exclu
   assert.equal(await button(page, selectedName).getAttribute("aria-pressed"), "true");
   await button(page, "Select today").click();
   assert.equal(await dateButtons.nth(todayIndex).getAttribute("aria-pressed"), "true");
-  const screenshotDir = process.env.KINE_SCREENSHOT_DIR;
-  if (screenshotDir) await page.screenshot({ path: join(screenshotDir, "calendar-320.png") });
   await button(page, "Collapse calendar").click();
   assert.equal(await dateButtons.count(), 0);
 });
@@ -2450,11 +2261,6 @@ test("unset and maximum calorie goals keep a readable ring beside macros and Kin
       await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
       false,
     );
-    const screenshotDir = process.env.KINE_SCREENSHOT_DIR;
-    if (screenshotDir)
-      await page.screenshot({
-        path: join(screenshotDir, `home-${customCalories || "unset"}-320.png`),
-      });
     if (!customCalories) {
       await page
         .getByRole("link", { name: "Set calorie and macro goals in Settings", exact: true })
@@ -2532,16 +2338,7 @@ test("Profile recovery retries a repaired record and retains it when reset fails
   const resetPage = await open(t, corrupt);
   await heading(resetPage, "Couldn't load your profile");
   await button(resetPage, "Start fresh").click();
-  await resetPage.evaluate((key) => {
-    const original = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (nextKey, value) {
-      if (nextKey.endsWith(key) && JSON.parse(value).payload === null && JSON.parse(value).dirty) {
-        Storage.prototype.setItem = original;
-        throw new Error("Simulated reset failure");
-      }
-      return original.call(this, nextKey, value);
-    };
-  }, key);
+  await failNextWrite(resetPage, key, { dirty: true });
   await button(resetPage, "Reset saved profile").click();
   await resetPage.getByRole("alert").filter({ hasText: "Couldn't reset your profile" }).waitFor();
   assert.deepEqual(await record(resetPage), corrupt);

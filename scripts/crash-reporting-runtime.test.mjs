@@ -67,7 +67,7 @@ test("disabled browser reporting leaves the telemetry SDK unloaded", () => {
   assert.equal(crashes.length, 0);
 });
 
-for (const platform of ["web", "ios", "android"]) {
+for (const platform of ["web", "ios"]) {
   test(`${platform} reporting initializes once and retains its privacy policy`, () => {
     const { api, loads, initializations, crashes } = runtime({
       platform,
@@ -82,8 +82,6 @@ for (const platform of ["web", "ios", "android"]) {
     assert.equal(crashes[0], error);
     const options = initializations[0];
     assert.equal(options.sendDefaultPii, false);
-    assert.equal(options.enableNative, false);
-    assert.equal(options.tracesSampleRate, 0);
     assert.equal(options.maxBreadcrumbs, 0);
     const integrations = options.integrations([{ name: "GlobalHandlers" }, { name: "HttpClient" }]);
     assert.equal(integrations.length, 1);

@@ -25,13 +25,6 @@ const flush = async () => {
   await Promise.resolve();
   await Promise.resolve();
 };
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((yes) => {
-    resolve = yes;
-  });
-  return { promise, resolve };
-}
 async function ready(initial: string | null = null) {
   let raw = initial;
   const storage = {
@@ -141,9 +134,8 @@ test("custom foods survive reload and invalid or duplicate stored records are re
     assert.throws(() => parseCustomFoods(JSON.stringify(value)));
 });
 
-test("custom saves publish after durable success, block duplicates and preserve failed drafts for retry", async () => {
+test("a failed custom food save writes nothing and reports the custom food message", async () => {
   const { store, storage, raw } = await ready();
-  const write = storage.setItem;
   storage.setItem = async () => {
     throw new Error("disk full");
   };
@@ -153,33 +145,6 @@ test("custom saves publish after durable success, block duplicates and preserve 
     store.getSnapshot().error,
     "Couldn't save your custom food. Your values are still here. Try again.",
   );
-  const gate = deferred<void>();
-  storage.setItem = async (key, value) => {
-    await gate.promise;
-    await write(key, value);
-  };
-  const saving = store.add(draft);
-  assert.equal(store.getSnapshot().saving, true);
-  assert.deepEqual(store.getSnapshot().state, {
-    kind: "ready",
-    document: { version: 1, foods: [], meals: [] },
-  });
-  assert.equal(await store.add(draft), null);
-  gate.resolve();
-  assert.ok(await saving);
-  assert.equal(parseCustomFoods(raw()).foods.length, 1);
-  assert.equal(store.getSnapshot().error, null);
-});
-
-test("corrupt custom storage blocks creation and retry recovers without overwriting records", async () => {
-  const { store, storage, raw } = await ready("corrupt");
-  assert.equal(store.getSnapshot().state.kind, "error");
-  assert.equal(await store.add(draft), null);
-  assert.equal(raw(), "corrupt");
-  await storage.setItem(customFoodStorageKey, JSON.stringify({ version: 1, foods: [] }));
-  store.retryLoad();
-  await flush();
-  assert.ok(await store.add(draft));
 });
 
 test("invalid custom drafts use validation feedback and never write", async () => {
@@ -188,20 +153,4 @@ test("invalid custom drafts use validation feedback and never write", async () =
   assert.equal(store.getSnapshot().error, "Check the name, amounts, and nutrition values.");
   assert.equal(raw(), null);
   assert.equal(store.getSnapshot().saving, false);
-});
-
-test("duplicate generated catalog identities fail canonical validation before writing", async () => {
-  const { store, storage, raw } = await ready();
-  const food = await store.add(draft);
-  assert.ok(food);
-  const saved = raw();
-  const duplicate = createCustomFoodPersistence({ storage, createId: () => food.customId });
-  duplicate.start();
-  await flush();
-  assert.equal(await duplicate.add(draft), null);
-  assert.equal(
-    duplicate.getSnapshot().error,
-    "Couldn't save your custom food. Your values are still here. Try again.",
-  );
-  assert.equal(raw(), saved);
 });

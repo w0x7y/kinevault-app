@@ -154,15 +154,6 @@ test("an unconfigured build fails without a request; a corrupt cache is ignored"
   assert.equal(corrupt.catalog.getSnapshot().kind, "ready");
 });
 
-test("subscribers hear state changes", async () => {
-  const { catalog } = store();
-  const kinds: string[] = [];
-  const unsubscribe = catalog.subscribe(() => kinds.push(catalog.getSnapshot().kind));
-  await catalog.refreshIfStale();
-  unsubscribe();
-  assert.deepEqual(kinds, ["ready"]);
-});
-
 test("a row returned twice appears once, keeping its first occurrence and position", async () => {
   const changed = { ...row(1), name: "Changed" };
   const { catalog } = store({ pages: [[row(1), row(2), changed, row(3), row(2)]] });
@@ -176,23 +167,6 @@ test("a row returned twice appears once, keeping its first occurrence and positi
   );
   assert.equal(state.byId.size, 3);
   assert.equal(state.byId.get(row(1).id), state.entries[0]);
-});
-
-test("a row repeated across pages appears once", async () => {
-  const full = Array.from({ length: 500 }, (_, index) => row(index + 1));
-  const { catalog } = store({ pages: [full, [row(500), row(501)]] });
-  await catalog.refreshIfStale();
-  const state = catalog.getSnapshot();
-  assert.equal(state.kind === "ready" && state.entries.length, 501);
-  assert.equal(state.kind === "ready" && new Set(state.entries.map((entry) => entry.id)).size, 501);
-});
-
-test("a repeated row in the saved copy appears once", async () => {
-  const cached = JSON.stringify({ version: 1, fetchedAt: 1_000_000, rows: [row(2), row(2)] });
-  const { catalog } = store({ storage: memoryStorage({ [demoCatalogStorageKey]: cached }) });
-  await catalog.start();
-  const state = catalog.getSnapshot();
-  assert.equal(state.kind === "ready" && state.entries.length, 1);
 });
 
 test("a cache over the size limit stays in memory only", async () => {

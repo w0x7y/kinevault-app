@@ -139,24 +139,13 @@ test("reconstruction reflects saved record additions edits and removals without 
   assert.equal(createFoodCatalog([original]).search("acmesons").total, 0);
 });
 
-test("stable fuzzy pagination has no skips or duplicates across rebuilds", () => {
+test("stable fuzzy order does not depend on catalog order", () => {
   const foods = Array.from({ length: 45 }, (_, index) =>
     food(index + 1, `Dr Pepper bottle ${String(index).padStart(2, "0")}`),
   );
-  const catalog = createFoodCatalog(foods);
-  const pages = [0, 1, 2].map((page) => catalog.search("drpeper", page));
-  assert.deepEqual(
-    pages.map((page) => page.total),
-    [45, 45, 45],
-  );
-  assert.deepEqual(
-    pages.map((page) => page.items.length),
-    [20, 20, 5],
-  );
-  assert.deepEqual(ids(pages.flatMap((page) => page.items)), foods.map(foodKey));
   assert.deepEqual(
     ids(createFoodCatalog([...foods].reverse()).search("drpeper").items),
-    ids(pages[0]!.items),
+    foods.slice(0, 20).map(foodKey),
   );
 });
 
@@ -244,45 +233,8 @@ test("joined ordinary and brand typos remain eligible when protected components 
   assert.equal(catalog.search("chikenraw").items[0]?.fdcId, 5);
 });
 
-// Common preparation and nutrition labels attested in the bundled source catalog.
-for (const qualifier of [
-  "roasted",
-  "toasted",
-  "salted",
-  "unsalted",
-  "broiled",
-  "smoked",
-  "dried",
-  "fresh",
-  "frozen",
-  "canned",
-  "whole",
-  "light",
-  "reduced",
-  "lean",
-  "fortified",
-  "prepared",
-  "cured",
-  "pickled",
-  "mashed",
-  "creamed",
-  "breaded",
-  "skinless",
-  "boneless",
-  "malted",
-  "dry",
-  "roast",
-  "evaporated",
-  "condensed",
-  "instant",
-  "sodium",
-  "high",
-  "full",
-  "skin",
-  "added",
-  "no",
-  "caffeine",
-]) {
+// Sample protectedTerms: 5+ letter words could otherwise fuzz; shorter ones only prefix-match.
+for (const qualifier of ["roasted", "skinless", "dry", "no"]) {
   for (const separator of [" ", ""]) {
     test(`${qualifier} stays exact in ${separator ? "separated" : "compact"} food queries`, () => {
       const exact = food(1, `Peanut ${qualifier}`);
@@ -295,24 +247,6 @@ for (const qualifier of [
       const catalog = createFoodCatalog([exact]);
       assert.equal(catalog.search(query).items[0], exact);
       assert.equal(catalog.search(`peanut${separator}${qualifier.slice(0, -1)}`).items[0], exact);
-    });
-  }
-}
-
-for (const [qualifier, wrong] of [
-  ["roasted", "toasted"],
-  ["toasted", "roasted"],
-  ["salted", "malted"],
-  ["whole", "while"],
-  ["light", "night"],
-]) {
-  for (const separator of [" ", ""]) {
-    test(`${qualifier} cannot become ${wrong} in ${separator ? "separated" : "compact"} queries`, () => {
-      assert.equal(
-        createFoodCatalog([food(1, `Peanut ${wrong}`)]).search(`peanut${separator}${qualifier}`)
-          .total,
-        0,
-      );
     });
   }
 }

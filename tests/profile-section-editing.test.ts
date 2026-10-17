@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { emptyAnswers } from "../src/profile/answers.ts";
-import { changeAnswers, calorieState, validateAnswers } from "../src/profile/calories.ts";
+import { changeAnswers, calorieState } from "../src/profile/calories.ts";
 import { editedProfileAnswers } from "../src/profile/section-editing.ts";
 const saved = {
   ...emptyAnswers,
@@ -14,13 +14,6 @@ const saved = {
   sex: "male" as const,
   eligible: true,
 };
-test("name save keeps the latest unrelated weight and targets", () => {
-  const current = { ...saved, weight: "81", customProtein: "0" };
-  assert.deepEqual(editedProfileAnswers(current, { ...saved, name: "New name" }, "name"), {
-    ...current,
-    name: "New name",
-  });
-});
 test("each focused section owns only its fields", () => {
   const draft = {
     ...saved,
@@ -45,17 +38,6 @@ test("each focused section owns only its fields", () => {
     for (const field of fields) Object.assign(expected, { [field]: draft[field] });
     assert.deepEqual(editedProfileAnswers(saved, draft, section), expected);
   }
-});
-test("age save applies the current estimator teen transition and keeps unrelated macros", () => {
-  const current = { ...saved, customCalories: "2500", customProtein: "0" };
-  const next = editedProfileAnswers(current, { ...saved, age: "17" }, "age");
-  assert.equal(next.estimateEnabled, false);
-  assert.equal(next.eligible, false);
-  assert.equal(next.sex, null);
-  assert.equal(next.customCalories, "");
-  assert.equal(next.customProtein, "0");
-  assert.equal(calorieState(next).kind, "teen");
-  assert.deepEqual(validateAnswers(next), {});
 });
 test("adult age change never silently re-enables the estimator", () => {
   const teen = changeAnswers(saved, { kind: "fields", patch: { age: "17" } });

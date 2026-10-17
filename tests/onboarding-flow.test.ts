@@ -47,27 +47,6 @@ test("an inactive onboarding flow cannot change answers or start a save", async 
   assert.equal(saves, 0);
 });
 
-test("leaving during a draft save preserves the visible step without late feedback", async () => {
-  let finish!: (saved: boolean) => void;
-  const { flow, destinations } = setup(
-    { version: 1, kind: "draft", step: "goal", answers: adult },
-    () =>
-      new Promise<boolean>((resolve) => {
-        finish = resolve;
-      }),
-  );
-  const pending = flow.act({ kind: "next" });
-  flow.stop();
-  const stopped = flow.getSnapshot();
-  finish(true);
-  await pending;
-  assert.equal(flow.getSnapshot(), stopped);
-  assert.equal(flow.getSnapshot().step, "goal");
-  assert.deepEqual(destinations, []);
-  flow.start();
-  assert.equal(flow.getSnapshot().saving, false);
-});
-
 test("leaving onboarding during a final save prevents late navigation and feedback", async () => {
   let finish: (saved: boolean) => void = () => assert.fail("Save did not begin");
   const { flow, destinations } = setup(

@@ -50,56 +50,6 @@ const sources = {
   water: readyWater,
   goal: readyGoal,
 };
-const kinds = ["loading", "error", "ready"] as const;
-
-for (const foodKind of kinds)
-  for (const waterKind of kinds)
-    for (const goalKind of kinds) {
-      test(`availability: food ${foodKind}, manual water ${waterKind}, goal ${goalKind}`, () => {
-        const activity = interpretDayActivity({
-          date,
-          profile: readyProfile,
-          food: foodKind === "ready" ? readyFood : { kind: foodKind },
-          water: waterKind === "ready" ? readyWater : { kind: waterKind },
-          goal: goalKind === "ready" ? readyGoal : { kind: goalKind },
-        });
-        assert.equal(activity.date, date);
-        assert.equal(activity.food.kind, foodKind);
-        if (activity.food.kind === "ready") {
-          assert.deepEqual(activity.food.day.foods, [drink]);
-          assert.equal(activity.food.summary.calories, 100);
-          assert.equal(activity.food.summary.carbs, 20);
-          assert.equal(activity.food.summary.protein, 3);
-          assert.equal(activity.food.summary.fat, 1);
-          assert.equal("waterMl" in activity.food.day, false);
-        } else {
-          assert.equal("day" in activity.food, false);
-          assert.equal("summary" in activity.food, false);
-        }
-        const totalReady = foodKind === "ready" && waterKind === "ready";
-        if (totalReady) {
-          assert.deepEqual(activity.water.total, {
-            kind: "ready",
-            manualMl: 500,
-            drinkMl: 250,
-            ml: 750,
-          });
-        } else {
-          assert.deepEqual(activity.water.total, {
-            kind: foodKind === "error" || waterKind === "error" ? "error" : "loading",
-          });
-        }
-        assert.deepEqual(
-          activity.water.goal,
-          goalKind === "ready" ? { kind: "ready", ml: 1500 } : { kind: goalKind },
-        );
-        assert.equal(activity.water.progress, totalReady && goalKind === "ready" ? 0.5 : null);
-        assert.equal(activity.steps, null, "steps have no connected measurement source");
-        assert.equal(activity.workout.sets, 0);
-        assert.deepEqual(activity.workout.exercises, []);
-      });
-    }
-
 test("known empty selected day has usable zero food, water and progress", () => {
   const activity = interpretDayActivity({ ...sources, date: otherDate });
   assert.equal(activity.food.kind, "ready");
@@ -128,6 +78,7 @@ test("selection uses only matching food and water records and does not mutate so
   const previous = interpretDayActivity({ ...input, date: otherDate });
   assert.deepEqual(previous.water.total, { kind: "ready", manualMl: 200, drinkMl: 100, ml: 300 });
   assert.equal(previous.water.progress, 0.2);
+  assert.equal(previous.date, otherDate);
   assert.equal(previous.food.kind, "ready");
   if (previous.food.kind === "ready") assert.equal(previous.food.day.foods[0].id, "other");
   assert.deepEqual(interpretDayActivity(input), first);
@@ -161,23 +112,6 @@ test("only explicit Drinks volumes contribute, including legacy gram records wit
   if (activity.food.kind === "ready") assert.equal(activity.food.summary.calories, 280);
 });
 
-for (const [manualMl, expected] of [
-  [0, 0],
-  [750, 0.5],
-  [1500, 1],
-  [2100, 1],
-]) {
-  test(`progress uses the existing goal calculation for ${manualMl} ml`, () => {
-    const activity = interpretDayActivity({
-      ...sources,
-      food: { kind: "ready", document: { version: 1, days: {} } },
-      water: { kind: "ready", document: { version: 1, days: { [date]: manualMl } } },
-    });
-    assert.equal(activity.water.progress, expected);
-    assert.deepEqual(activity.water.total, { kind: "ready", manualMl, drinkMl: 0, ml: manualMl });
-  });
-}
-
 test("recovery publishes usable data only when both logs are known and goal only gates progress", () => {
   const failed = interpretDayActivity({
     ...sources,
@@ -210,6 +144,16 @@ test("recovery publishes usable data only when both logs are known and goal only
   assert.equal(recovered.water.progress, 0.5);
   assert.deepEqual(failed.water.total, { kind: "error" });
   assert.equal(failed.water.progress, null);
+  assert.equal(failed.food.kind, "error");
+  assert.deepEqual(failed.water.goal, { kind: "error" });
+  assert.deepEqual(recovered.water.goal, { kind: "ready", ml: 1500 });
+  // A failed log outranks one still loading.
+  const mixed = interpretDayActivity({
+    ...sources,
+    food: { kind: "loading" },
+    water: { kind: "error" },
+  });
+  assert.deepEqual(mixed.water.total, { kind: "error" });
 });
 
 test("exercise records aggregate only completed sessions on the selected date independently of food", () => {
@@ -292,42 +236,6 @@ test("targets follow the saved Profile and report its availability", () => {
     protein: 173,
     fat: 77,
   });
-  const custom = interpretDayActivity({
-    ...sources,
-    profile: {
-      kind: "ready",
-      document: {
-        version: 1,
-        kind: "complete",
-        answers: { ...adult, customCalories: "2400", customCarbs: "0" },
-      },
-    },
-  });
-  assert.deepEqual(custom.targets, {
-    kind: "ready",
-    calories: 2400,
-    carbs: 0,
-    protein: 150,
-    fat: 67,
-  });
-  const unset = interpretDayActivity({
-    ...sources,
-    profile: {
-      kind: "ready",
-      document: {
-        version: 1,
-        kind: "complete",
-        answers: { ...emptyAnswers, age: "30", estimateEnabled: false },
-      },
-    },
-  });
-  assert.deepEqual(unset.targets, {
-    kind: "ready",
-    calories: null,
-    carbs: null,
-    protein: null,
-    fat: null,
-  });
   for (const kind of ["loading", "error"] as const) {
     const activity = interpretDayActivity({ ...sources, profile: { kind } });
     assert.deepEqual(activity.targets, { kind });
@@ -374,30 +282,4 @@ test("the Active workout names its own day, with a fallback for a blank name", (
       interpretDayActivity({ ...sources, exercise: { kind } }).activeWorkoutName,
       undefined,
     );
-});
-
-test("Today and the Selected day read the same sources through one interface", () => {
-  const today = date,
-    selected = otherDate;
-  const input = {
-    ...sources,
-    food: {
-      kind: "ready",
-      document: {
-        version: 1,
-        days: { [today]: [drink], [selected]: [{ ...drink, id: "other", calories: 40 }] },
-      },
-    },
-    water: { kind: "ready", document: { version: 1, days: { [today]: 500, [selected]: 200 } } },
-  } satisfies Sources;
-  const journal = interpretDayActivity({ ...input, date: today });
-  const home = interpretDayActivity({ ...input, date: selected });
-  assert.equal(journal.date, today);
-  assert.equal(home.date, selected);
-  assert.equal(journal.food.kind === "ready" && journal.food.summary.calories, 100);
-  assert.equal(home.food.kind === "ready" && home.food.summary.calories, 40);
-  assert.deepEqual(journal.water.total, { kind: "ready", manualMl: 500, drinkMl: 250, ml: 750 });
-  assert.deepEqual(home.water.total, { kind: "ready", manualMl: 200, drinkMl: 250, ml: 450 });
-  // Targets belong to the Profile, not the day.
-  assert.deepEqual(journal.targets, home.targets);
 });

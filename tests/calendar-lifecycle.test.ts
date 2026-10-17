@@ -47,7 +47,6 @@ function controlledTime(initial: Date) {
 }
 
 test("construction is inert and midnight advances the observable Today selection", () => {
-  assert.equal(typeof lifecycle.createSelectedDay, "function");
   const time = controlledTime(new Date(2026, 9, 1, 23, 59));
   const selection = lifecycle.createSelectedDay(time);
   const initial = selection.getSnapshot();
@@ -99,7 +98,6 @@ test("wake catches up across skipped days without publishing repeated refreshes"
 test("selection rejects invalid days and publishes only when the selected day changes", () => {
   const time = controlledTime(new Date(2026, 9, 1, 12));
   const selection = lifecycle.createSelectedDay(time);
-  assert.equal(typeof selection.selectDay, "function");
   let published = 0;
   selection.subscribe(() => {
     published += 1;

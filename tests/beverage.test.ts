@@ -180,29 +180,13 @@ test("custom label drinks are genuinely volume-only, editable, reloadable, and u
     nutritionForGrams(cola, 50).calories,
   );
 });
-test("OFF drink taxonomy plus explicit volume preserves per100ml while sauce packaging remains unknown", () => {
-  const product = {
+test("OFF drink taxonomy without volume packaging is not a drink", () => {
+  const product = parseBrandedProduct({
     code: "3017620422003",
     product_name: "Label",
-    quantity: "330 ml",
+    quantity: "100 g",
     categories_tags: ["en:beverages"],
-    nutriments: {
-      "energy-kcal_100g": 40,
-      carbohydrates_100g: 10,
-      proteins_100g: 0,
-      sodium_100g: 0,
-    },
-  };
-  const drink = parseBrandedProduct(product);
-  assert.ok(drink);
-  assert.equal(drink.draft.drink, true);
-  assert.equal(drink.draft.calories, "40");
-  assert.equal(drink.draft.protein, "0");
-  assert.equal(drink.draft.fat, "");
-  assert.equal(drink.draft.details?.sodium, "0");
-  const sauce = parseBrandedProduct({ ...product, categories_tags: ["en:sauces"] });
-  assert.ok(sauce);
-  assert.equal(sauce.draft.drink, undefined);
-  assert.equal(sauce.draft.calories, "");
-  assert.equal(parseBrandedProduct({ ...product, quantity: "100 g" })?.draft.drink, undefined);
+  });
+  assert.ok(product);
+  assert.equal(product.draft.drink, undefined);
 });

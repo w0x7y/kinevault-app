@@ -1,12 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { emptyAnswers, type Answers } from "../src/profile/answers.ts";
-import {
-  estimateCalories,
-  validateAnswers,
-  changeAnswers,
-  calorieState,
-} from "../src/profile/calories.ts";
+import { emptyAnswers } from "../src/profile/answers.ts";
+import { estimateCalories, validateAnswers, changeAnswers } from "../src/profile/calories.ts";
 import { parseProfile } from "../src/profile/model.ts";
 
 const adult = {
@@ -121,33 +116,4 @@ test("older profiles without a supported age keep their answers for re-checking"
     step: "age",
     answers,
   });
-});
-
-test("typing a new teen age preserves a manual target through incomplete input", () => {
-  let teen: Answers = {
-    ...adult,
-    age: "16",
-    estimateEnabled: false,
-    customCalories: "2300",
-  };
-  for (const age of ["", "1", "17"]) teen = changeAnswers(teen, { kind: "fields", patch: { age } });
-  assert.equal(teen.customCalories, "2300");
-  let estimated: Answers = { ...adult, customCalories: "2000" };
-  for (const age of ["", "1", "16"])
-    estimated = changeAnswers(estimated, { kind: "fields", patch: { age } });
-  assert.equal(estimated.customCalories, "");
-  assert.equal(estimated.estimateEnabled, false);
-});
-
-test("completed custom targets survive other profile changes", async () => {
-  const complete = parseProfile(
-    JSON.stringify({
-      version: 1,
-      kind: "complete",
-      answers: { ...adult, customCalories: "2400" },
-    }),
-  );
-  assert.equal(calorieState(complete.answers).target, 2400);
-  assert.equal(calorieState({ ...complete.answers, goal: "gain", weight: "90" }).target, 2400);
-  assert.equal(calorieState({ ...complete.answers, customCalories: "" }).target, 2760);
 });

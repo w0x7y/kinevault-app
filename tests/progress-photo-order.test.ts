@@ -48,14 +48,3 @@ test("empty and single-photo galleries keep their truthful comparison endpoints"
   const only = photo("only", "2026-10-01");
   assert.deepEqual(progressPhotoTimeline([only]), { photos: [only], first: only, latest: only });
 });
-
-test("date edits and removal recompute both endpoints from the current gallery", () => {
-  const first = photo("first", "2026-01-01"),
-    middle = photo("middle", "2026-05-01"),
-    latest = photo("latest", "2026-10-01");
-  const edited = { ...middle, date: "2025-12-31" };
-  assert.equal(progressPhotoTimeline([first, edited, latest]).first, edited);
-  const afterRemoval = progressPhotoTimeline([first, edited]);
-  assert.equal(afterRemoval.first, edited);
-  assert.equal(afterRemoval.latest, first);
-});

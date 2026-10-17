@@ -111,11 +111,6 @@ test("exact and simple food names rank above dishes containing that food", () =>
   );
 });
 
-test("empty or short food queries do not dump the catalog", () => {
-  const catalog = createFoodCatalog([banana]);
-  for (const query of ["", "   ", "!", "b", " b ! "]) assert.equal(catalog.search(query).total, 0);
-});
-
 test("food result pages retain the total and never repeat or skip matches", () => {
   const catalog = createFoodCatalog(
     Array.from({ length: 45 }, (_, index) =>

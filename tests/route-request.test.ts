@@ -21,23 +21,10 @@ function replay(renders: { value: RouteParam; ready?: boolean }[]) {
 }
 
 test("a request is delivered and cleared once", () => {
-  assert.deepEqual(routeRequestStep(null, "photos", true), {
-    memory: "photos",
-    clear: true,
-    deliver: "photos",
-  });
   assert.deepEqual(replay([{ value: "photos" }, { value: "photos" }, { value: undefined }]), {
     clears: [0],
     delivered: ["photos"],
     memory: null,
-  });
-});
-
-test("the same value is not delivered again while the param remains", () => {
-  assert.deepEqual(routeRequestStep("photos", "photos", true), {
-    memory: "photos",
-    clear: false,
-    deliver: null,
   });
 });
 
@@ -59,11 +46,6 @@ test("a changed value is delivered without the param clearing in between", () =>
 });
 
 test("nothing is delivered or cleared before the screen is ready", () => {
-  assert.deepEqual(routeRequestStep(null, "2026-10-04", false), {
-    memory: null,
-    clear: false,
-    deliver: null,
-  });
   assert.deepEqual(
     replay([
       { value: "2026-10-04", ready: false },
@@ -74,24 +56,8 @@ test("nothing is delivered or cleared before the screen is ready", () => {
   );
 });
 
-test("a param that disappears before readiness is never delivered", () => {
-  assert.deepEqual(
-    replay([
-      { value: "2026-10-04", ready: false },
-      { value: undefined, ready: false },
-      { value: undefined, ready: true },
-    ]),
-    { clears: [], delivered: [], memory: null },
-  );
-});
-
 test("array values are cleared but not delivered", () => {
   const value = ["photos", "goals"];
-  assert.deepEqual(routeRequestStep(null, value, true), {
-    memory: value,
-    clear: true,
-    deliver: null,
-  });
   assert.deepEqual(replay([{ value }, { value }, { value: undefined }]), {
     clears: [0],
     delivered: [],

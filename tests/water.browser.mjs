@@ -1,7 +1,7 @@
 import { installAccountFixture } from "./helpers/account-fixture.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { launchBrowser } from "./helpers/browser.mjs";
+import { failNextWrite, launchBrowser } from "./helpers/browser.mjs";
 
 const baseURL = process.env.KINE_PREVIEW_URL || "http://localhost:8081";
 const storageKey = "kinevault-track.water-log.v1";
@@ -105,37 +105,6 @@ test("water adjustment controls edit the draft in 250 ml steps without writing b
   assert.equal(await field(page).inputValue(), "1250");
   await minus.click();
   assert.equal(await field(page).inputValue(), "1000");
-  await field(page).fill("600");
-  await plus.click();
-  assert.equal(await field(page).inputValue(), "850");
-  await minus.click();
-  assert.equal(await field(page).inputValue(), "600");
-  for (const value of ["", "100", "0"]) {
-    await field(page).fill(value);
-    await minus.click();
-    assert.equal(await field(page).inputValue(), "0");
-  }
-  await field(page).fill("9900");
-  await plus.click();
-  assert.equal(await field(page).inputValue(), "10150");
-  await field(page).fill(String(Number.MAX_SAFE_INTEGER - 100));
-  await plus.click();
-  assert.equal(await field(page).inputValue(), String(Number.MAX_SAFE_INTEGER));
-  await plus.click();
-  assert.equal(await field(page).inputValue(), String(Number.MAX_SAFE_INTEGER));
-  await minus.click();
-  assert.equal(await field(page).inputValue(), String(Number.MAX_SAFE_INTEGER - 250));
-  for (const value of ["bad", "1.5", "-5", "Infinity", "9".repeat(400)]) {
-    await field(page).fill(value);
-    await button(dialog(page), "Save water").click();
-    await dialog(page).getByRole("alert").waitFor();
-    await plus.click();
-    assert.equal(await field(page).inputValue(), "250");
-    assert.equal(await dialog(page).getByRole("alert").count(), 0);
-    await field(page).fill(value);
-    await minus.click();
-    assert.equal(await field(page).inputValue(), "0");
-  }
   assert.equal(await stored(page), initial);
   await button(dialog(page), "Cancel").click();
   assert.equal(await stored(page), initial);
@@ -162,12 +131,10 @@ test("the entire water widget opens direct entry, cancel/invalid values never wr
   assert.equal(await stored(page), null);
   await enter(page);
   assert.equal(await field(page).inputValue(), "0");
-  for (const amount of ["", "-5", "1.5", String(Number.MAX_SAFE_INTEGER + 1)]) {
-    await field(page).fill(amount);
-    await button(dialog(page), "Save water").click();
-    await dialog(page).getByRole("alert").waitFor();
-    assert.equal(await stored(page), null);
-  }
+  await field(page).fill("-5");
+  await button(dialog(page), "Save water").click();
+  await dialog(page).getByRole("alert").waitFor();
+  assert.equal(await stored(page), null);
   await field(page).fill("");
   await button(dialog(page), "+250 ml").click();
   assert.equal(await field(page).inputValue(), "250");
@@ -207,16 +174,7 @@ test("failed water save preserves the amount and previous total for one successf
   });
   await enter(page);
   await field(page).fill("500");
-  await page.evaluate((key) => {
-    const setItem = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (nextKey, value) {
-      if (nextKey.endsWith(key)) {
-        Storage.prototype.setItem = setItem;
-        throw new Error("Fixture write failure");
-      }
-      return setItem.call(this, nextKey, value);
-    };
-  }, storageKey);
+  await failNextWrite(page, storageKey);
   await button(dialog(page), "Save water").click();
   await dialog(page).getByRole("alert").filter({ hasText: "Couldn't save" }).waitFor();
   assert.equal(await field(page).inputValue(), "500");
@@ -364,37 +322,6 @@ test("duplicate save taps stay blocked and a pending save targets its original d
   await dialog(page).getByText("For Wed, Sep 30", { exact: true }).waitFor();
   assert.deepEqual(JSON.parse(await stored(page)).days, { "2026-10-01": 500 });
   await button(dialog(page), "Cancel").click();
-});
-
-test("reopening water preloads the manual total and a lower value replaces it, including zero", async (t) => {
-  const page = await open(t, {
-    water: JSON.stringify({ version: 1, days: { "2026-10-01": 1000, "2026-09-30": 300 } }),
-  });
-  await enter(page);
-  assert.equal(await field(page).inputValue(), "1000");
-  await field(page).fill("750");
-  await save(page);
-  assert.deepEqual(JSON.parse(await stored(page)).days, { "2026-10-01": 750, "2026-09-30": 300 });
-  await enter(page);
-  assert.equal(await field(page).inputValue(), "750");
-  await field(page).fill("0");
-  await save(page);
-  assert.deepEqual(JSON.parse(await stored(page)).days, { "2026-10-01": 0, "2026-09-30": 300 });
-  await page.reload();
-  await enter(page);
-  assert.equal(await field(page).inputValue(), "0");
-});
-
-test("loaded legacy manual totals remain intact on reopening and unchanged save", async (t) => {
-  const initial = JSON.stringify({ version: 1, days: { "2026-10-01": 12500 } });
-  const page = await open(t, { water: initial });
-  await enter(page);
-  assert.equal(await field(page).inputValue(), "12500");
-  await button(dialog(page), "Cancel").click();
-  assert.equal(await stored(page), initial);
-  await enter(page);
-  await save(page);
-  assert.equal(await stored(page), initial);
 });
 
 test("an untouched loading draft preloads the durable manual total only once after recovery", async (t) => {

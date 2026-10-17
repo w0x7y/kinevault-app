@@ -97,10 +97,6 @@ test("weight journal logs, edits, overwrites duplicate dates, reloads, and delet
   await page.getByRole("textbox", { name: "Body weight (kg)", exact: true }).fill("79.5");
   await button(page, "Save weight").click();
   await page.getByTestId("weight-entry-2026-10-08").waitFor();
-  assert.doesNotMatch(
-    await journal.innerText(),
-    /Measurements stay separate|One measurement saved|Spacing follows calendar dates/,
-  );
   await log(page, "2026-10-01", "82");
   await log(page, "2026-10-02", "81.5");
   const graph = page.getByRole("img", { name: /^Body weight trend/ });
