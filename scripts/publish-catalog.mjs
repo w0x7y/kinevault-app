@@ -1,11 +1,18 @@
 // Mirrors published KineVault exercise demonstrations into Track's Supabase
 // project. Dry run by default; pass --apply to write. KineVault is read only
 // with its publishable key, so the script sees what a published page sees.
+import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import { createClient } from "@supabase/supabase-js";
 
 export const demoBucket = "exercise-demos";
+// The app's demo frame uses the same color (src/exercise/demo/config.ts).
+export const demoBackdrop = "#232f3b";
 export const anatomyCredit =
   "Anatomy: Z-Anatomy (CC BY-SA 4.0); BodyParts3D © DBCLS (CC BY-SA 2.1 JP).";
 const maxMediaBytes = 10 * 1024 * 1024;
@@ -180,6 +187,45 @@ export function checkMedia(bytes, kind) {
     throw new Error("The poster is not a WebP file.");
 }
 
+// KineVault records its 640×640 viewer page: an off-white #f6f8f8 background with an
+// attribution strip and a menu button in the bottom 64 px. This cuts the strip, pads
+// to the app's 4:3 frame and swaps the page color for the backdrop. Each row's credit
+// carries the attribution.
+// shortcut: assumes square renders laid out like today's; re-measure if KineVault changes its viewer.
+const reframeFilter =
+  "scale=640:640,crop=640:552:0:24,pad=736:552:48:0:0xf6f8f8,colorkey=0xf6f8f8:0.06:0.08," +
+  `split[page][figure];[page]drawbox=c=0x${demoBackdrop.slice(1)}:t=fill:replace=1[backdrop];` +
+  "[backdrop][figure]overlay,format=yuv420p";
+const encoders = {
+  video: ["-an", "-c:v", "libx264", "-preset", "slow", "-crf", "20", "-movflags", "+faststart"],
+  poster: ["-c:v", "libwebp", "-quality", "85"],
+};
+const runFile = promisify(execFile);
+
+export async function reframeDemo(bytes, kind) {
+  const extension = kind === "video" ? "mp4" : "webp";
+  const dir = await mkdtemp(join(tmpdir(), "track-demo-"));
+  const input = join(dir, `in.${extension}`);
+  const output = join(dir, `out.${extension}`);
+  try {
+    await writeFile(input, bytes);
+    // One thread and bitexact output give the same bytes every run, so the
+    // content-hash file names stay stable and dry runs don't re-upload.
+    await runFile(process.env.FFMPEG_PATH || "ffmpeg", [
+      ...["-v", "error", "-y", "-i", input, "-filter_complex", reframeFilter],
+      ...["-threads", "1", "-fflags", "+bitexact", "-map_metadata", "-1"],
+      ...encoders[kind],
+      output,
+    ]);
+    return new Uint8Array(await readFile(output));
+  } catch (error) {
+    const hint = error?.code === "ENOENT" ? " Install ffmpeg or set FFMPEG_PATH." : "";
+    throw new Error(`Couldn't reframe the ${kind}: ${error?.message ?? error}${hint}`);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
 export function mediaPath(id, bytes, extension) {
   const hash = createHash("sha256").update(bytes).digest("hex").slice(0, 16);
   return `${id}/${hash}.${extension}`;
@@ -263,6 +309,7 @@ export async function publishCatalog({
   apply = false,
   now = () => new Date().toISOString(),
   log = console.log,
+  reframe = reframeDemo,
 }) {
   const raw = await kinevault.readRaw();
   const { sources, skipped } = buildSourceExercises(raw);
@@ -280,10 +327,12 @@ export async function publishCatalog({
   // A download or format failure stops the run before anything is written, so
   // a temporary problem can't withdraw a demo.
   for (const source of sources) {
-    const video = await kinevault.download(source.video);
-    const poster = await kinevault.download(source.poster);
-    checkMedia(video, "video");
-    checkMedia(poster, "poster");
+    const rawVideo = await kinevault.download(source.video);
+    const rawPoster = await kinevault.download(source.poster);
+    checkMedia(rawVideo, "video");
+    checkMedia(rawPoster, "poster");
+    const video = await reframe(rawVideo, "video");
+    const poster = await reframe(rawPoster, "poster");
     const videoPath = mediaPath(source.id, video, "mp4");
     const posterPath = mediaPath(source.id, poster, "webp");
     located.push({ ...source, videoPath, posterPath });

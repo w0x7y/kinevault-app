@@ -1,15 +1,18 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
 import {
   anatomyCredit,
   buildSourceExercises,
   checkMedia,
+  demoBackdrop,
   demoCredit,
   describePlan,
   mediaPath,
   planCatalogPublish,
   publishCatalog,
   readAll,
+  reframeDemo,
 } from "./publish-catalog.mjs";
 
 const press = "3f1c2b9e-8a4d-4c1e-9b7a-2d5e6f708192";
@@ -297,6 +300,7 @@ function ports({ current = [], existing = [], source = raw() } = {}) {
   const calls = [];
   return {
     calls,
+    reframe: async (bytes) => bytes,
     kinevault: {
       readRaw: async () => source,
       download: async ({ path }) => (path.endsWith(".webp") ? webp(path.length) : mp4(path.length)),
@@ -542,3 +546,59 @@ test("a media format failure for one exercise writes nothing", async () => {
     assert.deepEqual(logs, []);
   }
 });
+
+const ffmpeg = process.env.FFMPEG_PATH || "ffmpeg";
+const hasFfmpeg = (() => {
+  try {
+    execFileSync(ffmpeg, ["-version"]);
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+test(
+  "reframing cuts the attribution strip and swaps the page color for the backdrop",
+  { skip: !hasFfmpeg && "ffmpeg isn't installed" },
+  async () => {
+    // A KineVault-like page: a gray figure on #f6f8f8 above a black 64 px strip.
+    const page =
+      "color=c=0xf6f8f8:s=640x640:r=24:d=0.5," +
+      "drawbox=x=280:y=200:w=80:h=200:c=0x808080:t=fill,drawbox=x=0:y=576:w=640:h=64:c=black:t=fill";
+    const outputs = {
+      video: ["-f", "mp4", "-movflags", "frag_keyframe+empty_moov"],
+      poster: ["-frames:v", "1", "-f", "webp"],
+    };
+    for (const [kind, output] of Object.entries(outputs)) {
+      const source = execFileSync(ffmpeg, [
+        "-v",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        page,
+        ...output,
+        "-",
+      ]);
+      const framed = await reframeDemo(source, kind);
+      checkMedia(framed, kind);
+      const rgb = execFileSync(
+        ffmpeg,
+        ["-v", "error", "-i", "-", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+        { input: framed, maxBuffer: 1 << 24 },
+      );
+      assert.equal(rgb.length, 736 * 552 * 3, `${kind} is 736×552`);
+      const near = (x, y, hex) => {
+        const actual = [...rgb.subarray((y * 736 + x) * 3, (y * 736 + x) * 3 + 3)];
+        const expected = [1, 3, 5].map((start) => parseInt(hex.slice(start, start + 2), 16));
+        assert.ok(
+          actual.every((value, index) => Math.abs(value - expected[index]) <= 8),
+          `${kind} pixel ${x},${y} is ${actual}, expected ${hex}`,
+        );
+      };
+      near(2, 2, demoBackdrop);
+      near(368, 551, demoBackdrop);
+      near(368, 276, "#808080");
+    }
+  },
+);
