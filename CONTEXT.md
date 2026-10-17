@@ -142,17 +142,24 @@ durable success closes that panel, and a replaced panel's late result cannot clo
 a newer one.
 
 **Exercise tab view**: Where the Exercise tab shows each Workout log and library
-panel. Compact cards and the Active workout stay on the day; every other panel
-opens as a page over it with its own title and back control.
+panel. Compact cards stay on the day; every other panel, the Active workout's
+included, opens as a page over it with its own back control. While a workout is
+active, the default view shows a Live workout card in place of the day's cards.
 
 **Active workout**: The sole workout with a running wall-clock timer. Its name
 must be nonblank before Start; an unnamed draft remains editable. Its saved
 start time and draft sets survive tab switches and app reopening. It remains on
 its original date across midnight. End workout requires a successful durable save.
 The active editor retains local fields across searches and calendar changes.
-It automatically expands on the default Exercise view, whatever the Selected day,
-under a Live workout header with elapsed time beside the workout name. It has no
-separate timer/open panel or Close action.
+It opens as a full page whose top bar centers the elapsed time; Start from a day
+card opens that page, and Start from the manual page keeps it up. Its back
+control saves the draft sets and leaves the workout running, and stays on the page
+if that save fails. While it runs, the app header centers the same timer on every
+tab and opens the page when tapped.
+
+**Live workout card**: The Exercise tab's stand-in for the day's cards and the
+Import button while a workout is active: Kine working out, the workout name, and
+Open workout. It shows on the default view only, whatever the Selected day.
 
 **Completed workout**: A finished or manually logged workout's valid sets and
 the exercises that have at least one logged set. Untouched blank sets are skipped
@@ -209,6 +216,16 @@ Completed workout logs contribute independently to daily totals. Exercise
 storage loading or failure does not hide known food records, and Food recovery
 does not hide known workout totals.
 
+**Phone steps**: The steps the phone counted on the Selected day: Core Motion on
+iOS, which keeps the last 7 days, and Health Connect on Android. Reading them
+needs the user's permission and a native build; the web preview and Expo Go on
+Android have none. They are read on the device and never uploaded.
+
+**Logged steps**: Steps entered by hand for the Selected day, for walking the phone
+missed. They add to Phone steps for the day's total. Editing replaces that day's
+amount; zero clears it. They stay on the device, per Account, and are not an
+Account tracking document: they don't sync and aren't in the account export.
+
 **Manual water**: The milliliters entered directly for the Selected day,
 separate from saved Drinks. Editing replaces that day's manual amount; zero
 clears it without changing Drinks or other days.
@@ -218,8 +235,8 @@ set. Manual water and saved Drinks contribute together, and reaching or exceedin
 the target means completed goal progress. An entered replacement remains a draft
 until Save; another device's goal update does not overwrite that entered amount.
 
-**Document edit**: An entered draft of one durable document (Manual water, Water
-goal, a Profile section) with its own save feedback. Its untouched draft comes from
+**Document edit**: An entered draft of one durable document (Manual water, Logged steps,
+Water goal, a Profile section) with its own save feedback. Its untouched draft comes from
 the saved document, either once or following saved replacements until the user
 types; Save validates against the latest saved document. A closed edit's late
 result never reaches a newer edit.

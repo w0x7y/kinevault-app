@@ -8,6 +8,14 @@ and docs/ describe behavior and link here instead of repeating status.
 - [x] Integrate drink logging with water tracking.
 - [x] Verify barcode scanning and drink/water logging on physical iOS and Android devices.
 
+## Steps
+
+- [x] Count phone steps on Home (Core Motion on iOS, Health Connect on Android) and log missed steps by hand. Logged steps stay on the device.
+- [ ] Verify phone steps on a physical iPhone and Android phone: the permission prompts, denied and re-enabled access, Health Connect install on Android 8–13, the count for today and earlier days (iOS keeps 7 days), and Logged steps adding to it.
+- [ ] Sync Logged steps across devices. The hosted `track_documents` table only accepts its listed document keys, so `kinevault-track.steps-log.v1` needs a reviewed migration before it can join the Account tracking document registry.
+- [ ] Include Logged steps in the account JSON export.
+- [ ] Declare Health Connect step access in the Play Console before any Google Play release.
+
 ## Exercise
 
 - [x] Build strength/bodyweight exercise and reusable workout creation, search, editing, and deletion.
@@ -16,6 +24,8 @@ and docs/ describe behavior and link here instead of repeating status.
 - [x] Share completed-workout totals with Home and skip untouched blank sets.
 - [x] Complete workout-edit/template architecture refactors, independent reviews, and automated regression checks.
 - [x] Verify a full workout on a physical iPhone: Start, set entry, exercise scrolling, keyboard, background/reopen, End, and completed editing.
+- [x] Open the live workout as a full page with its timer centered in the top bar, show the timer in the app header while it runs, and show Kine working out on the Exercise tab in place of the day's cards.
+- [ ] Check the live workout page on a physical iPhone and Android phone: the page sheet and back gesture, the header timer at narrow widths, and Link demo returning to the page.
 - [ ] Add timed exercises and cardio with duration/distance in a future phase.
 
 ## Profile & integrations

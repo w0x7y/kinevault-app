@@ -335,3 +335,30 @@ curves). Press feedback belongs to `Tappable`, the segment fill to
   check motion opt in.
 - **Layout fix:** the workout chart now keeps its aspect ratio from the first
   frame instead of resizing once its width is measured.
+
+## 8. Live workout page and steps (October 17, 2026)
+
+- **Live workout page:** the Active workout opens as a page like the other
+  Exercise flows (a full screen on Android and web, a page sheet on iOS)
+  instead of expanding on the tab. Its elapsed time sits on a primary-blue
+  pill with a stopwatch, centered in the page's top bar. The ink "live"
+  header card, its "Live workout" overline and the pulsing dot are gone; the
+  workout name is the card's first heading, as on the manual and completed
+  pages. Back to Exercise leaves the workout running.
+- **Header timer:** while a workout runs, the app header centers the same
+  pill on every tab, and tapping it opens the workout. To make room, the date
+  shortens to month and day ("Oct 4") and the calendar chip drops its
+  chevron. Under 360pt the pill drops the stopwatch so "Profile" and the date
+  still fit at 320pt. The stopwatch keeps the elapsed time from reading as a
+  clock.
+- **Exercise tab while live:** a card with Kine's side stretch (the
+  `exercise` pose) on a brand-tinted disc, an "In progress" overline, the
+  workout name and a primary Open workout button replaces the day's cards and
+  Import workouts. Search and the three action tiles stay.
+- **Home:** the "Live" badge on the workout card keeps its dot; that dot is
+  the only one that still pulses.
+- **Steps tile:** it is now a button like the Water tile. It shows the
+  phone's steps plus logged steps for the selected day, and opens a Log steps
+  bottom sheet: the phone's count or its connect state, and a hero field for
+  logged steps between round -500 and +500 steppers (the water entry's
+  stepper, now a shared control).

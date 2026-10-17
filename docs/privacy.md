@@ -60,6 +60,22 @@ is no push server and no push token. Signing out cancels the scheduled
 notifications and removes reminders already shown in the notification list, and
 the next sign-in schedules that account's reminders again.
 
+## Steps
+
+Home's step count comes from the phone, with the user's permission: Core Motion
+on iOS (the Motion & Fitness permission; Apple keeps the last 7 days) and Health
+Connect on Android (the read-steps permission). Track reads only the step total
+for the day it shows, on the device, while Home shows it. It never uploads,
+syncs or saves phone steps, and it reads nothing else from Core Motion or Health
+Connect. It doesn't use HealthKit.
+
+Steps logged by hand are stored in the signed-in account's local storage on this
+device (`kinevault-track.steps-log.v1`), unencrypted like other tracking. They
+are not uploaded or synced to other devices, and the account export doesn't
+include them yet. Account deletion's local cleanup removes them with the rest of
+the account's device records; uninstalling the app or clearing its storage loses
+them.
+
 ## Proposed privacy-policy text
 
 > To support offline logging, KineVault Track stores a local copy of your
@@ -74,7 +90,10 @@ the next sign-in schedules that account's reminders again.
 > without your KineVault account details. On the web, your browser sends the
 > workout ID to KineVault's server, which downloads the page from Tracked for you
 > and does not keep it. Reminders are scheduled on your device and are not
-> uploaded.
+> uploaded. If you allow it, the app reads your daily step count from your
+> phone's motion data (iOS) or Health Connect (Android) to show it on Home; that
+> count stays on your device. Steps you log by hand are saved only on this
+> device and are not uploaded.
 
 This is the storage disclosure for the current implementation. The published
 policy still needs the product's actual operator, contact details and retention

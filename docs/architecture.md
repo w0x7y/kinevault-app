@@ -48,6 +48,15 @@ The tabs mount the documents they read through `AccountTrackingProvider`, and
 mounts above them with the account scope. Adding a synced document means a domain key constant, a provider from the
 factory and one registry entry.
 
+Logged steps (`kinevault-track.steps-log.v1`) are a device-only document: their
+provider comes from the same factory and mounts with the others, but the key is
+not in the registry, so account storage keeps it under the account's local prefix
+without syncing it, and account deletion cleanup removes it with the rest of that
+prefix. Syncing it would need the cloud `track_documents` key allowlist to accept
+the key first. Phone steps never reach storage: `src/steps/device-steps.ts`
+(Core Motion on iOS, Health Connect on Android, nothing on web) is read for the
+Selected day while Home shows it.
+
 Food and exercise history have physical monthly partitions behind that logical
 document interface. Local copy-on-write manifests publish a whole replacement
 only after its changed fragments are durable. The optional cloud transport
@@ -98,8 +107,13 @@ saved-item deletion feedback, scoped to the caller that requested it, and the Me
 destination that Logging attempts read and write.
 
 The Exercise tab view decides where every Workout log and panel goes: compact
-cards and the Active workout stay on the tab, every other panel is a sheet with its
-title, back name and test ID. Workout edits own the selected exercise and the
+cards stay on the tab, and every other panel, the Active workout's page included, is
+a sheet with its title, back name and test ID. On the default view the Active
+workout is a Live workout card that opens its page. Workout edits open that page
+after a Start from the day, keep the edit when its back button leaves it (the
+`leave` action saves first and stays put if the save fails), and don't save a
+workout before opening its own page. The app header reads the Active workout from
+the exercise store and opens the page through the `liveWorkout` route request. Workout edits own the selected exercise and the
 planned-set settings disclosure, which reopens when a planned count is invalid, and
 the same log mode drives planned-count validation. Library drafts own Exercise definition, Workout template, Saved
 workouts and Workout import state per panel, so the sheet can unmount when the tab
@@ -107,7 +121,8 @@ loses focus without losing input; their durable success closes the originating
 panel through the same token guards as Workout edits. The sheet page owns its
 header overrides and scroll positioning: pages claim the back button with
 `useSheetBack`, request a scroll target with `useSheetScrollTarget`, and a new
-`page` starts at the top.
+`page` starts at the top. A page can replace its centered title with `center`, as
+the live workout does with its timer.
 
 The Food tab view owns the Food tab's query, its page over the log and the owners
 behind that page (a Logging attempt, a Product import flow). Catalog views
@@ -139,8 +154,8 @@ do not tokenize the catalog or build an index during server rendering.
 
 ## Durable domain documents
 
-Profile, Exercise, Food log, Custom foods, Manual water, Water goal and Reminders
-persistence share the durable-write module's lifecycle. Their own modules retain validation,
+Profile, Exercise, Food log, Custom foods, Manual water, Logged steps, Water goal
+and Reminders persistence share the durable-write module's lifecycle. Their own modules retain validation,
 mutations and domain-specific results. Callers do not coordinate storage ordering,
 write exclusion, subscriber cancellation or stale read generations themselves.
 
@@ -150,7 +165,8 @@ settles. Draft owners remain mounted and merge their chosen fields into the late
 saved document when the user saves. Tests cross the domain interface instead of
 depending on private lifecycle state.
 
-Manual water, Water goal and focused Profile edits share the document-edit module.
+Manual water, Logged steps, Water goal and focused Profile edits share the
+document-edit module.
 It owns the draft's seeding (fill once or follow until typed), save exclusion,
 write reservation before observers run, stale-completion handling,
 persistence-failure feedback and load state with retry. Domains supply the seed,
@@ -212,15 +228,17 @@ source that could not be read shows a LoadFailure: its message as one alert and 
 Retry that stays busy until the retry settles. Only the exercise set cell, the
 search boxes and the Profile name field draw their own inputs.
 
-Small modal tasks (editing water, the profile photo, progress photos, weight
-entries, the details chooser) are ModalSheets: a bottom sheet on phones and a
+Small modal tasks (editing water, logging steps, the profile photo, progress
+photos, weight entries, the details chooser) are ModalSheets: a bottom sheet on phones and a
 centered dialog on wider windows. The caller only says whether it is open. The
 sheet owns the backdrop, the entrance, the exit for every way of closing (holding
 the last content while it leaves), reduced motion, Escape and Android Back, and
 moving focus in and back out on web. A caller that acts after the sheet has gone,
 such as opening a picker, does it in `onClosed`. Flows that leave the day view
 are SheetPages: a full page with a back-button header, whose nested pages take
-over its header instead of stacking another sheet.
+over its header instead of stacking another sheet. The water and steps entries
+share the round ± Stepper (`src/components/stepper.tsx`), whose accessible name
+carries the amount and unit.
 
 Popovers (the header calendar, the profile menu and the journal's choice lists)
 use `usePopover` for dismissal: Escape returns focus to the trigger, Android Back
