@@ -4,6 +4,7 @@ import { ExerciseProvider, useExercises } from "../exercise/provider";
 import { CustomFoodProvider, useCustomFoods } from "../food/custom-provider";
 import { FoodLogProvider, useFoodLog } from "../food/log-provider";
 import { ProfileMediaProvider } from "../profile/media-provider";
+import { StepsLogProvider } from "../steps/provider";
 import { WaterLogProvider, useWaterLog } from "../water/provider";
 import { WaterGoalProvider, useWaterGoal } from "../water/goal-provider";
 
@@ -20,6 +21,8 @@ const tabDocuments: readonly {
   { Provider: WaterLogProvider, refresh: { label: "Water log", useDocument: useWaterLog } },
   { Provider: WaterGoalProvider, refresh: { label: "Water goal", useDocument: useWaterGoal } },
   { Provider: ProfileMediaProvider },
+  // Device-only, so it never refreshes from the cloud.
+  { Provider: StepsLogProvider },
 ];
 
 /** Mounts every tracking document the tabs read. Profile mounts above, with the account scope. */

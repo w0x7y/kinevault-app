@@ -11,6 +11,10 @@ import { WorkoutWidget } from "../../daily/workout-widget";
 import { ActivityWidgets } from "../../daily/activity-widgets";
 import { FoodLogStatus } from "../../food/log-status";
 import { WaterEntryModal } from "../../water/entry-modal";
+import { StepsEntryModal } from "../../steps/entry-modal";
+import { useStepsLog } from "../../steps/provider";
+import { stepsTile } from "../../steps/summary";
+import { useDeviceSteps } from "../../steps/use-device-steps";
 import { useExercises } from "../../exercise/provider";
 import { useProfile } from "../../profile/provider";
 import { useSelectedDay } from "../../calendar/provider";
@@ -25,9 +29,18 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const [contentWidth, setContentWidth] = useState(0);
   const [waterEntryDay, setWaterEntryDay] = useState<string | null>(null);
+  const [stepsEntryDay, setStepsEntryDay] = useState<string | null>(null);
   useEffect(() => {
     setWaterEntryDay(null);
+    setStepsEntryDay(null);
   }, [activity.date]);
+  const phone = useDeviceSteps(activity.date);
+  const { state: stepsLog } = useStepsLog();
+  const steps = stepsTile(
+    activity.date,
+    phone,
+    stepsLog.kind === "ready" ? (stepsLog.document.days[activity.date] ?? 0) : null,
+  );
   const { targets } = activity;
   const motion = useLayoutMotion();
   // The cards rise in once, the first time Home has data to show. Later mounts (the calorie card
@@ -83,8 +96,9 @@ export default function HomeScreen() {
       )}
       <Animated.View entering={enter(2)}>
         <ActivityWidgets
-          steps={activity.steps}
+          steps={steps}
           water={activity.water}
+          onLogSteps={() => setStepsEntryDay(activity.date)}
           onAddWater={() => setWaterEntryDay(activity.date)}
         />
       </Animated.View>
@@ -100,6 +114,16 @@ export default function HomeScreen() {
           }
         />
       </Animated.View>
+      {stepsEntryDay === activity.date && (
+        <StepsEntryModal
+          key={stepsEntryDay}
+          date={stepsEntryDay}
+          phone={phone}
+          onDismiss={() =>
+            setStepsEntryDay((current) => (current === stepsEntryDay ? null : current))
+          }
+        />
+      )}
       {waterEntryDay === activity.date && (
         <WaterEntryModal
           key={waterEntryDay}

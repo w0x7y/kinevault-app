@@ -87,7 +87,6 @@ export function interpretDayActivity({
     date,
     targets,
     food: foodActivity,
-    steps: null,
     workout: summarizeSessions(sessions),
     workoutState,
     activeWorkoutName: active ? active.name || "Active workout" : undefined,
