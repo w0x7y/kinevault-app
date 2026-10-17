@@ -26,7 +26,8 @@ and docs/ describe behavior and link here instead of repeating status.
 - [x] Integrate KineVault studio exercise videos: linked exercises play demos in workouts, templates and the exercise form, with search thumbnails. See docs/exercise-demos.md.
 - [x] Publish the first KineVault demos to the hosted project: 10 demos on 2026-10-14 (the migration was applied on 2026-10-13). Linking and playback were checked on a phone in Expo Go.
 - [ ] Re-check demo playback, fullscreen, offline replay and Android rounded video corners in native builds on an iPhone and an Android device before release.
-- [ ] Configure app identifiers and store builds when ready to release: `eas.json`, iOS bundle identifier, Android package name.
+- [x] Build apps to install directly: a signed release `.apk` (`Android release build` workflow, docs/android-apk.md) and an unsigned `.ipa` signed with xtool (`iOS unsigned build` workflow, docs/ios-linux-xtool.md). Both use `com.kinevault.track`.
+- [ ] Configure store builds when ready to release: a Play Console app bundle with increasing version codes, and App Store builds, which need a paid Apple Developer Program team.
 - [ ] Activate production email delivery and web hosting: Resend SMTP, a verified sender domain, and the Vercel production origin. See docs/supabase-setup.md.
 
 ## Quality & security
