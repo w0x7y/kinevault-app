@@ -410,8 +410,9 @@ npm run ios       # iOS simulator, requires macOS and Xcode
 ```
 
 The web preview uses the same screens and components; it does not replace testing
-on native devices. No app-store build or EAS project is configured yet. The iOS
-bundle identifier and Android package are `com.kinevault.track`.
+on native devices. No app-store build or EAS project is configured yet; the two
+manual workflows below build apps to install directly. The iOS bundle identifier
+and Android package are `com.kinevault.track`.
 
 ### Native iPhone build with Xcode
 
@@ -439,6 +440,13 @@ Without a Mac, the manual `iOS unsigned build` workflow compiles an unsigned Rel
 `.ipa` on a GitHub macOS runner, and [xtool](https://github.com/xtool-org/xtool) signs
 it with a free Apple ID and installs it over USB. Follow
 [iPhone installs from Linux with xtool](docs/ios-linux-xtool.md).
+
+### Android phone install
+
+The manual `Android release build` workflow builds a release `.apk` signed with
+the project's release key on a GitHub runner. Install it with `adb install -r` or by
+opening it on the phone. Follow [Android installs](docs/android-apk.md), which also
+says where the key lives and why it must not be lost.
 
 ### iPhone connection
 
