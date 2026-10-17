@@ -1,5 +1,6 @@
 import Head from "expo-router/head";
 import {
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -54,6 +55,19 @@ export function Panel({ style, ...props }: ViewProps) {
 }
 
 /** A tab's title row: the screen name on the left and today's summary on the right. */
+/**
+ * The browser tab's title. Web only: on iOS, expo-router's Head also publishes the screen for
+ * Handoff, which needs a hosted origin this app doesn't have, and a release build alerts instead.
+ */
+export function DocumentTitle({ title }: { title: string }) {
+  if (Platform.OS !== "web") return null;
+  return (
+    <Head>
+      <title>{`${title} · KineVault Track`}</title>
+    </Head>
+  );
+}
+
 export function ScreenTitle({
   title,
   trailing,
@@ -113,9 +127,7 @@ export function Screen({
   const tabBarInset = useContext(TabBarInset);
   return (
     <SafeAreaView edges={["left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
-      <Head>
-        <title>{title} · KineVault Track</title>
-      </Head>
+      <DocumentTitle title={title} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}

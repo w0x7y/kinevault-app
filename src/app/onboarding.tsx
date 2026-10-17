@@ -1,5 +1,4 @@
 import { Redirect, router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import Head from "expo-router/head";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   AccessibilityInfo,
@@ -13,7 +12,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { AppText } from "../components/ui";
+import { AppText, DocumentTitle } from "../components/ui";
 import { AppButton } from "../components/button";
 import { InlineMessage } from "../components/inline-message";
 import { AccountScreen } from "../onboarding/account-screen";
@@ -165,9 +164,7 @@ function OnboardingFlow({
         : message;
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <Head>
-        <title>{editing ? "Edit profile" : "Meet Kine"} · KineVault Track</title>
-      </Head>
+      <DocumentTitle title={editing ? "Edit profile" : "Meet Kine"} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}

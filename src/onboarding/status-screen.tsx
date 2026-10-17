@@ -1,9 +1,8 @@
-import Head from "expo-router/head";
 import type { PropsWithChildren, ReactNode } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Icon, type IconName } from "../components/icon";
-import { AppText } from "../components/ui";
+import { AppText, DocumentTitle } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import { KineStage, type KinePose } from "./kine";
@@ -37,11 +36,7 @@ export function StatusScreen({
     tone === "success" ? colors.success : tone === "danger" ? colors.error : colors.brand;
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      {documentTitle && (
-        <Head>
-          <title>{documentTitle} · KineVault Track</title>
-        </Head>
-      )}
+      {documentTitle && <DocumentTitle title={documentTitle} />}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}

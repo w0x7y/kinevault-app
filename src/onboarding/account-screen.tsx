@@ -1,4 +1,3 @@
-import Head from "expo-router/head";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
@@ -11,7 +10,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { AppText, Panel } from "../components/ui";
+import { AppText, DocumentTitle, Panel } from "../components/ui";
 import { Icon } from "../components/icon";
 import { SegmentedControl } from "../components/segmented-control";
 import { useTheme } from "../theme/provider";
@@ -134,9 +133,7 @@ export function AccountScreen({
 
   return (
     <SafeAreaView testID="account-screen" style={{ flex: 1, backgroundColor: colors.background }}>
-      <Head>
-        <title>{title} · KineVault Track</title>
-      </Head>
+      <DocumentTitle title={title} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
