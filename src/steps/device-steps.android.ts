@@ -5,6 +5,8 @@ type HealthConnect = typeof import("react-native-health-connect");
 
 const provider = "com.google.android.apps.healthdata";
 let client: HealthConnect | null = null;
+// Health Connect can't report a refusal, so this session remembers one until steps are granted.
+let refused = false;
 
 /** Health Connect once it's ready to use, or why it isn't. Only success is kept, so an install shows up. */
 async function connect(): Promise<HealthConnect | "install" | "unavailable"> {
@@ -30,14 +32,16 @@ export const deviceSteps: DeviceSteps = {
   async access() {
     const health = await connect();
     if (typeof health === "string") return health;
-    return readsSteps(await health.getGrantedPermissions()) ? "granted" : "undetermined";
+    if (readsSteps(await health.getGrantedPermissions())) return "granted";
+    return refused ? "denied" : "undetermined";
   },
   async request() {
     const health = await connect();
     if (typeof health === "string") return health;
     // Android stops showing the dialog after repeated refusals; only settings can grant it then.
     const granted = await health.requestPermission([{ accessType: "read", recordType: "Steps" }]);
-    return readsSteps(granted) ? "granted" : "denied";
+    refused = !readsSteps(granted);
+    return refused ? "denied" : "granted";
   },
   async count(start, end) {
     const health = await connect();

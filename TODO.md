@@ -14,7 +14,7 @@ and docs/ describe behavior and link here instead of repeating status.
 - [ ] Verify phone steps on a physical iPhone and Android phone: the permission prompts, denied and re-enabled access, Health Connect install on Android 8–13, the count for today and earlier days (iOS keeps 7 days), and Logged steps adding to it.
 - [ ] Sync Logged steps across devices. The hosted `track_documents` table only accepts its listed document keys, so `kinevault-track.steps-log.v1` needs a reviewed migration before it can join the Account tracking document registry.
 - [ ] Include Logged steps in the account JSON export.
-- [ ] Declare Health Connect step access in the Play Console before any Google Play release.
+- [ ] Declare Health Connect step access in the Play Console and add a privacy policy page for its permission screen before any Google Play release; the link currently just opens the app.
 
 ## Exercise
 
