@@ -355,8 +355,8 @@ curves). Press feedback belongs to `Tappable`, the segment fill to
   `exercise` pose) on a brand-tinted disc, an "In progress" overline, the
   workout name and a primary Open workout button replaces the day's cards and
   Import workouts. Search and the three action tiles stay.
-- **Home:** the "Live" badge on the workout card keeps its dot; that dot is
-  the only one that still pulses.
+- **Home:** the "Live" badge on the workout card lost its pulsing dot too; the
+  app has no pulsing dot left.
 - **Steps tile:** it is now a button like the Water tile. It shows the
   phone's steps plus logged steps for the selected day, and opens a Log steps
   bottom sheet: the phone's count or its connect state, and a hero field for

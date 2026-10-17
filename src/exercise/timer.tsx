@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 import { View } from "react-native";
-import { useIsFocused } from "expo-router";
-import Animated from "react-native-reanimated";
 import { Icon } from "../components/icon";
-import { useReducedMotion } from "../components/motion";
 import { AppText } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
@@ -15,38 +12,6 @@ export function useLiveTone() {
   return appearance === "dark"
     ? { background: colors.brandSoft, foreground: colors.foreground }
     : { background: colors.primary, foreground: colors.primaryForeground };
-}
-
-const breathe = {
-  "0%": { opacity: 1, transform: [{ scale: 1 }] },
-  "50%": { opacity: 0.35, transform: [{ scale: 0.75 }] },
-  "100%": { opacity: 1, transform: [{ scale: 1 }] },
-} as const;
-
-/**
- * The small dot beside Home's "Live" badge: it breathes slowly while a workout is under way, so the state
- * reads as running. Still under reduced motion and while its screen is out of view.
- */
-export function LiveDot({ color }: { color: string }) {
-  const reduced = useReducedMotion();
-  const focused = useIsFocused();
-  return (
-    <Animated.View
-      style={{
-        width: 7,
-        height: 7,
-        borderRadius: 4,
-        backgroundColor: color,
-        ...(!reduced &&
-          focused && {
-            animationName: breathe,
-            animationDuration: 1600,
-            animationIterationCount: "infinite",
-            animationTimingFunction: "ease-in-out",
-          }),
-      }}
-    />
-  );
 }
 
 /** The Active workout's elapsed time as "m:ss", ticking on each whole second. */
