@@ -17,6 +17,14 @@ test("a retry that rejects ends busy without an unhandled rejection", async (t) 
       });
       await route.fulfill({ response });
     });
+    // The dev bundle's icon fonts are Metro assets the static preview doesn't serve.
+    await page.route(/\/assets\/\?unstable_path=/, async (route) => {
+      const { pathname, search } = new URL(route.request().url());
+      const response = await route.fetch({
+        url: new URL(pathname + search, process.env.KINE_DEV_PREVIEW_URL).href,
+      });
+      await route.fulfill({ response });
+    });
   }
   await page.route("**/__test-retry-button", (route) =>
     route.fulfill({

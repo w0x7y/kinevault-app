@@ -299,7 +299,7 @@ test("invalid manual water shows its message until the draft changes and never w
   for (const text of ["", "-1", "1.5", "1e3", "250ml"]) {
     edit.change(text);
     assert.equal(await edit.save(), false);
-    assert.equal(edit.getSnapshot().error, "Enter a whole number of millilitres, 0 or more.");
+    assert.equal(edit.getSnapshot().error, "Enter a whole number of milliliters, 0 or more.");
     edit.adjust(250);
     assert.equal(edit.getSnapshot().error, null);
   }
