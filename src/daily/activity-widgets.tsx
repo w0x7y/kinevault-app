@@ -7,6 +7,7 @@ import { useTheme } from "../theme/provider";
 import { cardShadow, fonts, radius, spacing } from "../theme/tokens";
 import type { DayActivity } from "./activity";
 import { WaterGoalCup, waterCupSize } from "../water/goal-cup";
+import type { stepsTile } from "../steps/summary";
 
 const tilePadding = 16;
 const besideGap = spacing.sm;
@@ -14,10 +15,12 @@ const besideGap = spacing.sm;
 export function ActivityWidgets({
   steps,
   water,
+  onLogSteps,
   onAddWater,
 }: {
-  steps: number | null;
+  steps: ReturnType<typeof stepsTile>;
   water: DayActivity["water"];
+  onLogSteps: () => void;
   onAddWater: () => void;
 }) {
   const { colors } = useTheme();
@@ -41,7 +44,7 @@ export function ActivityWidgets({
     Math.max(10, Math.min(28, Math.floor(figureRoom / (value.length * 0.64))));
 
   const waterValue = total.kind === "ready" ? (total.ml / 1000).toLocaleString() : "—";
-  const stepsValue = steps === null ? "—" : steps.toLocaleString();
+  const stepsValue = steps.value === null ? "—" : steps.value.toLocaleString();
   // Tiles split the row from a zero basis; padding lives on the inner surface so it can't
   // skew the split.
   const slot = { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 } as const;
@@ -61,26 +64,37 @@ export function ActivityWidgets({
       onLayout={(event) => setRowWidth(event.nativeEvent.layout.width)}
       style={{ flexDirection: "row", gap: spacing.layout }}
     >
-      <View testID="home-steps" style={slot}>
-        <View style={[tileStyle, { backgroundColor: colors.card }]}>
-          <TileTop
-            title="Steps"
-            side={<IconWell icon="shoe-prints" color={colors.mutedForeground} />}
-          >
-            <Figure
-              value={stepsValue}
-              size={figureSize(stepsValue)}
-              unit={steps === null ? undefined : "steps"}
-              selectable
-            />
-          </TileTop>
-          {steps === null && (
-            <AppText variant="caption" muted>
-              Not connected
+      <Tappable
+        testID="home-steps"
+        label={steps.label}
+        hint="Log steps for the selected day. Steps your phone counts are added automatically."
+        onPress={onLogSteps}
+        ring="outline"
+        style={slot}
+        surface={({ pressed }) => [
+          tileStyle,
+          { backgroundColor: pressed ? colors.muted : colors.card },
+        ]}
+      >
+        <TileTop
+          title="Steps"
+          side={<IconWell icon="shoe-prints" color={colors.mutedForeground} />}
+        >
+          <Figure
+            testID="home-steps-total"
+            value={stepsValue}
+            size={figureSize(stepsValue)}
+            unit={steps.value === null ? undefined : "steps"}
+          />
+        </TileTop>
+        <View style={{ gap: 2 }}>
+          {steps.captions.map((caption) => (
+            <AppText key={caption} variant="caption" muted>
+              {caption}
             </AppText>
-          )}
+          ))}
         </View>
-      </View>
+      </Tappable>
       <Tappable
         testID="home-water"
         label={waterLabel}
@@ -170,19 +184,16 @@ function Figure({
   size,
   unit,
   testID,
-  selectable,
 }: {
   value: string;
   size: number;
   unit?: string;
   testID?: string;
-  selectable?: boolean;
 }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "baseline", flexWrap: "wrap", columnGap: 3 }}>
       <AppText
         testID={testID}
-        selectable={selectable}
         style={{
           fontFamily: fonts.extrabold,
           fontSize: size,

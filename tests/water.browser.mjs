@@ -350,10 +350,22 @@ test("with motion the water sheet takes focus, plays out before it unmounts, and
     page.waitForFunction(() =>
       document.querySelector('[data-testid="water-entry"]')?.contains(document.activeElement),
     );
+  // Reanimated slides the sheet in, so there's no CSS animation to wait on; Escape before its
+  // first frame would close a sheet that never showed, with nothing to play out.
+  const sheetShown = () =>
+    page.waitForFunction(() => {
+      let node = document.querySelector('[data-testid="water-entry"]');
+      for (let depth = 0; node && depth < 6; depth++, node = node.parentElement) {
+        const transform = getComputedStyle(node).transform;
+        if (transform !== "none" && new DOMMatrix(transform).m42 !== 0) return false;
+      }
+      return true;
+    });
   await tile.focus();
   await page.keyboard.press("Enter");
   await field(page).waitFor();
   await focusInSheet();
+  await sheetShown();
   await page.keyboard.press("Escape");
   // The sheet stays up while it leaves, then the tile has focus again.
   assert.equal(await dialog(page).count(), 1);

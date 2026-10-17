@@ -22,7 +22,11 @@
         "monochromeImage": "./assets/branding/adaptive-monochrome.png",
         "backgroundColor": "#f8f2e3"
       },
-      "blockedPermissions": ["android.permission.RECORD_AUDIO"],
+      "permissions": ["android.permission.health.READ_STEPS"],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACTIVITY_RECOGNITION"
+      ],
       "package": "com.kinevault.track"
     },
     "web": {
@@ -74,13 +78,22 @@
       "expo-sharing",
       "./plugins/with-ios-scene-lifecycle.cjs",
       "./plugins/with-local-notifications-only.cjs",
+      "./plugins/with-gradle-memory.cjs",
       [
         "expo-notifications",
         {
           "icon": "./assets/branding/notification-icon.png",
           "color": "#3a6a96"
         }
-      ]
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Allow KineVault to read your step count so Home can show your daily steps."
+        }
+      ],
+      "react-native-health-connect",
+      ["expo-build-properties", { "android": { "minSdkVersion": 26 } }]
     ],
     "experiments": {
       "typedRoutes": true

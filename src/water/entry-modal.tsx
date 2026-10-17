@@ -3,14 +3,12 @@ import { ButtonRow, AppButton } from "../components/button";
 import { useState } from "react";
 import { View } from "react-native";
 import { AppText } from "../components/ui";
-import { Icon } from "../components/icon";
 import { InlineMessage } from "../components/inline-message";
 import { LoadFailure, RetryButton } from "../components/load-failure";
 import { ModalSheet } from "../components/modal-sheet";
-import { Tappable } from "../components/tappable";
+import { Stepper } from "../components/stepper";
 import { TextField } from "../components/text-field";
-import { useTheme } from "../theme/provider";
-import { fonts, radius, spacing } from "../theme/tokens";
+import { spacing } from "../theme/tokens";
 import { useDocumentEdit } from "../persistence/use-document-edit";
 import { createManualWaterEdit } from "./manual-editing";
 import { useWaterLogPersistence } from "./provider";
@@ -57,7 +55,7 @@ export function WaterEntryModal({ date, onDismiss }: { date: string; onDismiss: 
           Manual water (ml)
         </AppText>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
-          <Stepper delta={-250} disabled={busy} onPress={() => edit.adjust(-250)} />
+          <Stepper delta={-250} unit="ml" disabled={busy} onPress={() => edit.adjust(-250)} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <TextField
               label="Manual water (ml)"
@@ -73,7 +71,7 @@ export function WaterEntryModal({ date, onDismiss }: { date: string; onDismiss: 
               onSubmit={() => void save()}
             />
           </View>
-          <Stepper delta={250} disabled={busy} onPress={() => edit.adjust(250)} />
+          <Stepper delta={250} unit="ml" disabled={busy} onPress={() => edit.adjust(250)} />
         </View>
       </View>
       <InlineMessage align="center">{error}</InlineMessage>
@@ -89,42 +87,5 @@ export function WaterEntryModal({ date, onDismiss }: { date: string; onDismiss: 
         />
       </ButtonRow>
     </ModalSheet>
-  );
-}
-
-/** A round ±250 ml step. The visible "250" sits inside the accessible name. */
-function Stepper({
-  delta,
-  disabled,
-  onPress,
-}: {
-  delta: number;
-  disabled: boolean;
-  onPress: () => void;
-}) {
-  const { colors } = useTheme();
-  return (
-    <Tappable
-      label={`${delta > 0 ? "+" : ""}${delta} ml`}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        width: 64,
-        height: 64,
-        flexShrink: 0,
-        borderRadius: radius.pill,
-        backgroundColor: pressed ? colors.accent : colors.muted,
-        alignItems: "center",
-        justifyContent: "center",
-      })}
-    >
-      <Icon name={delta > 0 ? "plus" : "minus"} size={20} color={colors.primary} />
-      <AppText
-        variant="caption"
-        style={{ fontFamily: fonts.bold, fontSize: 11, lineHeight: 13, marginTop: -2 }}
-      >
-        {Math.abs(delta)}
-      </AppText>
-    </Tappable>
   );
 }

@@ -44,26 +44,28 @@ test("an empty default view shows the Add workout fallback and Import", () => {
     showDailyWorkout: true,
     plannedCards: [],
     inline: null,
+    live: null,
     showImport: true,
     sheet: null,
   });
 });
 
-test("an Active workout from another date expands in place on the default view", () => {
+test("an Active workout from another date replaces the day's cards with its live card", () => {
   const active = session("active", "active", "2026-10-03");
   const tab = view({ document: documentWith(active, session("draft", "planned")) });
-  assert.deepEqual(tab.inline, { session: active, mode: "active", panel: null, closeLabel: null });
+  assert.equal(tab.live, active);
+  assert.equal(tab.inline, null);
   assert.deepEqual(tab.plannedCards, []);
   assert.equal(tab.showDailyWorkout, false);
-  assert.equal(tab.showImport, true);
+  assert.equal(tab.showImport, false);
   assert.equal(tab.sheet, null);
 });
 
-test("the Active workout stays expanded while searching but not behind a sheet", () => {
+test("the live card hides while searching and behind a sheet", () => {
   const active = session("active", "active");
-  assert.equal(view({ document: documentWith(active), query: "squat" }).inline?.session, active);
+  assert.equal(view({ document: documentWith(active), query: "squat" }).live, null);
   const behind = view({ document: documentWith(active), panel: libraryPanel });
-  assert.equal(behind.inline, null);
+  assert.equal(behind.live, null);
   assert.equal(behind.sheet?.testID, "workout-library");
 });
 
@@ -99,6 +101,7 @@ test("loading or failed workouts always show the daily workout card and nothing 
       showDailyWorkout: true,
       plannedCards: [],
       inline: null,
+      live: null,
       showImport: false,
       sheet: null,
     });
@@ -156,7 +159,7 @@ test("library pages slide up as sheets with their own titles and back buttons", 
   }
 });
 
-test("a panel keeps a compact card or the Active workout on the tab and logs others on a sheet", () => {
+test("a panel keeps a compact card on the tab and opens every other log on a sheet", () => {
   const draft = session("draft", "planned"),
     active = session("active", "active"),
     done = session("done", "completed");
@@ -167,15 +170,19 @@ test("a panel keeps a compact card or the Active workout on the tab and logs oth
     showDailyWorkout: false,
     plannedCards: [],
     inline: { session: draft, mode: "compact", panel: compact, closeLabel: "Close workout" },
+    live: null,
     showImport: false,
     sheet: null,
   });
   const live = panel({ kind: "session", id: "active" });
-  assert.deepEqual(view({ document, panel: live }).inline, {
-    session: active,
-    mode: "active",
+  const page = view({ document, panel: live });
+  assert.equal(page.inline, null);
+  assert.deepEqual(page.sheet, {
     panel: live,
-    closeLabel: null,
+    title: "Strength",
+    closeLabel: "Back to Exercise",
+    testID: "active-workout",
+    log: { session: active, mode: "active" },
   });
   for (const [content, log, title] of [
     [
@@ -198,12 +205,14 @@ test("a panel keeps a compact card or the Active workout on the tab and logs oth
   }
 });
 
-test("a log the panel opened in place follows its status, whatever the Selected day", () => {
-  const started = session("draft", "active", "2026-10-03");
+test("a log the panel opened follows its status, whatever the Selected day", () => {
+  // Starting from the manual page keeps the page up as the Active workout's.
+  const started = session("draft", "active", "2026-10-03", "");
   const open = panel({ kind: "session", id: "draft", manual: true });
   const tab = view({ document: documentWith(started), panel: open });
-  assert.equal(tab.inline?.mode, "active");
-  assert.equal(tab.sheet, null);
+  assert.equal(tab.inline, null);
+  assert.equal(tab.sheet?.log?.mode, "active");
+  assert.equal(tab.sheet?.title, "Workout");
   const elsewhere = session("other", "planned", "2026-10-05");
   const card = view({
     document: documentWith(elsewhere),

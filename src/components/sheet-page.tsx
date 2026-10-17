@@ -29,13 +29,15 @@ type SheetPageProps = PropsWithChildren<{
   closeDisabled?: boolean;
   /** An optional action on the right of the header. */
   trailing?: ReactNode;
+  /** Shown in the middle of the header instead of the title, e.g. a live timer. */
+  center?: ReactNode;
   /** Identifies the page on an open sheet: a new page starts at the top of the sheet. */
   page?: string | number;
   testID?: string;
   scrollRef?: Ref<ScrollView>;
 }>;
 type SheetHeader = Required<Pick<SheetPageProps, "title" | "closeLabel" | "closeDisabled">> &
-  Pick<SheetPageProps, "trailing"> & { onClose: () => void };
+  Pick<SheetPageProps, "trailing" | "center"> & { onClose: () => void };
 /** Part of the header taken over by a page; deeper claims win. */
 type HeaderClaim = { depth: number; header: Partial<SheetHeader> };
 type SheetHost = {
@@ -134,6 +136,7 @@ function NestedSheetPage({
   closeLabel = "Back",
   closeDisabled = false,
   trailing,
+  center,
   scrollRef,
   children,
 }: SheetPageProps & { host: SheetHost }) {
@@ -143,8 +146,8 @@ function NestedSheetPage({
     close.current = onClose;
   });
   const header = useMemo<SheetHeader>(
-    () => ({ title, closeLabel, closeDisabled, trailing, onClose: () => close.current() }),
-    [title, closeLabel, closeDisabled, trailing],
+    () => ({ title, closeLabel, closeDisabled, trailing, center, onClose: () => close.current() }),
+    [title, closeLabel, closeDisabled, trailing, center],
   );
   useHeaderClaim(host, depth, header);
   // The open page's scroll view is attached after this page's layout effects, so it is
@@ -162,6 +165,7 @@ function SheetFrame({
   closeLabel: ownLabel = "Back",
   closeDisabled: ownDisabled = false,
   trailing: ownTrailing,
+  center: ownCenter,
   page,
   testID,
   scrollRef,
@@ -190,7 +194,7 @@ function SheetFrame({
       );
     },
   }));
-  const { title, onClose, closeLabel, closeDisabled, trailing } = [...claims.values()]
+  const { title, onClose, closeLabel, closeDisabled, trailing, center } = [...claims.values()]
     .sort((left, right) => left.depth - right.depth)
     .reduce<SheetHeader>((header, claim) => ({ ...header, ...claim.header }), {
       title: ownTitle,
@@ -198,6 +202,7 @@ function SheetFrame({
       closeLabel: ownLabel,
       closeDisabled: ownDisabled,
       trailing: ownTrailing,
+      center: ownCenter,
     });
   // The sheet stays up while its page changes; each new page starts at the top.
   const shownPage = useRef(page);
@@ -242,14 +247,18 @@ function SheetFrame({
             >
               <Icon name="chevron-left" size={20} color={colors.primary} />
             </Tappable>
-            <AppText
-              variant="heading"
-              accessibilityRole="header"
-              numberOfLines={1}
-              style={{ flex: 1, textAlign: "center" }}
-            >
-              {title}
-            </AppText>
+            {center ? (
+              <View style={{ flex: 1, alignItems: "center" }}>{center}</View>
+            ) : (
+              <AppText
+                variant="heading"
+                accessibilityRole="header"
+                numberOfLines={1}
+                style={{ flex: 1, textAlign: "center" }}
+              >
+                {title}
+              </AppText>
+            )}
             <View style={styles.side}>{trailing}</View>
           </View>
           <ScrollView

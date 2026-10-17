@@ -131,13 +131,14 @@ test("profile menu is accessible, exclusive with the calendar, disables upcoming
     await friends.evaluate((node) => getComputedStyle(node).backgroundColor),
   );
   await page.keyboard.press("Escape");
-  // Home distinguishes unconnected steps and Settings states the supported app formats.
+  // Home offers to log steps the web build can't count, and Settings states the supported
+  // app formats.
   const steps = page.getByTestId("home-steps");
   await steps.waitFor();
-  assert.equal(await steps.getByText("Not connected", { exact: true }).count(), 1);
+  assert.equal(await steps.getByText("Tap to log steps", { exact: true }).count(), 1);
   assert.equal(await steps.getByText("—", { exact: true }).count(), 1);
   assert.equal(await steps.getByText("0", { exact: true }).count(), 0);
-  assert.equal(await steps.getByRole("button").count(), 0);
+  assert.equal(await steps.getAttribute("role"), "button");
   await page.getByRole("tab", { name: "Settings", exact: true }).click();
   // The supported formats are a footer line rather than a settings group.
   await page

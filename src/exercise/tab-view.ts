@@ -6,14 +6,14 @@ import {
   type WorkoutView,
 } from "./workout-editing.ts";
 
-/** A workout log shown on the tab itself rather than on a sheet. */
+/** A compact workout card that a panel opened on the tab itself rather than on a sheet. */
 type InlineWorkoutLog = {
   session: WorkoutSession;
-  mode: Extract<WorkoutLogMode, "compact" | "active">;
-  /** The panel that opened the log in place; null for the Active workout on the default view. */
-  panel: WorkoutPanel | null;
-  /** Names the control that closes that panel. The Active workout ends instead of closing. */
-  closeLabel: string | null;
+  mode: Extract<WorkoutLogMode, "compact">;
+  /** The panel that opened the card in place. */
+  panel: WorkoutPanel;
+  /** Names the control that closes that panel. */
+  closeLabel: string;
 };
 
 /** The page that slides up over the tab for every other panel. */
@@ -24,7 +24,10 @@ type ExerciseTabSheet = {
   closeLabel: string;
   testID?: string;
   /** A session page's workout log; null when that workout is no longer available. */
-  log: { session: WorkoutSession; mode: Extract<WorkoutLogMode, "manual" | "completed"> } | null;
+  log: {
+    session: WorkoutSession;
+    mode: Extract<WorkoutLogMode, "active" | "manual" | "completed">;
+  } | null;
 };
 
 type ExerciseTabView = {
@@ -35,15 +38,17 @@ type ExerciseTabView = {
   /** Selected-day drafts shown as compact cards on the default view. */
   plannedCards: readonly WorkoutSession[];
   inline: InlineWorkoutLog | null;
+  /** The Active workout, shown as a card that opens its page, on the default view. */
+  live: WorkoutSession | null;
   showImport: boolean;
   sheet: ExerciseTabSheet | null;
 };
 
 /**
  * Where every Workout log and panel of the Exercise tab goes. The default view is the tab with
- * no panel open and no search; it shows the Selected day's drafts as compact cards, or the
- * Active workout, whatever its date, expanded in place. A panel that opens a compact card or the
- * Active workout keeps it on the tab; every other panel is a sheet over the tab.
+ * no panel open and no search; it shows the Selected day's drafts as compact cards, or a card for
+ * the Active workout, whatever its date, that opens it. A panel that opens a compact card keeps it
+ * on the tab; every other panel, the Active workout's included, is a sheet over the tab.
  */
 export function exerciseTabView({
   document,
@@ -68,7 +73,7 @@ export function exerciseTabView({
     content?.kind === "session"
       ? (sessions.find((session) => session.id === content.id) ?? null)
       : null;
-  // The edit owner preserves workspace fields across panel, search and calendar changes.
+  // The edit owner preserves the Active workout's fields across panel, search and calendar changes.
   const workspace = open ? null : (sessions.find((session) => session.status === "active") ?? null);
   const planned = sessions.filter(
     (session) => session.date === date && session.status === "planned",
@@ -81,23 +86,17 @@ export function exerciseTabView({
     sheet: ExerciseTabSheet | null = null;
   if (open) {
     const mode = opened && workoutLogMode(opened, content);
-    if (opened && (mode === "compact" || mode === "active"))
-      inline = {
-        session: opened,
-        mode,
-        panel: open,
-        closeLabel: mode === "compact" ? "Close workout" : null,
-      };
+    if (opened && mode === "compact")
+      inline = { session: opened, mode, panel: open, closeLabel: "Close workout" };
     else
       sheet = {
         panel: open,
         ...sheetPage(
           open.content,
-          opened && (mode === "manual" || mode === "completed") ? { session: opened, mode } : null,
+          opened && mode && mode !== "compact" ? { session: opened, mode } : null,
         ),
       };
-  } else if (workspace)
-    inline = { session: workspace, mode: "active", panel: null, closeLabel: null };
+  }
   return {
     search: document && search ? search : null,
     // A completed workout's summary shows beside the day's drafts; the empty fallback doesn't.
@@ -105,7 +104,8 @@ export function exerciseTabView({
       workoutState !== "ready" || (showCards && (planned.length === 0 || completed)),
     plannedCards: showCards ? planned : [],
     inline,
-    showImport: Boolean(document) && defaultView,
+    live: defaultView ? workspace : null,
+    showImport: Boolean(document) && showCards,
     sheet,
   };
 }
@@ -145,6 +145,13 @@ function sheetPage(
         log: null,
       };
     case "session":
+      if (log?.mode === "active")
+        return {
+          title: log.session.name || "Workout",
+          closeLabel: "Back to Exercise",
+          testID: "active-workout",
+          log,
+        };
       return log
         ? {
             title: log.mode === "completed" ? "Logged workout" : "Log workout",

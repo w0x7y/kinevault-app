@@ -17,10 +17,11 @@ Onboarding starts with welcome and flag (goal), then age confirmation, listening
 (review). Age reuses `kine-body.webp`; there are twelve distinct image files for
 thirteen pose keys, including loading.
 
-Home shows the morning stretch (internally `today` / `kine-today.webp`). The fruit
-and spoon (Food), side stretch (Exercise), and notebook and pencil (Settings) poses
-are still bundled and prefetched after Home's pose, but no screen shows them since
-the October 2026 redesign.
+Home shows the morning stretch (internally `today` / `kine-today.webp`). The
+Exercise tab shows the side stretch (`exercise` / `kine-exercise.webp`) on a disc
+in the live workout card while a workout runs. The fruit and spoon (Food) and
+notebook and pencil (Settings) poses are still bundled and prefetched after Home's
+pose, but no screen shows them since the October 2026 redesign.
 
 Loading: the v2 pose holds a large hourglass with both hands. The shared
 `KineLoading` component shows it on a soft brand disc without visible text, with a
@@ -41,7 +42,7 @@ font.
 The welcome asset is 840px, sharp at 3× up to 280pt; onboarding shows it at up to
 248pt (200pt on short windows) and account screens at 96–116pt. Other poses are
 456px, sharp at 3× up to 152pt: onboarding stages use 108–132pt, status screens
-120pt, loading 96–140pt, and Home's greeting 84–96pt.
+120pt, the live workout card 132pt, loading 96–140pt, and Home's greeting 84–96pt.
 WebP compression uses quality 80, full-quality alpha, and stripped metadata.
 Actual sizes are recorded in `2d/manifest.json`.
 

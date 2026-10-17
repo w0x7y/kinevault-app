@@ -6,7 +6,6 @@ import { Icon, type IconName } from "../components/icon";
 import { IconWell } from "../components/icon-well";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
-import { LiveDot } from "../exercise/timer";
 import type { CompletedWorkout } from "./workout";
 
 /** A day's completed training in one line: volume when weights were logged, then duration. */
@@ -27,7 +26,7 @@ export function workoutSummary(
 }
 
 /** "WORKOUT" with a small status chip on the right. */
-function WidgetTop({ status }: { status?: { label: string; icon?: IconName; live?: boolean } }) {
+function WidgetTop({ status }: { status?: { label: string; icon?: IconName } }) {
   const { colors } = useTheme();
   return (
     <View
@@ -52,11 +51,7 @@ function WidgetTop({ status }: { status?: { label: string; icon?: IconName; live
             backgroundColor: colors.muted,
           }}
         >
-          {status.live ? (
-            <LiveDot color={colors.success} />
-          ) : (
-            status.icon && <Icon name={status.icon} size={13} color={colors.primary} />
-          )}
+          {status.icon && <Icon name={status.icon} size={13} color={colors.primary} />}
           <AppText variant="caption" style={{ fontFamily: fonts.bold, fontSize: 12 }}>
             {status.label}
           </AppText>
@@ -138,7 +133,7 @@ export function WorkoutWidget({
   if (workout.name === null && activeWorkoutName)
     return (
       <Panel testID={testID} style={{ gap: spacing.sm }}>
-        <WidgetTop status={{ label: "Live", live: true }} />
+        <WidgetTop status={{ label: "Live" }} />
         <AppText
           variant="heading"
           accessibilityRole="header"
@@ -159,7 +154,7 @@ export function WorkoutWidget({
           status={
             workout.name !== null
               ? activeWorkoutName
-                ? { label: "Live", live: true }
+                ? { label: "Live" }
                 : { label: "Done", icon: "check" }
               : undefined
           }

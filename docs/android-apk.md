@@ -1,8 +1,8 @@
 # Install on Android phones
 
 The manual `Android release build` workflow builds a release `.apk` signed with
-the project's release key. It installs on any Android phone without Expo Go or
-the Play Store. For iPhones, see
+the project's release key. It installs on any phone with Android 8.0 or newer
+without Expo Go or the Play Store. For iPhones, see
 [iPhone installs from Linux with xtool](ios-linux-xtool.md).
 
 ## The release key
@@ -57,6 +57,11 @@ adb install -r ~/Downloads/KineVaultTrack.apk
 ```
 
 `-r` replaces an installed copy and keeps its data.
+
+Home's Steps reads the phone's step count from Health Connect. Android 14 and
+newer have it built in and start counting once the app may read steps; on
+Android 8–13, install Health Connect from Google Play first. The app offers the
+install when it's missing.
 
 Without a computer, send the `.apk` to the phone, open it, and allow the app
 you opened it from to install unknown apps when Android asks. Play Protect may

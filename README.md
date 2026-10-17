@@ -31,16 +31,17 @@ evidence from earlier revisions, rather than current status.
   Workout details list completed exercises with sets, reps, and actual weight ranges.
   Food records can be logged to a meal on the selected day. Exercise supports
   user-created exercises, reusable workouts, and multiple workout logs per day.
-  Steps displays Not connected until a step source is implemented.
+  Steps shows the phone's step count for the selected day plus any steps logged by
+  hand.
 - The redesigned look: cool blue-gray surfaces, slate-blue primary actions, 20px
   screen margins, 18px card padding and 14px gaps. See
   [the redesign notes](docs/redesign-2026-10.md).
 - Rounded Comfortaa titles, Manrope text and tabular figures, Ionicons outline
   icons, and shared themed components.
 - Flows that leave the day view (food details and editing, create/edit forms,
-  Daily macros, barcode scan and import, saved workouts, workout import, manual
-  and completed workouts) open as full-page sheets with a back button. Steps
-  inside a flow replace each other on the same page.
+  Daily macros, barcode scan and import, saved workouts, workout import, the live
+  workout, manual and completed workouts) open as full-page sheets with a back
+  button. Steps inside a flow replace each other on the same page.
 - Reanimated motion for presses, sheets, popovers, progress rings and bars, new
   log rows, and the live workout. Reduced motion turns it off.
 - System, Light, and Dark appearance, saved locally on the device.
@@ -67,6 +68,13 @@ evidence from earlier revisions, rather than current status.
   Home shows a compact cup beside the water amount that fills to the rim;
   totals above the goal remain visible.
   Drinks use one whole amount from 1 to 10,000 ml for nutrition and hydration.
+- Home's Steps tile counts the phone's steps for the selected day: Core Motion on
+  iOS (the last 7 days) and Health Connect on Android. Phone steps need a native
+  build and the user's permission; the web preview and Expo Go on Android show none.
+  Tap the tile to connect phone steps or log steps the phone missed, with -500 and
+  +500 buttons. Logged steps add to the phone count, stay on this device for the
+  signed-in account, and don't sync or appear in the account export yet. See
+  [privacy storage decisions](docs/privacy.md).
   Editing or removing a drink updates hydration with the same food-log save.
   Legacy Snacks stay Snacks and have no inferred drink volume.
 - Drink search includes named energy drinks and common cola/pepper-style aliases.
@@ -127,14 +135,17 @@ removing any entered measurements.
 Start workout requires a nonblank name; an unnamed draft stays editable until
 corrected. It runs the sole active timer. Its start time and
 entered sets are saved on the device, so switching tabs, backgrounding, or reopening keeps elapsed
-time. Starting expands the card into a live workout: a blue header with the workout
-name and the running timer, a horizontally scrolling row of exercise chips, and a
-selected-exercise detail with a sets/reps/weight table and the exercise's KineVault
-demo, or a Link demo button. Chips show short names (initials for long names);
-accessible labels keep the full names. Add set and View notes sit beside the
-exercise name. There is no active name field, date/status line or separate Open
-active workout panel. Active workouts automatically expand when returning to
-Exercise's default view.
+time. Starting opens the live workout on its own page: the running timer, with a
+stopwatch, centered in the top bar, then the workout name, a horizontally scrolling
+row of exercise chips, and a selected-exercise detail with a sets/reps/weight table
+and the exercise's KineVault demo, or a Link demo button. Chips show short names
+(initials for long names); accessible labels keep the full names. Add set and View
+notes sit beside the exercise name. There is no active name field or date/status
+line. Back to Exercise saves the entered sets and leaves the workout running; if
+the save fails, the page stays open with Retry draft save. While a workout runs,
+the app header shows its timer in the center on every tab, and tapping it opens the
+workout; the Exercise tab shows Kine working out with an Open workout button in
+place of the day's cards.
 End workout sits above a red Discard workout button. Ending
 validates and saves the completed workout. Drafts and
 active workouts do not contribute to daily totals. A saved workout can also be
@@ -157,8 +168,8 @@ get started.” There is no separate sessions widget or ad hoc logging flow.
 Exercise shows its daily widget only when no search, form, Saved workouts sheet, or workout
 editor is open. Storage loading and recovery remain visible.
 Selected planned workouts appear as compact cards on their day. An active
-workspace retains unsaved fields across searches and calendar changes; opening
-another view requires a successful draft save.
+workspace retains unsaved fields across searches and calendar changes; leaving its
+page or opening another view requires a successful draft save.
 
 Exercise search shares Food's field and result-card styling. It searches from
 the first character, shows exercise metadata, and pages results in groups of 20.
@@ -401,7 +412,8 @@ Scan the QR code with the iPhone Camera or Expo Go on Android, using an SDK
 57-compatible client. For LAN mode, phone and computer must share a network.
 If the installed
 Expo Go version does not support SDK 57, use a compatible client or development
-build.
+build. Expo Go on Android can't read phone steps (Health Connect needs a native
+build); use the [Android release build](docs/android-apk.md) to check them.
 
 ```sh
 npm run web       # Browser preview
@@ -604,8 +616,8 @@ launcher icons and splash screens. It runs independently of the Expo app.
 - `src/components/ui.tsx`: shared text, panel, screen, and destination link.
 - `src/components/`: the shared controls. Tappable is every pressable; AppButton,
   IconButton and DeleteButton, SegmentedControl, Chip, TextField, InlineMessage,
-  LoadFailure, ModalSheet, `popover.tsx`, SheetPage, IconWell and ViewHeader build
-  on it. Use and extend these instead of adding another pressable, field or sheet;
+  LoadFailure, ModalSheet, `popover.tsx`, SheetPage, IconWell, ViewHeader and the
+  round ± Stepper build on it. Use and extend these instead of adding another pressable, field or sheet;
   see [module ownership](docs/architecture.md#shared-controls).
 - `src/theme/`: palette, geometry, typography, and appearance persistence;
   `tokens.ts` holds every color, spacing, radius and font.
@@ -661,6 +673,8 @@ launcher icons and splash screens. It runs independently of the Expo app.
 - `supabase/`: migrations, SQL tests and the `delete-account` and
   `tracked-workout` Edge Functions.
 - `src/water/`: validated local water totals, persistence, and direct Home entry.
+- `src/steps/`: phone step counts (`device-steps.ts` with iOS and Android versions),
+  the device-only Logged steps document, and the Home step entry.
 - `src/food/`: offline catalog search, USDA data adapter, result pages, nutrition
   previews, and local food-log validation, persistence, and React wiring.
   Food search does not filter the daily log.

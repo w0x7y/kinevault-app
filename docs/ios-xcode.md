@@ -34,7 +34,10 @@ rejects an iPad build that allows multitasking without all four orientations.
 The scene life cycle plugin doesn't change either key.
 
 Info.plist also has the camera and photo library usage strings from the
-`expo-camera` and `expo-image-picker` entries in `app.json`. It has no Face ID
+`expo-camera` and `expo-image-picker` entries in `app.json`, and the motion usage
+string (`NSMotionUsageDescription`) from the `expo-sensors` entry, which Home's
+step count needs. Steps come from Core Motion, not HealthKit, so the app still
+needs no entitlement. It has no Face ID
 usage string. The app never asks for Face ID: sign-in tokens in SecureStore
 don't require authentication to read. `"faceIDPermission": false` on the
 `expo-secure-store` plugin keeps `NSFaceIDUsageDescription` out. App Transport
@@ -399,8 +402,9 @@ build phases, `expo-doctor`, `expo install --check` and an iOS Hermes bundle via
   specifically.
 - A `kinevaulttrack://auth/callback` email link opens the app, both cold and
   while it's running.
-- The camera, photo picker and notification permission prompts appear with the
-  expected text, and a scheduled local reminder fires.
+- The camera, photo picker, motion (Home's Steps) and notification permission
+  prompts appear with the expected text, and a scheduled local reminder fires.
+- After allowing motion access, Home's Steps shows the phone's count for today.
 - An exercise demonstration video plays (`expo-video`).
 - An iPhone stays in portrait when rotated. An iPad rotates to all four
   orientations and opens in Split View.
