@@ -137,7 +137,8 @@ verified email) links into the same user, but `RemoveUnconfirmedIdentities`
 deletes its other identities and replaces its metadata, then confirms the email. The
 squatter's password stops working, so this isn't a takeover. In the reverse order,
 `signUp` for an address that already has a confirmed Google account returns an
-obfuscated success and sets no password.
+obfuscated success and sets no password; Track recognizes that reply and says an
+account with this email already exists.
 
 Two cases stay open: turning on `mailer_autoconfirm` (off on the hosted project)
 makes a squatter's password account confirmed and linkable, and a person who clicks

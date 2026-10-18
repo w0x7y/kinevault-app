@@ -8,7 +8,7 @@ Design reference for KineVault Track, the Expo app in `Application/`, and its
 separate [KineVault studio](https://github.com/arielhagay10-ui/KineVault).
 The supplied studio reference below describes its working source on
 **30 September 2026**; its measurements assume a 16px root font size.
-The Application summary records the implementation on **17 October 2026**.
+The Application summary records the implementation on **18 October 2026**.
 Preserve scalable text in both products.
 
 Outside the Application summary and explicitly labeled companion notes,
@@ -63,13 +63,17 @@ reference patterns, not implemented companion features.
   previous-day, Today and next-day controls. These three tabs share the selected local
   date. Settings and Profile have no picker and show their name as the only title. The
   right slot uses the saved avatar or initials on Kine blue and opens the profile menu.
-  Profile has a back control. The floating tab bar (`src/app/(tabs)/_layout.tsx`) is a
+  Profile has a back control. While a workout runs, the bar centers its elapsed time on a
+  stopwatch pill that opens the workout; the date shortens to month and day and the
+  calendar chip drops its chevron. The floating tab bar (`src/app/(tabs)/_layout.tsx`,
+  tabs listed in `src/navigation/track-tabs.ts`) is a
   rounded, elevated bar inset 16pt from the screen edges and at most 560pt wide, with
   the four labeled tabs, outline icons, a soft blue pill behind the active icon, and
   primary active and muted inactive colors. Screens pad their end by its measured height.
 - Small modal tasks use [ModalSheet](src/components/modal-sheet.tsx): a bottom sheet on
   phones and a centered dialog on windows 600pt and wider. Flows that leave the day view
-  (food details, create and edit forms, barcode scan, imports, saved workouts) open as a
+  (food details, create and edit forms, barcode scan, imports, saved workouts, the live
+  workout) open as a
   [SheetPage](src/components/sheet-page.tsx) that slides up over the tab (a page sheet on
   iOS) with a round back button; a flow's steps replace each other on that one page.
   Sub-views start with a [ViewHeader](src/components/view-header.tsx). Feedback sits under
@@ -87,13 +91,15 @@ reference patterns, not implemented companion features.
   Charts use the existing theme, distinct labeled Left/Right series, honest
   missing-data gaps, and equivalent readable values. Empty state has an optional
   add action; it never fills the gallery or chart with illustrative records.
-- On the tabs only Home shows Kine: the `today` pose at 96pt (84pt on narrow phones)
-  beside the greeting. Food, Exercise and Settings start with their content. Onboarding,
+- On the tabs Home shows Kine: the `today` pose at 96pt (84pt on narrow phones)
+  beside the greeting. While a workout runs, Exercise shows the `exercise` pose at 132pt
+  on a brand disc in the live workout card. Otherwise Food, Exercise and Settings start
+  with their content. Onboarding,
   account and status screens stand Kine on a soft brand-tinted disc.
 - The [loading pose](src/components/kine-loading.tsx) holds a large hourglass
   with both hands, on a soft brand disc. Home and Food show a compact instance in a card
-  while the food log loads; compact instances also cover saved foods, water entry,
-  barcode lookup, and workout import. Startup and account loading fill the screen with
+  while the food log loads; compact instances also cover saved foods, water and steps
+  entry, barcode lookup, and workout import. Startup and account loading fill the screen with
   it. Kine bobs slowly while loading, with no movement under reduced motion, an
   accessible loading label and no minimum display time; errors retain their
   explanatory text and retry actions.
@@ -105,10 +111,16 @@ reference patterns, not implemented companion features.
   an overage arc is red. Each macro row puts its label and grams / target on one line
   above a thin bar. Carbs, protein, and fat use their honey, blue, and rose theme tokens
   in labels, fills and ring arcs; the unconsumed track stays neutral. Steps and water
-  follow side by side. Water shows manual water plus saved Drinks volumes for the
+  follow side by side, and both tiles are buttons. Steps shows the phone's count (Core
+  Motion on iOS, Health Connect on Android; none on web) plus steps logged by hand for the
+  selected day, and opens a Log steps sheet: the phone's count or its connect state, then
+  a hero field between round -500 and +500 [Stepper](src/components/stepper.tsx)
+  controls, the same control as the water entry's ±250 ml. Water shows manual water plus
+  saved Drinks volumes for the
   selected day. The tile says Includes Drinks; the manual entry form explains that
-  Drinks are already included. Loading or unreadable water storage hides the total. The
-  workout card leads with total lifted, then duration, sets and reps.
+  Drinks count separately in the Home total. Loading or unreadable water storage hides
+  the total. The workout card leads with total lifted, then duration, sets and reps. A workout still
+  running shows a plain Live badge on the card.
 - Food and Exercise start with a title row, "Daily food log" with the day's eaten /
   goal kcal or "Daily workout log" with the day's weight lifted and minutes, then search,
   then three equal quiet tiles with the icon above a sentence-case label: Scan barcode,
@@ -130,7 +142,7 @@ reference patterns, not implemented companion features.
   calculated nutrition is chosen. Saved meals show Saved to your meals inline, with the same custom-item icon. Food searches the offline USDA, custom-food and saved-meal catalog. Foods from the
   user's log come first, then [everyday foods](src/food/common-foods.ts), and animal
   by-products such as feet or skin rank last unless typed; Exercise
-  search filters the selected day's existing exercise rows.
+  search matches the exercise library by name, muscle group, equipment and notes.
 - Custom food and meal details place Edit and Delete controls below the name and
   category. Edit opens the matching prefilled form with Save food/meal changes
   and Cancel. Delete turns into a filled red "Are you sure?" and deletes on the
@@ -158,18 +170,22 @@ reference patterns, not implemented companion features.
   Not available. Both themes preserve protein and fat category colors.
   Exercise adds completed exercises with sets, reps, and actual load ranges;
   planned sets do not count as completed activity. Only saved food contributes
-  to nutrition totals; other activity remains empty until its logging exists.
+  to nutrition totals.
 - Settings is a grouped list: an overline title above one card of rows each, with icon
   wells and hairline dividers. It starts with the account summary and ends with Data &
   account (export and log out), with Delete account in its own red control below,
-  apart from routine settings. Reminders are hidden on web.
+  apart from routine settings. Confirming deletion takes the current password and
+  typed DELETE; an account that signs in only with Google gets Sign in with Google again
+  in place of the password field, and deletion unlocks for 10 minutes after that sign-in.
+  Reminders are hidden on web.
   Language, units and version share one caption at the bottom.
   Onboarding begins with welcome and goals before age confirmation, then profile
   questions and editable calorie/macro targets. Required account screens follow
   saving the final review. Automatic macros use 50% carbs,
   25% protein, and 25% fat, with editable gram overrides.
 - Motion uses the shared [motion helpers](src/components/motion.tsx), runs on the UI
-  thread and uses ease-out curves: 120 ms presses, 180 ms toggles, segment slides and
+  thread and uses ease-out curves (ease-in-out for segment slides, list glides and the
+  loading bob): 120 ms presses, 180 ms toggles, segment slides and
   popover entrances, 300 ms entrances, and 650 ms value fills (ring arcs, macro bars and
   the water cup). Kine greets with a short hop. Tab switches are instant; search results
   and figures do not animate. Under reduced motion nothing moves; only short fades
@@ -758,7 +774,7 @@ Current motion is restrained: button transitions, a 1px press displacement,
   smooth scrolling. Video respects reduced motion; 3D viewers start paused.
 - Do not add automatic camera spins, bouncing panels, or decorative movement.
 - **Companion app:** Track's motion durations are 120ms presses, 180ms toggles,
-  300ms entrances and 650ms value fills, all ease-out, in
+  300ms entrances and 650ms value fills, ease-out except for ease-in-out slides, in
   [motion.tsx](src/components/motion.tsx).
 - Show completion near the initiating action; avoid silent save/copy operations.
 

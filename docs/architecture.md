@@ -38,9 +38,11 @@ drops a finished Google result itself (`oauthRedirectOpensCallback: false`); And
 also opens the callback route for that redirect and keeps the result for it.
 `completeAuthLink` is the only entry point: a cleaned callback URL that matches the
 retained link resumes its in-flight or settled result, while a URL that still carries
-a code, token or error is processed as a new link.
+a code, token or error is processed as a new link. Only a PKCE code completes a link:
+`parseAuthLink` reads token-hash and session-token links as invalid, because they
+carry no proof that this device started the flow.
 
-Account management attempts own Settings action exclusion, owner/caller lifetime, confirmation fields, export delivery and action feedback. The React adapter supplies current account/connectivity readings and platform delivery; rendering submits intentions. Rejected deletion feedback is scoped to its caller, while confirmed deletion and its notice remain with the auth owner. Account management owns logical export assembly and the authenticated deletion sequence. Settings renders those intentions; file download/sharing and server requests are adapters. Deletion freezes the owner's storage before server work, then commits a tombstone and scoped cleanup after confirmed success. Session storage performs owner-conditional clearing so a delayed deletion cannot remove a replacement account. See [account management](account-management.md).
+Account management attempts own Settings action exclusion, owner/caller lifetime, confirmation fields, export delivery and action feedback. The React adapter supplies current account/connectivity readings and platform delivery; rendering submits intentions. Rejected deletion feedback is scoped to its caller, while confirmed deletion and its notice remain with the auth owner. Account management owns logical export assembly and the authenticated deletion sequence. The `delete-account` Edge Function confirms the password or, for an account created with Google, a Google sign-in from the last 10 minutes, and allows five attempts per account an hour. Settings renders those intentions; file download/sharing and server requests are adapters. Deletion freezes the owner's storage before server work, then commits a tombstone and scoped cleanup after confirmed success. Session storage performs owner-conditional clearing so a delayed deletion cannot remove a replacement account. See [account management](account-management.md).
 
 The entry policy permits sign-in and email-link routes independently of Profile
 loading or failure. Once someone signs in on the sign-in screen, it waits for the
@@ -50,13 +52,15 @@ recovery and can log out without deleting its saved data. Tracking still require
 an authenticated Account and a completed Profile.
 
 The entry policy module (`src/account/entry-policy.ts`) holds that rule. Its
-input is the route class (sign-in and email-link, account, onboarding, tracking,
-other) and the Account, storage and Profile readings; its output is one decision:
+input is the route class (`auth` for the email-link and password-reset screens,
+`account` for sign-in, `onboarding`, `tracking`, `other`) and the Account, storage
+and Profile readings; its output is one decision:
 render, loading, wait, redirect, Profile recovery or storage failure. It also says
 whether a reminder tap waits, opens or is dropped, and where a saved Onboarding flow
 exits. The app evaluates the rule in layers because each layer's readings exist only
-below the one above it: AccountDataProvider (session, then storage), the root
-navigator (theme, fonts, Profile) and each route. Those are adapters that render the
+below the one above it: AccountDataProvider (`sessionGate`, then `storageGate`), the
+root navigator (`navigatorGate`: theme, fonts, Profile) and each route
+(`routeDecision`). Those are adapters that render the
 decision through `EntryGate`; `entryDecision` composes the layers, and its unit test
 covers every route and reading combination.
 
@@ -188,6 +192,14 @@ header overrides and scroll positioning: pages claim the back button with
 `useSheetBack`, request a scroll target with `useSheetScrollTarget`, and a new
 `page` starts at the top. A page can replace its centered title with `center`, as
 the live workout does with its timer.
+
+Demo link (`src/exercise/demo/demo-link.ts`) picks the demo a template or log
+exercise shows (the library's current link, else the saved copy's), turns catalog and
+clip readings into one status, and maps that status to its notice and the Retry target
+(`demoNotice`: the catalog or the clip). It also holds the player's attempt state as a
+reducer (`demoPlayback`): poster, starting and playing; a start timeout fails only a
+clip that never started, and losing focus returns it to the poster. `exercise-demo.tsx`
+keeps the expo-video adapter, focus and timers.
 
 The Food tab view owns the Food tab's query, its page over the log and the owners
 behind that page (a Logging attempt, a Product import flow). Catalog views

@@ -20,11 +20,13 @@ a build signed with a new key, and uninstalling deletes progress photos (they
 are local only) and any changes that haven't synced. Keep a copy of both files
 off this machine, for example in a password manager.
 
-The workflow reads the key from two secrets in the `android-release` GitHub
-Environment. Only runs from `main` can use it, and each run waits until a
-required reviewer approves it under the run's **Review deployments** button.
+The workflow's job runs in the `android-release` GitHub Environment and reads
+the key from two secrets. Until they move into that environment (open in
+[TODO.md](../TODO.md)), it reads the repository secrets of the same names. Once
+the environment is limited to `main` with a required reviewer, each run waits
+until a reviewer approves it under the run's **Review deployments** button.
 GitHub never shows a secret again, so they don't count as a backup. To set them
-again, from `Application/`:
+in the environment, from `Application/`:
 
 ```sh
 base64 -w0 ~/.config/kinevault-track/android-release.jks | gh secret set ANDROID_KEYSTORE_BASE64 --env android-release
@@ -37,7 +39,7 @@ It also needs the Supabase variable and secret that the iOS workflow uses; see
 ## Build
 
 ```sh
-gh workflow run android-release-build.yml   # runs from main; approve it under Review deployments
+gh workflow run android-release-build.yml   # runs from main; approve it under Review deployments if asked
 gh run watch   # pick the run
 gh run download --name KineVaultTrack-apk --dir ~/Downloads
 ```
@@ -63,7 +65,9 @@ adb install -r ~/Downloads/KineVaultTrack.apk
 Home's Steps reads the phone's step count from Health Connect. Android 14 and
 newer have it built in and start counting once the app may read steps; on
 Android 8–13, install Health Connect from Google Play first. The app offers the
-install when it's missing.
+install when it's missing. If step access is refused, Steps shows **Open
+settings**, which opens Health Connect's settings; Android stops showing the
+permission dialog after repeated refusals.
 
 Without a computer, send the `.apk` to the phone, open it, and allow the app
 you opened it from to install unknown apps when Android asks. Play Protect may
@@ -102,5 +106,6 @@ release build refuse it as an update.
 | `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, or "App not installed as package conflicts with an existing package" | The phone has `com.kinevault.track` signed with another key, such as a debug build from `npx expo run:android`. Use Export account data in Settings first, then uninstall and install again. |
 | Workflow fails at "Check required configuration" | Set the missing secret or variable above. |
 | "The .apk isn't signed with the release keystore." | The two key secrets don't match. Set both again from the files. |
+| `:app:packageRelease` fails with `OutOfMemoryError: Metaspace` | `android/` was generated without `plugins/with-gradle-memory.cjs`, which raises Gradle's heap and metaspace. Run the prebuild command again, then build. |
 | "EXPO_PUBLIC_SUPABASE_URL is not in index.android.bundle." | The bundle task didn't see the environment. Check the variable's value, then rerun. |
 | Run workflow button missing, or `gh workflow run` says not found | The workflow file isn't on `main` yet. |

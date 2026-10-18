@@ -4,7 +4,7 @@ Profile Overview includes Body weight. Log a measurement in kilograms, change it
 
 Each date has one measurement. Saving another weight on a recorded date replaces that measurement. The editor explains this before saving. Moving a measurement to a recorded date also replaces the destination measurement.
 
-The trend shows up to 30 latest measurements with calendar spacing. Dots are recorded values; dashed lines connect them without adding measurements on missing days. The chart exposes all shown dates and values to assistive technology. Empty and single-measurement histories have explicit messages. Measurement history lists dates and kg chronologically, starting with the latest ten. Show earlier measurements reveals thirty more at a time.
+The trend shows up to 30 latest measurements with calendar spacing. Dots are recorded values; dashed lines connect them without adding measurements on missing days. The chart exposes all shown dates and values to assistive technology. Empty and single-measurement histories have explicit messages. Measurement history lists dates and kg newest first, starting with the latest ten. Show earlier measurements reveals thirty more at a time.
 
 Weight history stays separate from `answers.weight`, which supplies body details for calorie estimates. Logging or changing history never changes calorie or macro goals. No initial measurement is inferred from profile setup.
 

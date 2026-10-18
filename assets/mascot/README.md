@@ -28,7 +28,7 @@ Loading: the v2 pose holds a large hourglass with both hands. The shared
 polite accessible loading label; Kine bobs slowly unless motion is reduced. Home and
 Food show a compact instance in a card while the food log loads; Food also uses it
 for saved foods, showing only one while both load. Compact instances fit the water
-form, barcode lookup, and workout import. Web startup also uses
+and steps forms, barcode lookup, and workout import. Web startup also uses
 the pose; native startup retains the existing splash until the app is ready.
 There is no minimum display time, so it disappears as soon as loading ends.
 

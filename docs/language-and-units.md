@@ -9,8 +9,8 @@ including Hebrew. Source product names are user-reviewable food data, not an
 indication that the app interface has been translated. Keep that fallback so a
 Hebrew-labeled product can still be imported when it has no English name.
 
-Hebrew interface support is future work in [TODO.md](../TODO.md). Implement it
-as a complete interface feature: extracted message keys, Hebrew translations,
+Hebrew interface support is future work. Implement it as a complete interface
+feature: extracted message keys, Hebrew translations,
 locale-aware number/date formatting, and right-to-left layout. Check navigation,
 calendar order, charts, numeric inputs, mixed-language product names, text
 scaling, and screen-reader labels on native devices. Do not infer the interface

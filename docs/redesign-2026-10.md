@@ -258,7 +258,8 @@ Changes requested after the first review, replacing parts of sections 2–3:
 - **Color:** the blue palette is back. Surfaces are cool blue-gray
   (`#eef2f6` light, `#10161c` dark), primary actions are slate blue
   (`#2c5070`; light blue `#94bdd7` in dark mode), and icon wells, the active
-  tab and the live workout header use the primary blue instead of ink.
+  tab and the live workout header (now its timer pill, section 8) use the
+  primary blue instead of ink.
 - **Type:** rounded Comfortaa (600) replaces Instrument Serif for display and
   title text, at smaller sizes (display 32, title 24) because it sets wider.
   Manrope stays for text and figures.
@@ -282,10 +283,11 @@ Changes requested after the first review, replacing parts of sections 2–3:
   draft, daily macros, barcode scan and import review. Exercise: saved
   workouts, create/edit workout and exercise, workout import, manual logging
   and completed workouts. A flow's steps replace each other on one page
-  instead of stacking sheets. Search results, the live workout and the
-  planned-workout card stay on the tab.
-- **Live workout:** the timer sits on the right of the header with no
-  "elapsed" label. Exercise chips show short names
+  instead of stacking sheets. Search results and the planned-workout card
+  stay on the tab; the live workout became a page in section 8.
+- **Live workout:** the timer has no "elapsed" label (section 8 moved it
+  from the header's right to the center of the page's top bar). Exercise
+  chips show short names
   (`src/exercise/short-name.ts`: initials for long names, ignoring any
   parenthetical; full names stay in accessible labels).
 - **Buttons:** destructive actions are red text on a soft red fill
@@ -320,7 +322,7 @@ curves). Press feedback belongs to `Tappable`, the segment fill to
   and the cards below glide up. Other entries stay disabled until the fade
   ends. Segmented controls slide their selection.
   Steps inside a sheet crossfade.
-- **Exercise:** the live dot pulses, chips and set badges ease their fill,
+- **Exercise:** chips and set badges ease their fill,
   new sets and exercises rise in, and the day's card fades in after a
   workout ends.
 - **Profile, Settings, Onboarding:** sliding segment indicators, a section
@@ -341,7 +343,8 @@ curves). Press feedback belongs to `Tappable`, the segment fill to
 - **Live workout page:** the Active workout opens as a page like the other
   Exercise flows (a full screen on Android and web, a page sheet on iOS)
   instead of expanding on the tab. Its elapsed time sits on a primary-blue
-  pill with a stopwatch, centered in the page's top bar. The ink "live"
+  pill (a deep Kine blue in dark mode) with a stopwatch, centered in the
+  page's top bar. The ink "live"
   header card, its "Live workout" overline and the pulsing dot are gone; the
   workout name is the card's first heading, as on the manual and completed
   pages. Back to Exercise leaves the workout running.
