@@ -303,13 +303,15 @@ export function elapsedSeconds(session: WorkoutSession, now: number): number {
 }
 
 /**
- * Library exercises whose name, muscle group, equipment or notes contain `search`, which is
- * already trimmed and lowercased.
+ * Library exercises whose name, muscle group, equipment or notes contain the typed `query`, in
+ * any case. A blank query matches nothing.
  */
 export function matchingExercises(
   exercises: readonly ExerciseDefinition[],
-  search: string,
+  query: string,
 ): ExerciseDefinition[] {
+  const search = query.trim().toLocaleLowerCase();
+  if (!search) return [];
   return exercises.filter((exercise) =>
     [exercise.name, exercise.muscleGroup, exercise.equipment, exercise.notes].some((text) =>
       text.toLocaleLowerCase().includes(search),

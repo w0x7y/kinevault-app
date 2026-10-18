@@ -132,12 +132,9 @@ export function WorkoutForm({
   const [limit, setLimit] = useState(20);
   const [notesId, setNotesId] = useState<string | null>(null);
   const rise = useLayoutMotion().enter();
-  const search = query.trim().toLocaleLowerCase();
-  const available = search
-    ? matchingExercises(exercises, search).filter(
-        (item) => !draft.rows.some((row) => row.exercise.id === item.id),
-      )
-    : [];
+  const available = matchingExercises(exercises, query).filter(
+    (item) => !draft.rows.some((row) => row.exercise.id === item.id),
+  );
   // The sheet's back button is this form's Cancel, except while it saves.
   useSheetBack({ disabled: busy });
   const builder = (
@@ -164,7 +161,7 @@ export function WorkoutForm({
         <AppText variant="caption" muted>
           Create an exercise first, then return to build your workout.
         </AppText>
-      ) : !search ? (
+      ) : !query.trim() ? (
         <AppText variant="caption" muted>
           Search by name, muscle group, equipment, or notes to add exercises.
         </AppText>

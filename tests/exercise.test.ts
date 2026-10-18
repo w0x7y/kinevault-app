@@ -450,6 +450,8 @@ test("library search matches name, muscle group, equipment or notes in any case"
   assert.deepEqual(ids("arms"), ["b"]);
   assert.deepEqual(ids("barbell"), ["a", "c"]);
   assert.deepEqual(ids("bench"), []);
+  assert.deepEqual(ids("  SQUAT "), ["a"]);
+  assert.deepEqual(ids("  "), [], "a blank query matches nothing");
 });
 
 test("planned set counts are whole numbers from 0 to 100", () => {
