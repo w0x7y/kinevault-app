@@ -63,7 +63,7 @@ function FoodDay({
   activity: ReturnType<typeof useDayActivity>;
   tab: FoodTabView;
 }) {
-  const { date, food, targets } = activity;
+  const { date, food, nutrition } = activity;
   const view = useSyncExternalStore(tab.subscribe, tab.getSnapshot, tab.getSnapshot);
   const { page } = view;
   const drafts = useFoodDrafts();
@@ -85,7 +85,6 @@ function FoodDay({
   const pageScroll = useRef<ScrollView>(null);
   const resultsTop = useRef(0);
   const log = useFoodLog();
-  const persistence = useFoodLogPersistence();
   const custom = useCustomFoods();
   // A new day starts at the top of its log, and so does each return to the log.
   useEffect(() => {
@@ -138,7 +137,7 @@ function FoodDay({
           tab.catalogSaved(item);
         }}
       />
-    ) : page.kind === "detail" && (page.origin !== "entry" || food.kind === "ready") ? (
+    ) : page.kind === "detail" ? (
       <FoodNutritionDetail
         key={page.key}
         attempt={page.attempt}
@@ -149,20 +148,15 @@ function FoodDay({
         onEditCatalog={tab.editCatalog}
         onDeleteItem={tab.deleteItem}
       />
-    ) : page.kind === "macros" && food.kind === "ready" ? (
-      <DailyMacros day={food.day} onBack={tab.back} />
+    ) : page.kind === "macros" ? (
+      <DailyMacros activity={activity} onBack={tab.back} />
     ) : null;
-  const eaten =
-    food.kind === "ready"
-      ? Math.round(food.day.foods.reduce((sum, entry) => sum + entry.calories, 0))
-      : null;
-  const goal = targets.kind === "ready" ? targets.calories : null;
   const calorieSummary =
-    eaten === null
+    nutrition === null
       ? null
-      : goal === null
-        ? `${eaten.toLocaleString()} kcal`
-        : `${eaten.toLocaleString()} / ${goal.toLocaleString()} kcal`;
+      : nutrition.calories.target === null
+        ? `${nutrition.calories.eaten.toLocaleString()} kcal`
+        : `${nutrition.calories.eaten.toLocaleString()} / ${nutrition.calories.target.toLocaleString()} kcal`;
   return (
     <Screen title="Food" showTitle={false} scrollRef={scrollRef} adjustKeyboardInsets>
       <ScreenTitle title="Daily food log" trailing={calorieSummary} />
@@ -215,8 +209,11 @@ function FoodDay({
           onLayout={(event) => {
             resultsTop.current = event.nativeEvent.layout.y;
           }}
+          removal={view.removal}
           onEdit={tab.editEntry}
-          onRemove={(id) => persistence.remove({ date, id })}
+          onArm={tab.armRemoval}
+          onCancel={tab.cancelRemoval}
+          onConfirm={(leave) => void tab.confirmRemoval(leave)}
         />
       ) : null}
       {/* Every flow opens on one page over the log. Its steps (create, then the saved item)

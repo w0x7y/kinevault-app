@@ -3,20 +3,16 @@ import { AppText } from "../components/ui";
 import { ProgressFill } from "../components/motion";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
-import { progressFraction, type summarizeDay } from "./model";
 import { macroCategories } from "./nutrition";
-
-type NutritionTargets = { carbs: number | null; protein: number | null; fat: number | null };
+import { unsetTarget, type NutritionProgress } from "./activity";
 
 /** Macro progress rows. Sits inside the energy card, so it draws no surface of its own. */
 export function NutritionWidget({
-  targets,
-  summary,
+  nutrition,
   width,
 }: {
   width?: number;
-  targets: NutritionTargets;
-  summary: ReturnType<typeof summarizeDay>;
+  nutrition: NutritionProgress;
 }) {
   const { colors } = useTheme();
   const textSize = width !== undefined && width < 150 ? 12 : 13;
@@ -25,10 +21,7 @@ export function NutritionWidget({
     <View testID="home-macros" style={{ flex: 1, minWidth: 0, justifyContent: "center" }}>
       <View testID="home-macro-rows" style={{ gap: spacing.md }}>
         {macroCategories.map(({ key, label }) => {
-          const value = summary[key];
-          const target = targets[key];
-          const progress = progressFraction(value, target);
-          const percentage = Math.round(progress * 100);
+          const { eaten, target, fraction, percentage, label: progressLabel } = nutrition[key];
           return (
             <View key={key} style={{ gap: 6 }}>
               <View
@@ -56,13 +49,13 @@ export function NutritionWidget({
                   numberOfLines={1}
                   style={{ fontSize: textSize, fontVariant: ["tabular-nums"] }}
                 >
-                  {value.toLocaleString(undefined, { maximumFractionDigits: 1 })} /{" "}
-                  {target === null ? "—" : target.toLocaleString()} g
+                  {eaten.toLocaleString()} /{" "}
+                  {target === null ? unsetTarget.shown : target.toLocaleString()} g
                 </AppText>
               </View>
               <View
                 accessibilityRole="progressbar"
-                accessibilityLabel={`${label}, ${value} grams consumed, target ${target === null ? "unset" : `${target} grams`}`}
+                accessibilityLabel={progressLabel}
                 accessibilityValue={{ min: 0, max: 100, now: percentage }}
                 aria-valuemin={0}
                 aria-valuemax={100}
@@ -76,7 +69,7 @@ export function NutritionWidget({
               >
                 <ProgressFill
                   testID={`home-macro-${key}-fill`}
-                  fraction={progress}
+                  fraction={fraction}
                   color={colors[key]}
                   style={{ borderRadius: radius.pill }}
                 />

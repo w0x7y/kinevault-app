@@ -170,13 +170,29 @@ behind that page (a Logging attempt, a Product import flow). Catalog views
 a day change and follow the new day; other views return to the new day's log and
 reset the Meal destination. Leaving the tab hides the page without discarding it:
 the scanner closes, a pending lookup is interrupted, and saves that finish while
-hidden still route their page. React keeps only scroll and keyboard effects.
+hidden still route their page. It also owns removing a Logged food entry: one open
+confirmation, the removal, and its failure. From confirmation until the write settles, the
+entry's fade included, the removal counts as a write, so other entries, search and resuming
+stay locked. A logged entry's details and Daily macros show only over a loaded food log.
+React keeps only scroll and keyboard effects and the entry's fade.
 
 A Logging attempt is built from the food-log persistence, the Custom food
 persistence and the Meal destination. It derives whether it can submit from them
 and follows the live saved item; only its own pending write reads as saving, and
 a save started during a food-log refresh waits for the refresh, then writes the
 preparation that is current at that point, since the day or food may have changed.
+
+Daily activity (`src/daily/activity.ts`) reads one day from every saved source: the
+food log, Manual water and the Water goal, workouts, and Phone steps plus Logged steps.
+Each source reports its own availability and retry, and the activity owns the Home Steps
+and Water tile wording, so Home and the Personal journal read it instead of the providers.
+It also computes the day's nutrition progress beside its targets (eaten, left or over,
+percentage and each macro's share of the calorie ring, rounded to whole kcal and grams to
+one decimal), so the Home ring and macros, the Food title, Daily macros and the journal
+only draw it. A missing calorie or macro target shows as "—" and is read as "unset", and
+"Set your goals" is one link that pages close before following.
+`useDayActivity` is its React adapter; only Home asks it to read Phone steps. The journal's
+streak comes from the same activity and is counted once per change of its sources.
 
 Completed Workout totals derive from persisted Workout sessions and their valid
 sets. Daily activity and test fixtures use the same Exercise summary interface;

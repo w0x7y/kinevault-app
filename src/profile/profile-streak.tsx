@@ -1,45 +1,30 @@
-import { useMemo } from "react";
 import { View } from "react-native";
 import Animated from "react-native-reanimated";
 import { useAppear } from "../components/motion";
 import { Icon } from "../components/icon";
-import { useFoodLog } from "../food/log-provider";
-import { useWaterLog } from "../water/provider";
-import { useExercises } from "../exercise/provider";
 import { parseDay } from "../calendar/dates";
-import { profileStreak } from "./activity";
+import { useDayActivity } from "../daily/use-day";
 import { SourceStatus } from "./profile-controls";
 import { useTheme } from "../theme/provider";
 import { AppText, Panel } from "../components/ui";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { JournalHeading } from "./journal-ui";
 export function ProfileStreak({ today }: { today: string }) {
-  const food = useFoodLog(),
-    water = useWaterLog(),
-    exercise = useExercises();
+  const activity = useDayActivity({ date: today });
+  const { food, water, workouts } = activity.sources;
   const { colors } = useTheme();
-  const streak = useMemo(
-    () =>
-      food.state.kind === "ready" && water.state.kind === "ready" && exercise.state.kind === "ready"
-        ? profileStreak({
-            today,
-            food: food.state.document,
-            water: water.state.document,
-            sessions: exercise.state.document.sessions,
-          })
-        : null,
-    [today, food.state, water.state, exercise.state],
-  );
+  // Counted once per Daily activity, which only changes with its sources.
+  const streak = activity.streak();
   return (
     <Panel testID="profile-streak" accessibilityLabel="Tracking streaks">
-      {food.state.kind !== "ready" && (
-        <SourceStatus name="food log" kind={food.state.kind} retry={food.retryLoad} />
+      {food.kind !== "ready" && (
+        <SourceStatus name="food log" kind={food.kind} retry={food.retry} />
       )}
-      {water.state.kind !== "ready" && (
-        <SourceStatus name="water log" kind={water.state.kind} retry={water.retryLoad} />
+      {water.kind !== "ready" && (
+        <SourceStatus name="water log" kind={water.kind} retry={water.retry} />
       )}
-      {exercise.state.kind !== "ready" && (
-        <SourceStatus name="workouts" kind={exercise.state.kind} retry={exercise.retryLoad} />
+      {workouts.kind !== "ready" && (
+        <SourceStatus name="workouts" kind={workouts.kind} retry={workouts.retry} />
       )}
       {streak && (
         <>

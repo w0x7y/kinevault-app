@@ -16,7 +16,7 @@ import {
 
 type FoodLog = Pick<
   ReturnType<typeof createFoodLogPersistence>,
-  "getSnapshot" | "subscribe" | "add" | "edit" | "findFood"
+  "getSnapshot" | "subscribe" | "add" | "edit" | "remove" | "findFood"
 >;
 type Catalog = Pick<ReturnType<typeof createCustomFoodPersistence>, "getSnapshot" | "subscribe">;
 type Drafts = Pick<
@@ -47,10 +47,17 @@ export type FoodTabPage =
   | { kind: "macros" | "create" | "resume"; key: number }
   | FoodImportPage
   | FoodDetailPage;
+/** Removing a logged entry: its confirmation is open, its removal runs, or the removal failed. */
+export type FoodEntryRemoval = Readonly<{
+  id: string;
+  date: string;
+  state: "armed" | "removing" | "failed";
+}>;
 type FoodTabSnapshot = Readonly<{
   query: string;
   page: FoodTabPage;
-  /** The page over the log shows while the tab is focused. Away, it keeps its state. */
+  /** The page over the log shows while the tab is focused and, for a logged entry's details or
+   * Daily macros, the food log is loaded. Away, it keeps its state. */
   sheet: boolean;
   /** The page's current step. Each new step starts at the top of the page. */
   step: string;
@@ -58,7 +65,10 @@ type FoodTabSnapshot = Readonly<{
   resumable: boolean;
   /** Counts returns to the top of the food log. */
   logTop: number;
-  /** A food-log or catalog write locks search, resuming and logged entries. */
+  /** The one logged entry being removed, if any. */
+  removal: FoodEntryRemoval | null;
+  /** A food-log or catalog write, or an entry's removal from its confirmation on, locks
+   * search, resuming and logged entries. */
   busy: boolean;
   /** Scan and Create also need loaded Custom foods. */
   createDisabled: boolean;
@@ -102,6 +112,7 @@ export function createFoodTabView({
   let focused = false;
   let foreground = true;
   let logTop = 0;
+  let removal: FoodEntryRemoval | null = null;
   let sequence = 0;
   let running = false;
   let detach: (() => void) | undefined;
@@ -111,11 +122,12 @@ export function createFoodTabView({
   function build(): FoodTabSnapshot {
     const saved = log.getSnapshot();
     const custom = catalog.getSnapshot();
-    const busy = saved.saving || custom.saving;
+    const busy = saved.saving || custom.saving || removal?.state === "removing";
+    const needsLog = page.kind === "macros" || (page.kind === "detail" && page.origin === "entry");
     return {
       query,
       page,
-      sheet: focused && page.kind !== "log",
+      sheet: focused && page.kind !== "log" && (!needsLog || saved.state.kind === "ready"),
       step: stepOf(page),
       resumable: !(
         page.kind === "resume" ||
@@ -123,6 +135,7 @@ export function createFoodTabView({
         (page.kind === "detail" && page.editor)
       ),
       logTop,
+      removal,
       busy,
       createDisabled: busy || custom.state.kind !== "ready",
       macrosDisabled: busy || saved.state.kind !== "ready",
@@ -136,6 +149,7 @@ export function createFoodTabView({
     const next = build();
     if (
       next.busy === snapshot.busy &&
+      next.sheet === snapshot.sheet &&
       next.createDisabled === snapshot.createDisabled &&
       next.macrosDisabled === snapshot.macrosDisabled
     )
@@ -178,6 +192,10 @@ export function createFoodTabView({
   }
   function context() {
     return { active: focused && foreground, scopeKey: day };
+  }
+  /** Closes an entry's confirmation unless its removal is running. */
+  function disarm() {
+    if (removal?.state !== "removing") removal = null;
   }
   function back() {
     if (page.kind === "detail" && page.editor) {
@@ -224,6 +242,7 @@ export function createFoodTabView({
     setDay(date: string) {
       if (date === day) return;
       day = date;
+      disarm();
       if (catalogView(page)) {
         if (page.kind === "detail") page.attempt.setDate(date);
         if (page.kind === "import") page.flow.setContext(context());
@@ -246,6 +265,7 @@ export function createFoodTabView({
       publish();
     },
     search(text: string) {
+      disarm();
       show({ kind: "log" });
       query = text;
       publish();
@@ -287,7 +307,41 @@ export function createFoodTabView({
       showDetail("search", { kind: "add", food });
     },
     editEntry(entry: FoodEntry) {
+      disarm();
       showDetail("entry", { kind: "edit", entry });
+    },
+    /** Opens a logged entry's removal confirmation; another closed confirmation closes. */
+    armRemoval(id: string) {
+      if (snapshot.busy) return;
+      removal = { id, date: day, state: "armed" };
+      publish();
+    },
+    cancelRemoval() {
+      if (removal?.state === "removing") return;
+      removal = null;
+      publish();
+    },
+    /**
+     * Removes the armed entry. Everything that writes stays locked from here until the removal
+     * settles, `leave` (the entry's fade) included, so another entry can't start in between.
+     * A refused removal stays armed; one that throws stays armed with its failure.
+     */
+    async confirmRemoval(leave: () => Promise<void> = async () => {}) {
+      if (!removal || removal.state === "removing" || snapshot.busy) return false;
+      const attempt: FoodEntryRemoval = { ...removal, state: "removing" };
+      removal = attempt;
+      publish();
+      let removed = false;
+      let failed = false;
+      try {
+        await leave();
+        removed = await log.remove({ date: attempt.date, id: attempt.id });
+      } catch {
+        failed = true;
+      }
+      removal = removed ? null : { ...attempt, state: failed ? "failed" : "armed" };
+      publish();
+      return removed;
     },
     /** A creation, resumed draft or import review was saved: the saved item opens, ready to log. */
     created(item: CustomFood | CustomMeal) {

@@ -332,3 +332,130 @@ test("deleting the saved item leaves its details; a failure stays with that page
   const state = f.catalog.getSnapshot().state;
   assert.equal(state.kind === "ready" && state.document.foods.length, 0);
 });
+
+const logTwo = async (f: Awaited<ReturnType<typeof fixture>>) => {
+  await f.log.add({ date, food: banana, grams: 50, meal: "lunch" });
+  await f.log.add({ date, food: banana, grams: 80, meal: "dinner" });
+  return f.entries().map((entry) => entry.id);
+};
+function fade() {
+  let end!: () => void;
+  const played = new Promise<void>((resolve) => (end = resolve));
+  return { leave: () => played, end };
+}
+
+// Pins 589dce1 (October 17): food entries stay disabled while another entry's removal fade runs.
+test("an entry's removal locks the tab and every other entry from its fade until it settles", async () => {
+  const f = await fixture();
+  const [first, second] = await logTwo(f);
+  const snapshot = () => f.tab.getSnapshot();
+  f.tab.armRemoval(first);
+  assert.deepEqual(snapshot().removal, { id: first, date, state: "armed" });
+  assert.equal(snapshot().busy, false, "an open confirmation locks nothing");
+
+  const { leave, end } = fade();
+  const removing = f.tab.confirmRemoval(leave);
+  assert.equal(snapshot().removal?.state, "removing");
+  assert.equal(snapshot().busy, true, "the fade already locks the tab");
+  assert.equal(snapshot().macrosDisabled, true);
+  f.tab.armRemoval(second);
+  f.tab.cancelRemoval();
+  f.tab.search("oats");
+  f.tab.setDay(nextDay);
+  f.tab.setDay(date);
+  assert.equal(snapshot().removal?.id, first, "nothing replaces or closes a running removal");
+  assert.equal(await f.tab.confirmRemoval(), false);
+  assert.equal(f.entries().length, 2, "nothing is written during the fade");
+
+  end();
+  assert.equal(await removing, true);
+  assert.deepEqual(
+    f.entries().map((entry) => entry.id),
+    [second],
+  );
+  assert.equal(snapshot().removal, null);
+  assert.equal(snapshot().busy, false);
+});
+
+test("a refused removal stays armed and a thrown one shows its failure", async () => {
+  const f = await fixture();
+  const [first] = await logTwo(f);
+  f.tab.armRemoval(first);
+  const write = f.logStorage.holdWrite();
+  const removing = f.tab.confirmRemoval();
+  await flush();
+  write.open(true);
+  assert.equal(await removing, false);
+  assert.deepEqual(f.tab.getSnapshot().removal, { id: first, date, state: "armed" });
+  assert.equal(f.log.getSnapshot().error, "Couldn't save your food log. Try again.");
+  assert.equal(f.entries().length, 2);
+
+  const tab = createFoodTabView({
+    date,
+    drafts: f.drafts,
+    log: {
+      ...f.log,
+      remove: async () => {
+        throw new Error("Unavailable");
+      },
+    },
+    catalog: f.catalog,
+    lookup: { lookupProduct: async () => null },
+  });
+  tab.start();
+  tab.armRemoval(first);
+  assert.equal(await tab.confirmRemoval(), false);
+  assert.equal(tab.getSnapshot().removal?.state, "failed");
+  assert.equal(tab.getSnapshot().busy, false);
+  tab.cancelRemoval();
+  assert.equal(tab.getSnapshot().removal, null);
+});
+
+test("one confirmation is open at a time and the log's own changes close it", async () => {
+  const f = await fixture();
+  const [first, second] = await logTwo(f);
+  const removal = () => f.tab.getSnapshot().removal;
+  f.tab.armRemoval(first);
+  f.tab.armRemoval(second);
+  assert.equal(removal()?.id, second, "arming another entry moves the confirmation");
+  f.tab.setDay(nextDay);
+  assert.equal(removal(), null, "a day change closes it");
+  f.tab.setDay(date);
+  f.tab.armRemoval(first);
+  f.tab.search("banana");
+  assert.equal(removal(), null, "searching covers the log and closes it");
+  f.tab.search("");
+  f.tab.armRemoval(first);
+  f.tab.editEntry(f.entries()[0]);
+  assert.equal(removal(), null, "editing an entry closes it");
+  f.tab.back();
+
+  const write = f.logStorage.holdWrite();
+  const adding = f.log.add({ date, food: banana, grams: 10, meal: "snacks" });
+  f.tab.armRemoval(first);
+  assert.equal(removal(), null, "a food-log write locks the entries");
+  write.open();
+  await adding;
+});
+
+test("a logged entry's details and Daily macros show only over a loaded food log", async () => {
+  const f = await fixture();
+  const [first] = await logTwo(f);
+  const reads = f.logStorage.holdReads();
+  f.log.stop();
+  f.log.start();
+  f.tab.macros();
+  assert.equal(f.tab.getSnapshot().sheet, false);
+  f.tab.back();
+  f.tab.editEntry(f.entries().find((entry) => entry.id === first)!);
+  assert.equal(f.tab.getSnapshot().sheet, false);
+  f.tab.back();
+  f.tab.search("banana");
+  f.tab.select(banana);
+  assert.equal(f.tab.getSnapshot().sheet, true, "search details don't need the log");
+  f.tab.back();
+  f.tab.macros();
+  reads.open();
+  await flush();
+  assert.equal(f.tab.getSnapshot().sheet, true);
+});

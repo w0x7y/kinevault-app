@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { StyleSheet, View, type ViewProps } from "react-native";
 import Animated from "react-native-reanimated";
 import { useLayoutMotion } from "../components/motion";
@@ -8,13 +7,17 @@ import { useTheme } from "../theme/provider";
 import { fonts, spacing } from "../theme/tokens";
 import { meals, type FoodDay, type FoodEntry, type Meal } from "./model";
 import { FoodLogEntry } from "./food-log-entry";
+import type { FoodEntryRemoval } from "../food/tab-view";
 import { InlineMessage } from "../components/inline-message";
 
 export function MealsWidget({
   day,
   query,
   fresh,
-  onRemove,
+  removal,
+  onArm,
+  onCancel,
+  onConfirm,
   onEdit,
   onLayout,
   saving,
@@ -24,7 +27,10 @@ export function MealsWidget({
   query: string;
   /** Entries just logged while the log was on screen; they rise into their meal. */
   fresh?: ReadonlySet<string>;
-  onRemove: (id: string) => Promise<boolean>;
+  removal: FoodEntryRemoval | null;
+  onArm: (id: string) => void;
+  onCancel: () => void;
+  onConfirm: (leave: () => Promise<void>) => void;
   onEdit: (entry: FoodEntry) => void;
   onLayout?: ViewProps["onLayout"];
   saving: boolean;
@@ -34,8 +40,7 @@ export function MealsWidget({
   const { layout } = useLayoutMotion();
   // The card whose rows are changing resizes in place; the cards below it glide to their new
   // place. A resizing card is left out of the glide, which would stretch its contents.
-  const [armedMeal, setArmedMeal] = useState<Meal | null>(null);
-  const [removing, setRemoving] = useState(false);
+  const armedMeal = day.foods.find((food) => food.id === removal?.id)?.meal;
   const changing = new Set<Meal>(armedMeal ? [armedMeal] : []);
   for (const food of day.foods) if (fresh?.has(food.id)) changing.add(food.meal);
   return (
@@ -98,11 +103,12 @@ export function MealsWidget({
                   food={food}
                   mealLabel={label}
                   fresh={fresh?.has(food.id) ?? false}
-                  saving={saving || removing}
+                  saving={saving}
+                  removal={removal?.id === food.id ? removal.state : null}
                   onEdit={onEdit}
-                  onRemove={onRemove}
-                  onArm={() => setArmedMeal(key)}
-                  onLeaving={setRemoving}
+                  onArm={() => onArm(food.id)}
+                  onCancel={onCancel}
+                  onConfirm={onConfirm}
                   style={{
                     marginTop: spacing.md,
                     paddingTop: spacing.xs,
