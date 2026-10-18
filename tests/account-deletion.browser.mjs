@@ -76,7 +76,7 @@ async function settings(page) {
   await page.getByText("All changes saved to your account.", { exact: true }).waitFor();
 }
 
-async function open(t, fixture = {}) {
+async function open(t, fixture = {}, statuses = [403, 200]) {
   const browser = await launchBrowser();
   t.after(() => browser.close());
   const context = await browser.newContext({
@@ -126,12 +126,11 @@ async function open(t, fixture = {}) {
       assert.ok(index < deletion.length, "Deletion must require an explicit UI retry");
       deletion[index].started.resolve();
       await deletion[index].response.promise;
+      const status = statuses[index];
       await route.fulfill({
-        status: index === 0 ? 403 : 200,
+        status,
         contentType: "application/json",
-        body: JSON.stringify(
-          index === 0 ? { error: "Password verification failed" } : { deleted: true },
-        ),
+        body: JSON.stringify(status === 200 ? { deleted: true } : { error: "Rejected" }),
       });
     },
   );
@@ -366,4 +365,19 @@ test("a Google-only account confirms deletion with a fresh Google sign-in instea
   });
   deletion[0].response.resolve();
   await page.getByRole("alert").filter({ hasText: "sign in with Google again" }).waitFor();
+});
+
+test("Settings explains the server's deletion attempt limit and keeps local data", async (t) => {
+  const { page, deletion } = await open(t, {}, [429]);
+  const before = await records(page);
+  await button(page, "Delete account").click();
+  await page.getByLabel("Current password", { exact: true }).fill(fixturePassword);
+  await page.getByLabel("Type DELETE to confirm", { exact: true }).fill("DELETE");
+  await Promise.all([
+    button(page, "Permanently delete my account").click(),
+    deletion[0].started.promise,
+  ]);
+  deletion[0].response.resolve();
+  await page.getByRole("alert").filter({ hasText: "Too many deletion attempts" }).waitFor();
+  assert.deepEqual(await records(page), before);
 });

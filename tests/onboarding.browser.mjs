@@ -683,6 +683,14 @@ async function finishSetupWithAccount(page) {
   await heading(page, "Calories");
 }
 const accountModeButton = (page, label) => page.getByRole("tab", { name: label, exact: true });
+// A recovery link completes only with the PKCE verifier this device's reset request stored.
+async function requestRecovery(page) {
+  await accountModeButton(page, "Log in").click();
+  await button(page, "Forgot password?").click();
+  await page.getByLabel("Email", { exact: true }).fill("track-fixture@example.com");
+  await button(page, "Send reset link").click();
+  await page.getByText(/If an account exists for this email/).waitFor();
+}
 const accountSubmitButton = (page, label) => button(page, label);
 const accountField = (page, label) => page.getByLabel(label, { exact: true });
 const storedValues = (page) =>
@@ -963,13 +971,14 @@ test("account onboarding accepts signup with a confirmed session and imports set
 
 test("account onboarding verifies a recovery email link before changing the password", async (t) => {
   const page = await openAccountAtReview(t);
+  await requestRecovery(page);
   await page.goto(`${baseURL}/auth/reset-password`);
   await page.getByRole("alert").filter({ hasText: "Open the password reset link" }).waitFor();
   assert.equal(await button(page, "Save new password").count(), 0);
-  await page.goto(`${baseURL}/auth/callback?token_hash=fixture-recovery-token&type=recovery`);
+  await page.goto(`${baseURL}/auth/callback?code=fixture-recovery-token&flow=recovery`);
   await heading(page, "Choose a new password");
   assert.equal(
-    new URL(page.url()).searchParams.has("token_hash"),
+    new URL(page.url()).searchParams.has("code"),
     false,
     "email tokens are removed from history",
   );
@@ -992,7 +1001,8 @@ test("account onboarding verifies a recovery email link before changing the pass
 
 test("account onboarding can cancel password recovery without entering a redirect loop", async (t) => {
   const page = await openAccountAtReview(t);
-  await page.goto(`${baseURL}/auth/callback?token_hash=fixture-cancel-recovery&type=recovery`);
+  await requestRecovery(page);
+  await page.goto(`${baseURL}/auth/callback?code=fixture-cancel-recovery&flow=recovery`);
   await heading(page, "Choose a new password");
   await page.getByLabel("New password", { exact: true }).fill("discarded-password-123");
   await page.getByLabel("Confirm new password", { exact: true }).fill("discarded-password-123");
@@ -1012,15 +1022,14 @@ test("account onboarding can cancel password recovery without entering a redirec
 
 test("account onboarding keeps recovery reachable when cloud sync fails and rejects expired links", async (t) => {
   const page = await openAccountAtReview(t);
+  await requestRecovery(page);
   await page.goto(`${baseURL}/auth/callback?error=access_denied&error_code=otp_expired`);
   await heading(page, "Check your sign-in link");
   await page.getByRole("alert").filter({ hasText: "expired or already been used" }).waitFor();
   await page.waitForURL((url) => url.search === "");
   assert.equal(new URL(page.url()).search, "");
   page.accountFixture.cloudError = true;
-  await page.goto(
-    `${baseURL}/auth/callback?token_hash=fixture-recovery-after-failure&type=recovery`,
-  );
+  await page.goto(`${baseURL}/auth/callback?code=fixture-recovery-after-failure&flow=recovery`);
   await heading(page, "Choose a new password");
   await page.getByLabel("New password", { exact: true }).waitFor();
   assert.equal(await button(page, "Save new password").isEnabled(), true);
@@ -1029,8 +1038,9 @@ test("account onboarding keeps recovery reachable when cloud sync fails and reje
 
 test("account onboarding retains a typed recovery form when the first cloud download finishes", async (t) => {
   const page = await openAccountAtReview(t);
+  await requestRecovery(page);
   const download = page.accountFixture.deferDocumentReads();
-  await page.goto(`${baseURL}/auth/callback?token_hash=fixture-delayed-recovery&type=recovery`);
+  await page.goto(`${baseURL}/auth/callback?code=fixture-delayed-recovery&flow=recovery`);
   await heading(page, "Choose a new password");
   await download.started;
   await page.getByLabel("New password", { exact: true }).fill("retained-password-123");

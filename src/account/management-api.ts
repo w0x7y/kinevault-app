@@ -17,6 +17,11 @@ export async function deleteAccountOnServer(
     headers: { Authorization: `Bearer ${session.access_token}` },
     body: password === null ? { confirmation: "DELETE" } : { password, confirmation: "DELETE" },
   });
+  // FunctionsHttpError carries the function's response.
+  if ((error as { context?: Response } | null)?.context?.status === 429)
+    throw new Error(
+      "Too many deletion attempts. Wait an hour, then try again. Your local data has been kept.",
+    );
   if (error || !data || data.deleted !== true)
     throw new Error(
       password === null

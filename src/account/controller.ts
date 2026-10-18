@@ -32,10 +32,6 @@ export type AccountAuthPort = {
   ) => Promise<Result & { cleared: boolean }>;
   signOut: (options: { scope: "local" }) => Promise<Result>;
   exchangeCodeForSession: (code: string) => Promise<SessionResult>;
-  verifyOtp: (options: {
-    token_hash: string;
-    type: "email" | "recovery";
-  }) => Promise<SessionResult>;
 };
 export type AccountSnapshot = {
   loading: boolean;
@@ -535,19 +531,6 @@ export function createAccountController(
         });
         return Promise.resolve(false);
       }
-      // Token-hash links carry no proof that this device started the flow: anyone
-      // can take one from their own account's email. Following one must never
-      // silently replace the signed-in account, or later tracking would be saved
-      // to the link owner's account.
-      // PKCE codes remain bound to this device's verifier.
-      if (parsed.kind !== "code" && snapshot.session) {
-        callbackContext = { target: callbackTarget(url)!, result: Promise.resolve(false) };
-        publish({
-          error: "You're already logged in. Log out first, then open this email link again.",
-          notice: null,
-        });
-        return Promise.resolve(false);
-      }
       let resolve!: (success: boolean) => void;
       const result = new Promise<boolean>((done) => {
         resolve = done;
@@ -555,10 +538,8 @@ export function createAccountController(
       pendingLinks.set(url, result);
       callbackContext = { target: callbackTarget(url)!, result };
       void run(async (port, current, revision, sameJourney) => {
-        const response =
-          parsed.kind === "code"
-            ? await port.exchangeCodeForSession(parsed.code)
-            : await port.verifyOtp({ token_hash: parsed.tokenHash, type: parsed.type });
+        // Only this device holds the PKCE verifier for its own requests.
+        const response = await port.exchangeCodeForSession(parsed.code);
         if (!check(response, current, sameJourney) || !response.data.session) return false;
         if (revision === authRevision) publishSession(response.data.session, parsed.recovery);
         else if (snapshot.user?.id === response.data.session.user.id && parsed.recovery)

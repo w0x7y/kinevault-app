@@ -17,21 +17,13 @@ test("recovery callbacks preserve their purpose", () => {
     recovery: true,
   });
 });
-test("email token hashes only allow email confirmation and recovery types", () => {
-  assert.deepEqual(parseAuthLink("kinevaulttrack://auth/callback?token_hash=hash&type=recovery"), {
-    kind: "token-hash",
-    tokenHash: "hash",
-    type: "recovery",
-    recovery: true,
-  });
-  assert.deepEqual(
-    parseAuthLink("https://track.example/auth/callback?token_hash=hash&type=email"),
-    { kind: "token-hash", tokenHash: "hash", type: "email", recovery: false },
-  );
-  assert.equal(
-    parseAuthLink("kinevaulttrack://auth/callback?token_hash=hash&type=invite").kind,
-    "invalid",
-  );
+test("token-hash links are refused, since every Auth email template sends a PKCE code", () => {
+  for (const url of [
+    "kinevaulttrack://auth/callback?token_hash=hash&type=recovery",
+    "https://track.example/auth/callback?token_hash=hash&type=email",
+    "kinevaulttrack://auth/callback?token_hash=hash&type=invite",
+  ])
+    assert.equal(parseAuthLink(url).kind, "invalid");
 });
 test("implicit-session callbacks are refused, since PKCE sign-in never sends tokens", () => {
   assert.equal(

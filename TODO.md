@@ -38,7 +38,7 @@ and docs/ describe behavior and link here instead of repeating status.
 - [ ] Re-check demo playback, fullscreen, offline replay and Android rounded video corners in native builds on an iPhone and an Android device before release.
 - [x] Build apps to install directly: a signed release `.apk` (`Android release build` workflow, docs/android-apk.md) and an unsigned `.ipa` signed with xtool (`iOS unsigned build` workflow, docs/ios-linux-xtool.md). Both use `com.kinevault.track`.
 - [ ] Configure store builds when ready to release: a Play Console app bundle with increasing version codes, and App Store builds, which need a paid Apple Developer Program team.
-- [ ] Activate production email delivery and web hosting: Resend SMTP, a verified sender domain, and the Vercel production origin. See docs/supabase-setup.md.
+- [ ] Activate production email delivery and web hosting: Resend SMTP, a verified sender domain, and the Vercel production origin. Gmail SMTP sends account emails until then. See docs/supabase-setup.md.
 - [ ] Publish the Google sign-in consent screen without buying a domain: deploy the Track web app to a free `*.vercel.app` address with a `/privacy` page, add its home page and privacy policy links on the Google Auth Platform Branding page, add that address as an authorized domain, then click Publish app. Until then only listed test users can use Google sign-in (100 over the project's lifetime).
 - [ ] Make new Android and iOS builds (`expo-web-browser` is a new native module), then check Continue with Google, Resend email and the email callback on a physical iPhone and Android phone.
 - [ ] Add Sign in with Apple before an App Store release: apps that offer Google sign-in must also offer it. Needs a paid Apple Developer Program team.
@@ -56,8 +56,8 @@ and docs/ describe behavior and link here instead of repeating status.
 - [ ] Enable Supabase leaked-password protection. Requires a Pro plan; the apply command returned HTTP 402. Billing decision.
 - [ ] Track the Expo SDK 58 upgrade. It removes the query-string dependency, which retires one local patch. Both patches must be re-validated on every SDK bump.
 - [x] Let Google-only accounts delete themselves: without a password, `delete-account` accepts the session's Google sign-in from the last 10 minutes, and Settings offers "Sign in with Google again". See docs/account-management.md.
-- [ ] Deploy `delete-account` (never deployed yet) after adding a per-user rate limit (docs/security-remediation.md), then delete a disposable Google-only and a password account. Required for App Store review.
-- [ ] Decide on token-hash email links on a never-signed-in device: if every Track email template uses `{{ .ConfirmationURL }}` (PKCE), refuse token-hash links. Check with the friend's shared project first. See docs/security-remediation.md.
+- [ ] Apply migration `20261018120000_account_deletion_attempts.sql`, then deploy `delete-account` (never deployed yet) and delete a disposable Google-only and a password account. Required for App Store review.
+- [x] Decide on token-hash email links on a never-signed-in device: every hosted email template uses `{{ .ConfirmationURL }}` (PKCE), so Track refuses token-hash links. See docs/security-remediation.md.
 - [ ] Move the Android signing secrets into a GitHub Environment limited to `main` with a required reviewer. The workflow already uses the `android-release` environment; create it, move the two secrets and delete the repository copies (docs/android-apk.md).
 - [ ] Enable Supabase Auth CAPTCHA (e.g. Turnstile) so sign-up, resend and reset emails can't be spammed through the shared project; the in-app resend cap is only a convenience.
 - [x] Before deploying the web app, add `script-src` and `connect-src` to the Content-Security-Policy in `vercel.json` and test it against the export. Checked locally against `npm run export:web` served with these headers; recheck in the browser console after the first Vercel deploy.
