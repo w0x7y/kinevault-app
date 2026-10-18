@@ -170,7 +170,7 @@ test("a panel keeps a compact card on the tab and opens every other log on a she
     search: null,
     showDailyWorkout: false,
     plannedCards: [],
-    inline: { session: draft, mode: "compact", panel: compact, closeLabel: "Close workout" },
+    inline: { session: draft, mode: "compact", panel: compact },
     live: null,
     showImport: false,
     sheet: null,

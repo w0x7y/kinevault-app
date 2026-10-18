@@ -34,12 +34,12 @@ function durationCaption(minutes: string) {
 export function SessionEditor({
   session,
   tab,
-  closeLabel = null,
+  closable = false,
 }: {
   session: WorkoutSession;
   tab: ExerciseTabView;
-  /** Names a compact card's close control, when a panel opened the card on its own. */
-  closeLabel?: string | null;
+  /** Whether a compact card shows its close control: a panel opened the card on its own. */
+  closable?: boolean;
 }) {
   const {
     edit,
@@ -52,6 +52,7 @@ export function SessionEditor({
     settingsOpen,
     mode,
     back,
+    backLabel,
     primary,
     primaryLabel,
     discard,
@@ -226,11 +227,11 @@ export function SessionEditor({
     <Panel testID={inSheet ? undefined : "session-editor"}>
       {mode === "compact" ? (
         <View testID={testID} style={{ gap: spacing.md }}>
-          {closeLabel ? (
+          {closable ? (
             <View style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.sm }}>
               <View style={{ flex: 1, minWidth: 0 }}>{plannedHeading}</View>
               <IconButton
-                label={closeLabel}
+                label={backLabel}
                 icon="xmark"
                 disabled={busy}
                 onPress={() => void edit.run(back)}
@@ -240,15 +241,17 @@ export function SessionEditor({
             plannedHeading
           )}
           <ButtonRow>
+            {start && (
+              <AppButton
+                label="Start workout"
+                tone="primary"
+                fill
+                onPress={() => void edit.run("start")}
+                disabled={busy}
+              />
+            )}
             <AppButton
-              label="Start workout"
-              tone="primary"
-              fill
-              onPress={() => void edit.run("start")}
-              disabled={busy}
-            />
-            <AppButton
-              label="Log completed workout"
+              label={primaryLabel}
               fill
               onPress={() =>
                 void tab.requestView({ kind: "session", id: session.id, manual: true })

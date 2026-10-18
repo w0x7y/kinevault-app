@@ -92,12 +92,7 @@ export default function ExerciseScreen() {
         />
       )}
       {inline && (
-        <SessionEditor
-          key={inline.panel.token}
-          tab={tab}
-          session={inline.session}
-          closeLabel={inline.closeLabel}
-        />
+        <SessionEditor key={inline.panel.token} tab={tab} session={inline.session} closable />
       )}
       {view.showImport && (
         <AppButton

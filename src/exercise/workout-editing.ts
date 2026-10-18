@@ -47,11 +47,14 @@ type WorkoutLogControls = {
   back: Extract<Action, "leave" | "cancel">;
   /** The back button's accessible name. */
   backLabel: string;
-  /** The main action: Save on a completed log; otherwise End or Log completes it. */
+  /**
+   * The main action: Save on a completed log; otherwise End or Log completes it. A compact card's
+   * Log opens the manual page, which completes it.
+   */
   primary: Extract<Action, "save" | "complete">;
   primaryLabel: string;
   discard: boolean;
-  /** Start from the manual page; a compact card has its own. */
+  /** Start from the compact card or the manual page. */
   start: boolean;
   /** Name and duration, on the manual and completed pages. */
   details: boolean;
@@ -82,8 +85,8 @@ export const workoutLogControls = {
     backLabel: "Close workout",
     primary: "complete",
     primaryLabel: "Log completed workout",
-    discard: true,
-    start: false,
+    discard: false,
+    start: true,
     details: false,
     retry: true,
     overline: "Planned",
