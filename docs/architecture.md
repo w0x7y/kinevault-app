@@ -145,7 +145,9 @@ blur, but its result cannot advance the abandoned flow or navigate. Restarting
 keeps staged answers and excludes another save until the pending write settles.
 
 Catalog drafts own save validation, attempt feedback, write exclusion and retirement
-through the existing Custom food persistence interface. Food and meal forms submit
+through the existing Custom food persistence interface. `catalogWriteState` is the one
+write rule for the drafts and the forms: Saving belongs to the session's own write, and a
+refresh, another write or an unloaded catalog only locks Save. Food and meal forms submit
 intentions and render the session snapshot. Retained drafts keep their own failure
 message across unrelated storage operations. A completed save cannot discard fields
 changed while it was pending, close a replacement editor or deliver its result to
@@ -171,15 +173,17 @@ after a Start from the day, keep the edit when its back button leaves it (the
 `leave` action saves first and stays put if the save fails), and don't save a
 workout before opening its own page. `activeWorkout` in the exercise model is the one
 lookup of the Active workout. The app header reads the Active workout from
-the exercise store and opens the page through the `liveWorkout` route request. Workout edits own the selected exercise and the
-planned-set settings disclosure, which reopens when a planned count is invalid, and
+the exercise store and opens the page through the `liveWorkout` route request. Workout edits own the selected exercise, the Details
+disclosure and the planned-set settings disclosure, which reopens when a planned count is
+invalid, and
 the same log mode drives planned-count validation. The edit's snapshot carries that
 mode and the controls it allows from one table, `workoutLogControls`: whether Back
 leaves or cancels and its name, Save or complete and its label, Discard, Start,
-Details, Retry, the overline and the sheet's title and test ID; the editor and the
-sheet render them. `parsePlannedSetCount` in the exercise model is the one planned-count
+Details, Retry, the overline and the sheet's title and test ID; the compact card, the
+editor and the sheet render them. `parsePlannedSetCount` in the exercise model is the one planned-count
 rule for Workout edits and Workout templates. `setHints` there gives each blank set its
-Previous sets hint, and `matchingExercises` is the one library search rule. Library drafts own Exercise
+Previous sets hint, and `matchingExercises` is the one library search rule; it takes the typed query.
+`short-name.ts` owns both row labels: the accessible "Squat exercise 2" and the chip label. Library drafts own Exercise
 definition, Workout template (including its selected exercise, builder disclosure and
 search), Saved workouts and Workout import state per panel, so the sheet can unmount when the tab
 loses focus without losing input; their durable success closes the originating
@@ -271,8 +275,10 @@ Manual water and Logged steps are both day amount documents (`{ version: 1, days
 { date: amount } }`, a whole amount from zero per date) built from
 `src/persistence/day-amount-log.ts`. It owns their parsing, the durable
 `set({ date, amount })` that replaces one date's amount, and the edit whose `adjust`
-keeps the draft between zero and the safe maximum. Each domain keeps its own storage
-key, parser and messages.
+keeps the draft between zero and the safe maximum. `DayAmountSheet`
+(`src/persistence/day-amount-sheet.tsx`) is the one entry sheet for both; the steps sheet
+adds its phone panel, whose status, count and offered fix `phoneStepsStatus` decides. Each
+domain keeps its own storage key, parser and messages.
 
 `stepFields` in `src/profile/answers.ts` is the one map of which Answers fields each step
 owns. The Onboarding flow uses it to decide which errors block Continue; focused Profile

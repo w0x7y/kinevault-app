@@ -57,8 +57,6 @@ type InlineWorkoutLog = {
   mode: Extract<WorkoutLogMode, "compact">;
   /** The panel that opened the card in place. */
   panel: WorkoutPanel;
-  /** Names the control that closes that panel. */
-  closeLabel: string;
 };
 
 /** The page that slides up over the tab for every other panel. */
@@ -131,13 +129,7 @@ export function exerciseTabView({
     sheet: ExerciseTabSheet | null = null;
   if (open) {
     const mode = opened && workoutLogMode(opened, content);
-    if (opened && mode === "compact")
-      inline = {
-        session: opened,
-        mode,
-        panel: open,
-        closeLabel: workoutLogControls.compact.backLabel,
-      };
+    if (opened && mode === "compact") inline = { session: opened, mode, panel: open };
     else
       sheet = {
         panel: open,

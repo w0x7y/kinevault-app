@@ -6,6 +6,7 @@ import { DeleteButton } from "../components/delete-button";
 import type { CustomFood } from "./custom-model.ts";
 import type { CustomMeal } from "./meal-model.ts";
 import { useCustomFoods } from "./custom-provider";
+import { catalogWriteState } from "./catalog-drafts.ts";
 
 export function CustomItemActions({
   item,
@@ -23,7 +24,7 @@ export function CustomItemActions({
 }) {
   const custom = useCustomFoods();
   const kind = "ingredients" in item ? "meal" : "food";
-  const unavailable = disabled || custom.saving || custom.state.kind !== "ready";
+  const unavailable = disabled || catalogWriteState(custom).locked;
   return (
     <>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>

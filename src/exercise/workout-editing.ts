@@ -30,6 +30,8 @@ export type WorkoutEditState = {
   selectedId: string | null;
   /** Whether a compact card shows its planned-set settings. */
   settingsOpen: boolean;
+  /** Whether a manual or completed page shows its name and duration fields. */
+  detailsOpen: boolean;
 };
 type Store = Pick<
   ReturnType<typeof createExercisePersistence>,
@@ -47,11 +49,14 @@ type WorkoutLogControls = {
   back: Extract<Action, "leave" | "cancel">;
   /** The back button's accessible name. */
   backLabel: string;
-  /** The main action: Save on a completed log; otherwise End or Log completes it. */
+  /**
+   * The main action: Save on a completed log; otherwise End or Log completes it. A compact card's
+   * Log opens the manual page, which completes it.
+   */
   primary: Extract<Action, "save" | "complete">;
   primaryLabel: string;
   discard: boolean;
-  /** Start from the manual page; a compact card has its own. */
+  /** Start from the compact card or the manual page. */
   start: boolean;
   /** Name and duration, on the manual and completed pages. */
   details: boolean;
@@ -63,6 +68,18 @@ type WorkoutLogControls = {
   /** The page over the tab (a null title shows the workout's name); a compact card stays on the tab. */
   sheet: { title: string | null; testID: string } | null;
 };
+/** A saved log's editable fields. Two decimals of minutes keep every whole second through a save. */
+function savedFields(session: WorkoutSession): Pick<WorkoutEditState, "fields" | "counts"> {
+  const { durationSeconds } = session;
+  return {
+    fields: {
+      name: session.name,
+      exercises: session.exercises,
+      minutes: durationSeconds === null ? "" : String(Number((durationSeconds / 60).toFixed(2))),
+    },
+    counts: Object.fromEntries(session.exercises.map((row) => [row.id, String(row.sets.length)])),
+  };
+}
 /** What a workout log shows in each mode. */
 export const workoutLogControls = {
   compact: {
@@ -70,8 +87,8 @@ export const workoutLogControls = {
     backLabel: "Close workout",
     primary: "complete",
     primaryLabel: "Log completed workout",
-    discard: true,
-    start: false,
+    discard: false,
+    start: true,
     details: false,
     retry: true,
     overline: "Planned",
@@ -230,21 +247,8 @@ export function createWorkoutEditing(
         if (!entry.pending) entries.delete(id);
       } else {
         // Untouched fields follow a newer saved log, e.g. from an account refresh; entered fields never do.
-        const savedFields =
-          entry.revision === 0 && !entry.pending
-            ? {
-                fields: {
-                  name: session.name,
-                  exercises: session.exercises,
-                  minutes:
-                    session.durationSeconds === null ? "" : String(session.durationSeconds / 60),
-                },
-                counts: Object.fromEntries(
-                  session.exercises.map((row) => [row.id, String(row.sets.length)]),
-                ),
-              }
-            : {};
-        entry.state = { ...entry.state, ...savedFields, session };
+        const fields = entry.revision === 0 && !entry.pending ? savedFields(session) : {};
+        entry.state = { ...entry.state, ...fields, session };
       }
     }
     // Editors render again with the newer saved log.
@@ -263,19 +267,13 @@ export function createWorkoutEditing(
         queued: null,
         state: {
           session,
-          fields: {
-            name: session.name,
-            exercises: session.exercises,
-            minutes: session.durationSeconds === null ? "" : String(session.durationSeconds / 60),
-          },
-          counts: Object.fromEntries(
-            session.exercises.map((row) => [row.id, String(row.sets.length)]),
-          ),
+          ...savedFields(session),
           busy: false,
           error: null,
           countError: null,
           selectedId: null,
           settingsOpen: false,
+          detailsOpen: false,
         },
       };
       entries.set(id, entry);
@@ -551,6 +549,10 @@ export function createWorkoutEditing(
       showSettings(open: boolean) {
         if (current(id, entry) && entry.state.settingsOpen !== open)
           publish(entry, { settingsOpen: open });
+      },
+      showDetails(open: boolean) {
+        if (current(id, entry) && entry.state.detailsOpen !== open)
+          publish(entry, { detailsOpen: open });
       },
     };
   }

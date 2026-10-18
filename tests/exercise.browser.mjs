@@ -1360,7 +1360,11 @@ test("completed workout editing shares the layout and keeps side edits local unt
   await button(editor, "Link a KineVault demo to Squat").click();
   await button(page.getByTestId("exercise-form"), "Cancel").click();
   await page.getByTestId("completed-workout-workspace").waitFor();
-  await button(editor, "Workout name and duration").click();
+  // Details stays open across the trip.
+  assert.equal(
+    await button(editor, "Workout name and duration").getAttribute("aria-expanded"),
+    "true",
+  );
   assert.equal(await field(editor, "Workout name").inputValue(), "Edited historical workout");
   assert.equal(await field(editor, "Squat set 1 reps").inputValue(), "7");
   await button(editor, "Select exercise Curl").click();

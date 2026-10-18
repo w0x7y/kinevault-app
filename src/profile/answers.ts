@@ -67,6 +67,16 @@ export type Answers = {
   customProtein: string;
   customFat: string;
 };
+/** The chosen weight goal's and activity level's labels; null for an unanswered question. */
+export function choiceLabels({ goal, activity }: Pick<Answers, "goal" | "activity">): {
+  goal: string | null;
+  activity: string | null;
+} {
+  return {
+    goal: goals.find(({ value }) => value === goal)?.label ?? null,
+    activity: activities.find(({ value }) => value === activity)?.label ?? null,
+  };
+}
 export const emptyAnswers: Answers = {
   name: "",
   goal: null,

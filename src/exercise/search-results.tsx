@@ -79,11 +79,7 @@ export function ExerciseSearchResults({
 }) {
   const { colors } = useTheme();
   const [page, setPage] = useState(0);
-  const normalized = query.trim().toLocaleLowerCase();
-  const matches = useMemo(
-    () => (!normalized ? [] : matchingExercises(exercises, normalized)),
-    [exercises, normalized],
-  );
+  const matches = useMemo(() => matchingExercises(exercises, query), [exercises, query]);
   const pageCount = Math.ceil(matches.length / pageSize);
   const resultPage = Math.min(page, Math.max(0, pageCount - 1));
   if (page !== resultPage) setPage(resultPage);
@@ -104,7 +100,7 @@ export function ExerciseSearchResults({
       <View style={{ gap: 2 }}>
         <Overline accessibilityRole="header">Exercise library</Overline>
         <AppText variant="caption" muted accessibilityLiveRegion="polite">
-          {!normalized
+          {!query.trim()
             ? "Type to search exercises."
             : matches.length
               ? `${matches.length.toLocaleString()} matching exercises.`

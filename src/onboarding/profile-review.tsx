@@ -5,7 +5,7 @@ import { Icon, type IconName } from "../components/icon";
 import { IconWell } from "../components/icon-well";
 import { Tappable } from "../components/tappable";
 import { AppText, Panel } from "../components/ui";
-import { activities, goals, type Answers, type EditableStep } from "../profile/answers";
+import { choiceLabels, type Answers, type EditableStep } from "../profile/answers";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 
@@ -25,7 +25,7 @@ export function ProfileReview({
     { label: "Name", value: answers.name.trim() || "Not added", step: "name", icon: "user" },
     {
       label: "Goal",
-      value: goals.find(({ value }) => value === answers.goal)?.label || "Not set",
+      value: choiceLabels(answers).goal ?? "Not set",
       step: "goal",
       icon: "flag",
     },
@@ -50,7 +50,7 @@ export function ProfileReview({
     },
     {
       label: "Activity",
-      value: activities.find(({ value }) => value === answers.activity)?.label || "Not set",
+      value: choiceLabels(answers).activity ?? "Not set",
       step: "activity",
       icon: "person-running",
     },

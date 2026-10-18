@@ -68,8 +68,9 @@ function seconds(value: unknown): number | null {
   return value;
 }
 
-const catalogIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const catalogSlugPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+/** KineVault catalog IDs and slugs, shared by catalog links and catalog rows. */
+export const catalogIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+export const catalogSlugPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 export function parseCatalogLink(value: unknown): CatalogLink {
   const item = record(value);
   if (typeof item.id !== "string" || !catalogIdPattern.test(item.id))
@@ -291,6 +292,10 @@ export function parseExerciseDocument(raw: string | null): ExerciseDocument {
 export function activeWorkout(sessions: readonly WorkoutSession[]): WorkoutSession | null {
   return sessions.find((session) => session.status === "active") ?? null;
 }
+/** Whole seconds as the timer shows them, minutes:seconds. */
+export function formatElapsed(seconds: number): string {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
 export function elapsedSeconds(session: WorkoutSession, now: number): number {
   if (session.status !== "active" || session.startedAt === null)
     return session.status === "completed" ? (session.durationSeconds ?? 0) : 0;
@@ -299,13 +304,15 @@ export function elapsedSeconds(session: WorkoutSession, now: number): number {
 }
 
 /**
- * Library exercises whose name, muscle group, equipment or notes contain `search`, which is
- * already trimmed and lowercased.
+ * Library exercises whose name, muscle group, equipment or notes contain the typed `query`, in
+ * any case. A blank query matches nothing.
  */
 export function matchingExercises(
   exercises: readonly ExerciseDefinition[],
-  search: string,
+  query: string,
 ): ExerciseDefinition[] {
+  const search = query.trim().toLocaleLowerCase();
+  if (!search) return [];
   return exercises.filter((exercise) =>
     [exercise.name, exercise.muscleGroup, exercise.equipment, exercise.notes].some((text) =>
       text.toLocaleLowerCase().includes(search),

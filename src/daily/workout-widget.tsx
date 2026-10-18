@@ -112,7 +112,6 @@ export function WorkoutWidget({
       </Panel>
     );
   const workout = tile.completed;
-  const lifted = workout.volume.toLocaleString();
   return (
     <Panel testID={testID} style={{ gap: spacing.layout }}>
       <View style={{ gap: spacing.xs }}>
@@ -130,7 +129,7 @@ export function WorkoutWidget({
           Total lifted
         </AppText>
         <AppText selectable variant="hero" style={{ fontSize: 38, lineHeight: 44 }}>
-          {lifted}
+          {tile.lifted}
           <AppText
             variant="heading"
             muted

@@ -7,18 +7,7 @@ import { useLayoutMotion } from "../components/motion";
 import { AppText, Overline } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
-import { exerciseChipLabels } from "./short-name";
-export type WorkspaceExercise = { id: string; exercise: { name: string } };
-
-export function exerciseRowLabel(
-  exercises: WorkspaceExercise[],
-  row: WorkspaceExercise,
-  index: number,
-) {
-  return exercises.filter((item) => item.exercise.name === row.exercise.name).length > 1
-    ? `${row.exercise.name} exercise ${index + 1}`
-    : row.exercise.name;
-}
+import { exerciseChipLabels, exerciseRowLabel, type WorkspaceExercise } from "./short-name";
 
 export function WorkoutWorkspace({
   name,

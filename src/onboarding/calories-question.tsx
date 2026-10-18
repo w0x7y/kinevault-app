@@ -5,7 +5,7 @@ import { AppButton } from "../components/button";
 import { AppText, Overline, Panel } from "../components/ui";
 import { calorieState } from "../profile/calories";
 import { macroInputs } from "../profile/answers";
-import { macroTargets } from "../profile/macros";
+import { macroCalories, macroTargets } from "../profile/macros";
 import { fonts, spacing } from "../theme/tokens";
 import { useTheme } from "../theme/provider";
 import { InlineMessage } from "../components/inline-message";
@@ -20,10 +20,7 @@ export function CaloriesQuestion({ answers, update, errors, disabled }: Question
   const teen = mode.kind === "teen";
   const macros = macroTargets(answers);
   const customMacros = macroInputs.some(({ field }) => answers[field].trim());
-  const macroCalories =
-    macros.carbs !== null && macros.protein !== null && macros.fat !== null
-      ? macros.carbs * 4 + macros.protein * 4 + macros.fat * 9
-      : null;
+  const macroTotal = macroCalories(macros);
   const macroColor = { carbs: colors.carbs, protein: colors.protein, fat: colors.fat };
   const hairline = { borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border };
   return (
@@ -202,9 +199,9 @@ export function CaloriesQuestion({ answers, update, errors, disabled }: Question
             disabled={disabled}
           />
         )}
-        {customMacros && macroCalories !== null && (
+        {customMacros && macroTotal !== null && (
           <AppText variant="caption" muted>
-            Macro targets total {macroCalories.toLocaleString("en-US")} kcal.
+            Macro targets total {macroTotal.toLocaleString("en-US")} kcal.
             {target !== null
               ? ` Your calorie target stays at ${target.toLocaleString("en-US")} kcal.`
               : ""}

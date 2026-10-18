@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   parseExerciseDocument,
   elapsedSeconds,
+  formatElapsed,
   matchingExercises,
   parsePlannedSetCount,
   setHints,
@@ -257,6 +258,8 @@ test("elapsed timer derives wall time, floors seconds and tolerates clock moving
   const active = { ...session, status: "active" as const, startedAt: 1000 };
   assert.equal(elapsedSeconds(active, 42500), 41);
   assert.equal(elapsedSeconds(active, 500), 0);
+  assert.equal(formatElapsed(437), "7:17");
+  assert.equal(formatElapsed(3605), "60:05");
   assert.equal(elapsedSeconds({ ...session, durationSeconds: 120 }, 999999), 120);
   assert.equal(elapsedSeconds({ ...session, status: "planned" }, 999999), 0);
 });
@@ -447,6 +450,8 @@ test("library search matches name, muscle group, equipment or notes in any case"
   assert.deepEqual(ids("arms"), ["b"]);
   assert.deepEqual(ids("barbell"), ["a", "c"]);
   assert.deepEqual(ids("bench"), []);
+  assert.deepEqual(ids("  SQUAT "), ["a"]);
+  assert.deepEqual(ids("  "), [], "a blank query matches nothing");
 });
 
 test("planned set counts are whole numbers from 0 to 100", () => {

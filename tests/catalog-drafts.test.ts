@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createCatalogDrafts } from "../src/food/catalog-drafts.ts";
+import { catalogWriteState, createCatalogDrafts } from "../src/food/catalog-drafts.ts";
 import type { CustomFood, CustomFoodDraft } from "../src/food/custom-model.ts";
 import type { CustomMeal } from "../src/food/meal-model.ts";
 import { createCustomFoodPersistence } from "../src/food/custom-persistence.ts";
@@ -414,4 +414,22 @@ test("catalog save is refused without an attempt while another catalog write run
   assert.equal(f.writes(), 1);
   f.release();
   assert.equal(await deleting, true);
+});
+
+test("an editor says Saving only for its own write; a refresh or another write only locks it", () => {
+  const ready = { kind: "ready" } as const;
+  const refreshing = { saving: true, state: ready };
+  assert.deepEqual(catalogWriteState(refreshing, { saving: false }), {
+    saving: false,
+    locked: true,
+  });
+  assert.deepEqual(catalogWriteState(refreshing, { saving: true }), { saving: true, locked: true });
+  assert.deepEqual(catalogWriteState({ saving: false, state: { kind: "loading" } }), {
+    saving: false,
+    locked: true,
+  });
+  assert.deepEqual(catalogWriteState({ saving: false, state: ready }), {
+    saving: false,
+    locked: false,
+  });
 });

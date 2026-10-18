@@ -1,3 +1,5 @@
+export type WorkspaceExercise = { id: string; exercise: { name: string } };
+
 /** Names up to this many characters fit an exercise chip as they are. */
 const fitLength = 12;
 
@@ -20,6 +22,17 @@ export function shortExerciseName(name: string): string {
     .join("")
     .toLocaleUpperCase();
   return initials || base;
+}
+
+/** A row's accessible name: a name the workout repeats adds its position, "Squat exercise 2". */
+export function exerciseRowLabel(
+  exercises: readonly WorkspaceExercise[],
+  row: WorkspaceExercise,
+  index: number,
+): string {
+  return exercises.filter((item) => item.exercise.name === row.exercise.name).length > 1
+    ? `${row.exercise.name} exercise ${index + 1}`
+    : row.exercise.name;
 }
 
 /**

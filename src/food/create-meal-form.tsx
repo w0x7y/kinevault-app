@@ -19,7 +19,7 @@ import { Section } from "./food-ui";
 import { FormFooter } from "./create-form";
 
 import { useFoodDrafts } from "./draft-provider";
-import type { MealDraftSession } from "./catalog-drafts.ts";
+import { catalogWriteState, type MealDraftSession } from "./catalog-drafts.ts";
 
 const numberText = (value: number) => String(Number(value.toFixed(4)));
 
@@ -37,7 +37,8 @@ export function CreateMealForm({
   const drafts = useFoodDrafts();
   const { draft, existing, handle, errors, error } = session;
   const sequence = useRef(0);
-  const busy = foods.saving || session.saving;
+  const { saving, locked } = catalogWriteState(foods, session);
+  const busy = foods.saving || saving;
   const calculated = previewMeal(draft.ingredients);
   const values: Record<keyof Nutrition, string> = {
     calories: "0",
@@ -181,8 +182,8 @@ export function CreateMealForm({
           drafts.discard(handle);
           onCancel();
         }}
-        saveLabel={busy ? "Saving meal..." : existing ? "Save meal changes" : "Save meal"}
-        saveDisabled={busy || foods.state.kind !== "ready"}
+        saveLabel={saving ? "Saving meal..." : existing ? "Save meal changes" : "Save meal"}
+        saveDisabled={locked}
         onSave={() => {
           void save();
         }}

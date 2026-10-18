@@ -167,6 +167,18 @@ function sameTarget(left: CatalogDraftTarget, right: CatalogDraftTarget): boolea
   }
 }
 
+/**
+ * What a catalog editor shows: Saving only while its own write runs, and locked controls while any
+ * write or a background refresh is running, or the catalog hasn't loaded.
+ */
+export function catalogWriteState(
+  store: { saving: boolean; state: { kind: string } },
+  session?: { saving: boolean },
+): { saving: boolean; locked: boolean } {
+  const saving = session?.saving ?? false;
+  return { saving, locked: saving || store.saving || store.state.kind !== "ready" };
+}
+
 /** Owns unfinished reusable-catalog input for one Food screen lifetime.
  * Every save and deletion goes through the Custom food persistence it is given.
  */
@@ -321,7 +333,7 @@ export function createCatalogDrafts({ store }: { store: CatalogStore }) {
   ): Promise<CustomFood | CustomMeal | null> {
     const entry = entries.find((entry) => entry.session.handle === handle);
     const current = store.getSnapshot();
-    if (!entry || pending || current.saving || current.state.kind !== "ready") return null;
+    if (!entry || pending || catalogWriteState(current).locked) return null;
     // Reserve before feedback publication: a subscriber can immediately submit again.
     pending = true;
     const revision = entry.revision;
@@ -432,7 +444,7 @@ export function createCatalogDrafts({ store }: { store: CatalogStore }) {
     /** Deletes a saved item durably. A failure is kept for `caller` until another deletion starts. */
     async removeSaved(item: CustomFood | CustomMeal, caller: object): Promise<boolean> {
       const current = store.getSnapshot();
-      if (pending || current.saving || current.state.kind !== "ready") return false;
+      if (pending || catalogWriteState(current).locked) return false;
       pending = true;
       if (snapshot.deletion) {
         snapshot = { ...snapshot, deletion: null };
