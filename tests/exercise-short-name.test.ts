@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { exerciseChipLabels, shortExerciseName } from "../src/exercise/short-name.ts";
+import {
+  exerciseChipLabels,
+  exerciseRowLabel,
+  shortExerciseName,
+} from "../src/exercise/short-name.ts";
 
 test("long exercise names become the initials of their words", () => {
   assert.equal(shortExerciseName("Shoulder Press Machine (Wide Grip/Top Half)"), "SPM");
@@ -41,4 +45,15 @@ test("colliding chip labels add the row's position", () => {
   );
   assert.deepEqual(exerciseChipLabels(["Squat", "Squat"]), ["Squat 1", "Squat 2"]);
   assert.deepEqual(exerciseChipLabels(["Squat", "Curl"]), ["Squat", "Curl"]);
+});
+
+test("a repeated exercise's accessible name adds its position", () => {
+  const rows = ["Squat", "Curl", "Squat"].map((name, index) => ({
+    id: String(index),
+    exercise: { name },
+  }));
+  assert.deepEqual(
+    rows.map((row, index) => exerciseRowLabel(rows, row, index)),
+    ["Squat exercise 1", "Curl", "Squat exercise 3"],
+  );
 });

@@ -19,7 +19,8 @@ import { InlineMessage } from "../components/inline-message";
 import { TextField } from "../components/text-field";
 import { ExerciseNotes, SectionLabel } from "./controls";
 import { ExerciseSetTable } from "./set-table";
-import { exerciseRowLabel, WorkoutWorkspace } from "./workout-workspace";
+import { exerciseRowLabel } from "./short-name";
+import { WorkoutWorkspace } from "./workout-workspace";
 import { useSheetBack } from "../components/sheet-page";
 
 function durationCaption(minutes: string) {
