@@ -51,6 +51,7 @@ export function SessionEditor({
     countError: settingsError,
     selectedId,
     settingsOpen,
+    detailsOpen,
     mode,
     back,
     backLabel,
@@ -66,8 +67,7 @@ export function SessionEditor({
   } = useWorkoutEdit(tab.edits, session.id);
   const store = useExercises();
   const sessions = store.state.kind === "ready" ? store.state.document.sessions : [];
-  const [detailsOpen, setDetailsOpen] = useState(false),
-    [notesId, setNotesId] = useState<string | null>(null);
+  const [notesId, setNotesId] = useState<string | null>(null);
   // In a sheet, its back button is this workout's Cancel. The Active workout keeps running.
   const inSheet = useSheetBack({ onPress: () => void edit.run(back), disabled: busy });
   function renderExercise(row: SessionExercise, index: number) {
@@ -148,7 +148,7 @@ export function SessionEditor({
         accessibilityLabel="Workout name and duration"
         expanded={detailsOpen}
         disabled={busy}
-        onPress={() => setDetailsOpen((previous) => !previous)}
+        onPress={() => edit.showDetails(!detailsOpen)}
       />
     </View>
   );

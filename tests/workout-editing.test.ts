@@ -132,6 +132,17 @@ test("the selected exercise row outlives the editor until Cancel releases the ed
   assert.equal(f.editing.edit("log").getSnapshot().selectedId, null);
 });
 
+test("an open Details section outlives the editor until Cancel releases the edit", async () => {
+  const f = await fixture();
+  await f.tab.requestView({ kind: "session", id: "log" });
+  f.editing.edit("log").showDetails(true);
+  await f.tab.requestView({ kind: "library", date: "2026-10-05" });
+  await f.tab.requestView({ kind: "session", id: "log" });
+  assert.equal(f.editing.edit("log").getSnapshot().detailsOpen, true);
+  assert.equal(await f.editing.edit("log").run("cancel"), true);
+  assert.equal(f.editing.edit("log").getSnapshot().detailsOpen, false);
+});
+
 test("a compact card's settings stay open until they save, beside any count problem", async () => {
   const f = await fixture("planned");
   const edit = f.editing.edit("log");
@@ -843,8 +854,18 @@ test("Back on the Active workout's page leaves it running and keeps the edit", a
 test("each log mode allows its own controls, and the mode follows the open panel", async () => {
   const controls = (edit: ReturnType<ReturnType<typeof tabView>["edits"]["edit"]>) => {
     // Everything but the edit's own state.
-    const { session, fields, counts, busy, error, countError, selectedId, settingsOpen, ...rest } =
-      edit.getSnapshot();
+    const {
+      session,
+      fields,
+      counts,
+      busy,
+      error,
+      countError,
+      selectedId,
+      settingsOpen,
+      detailsOpen,
+      ...rest
+    } = edit.getSnapshot();
     return rest;
   };
   const planned = await fixture("planned");

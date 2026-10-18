@@ -30,6 +30,8 @@ export type WorkoutEditState = {
   selectedId: string | null;
   /** Whether a compact card shows its planned-set settings. */
   settingsOpen: boolean;
+  /** Whether a manual or completed page shows its name and duration fields. */
+  detailsOpen: boolean;
 };
 type Store = Pick<
   ReturnType<typeof createExercisePersistence>,
@@ -271,6 +273,7 @@ export function createWorkoutEditing(
           countError: null,
           selectedId: null,
           settingsOpen: false,
+          detailsOpen: false,
         },
       };
       entries.set(id, entry);
@@ -546,6 +549,10 @@ export function createWorkoutEditing(
       showSettings(open: boolean) {
         if (current(id, entry) && entry.state.settingsOpen !== open)
           publish(entry, { settingsOpen: open });
+      },
+      showDetails(open: boolean) {
+        if (current(id, entry) && entry.state.detailsOpen !== open)
+          publish(entry, { detailsOpen: open });
       },
     };
   }
