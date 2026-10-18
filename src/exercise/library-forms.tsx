@@ -9,7 +9,7 @@ import { Icon } from "../components/icon";
 import { Tappable } from "../components/tappable";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
-import type { ExerciseDefinition, WorkoutTemplate } from "./model";
+import { matchingExercises, type ExerciseDefinition, type WorkoutTemplate } from "./model";
 import { useExercises } from "./provider";
 import { InlineMessage } from "../components/inline-message";
 import { TextField } from "../components/text-field";
@@ -134,12 +134,8 @@ export function WorkoutForm({
   const rise = useLayoutMotion().enter();
   const search = query.trim().toLocaleLowerCase();
   const available = search
-    ? exercises.filter(
-        (item) =>
-          !draft.rows.some((row) => row.exercise.id === item.id) &&
-          [item.name, item.muscleGroup, item.equipment, item.notes].some((value) =>
-            value.toLocaleLowerCase().includes(search),
-          ),
+    ? matchingExercises(exercises, search).filter(
+        (item) => !draft.rows.some((row) => row.exercise.id === item.id),
       )
     : [];
   // The sheet's back button is this form's Cancel, except while it saves.

@@ -25,6 +25,8 @@ export type FoodLoggingAttemptSnapshot = Readonly<{
   preparation: FoodLoggingPreparation;
   /** The saved Custom food or meal behind the target: the current one, or as opened once deleted. */
   item: SavedCatalogItem | undefined;
+  /** What the page calls the item it logs. */
+  noun: "food" | "meal" | "drink";
   /** This attempt's own write is in flight. A food-log refresh is not a save. */
   saving: boolean;
   failed: boolean;
@@ -116,6 +118,8 @@ export function createFoodLoggingAttempt({
       fields,
       preparation,
       item,
+      noun:
+        preparation.measurement === "volume" ? "drink" : item?.kind === "meal" ? "meal" : "food",
       saving,
       failed,
       busy: saving || sources.catalogBusy,

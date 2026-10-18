@@ -1,5 +1,6 @@
 import {
   emptyAnswers,
+  stepFields,
   steps,
   type Answers,
   type EditableStep,
@@ -25,29 +26,6 @@ type Snapshot = {
   primaryLabel: string;
   showBack: boolean;
   showSkip: boolean;
-};
-const fieldsByStep: Record<Step, (keyof Answers)[]> = {
-  welcome: [],
-  age: ["age"],
-  name: ["name"],
-  goal: ["goal"],
-  body: ["height", "weight", "sex", "eligible"],
-  activity: ["activity"],
-  calories: ["customCalories", "customCarbs", "customProtein", "customFat"],
-  review: [
-    "name",
-    "goal",
-    "age",
-    "height",
-    "weight",
-    "sex",
-    "eligible",
-    "activity",
-    "customCalories",
-    "customCarbs",
-    "customProtein",
-    "customFat",
-  ],
 };
 
 // Callers submit intentions. This module owns validation, staged edits, and save ordering.
@@ -121,7 +99,7 @@ export function createOnboardingFlow(initial: ProfileDocument, effects: Effects)
   function relevantErrors(action: "next" | "skip") {
     const all = validateAnswers(snapshot.answers);
     const errors: FieldErrors = {};
-    for (const field of action === "skip" ? (["age"] as const) : fieldsByStep[snapshot.step])
+    for (const field of action === "skip" ? (["age"] as const) : stepFields[snapshot.step])
       if (all[field]) errors[field] = all[field];
     publish({ errors });
     return Object.keys(errors).length > 0;

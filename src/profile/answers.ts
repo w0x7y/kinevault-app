@@ -103,3 +103,27 @@ export function numericValue(value: string): number | null {
 }
 
 export type EditableStep = Exclude<Step, "welcome" | "review">;
+/** The Answers fields each step owns: its Question shows their errors and they block Continue. */
+export const stepFields: Record<Step, (keyof Answers)[]> = {
+  welcome: [],
+  age: ["age"],
+  name: ["name"],
+  goal: ["goal"],
+  body: ["height", "weight", "sex", "eligible"],
+  activity: ["activity"],
+  calories: ["customCalories", "customCarbs", "customProtein", "customFat"],
+  review: [
+    "name",
+    "goal",
+    "age",
+    "height",
+    "weight",
+    "sex",
+    "eligible",
+    "activity",
+    "customCalories",
+    "customCarbs",
+    "customProtein",
+    "customFat",
+  ],
+};

@@ -53,4 +53,3 @@ export function summarizeSessions(sessions: readonly WorkoutSession[]): Complete
     exercises,
   };
 }
-export { elapsedSeconds } from "./model.ts";

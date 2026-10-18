@@ -5,6 +5,7 @@ import { interpretDayActivity } from "../src/daily/activity.ts";
 import type { FoodEntry } from "../src/daily/model.ts";
 import type { CatalogFood } from "../src/food/catalog.ts";
 import { entryForFood } from "../src/food/log-model.ts";
+import type { WorkoutSession } from "../src/exercise/model.ts";
 import { emptyAnswers } from "../src/profile/answers.ts";
 import type { PhoneStepsReading } from "../src/steps/summary.ts";
 import { parseWaterGoal } from "../src/water/goal-model.ts";
@@ -65,6 +66,7 @@ const readyProfile = {
 } satisfies Sources["profile"];
 const sources: Sources = {
   date,
+  today: date,
   profile: readyProfile,
   food: readyFood,
   water: readyWater,
@@ -229,14 +231,15 @@ test("exercise records aggregate only completed sessions on the selected date in
   });
   const activity = interpretDayActivity({ ...sources, food: source({ kind: "error" }), exercise });
   assert.equal(activity.food.kind, "error");
-  assert.equal(activity.workoutState, "ready");
-  assert.equal(activity.workout.volume, 400);
-  assert.equal(activity.workout.sets, 2);
-  assert.equal(activity.workout.reps, 10);
-  assert.equal(activity.workout.durationSeconds, 1200);
-  assert.equal(activity.workout.exercises.length, 2);
-  const past = interpretDayActivity({ ...sources, date: otherDate, exercise });
-  assert.equal(past.workout.volume, 200);
+  assert.equal(activity.workout.kind, "done");
+  if (activity.workout.kind !== "done") return;
+  assert.equal(activity.workout.completed.volume, 400);
+  assert.equal(activity.workout.completed.sets, 2);
+  assert.equal(activity.workout.completed.reps, 10);
+  assert.equal(activity.workout.completed.durationSeconds, 1200);
+  assert.equal(activity.workout.completed.exercises.length, 2);
+  const past = interpretDayActivity({ ...sources, date: otherDate, exercise }).workout;
+  assert.equal(past.kind === "done" && past.completed.volume, 200);
 });
 
 for (const kind of ["loading", "error"] as const) {
@@ -244,7 +247,7 @@ for (const kind of ["loading", "error"] as const) {
     const activity = interpretDayActivity({ ...sources, exercise: source({ kind }) });
     assert.equal(activity.food.kind, "ready");
     if (activity.food.kind === "ready") assert.equal(activity.food.summary.calories, 100);
-    assert.equal(activity.workoutState, kind);
+    assert.equal(activity.workout.kind, kind);
   });
 }
 
@@ -253,9 +256,7 @@ test("ready empty exercise storage is distinct from failed storage", () => {
     ...sources,
     exercise: source({ kind: "ready", document: noExercise }),
   });
-  assert.equal(activity.workoutState, "ready");
-  assert.equal(activity.workout.sets, 0);
-  assert.equal(activity.workout.name, null);
+  assert.equal(activity.workout.kind, "empty");
 });
 
 test("targets follow the saved Profile and report its availability", () => {
@@ -286,30 +287,134 @@ test("the Active workout names its own day, with a fallback for a blank name", (
   };
   const exercise = (...sessions: (typeof active)[]) =>
     source({ kind: "ready" as const, document: { ...noExercise, sessions } });
+  const live = (tile: ReturnType<typeof interpretDayActivity>["workout"]) =>
+    tile.kind === "live" ? tile.name : tile.kind;
   assert.equal(
-    interpretDayActivity({ ...sources, exercise: exercise(active) }).activeWorkoutName,
+    live(interpretDayActivity({ ...sources, exercise: exercise(active) }).workout),
     "Strength",
   );
   assert.equal(
-    interpretDayActivity({ ...sources, exercise: exercise({ ...active, name: "" }) })
-      .activeWorkoutName,
+    live(interpretDayActivity({ ...sources, exercise: exercise({ ...active, name: "" }) }).workout),
     "Active workout",
   );
   // It stays on its original date when another day is shown.
   assert.equal(
-    interpretDayActivity({ ...sources, date: otherDate, exercise: exercise(active) })
-      .activeWorkoutName,
-    undefined,
+    live(interpretDayActivity({ ...sources, date: otherDate, exercise: exercise(active) }).workout),
+    "empty",
   );
-  assert.equal(
-    interpretDayActivity({ ...sources, exercise: exercise() }).activeWorkoutName,
-    undefined,
-  );
+  assert.equal(live(interpretDayActivity({ ...sources, exercise: exercise() }).workout), "empty");
   for (const kind of ["loading", "error"] as const)
     assert.equal(
-      interpretDayActivity({ ...sources, exercise: source({ kind }) }).activeWorkoutName,
-      undefined,
+      live(interpretDayActivity({ ...sources, exercise: source({ kind }) }).workout),
+      kind,
     );
+});
+
+test("the Workout tile covers every state, with one minutes rule for the title and the card", () => {
+  const definition = {
+    id: "squat",
+    name: "Squat",
+    muscleGroup: "Legs",
+    equipment: "Barbell",
+    notes: "",
+    tracking: "single" as const,
+  };
+  const set = (weightKg: string) => ({ id: "set", kind: "single" as const, reps: "5", weightKg });
+  const completed = {
+    id: "morning",
+    date,
+    name: "Morning",
+    status: "completed" as const,
+    startedAt: null,
+    // 29m40s: the title and the card both show 30 min.
+    durationSeconds: 1780,
+    exercises: [{ id: "row", exercise: definition, sets: [set("40")] }],
+  };
+  const running = {
+    ...completed,
+    id: "running",
+    name: "Strength",
+    status: "active" as const,
+    startedAt: 1000000,
+    durationSeconds: null,
+    exercises: [],
+  };
+  const retried: string[] = [];
+  const tile = (sessions: WorkoutSession[], patch: Partial<Sources> = {}) =>
+    interpretDayActivity({
+      ...sources,
+      exercise: source({ kind: "ready" as const, document: { ...noExercise, sessions } }),
+      ...patch,
+    }).workout;
+  const stats = (duration: string, sets = 1, reps = 5) => [
+    { label: "Duration", value: duration },
+    { label: "Sets", value: String(sets) },
+    { label: "Reps", value: String(reps) },
+  ];
+
+  for (const kind of ["loading", "error"] as const) {
+    const unavailable = tile([], { exercise: source({ kind }, () => retried.push(kind)) });
+    assert.deepEqual(
+      { ...unavailable, retry: undefined },
+      { kind, summary: null, retry: undefined },
+    );
+    unavailable.retry();
+  }
+  assert.deepEqual(retried, ["loading", "error"]);
+
+  assert.deepEqual(tile([]), {
+    kind: "empty",
+    retry: noRetry,
+    summary: "No workouts yet",
+    message: "Nothing logged yet today.",
+  });
+  // Another Selected day doesn't say "today".
+  const past = tile([], { date: otherDate });
+  assert.equal(past.kind === "empty" && past.message, "No workouts logged.");
+  assert.equal(past.summary, "No workouts logged");
+
+  assert.deepEqual(tile([running]), {
+    kind: "live",
+    retry: noRetry,
+    summary: "No workouts yet",
+    name: "Strength",
+  });
+
+  assert.deepEqual(
+    { ...tile([completed]), completed: undefined },
+    {
+      kind: "done",
+      retry: noRetry,
+      summary: "200 kg · 30 min",
+      name: "Morning",
+      status: "Done",
+      completed: undefined,
+      stats: stats("30 min"),
+    },
+  );
+  const doneWhileLive = tile([completed, running]);
+  assert.equal(doneWhileLive.kind === "done" && doneWhileLive.status, "Live");
+
+  // Bodyweight sets count sets instead of kilograms; an unknown duration is left out.
+  const bodyweight = tile([
+    {
+      ...completed,
+      durationSeconds: null,
+      exercises: [{ ...completed.exercises[0], sets: [set("0")] }],
+    },
+  ]);
+  assert.equal(bodyweight.summary, "1 set");
+  assert.deepEqual(bodyweight.kind === "done" && bodyweight.stats, stats("Not recorded"));
+  const twoSets = tile([
+    {
+      ...completed,
+      durationSeconds: 0,
+      exercises: [{ ...completed.exercises[0], sets: [set("0"), { ...set("0"), id: "second" }] }],
+    },
+  ]);
+  assert.equal(twoSets.summary, "2 sets");
+  assert.deepEqual(twoSets.kind === "done" && twoSets.stats, stats("0 min", 2, 10));
+  assert.equal(tile([{ ...completed, durationSeconds: 3600 * 2 }]).summary, `200 kg · 120 min`);
 });
 
 test("each saved source reports its own availability and retries only itself", () => {
@@ -496,8 +601,14 @@ test("nutrition progress counts what is left, how far over and each macro's shar
       overFraction: 0,
       segments: undefined,
       label: undefined,
+      ofTarget: `/ ${(2760).toLocaleString()} kcal`,
+      figure: `${(1380).toLocaleString()} / ${(2760).toLocaleString()} kcal`,
+      title: `${(1380).toLocaleString()} / ${(2760).toLocaleString()} kcal`,
+      balance: { value: (1380).toLocaleString(), caption: "left" },
     },
   );
+  assert.equal(under.carbs.figure, "20 / 345 g");
+  assert.equal(under.carbs.ofTarget, "/ 345 g");
   assert.equal(under.calories.label, "1380 kilocalories consumed, calorie goal 2760 kilocalories");
   assert.equal(under.carbs.percentage, Math.round((20 / 345) * 100));
   const shares = under.calories.segments.reduce((sum, part) => sum + part.fraction, 0);
@@ -507,10 +618,29 @@ test("nutrition progress counts what is left, how far over and each macro's shar
   assert.equal(over.remaining, -276);
   assert.equal(over.percentage, 100);
   assert.ok(Math.abs(over.overFraction - 0.1) < 1e-12);
+  assert.deepEqual(over.balance, { value: "276", caption: "over" });
+  assert.equal(over.title, `${(3036).toLocaleString()} / ${(2760).toLocaleString()} kcal`);
 
   const unavailable = interpretDayActivity({ ...sources, food: source({ kind: "loading" }) });
   assert.equal(unavailable.nutrition, null);
   const noTargets = interpretDayActivity({ ...sources, profile: { kind: "loading" } }).nutrition;
   assert.equal(noTargets?.calories.target, null);
   assert.equal(noTargets?.calories.remaining, null);
+  // An unset target shows a dash; the Food title leaves it out and the ring shows what was eaten.
+  assert.deepEqual(
+    noTargets && {
+      figure: noTargets.calories.figure,
+      ofTarget: noTargets.calories.ofTarget,
+      title: noTargets.calories.title,
+      balance: noTargets.calories.balance,
+      carbs: noTargets.carbs.figure,
+    },
+    {
+      figure: "100 / — kcal",
+      ofTarget: "/ — kcal",
+      title: "100 kcal",
+      balance: { value: "100", caption: "eaten" },
+      carbs: "20 / — g",
+    },
+  );
 });

@@ -1,213 +1,75 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createManualWaterEdit } from "../src/water/manual-editing.ts";
-import {
-  manualWaterAmountFromText,
-  parseWaterLog,
-  waterAmountFromText,
-} from "../src/water/model.ts";
+import { parseWaterLog } from "../src/water/model.ts";
 import {
   createWaterLogPersistence,
   waterLogStorageKey,
   type WaterLogStorage,
 } from "../src/water/persistence.ts";
 
+// The shared day amount log (parsing, replacing, clamped steps) is covered once in
+// day-amount-log.test.ts. These tests pin Manual water's key, messages and documents.
 const date = "2026-10-01";
 const otherDate = "2026-10-02";
+const days = (entries: Record<string, number>) => JSON.stringify({ version: 1, days: entries });
 const flush = async () => {
   await Promise.resolve();
   await Promise.resolve();
 };
-function memory(initial: string | null = null) {
+async function ready(initial: string | null = null) {
   let raw = initial;
-  const calls: string[] = [];
   const storage: WaterLogStorage = {
     async getItem(key) {
       assert.equal(key, waterLogStorageKey);
-      calls.push("read");
       return raw;
     },
     async setItem(key, value) {
       assert.equal(key, waterLogStorageKey);
-      calls.push("write");
       raw = value;
     },
   };
-  return { storage, calls, raw: () => raw };
-}
-async function ready(initial: string | null = null) {
-  const store = memory(initial);
-  const log = createWaterLogPersistence({ storage: store.storage });
+  const log = createWaterLogPersistence({ storage });
   log.start();
   await flush();
-  assert.equal(log.getSnapshot().state.kind, "ready");
-  return { ...store, log };
+  return { log, storage, raw: () => raw };
 }
-function documentOf(log: ReturnType<typeof createWaterLogPersistence>) {
-  const state = log.getSnapshot().state;
-  if (state.kind !== "ready") throw new Error("Expected a loaded water log");
-  return state.document;
-}
-
-test("water totals round trip, including zero, and unsupported or corrupt records fail", () => {
-  const document = { version: 1, days: { [date]: 750, [otherDate]: 0 } };
-  assert.deepEqual(parseWaterLog(JSON.stringify(document)), document);
-  assert.deepEqual(parseWaterLog(null), { version: 1, days: {} });
-  for (const raw of [
-    "",
-    "corrupt",
-    "null",
-    "[]",
-    JSON.stringify({ version: 2, days: {} }),
-    JSON.stringify({ version: 1, days: [] }),
-    JSON.stringify({ version: 1, days: { "2026-02-30": 250 } }),
-    ...[-1, 0.5, "250", null, Number.MAX_SAFE_INTEGER + 1].map((total) =>
-      JSON.stringify({ version: 1, days: { [date]: total } }),
-    ),
-    `{"version":1,"days":{"${date}":1e309}}`,
-  ])
-    assert.throws(() => parseWaterLog(raw));
-});
-
-test("water entry accepts only integer millilitres for Drinks between 1 and 10000", () => {
-  for (const [text, ml] of [
-    ["1", 1],
-    ["250", 250],
-    [" 500 ", 500],
-    ["10000", 10000],
-  ] as const)
-    assert.equal(waterAmountFromText(text), ml);
-  for (const text of [
-    "",
-    " ",
-    "0",
-    "-1",
-    "1.5",
-    "10001",
-    "NaN",
-    "Infinity",
-    "1e3",
-    "250ml",
-    "1,000",
-    "+250",
-  ])
-    assert.equal(waterAmountFromText(text), null);
-});
-
-test("invalid manual totals and dates never reach storage", async () => {
-  const { log, calls, raw } = await ready(
-    JSON.stringify({ version: 1, days: { [date]: Number.MAX_SAFE_INTEGER } }),
-  );
-  const before = raw();
-  for (const input of [
-    { date: "2026-02-30", ml: 250 },
-    ...[-1, 1.5, Number.MAX_SAFE_INTEGER + 1, NaN, Infinity].map((ml) => ({ date, ml })),
-  ])
-    assert.equal(await log.set(input), false);
-  assert.deepEqual(calls, ["read"]);
-  assert.equal(raw(), before);
-});
-
-test("manual water accepts zero and legacy daily totals above the per-drink limit", () => {
-  for (const [text, expected] of [
-    ["0", 0],
-    [" 750 ", 750],
-    ["12500", 12500],
-    [String(Number.MAX_SAFE_INTEGER), Number.MAX_SAFE_INTEGER],
-  ] as const)
-    assert.equal(manualWaterAmountFromText(text), expected);
-  for (const text of [
-    "",
-    " ",
-    "-1",
-    "1.5",
-    "1e3",
-    "1,000",
-    "250ml",
-    String(Number.MAX_SAFE_INTEGER + 1),
-  ])
-    assert.equal(manualWaterAmountFromText(text), null);
-});
-
-test("replacing manual water with zero clears only that date and preserves high legacy totals", async () => {
-  const initial = JSON.stringify({ version: 1, days: { [date]: 12500, [otherDate]: 1000 } });
-  const { log, raw } = await ready(initial);
-  assert.equal(await log.set({ date, ml: 12500 }), true);
-  assert.deepEqual(documentOf(log).days, { [date]: 12500, [otherDate]: 1000 });
-  assert.equal(await log.set({ date, ml: 750 }), true);
-  assert.deepEqual(documentOf(log).days, { [date]: 750, [otherDate]: 1000 });
-  assert.equal(await log.set({ date, ml: 0 }), true);
-  assert.deepEqual(documentOf(log).days, { [date]: 0, [otherDate]: 1000 });
-  const restored = await ready(raw());
-  assert.deepEqual(documentOf(restored.log).days, { [date]: 0, [otherDate]: 1000 });
-});
-
-const days = (entries: Record<string, number>) => JSON.stringify({ version: 1, days: entries });
 function editFor(log: ReturnType<typeof createWaterLogPersistence>, editDate = date) {
   const edit = createManualWaterEdit({ log, date: editDate });
   edit.start();
   return edit;
 }
 
-// The edit lifecycle (fill-once seeding, exclusion, feedback ownership, stale
-// completions) is covered once in document-edit.test.ts.
+test("saved water logs load unchanged from the water log key", async () => {
+  assert.equal(waterLogStorageKey, "kinevault-track.water-log.v1");
+  const saved = days({ [date]: 12500, [otherDate]: 0 });
+  assert.deepEqual(parseWaterLog(saved), JSON.parse(saved));
+  assert.deepEqual(parseWaterLog(null), { version: 1, days: {} });
+  assert.throws(() => parseWaterLog(days({ [date]: -1 })));
+  const { log } = await ready(saved);
+  assert.deepEqual(log.getSnapshot().state, { kind: "ready", document: JSON.parse(saved) });
+});
+
 test("a manual water edit fills from its captured date and saves only that date", async () => {
   const { log, raw } = await ready(days({ [date]: 1000, [otherDate]: 300 }));
   const edit = editFor(log);
   assert.equal(edit.getSnapshot().draft, "1000");
   assert.equal(editFor(log, "2026-10-03").getSnapshot().draft, "0");
-  edit.change(" 750 ");
-  assert.equal(await edit.save(), true);
-  assert.deepEqual(documentOf(log).days, { [date]: 750, [otherDate]: 300 });
-  assert.equal(raw(), days({ [date]: 750, [otherDate]: 300 }));
-});
-
-test("manual water steps clamp at zero and the safe maximum, and zero clears only that date", async () => {
-  const { log, raw } = await ready(days({ [date]: 500, [otherDate]: 300 }));
-  const edit = editFor(log);
-  edit.adjust(250);
-  assert.equal(edit.getSnapshot().draft, "750");
-  for (const text of ["", "100", "0", "bad", "1.5", "-5", "9".repeat(400)]) {
-    edit.change(text);
-    edit.adjust(-250);
-    assert.equal(edit.getSnapshot().draft, "0");
-  }
-  edit.change("bad");
-  edit.adjust(250);
-  assert.equal(edit.getSnapshot().draft, "250");
-  edit.change(String(Number.MAX_SAFE_INTEGER - 100));
-  edit.adjust(250);
-  assert.equal(edit.getSnapshot().draft, String(Number.MAX_SAFE_INTEGER));
-  edit.adjust(-250);
-  assert.equal(edit.getSnapshot().draft, String(Number.MAX_SAFE_INTEGER - 250));
-  assert.equal(raw(), days({ [date]: 500, [otherDate]: 300 }));
   edit.change("0");
   assert.equal(await edit.save(), true);
-  assert.deepEqual(documentOf(log).days, { [date]: 0, [otherDate]: 300 });
+  assert.equal(raw(), days({ [date]: 0, [otherDate]: 300 }));
 });
 
-test("invalid manual water shows its message until the draft changes and never writes", async () => {
-  const { log, calls } = await ready();
-  const edit = editFor(log);
-  for (const text of ["", "-1", "1.5", "1e3", "250ml"]) {
-    edit.change(text);
-    assert.equal(await edit.save(), false);
-    assert.equal(edit.getSnapshot().error, "Enter a whole number of milliliters, 0 or more.");
-    edit.adjust(250);
-    assert.equal(edit.getSnapshot().error, null);
-  }
-  assert.deepEqual(calls, ["read"]);
-});
-
-test("a failed manual water save reports the water log message", async () => {
+test("manual water shows its own invalid and failed save messages", async () => {
   const { log, storage } = await ready(days({ [date]: 250 }));
+  const edit = editFor(log);
+  edit.change("1.5");
+  assert.equal(await edit.save(), false);
+  assert.equal(edit.getSnapshot().error, "Enter a whole number of milliliters, 0 or more.");
   storage.setItem = async () => {
     throw new Error("disk full");
   };
-  const edit = editFor(log);
   edit.change("500");
   assert.equal(await edit.save(), false);
   assert.equal(edit.getSnapshot().error, "Couldn't save your water log. Try again.");
-  assert.equal(edit.getSnapshot().draft, "500");
-  assert.equal(documentOf(log).days[date], 250);
 });

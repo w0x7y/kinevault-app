@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { beverageForFood, usFluidOunceMl, usCupMl } from "../src/food/beverage.ts";
+import {
+  beverageForFood,
+  drinkMlFromText,
+  isDrinkMl,
+  usFluidOunceMl,
+  usCupMl,
+} from "../src/food/beverage.ts";
 import { nutritionForGrams, type CatalogFood } from "../src/food/catalog.ts";
 import {
   customFoodFromDraft,
@@ -21,6 +27,34 @@ function bundled(id: number) {
   return food;
 }
 const cola = bundled(2710541);
+
+test("a drink amount is a whole number of milliliters from 1 to 10,000", () => {
+  for (const [text, ml] of [
+    ["1", 1],
+    ["250", 250],
+    [" 250 ", 250],
+    ["10000", 10000],
+  ] as const)
+    assert.equal(drinkMlFromText(text), ml);
+  for (const text of [
+    "",
+    " ",
+    "0",
+    "-1",
+    "1.5",
+    "10001",
+    "NaN",
+    "Infinity",
+    "1e3",
+    "250ml",
+    "1,000",
+    "+250",
+  ])
+    assert.equal(drinkMlFromText(text), null);
+  for (const ml of [1, 250, 10000]) assert.equal(isDrinkMl(ml), true);
+  for (const ml of [0, -1, 1.5, 10001, NaN, Infinity, "250", null, undefined])
+    assert.equal(isDrinkMl(ml), false);
+});
 
 test("bundled classification is conservative and fluid source conversion excludes ice and guideline amounts", () => {
   for (const id of [2705402, 2710572, 2710631, 2709224])

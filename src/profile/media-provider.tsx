@@ -14,9 +14,5 @@ export const {
     ...snapshot,
     files: mediaFiles,
     retryLoad: store.retryLoad,
-    saveAvatar: store.saveAvatar,
-    addPhoto: store.addPhoto,
-    updatePhoto: store.updatePhoto,
-    removePhoto: store.removePhoto,
   }),
 });

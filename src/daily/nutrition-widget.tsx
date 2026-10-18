@@ -4,7 +4,7 @@ import { ProgressFill } from "../components/motion";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { macroCategories } from "./nutrition";
-import { unsetTarget, type NutritionProgress } from "./activity";
+import type { NutritionProgress } from "./activity";
 
 /** Macro progress rows. Sits inside the energy card, so it draws no surface of its own. */
 export function NutritionWidget({
@@ -21,7 +21,7 @@ export function NutritionWidget({
     <View testID="home-macros" style={{ flex: 1, minWidth: 0, justifyContent: "center" }}>
       <View testID="home-macro-rows" style={{ gap: spacing.md }}>
         {macroCategories.map(({ key, label }) => {
-          const { eaten, target, fraction, percentage, label: progressLabel } = nutrition[key];
+          const { figure, fraction, percentage, label: progressLabel } = nutrition[key];
           return (
             <View key={key} style={{ gap: 6 }}>
               <View
@@ -49,8 +49,7 @@ export function NutritionWidget({
                   numberOfLines={1}
                   style={{ fontSize: textSize, fontVariant: ["tabular-nums"] }}
                 >
-                  {eaten.toLocaleString()} /{" "}
-                  {target === null ? unsetTarget.shown : target.toLocaleString()} g
+                  {figure}
                 </AppText>
               </View>
               <View

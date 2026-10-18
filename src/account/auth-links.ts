@@ -47,7 +47,7 @@ export function parseAuthLink(value: string): AuthLink {
       message:
         params.get("error_code") === "otp_expired"
           ? "This email link has expired or already been used. Request a new one."
-          : "This email link couldn't be verified. Request a new one and try again.",
+          : "This sign-in link couldn't be verified. Request a new one and try again.",
     };
   }
   const code = params.get("code");

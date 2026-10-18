@@ -1,6 +1,5 @@
 import type { Meal } from "../daily/model.ts";
-import { waterAmountFromText } from "../water/model.ts";
-import { beverageForFood } from "./beverage.ts";
+import { beverageForFood, drinkMlFromText } from "./beverage.ts";
 import {
   parseFoodGrams,
   type CatalogFood,
@@ -45,7 +44,7 @@ export type FoodLoggingPreparation = { date: string; operation: "add" | "edit" }
 );
 
 const gramMessage = "Enter an amount greater than 0 and up to 10,000 g.";
-const volumeMessage = "Enter a whole drink amount from 1 to 10,000 ml.";
+export const volumeMessage = "Enter a whole drink amount from 1 to 10,000 ml.";
 const labelMessage =
   "Enter label nutrition per 100 ml and a whole drink amount from 1 to 10,000 ml.";
 
@@ -82,7 +81,7 @@ export function prepareFoodLogging({
   let measurement: Measurement<number, ReadyLabelGuidance>;
   let write: PreparedWrite;
   if (volume) {
-    const amount = waterAmountFromText(fields.drinkMl);
+    const amount = drinkMlFromText(fields.drinkMl);
     const labelRequired =
       target.kind === "add"
         ? beverage?.kind !== "known-volume"

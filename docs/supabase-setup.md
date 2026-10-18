@@ -150,7 +150,10 @@ node --env-file=.env.auth.local scripts/configure-auth.mjs --apply
 The first command shows the proposed settings without credentials. The second
 applies Resend SMTP and the additive redirect list, and sets the server password
 minimum to at least 10 characters while preserving stricter existing settings. The current MCP server cannot
-manage Auth configuration, so these settings have not been applied automatically.
+manage Auth configuration, so SMTP and the password minimum have not been applied yet.
+The native and localhost callbacks listed below were added to the redirect allowlist
+by hand on 2026-10-18. Before that the list was empty, so confirmation links fell back
+to the default Site URL, `http://localhost:3000`.
 
 Keep email confirmation enabled. Configure a custom SMTP provider in the project's
 Auth email settings before inviting users outside the project team. Supabase's
@@ -195,6 +198,29 @@ still signs in and imports the guest data; see the open finding in
 Test confirmation and password reset through links sent to a real inbox. Open each
 link in both the installed app and the deployed web app before releasing. A successful
 email-request response alone does not verify delivery or deep-link handling.
+
+## Google sign-in
+
+"Continue with Google" opens Supabase's Google OAuth page in an in-app browser
+session (`expo-web-browser`) and returns to the same `/auth/callback` URLs as email
+links, so the redirect allowlist above already covers it. The web app follows the
+redirect in the same tab. Supabase links a Google login to an existing account
+with the same verified email.
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create a project and
+   configure the OAuth consent screen as External, with only the `openid`, `email`
+   and `profile` scopes. Publish it, or add each tester while it stays in Testing.
+2. Create an OAuth client ID of type Web application. Add
+   `https://kkywpvkckxniriatelta.supabase.co/auth/v1/callback` as an authorized
+   redirect URI.
+3. In Supabase, enable Authentication → Sign In / Providers → Google and paste the
+   client ID and secret.
+
+`expo-web-browser` is a native module, so the change needs a new Android and iOS
+build. Sign in with Apple needs a paid Apple Developer Program team; the free
+Personal Team used for iPhone installs can't enable it. Add it before an App Store
+release: apps that offer Google sign-in must also offer a privacy-focused login
+service, which in practice means Sign in with Apple.
 
 ## Connecting the friend's KineVault program
 

@@ -31,6 +31,8 @@ export function createAccountAuthAdapter(
     },
     signInWithPassword: (credentials) => auth.signInWithPassword(credentials),
     signUp: (credentials) => auth.signUp(credentials),
+    signInWithOAuth: (credentials) => auth.signInWithOAuth(credentials),
+    resend: (credentials) => auth.resend(credentials),
     resetPasswordForEmail: (email, options) => auth.resetPasswordForEmail(email, options),
     updateUser: (attributes) => auth.updateUser(attributes),
     signOut: (options) => auth.signOut(options),

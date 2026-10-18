@@ -72,8 +72,7 @@ async function fixture(sources: readonly WorkoutImportFlowSource[] = []) {
   store.start();
   await tick();
   const tab = createExerciseTabView({ store, date: "2026-10-04", importSources: sources });
-  tab.refreshDocument();
-  store.subscribe(() => tab.refreshDocument());
+  tab.start();
   const token = () => tab.getSnapshot().panel!.token;
   return {
     tab,

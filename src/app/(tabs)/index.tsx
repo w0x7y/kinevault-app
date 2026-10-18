@@ -49,7 +49,7 @@ export default function HomeScreen() {
     (contentWidth || Math.max(0, Math.min(width, 768) - spacing.gutter * 2)) - spacing.card * 2;
   const ringSize = cardInner >= 300 ? 132 : cardInner >= 260 ? 112 : 96;
   return (
-    <Screen title="Home" showTitle={false}>
+    <Screen title="Home">
       <Animated.View
         entering={enter(0)}
         onLayout={(event) => setContentWidth(event.nativeEvent.layout.width)}
@@ -74,7 +74,7 @@ export default function HomeScreen() {
         </Animated.View>
       ) : (
         <Animated.View key="food-status" entering={enter(1)}>
-          <FoodLogStatus />
+          <FoodLogStatus source={activity.sources.food} />
         </Animated.View>
       )}
       <Animated.View entering={enter(2)}>
@@ -87,11 +87,7 @@ export default function HomeScreen() {
       </Animated.View>
       <Animated.View entering={enter(3)}>
         <WorkoutWidget
-          workout={activity.workout}
-          sourceState={activity.workoutState}
-          onRetry={activity.sources.workouts.retry}
-          showEmptyGuidance
-          activeWorkoutName={activity.activeWorkoutName}
+          tile={activity.workout}
           onAddWorkout={() => router.push(routeRequest("workoutMenu", activity.date))}
         />
       </Animated.View>

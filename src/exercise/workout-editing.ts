@@ -3,6 +3,8 @@ import {
   createEmptySet,
   durationFromMinutes,
   isBlankSet,
+  parsePlannedSetCount,
+  plannedSetCountMessage,
   type ExerciseDocument,
   type ExerciseSet,
   type SessionExercise,
@@ -40,22 +42,90 @@ type Change =
   | { kind: "add-set"; rowId: string }
   | { kind: "set"; rowId: string; setId: string; build: (set: ExerciseSet) => ExerciseSet };
 type Action = "retry" | "settings" | "cancel" | "leave" | "start" | "complete" | "save" | "discard";
+type WorkoutLogControls = {
+  /** The back button: leaving the Active workout's page keeps it running; others cancel. */
+  back: Extract<Action, "leave" | "cancel">;
+  /** The back button's accessible name. */
+  backLabel: string;
+  /** The main action: Save on a completed log; otherwise End or Log completes it. */
+  primary: Extract<Action, "save" | "complete">;
+  primaryLabel: string;
+  discard: boolean;
+  /** Start from the manual page; a compact card has its own. */
+  start: boolean;
+  /** Name and duration, on the manual and completed pages. */
+  details: boolean;
+  /** A failed draft save offers a retry; a completed log saves only through Save. */
+  retry: boolean;
+  /** The card's or workspace's overline and test ID. */
+  overline: string | undefined;
+  testID: string;
+  /** The page over the tab (a null title shows the workout's name); a compact card stays on the tab. */
+  sheet: { title: string | null; testID: string } | null;
+};
+/** What a workout log shows in each mode. */
+export const workoutLogControls = {
+  compact: {
+    back: "cancel",
+    backLabel: "Close workout",
+    primary: "complete",
+    primaryLabel: "Log completed workout",
+    discard: true,
+    start: false,
+    details: false,
+    retry: true,
+    overline: "Planned",
+    testID: "planned-workout-card",
+    sheet: null,
+  },
+  active: {
+    back: "leave",
+    backLabel: "Back to Exercise",
+    primary: "complete",
+    primaryLabel: "End workout",
+    discard: true,
+    start: false,
+    details: false,
+    retry: true,
+    overline: undefined,
+    testID: "active-workout-workspace",
+    sheet: { title: null, testID: "active-workout" },
+  },
+  manual: {
+    back: "cancel",
+    backLabel: "Cancel",
+    primary: "complete",
+    primaryLabel: "Log completed workout",
+    discard: true,
+    start: true,
+    details: true,
+    retry: true,
+    overline: "Log a workout",
+    testID: "manual-workout-workspace",
+    sheet: { title: "Log workout", testID: "session-editor" },
+  },
+  completed: {
+    back: "cancel",
+    backLabel: "Cancel",
+    primary: "save",
+    primaryLabel: "Save changes",
+    discard: false,
+    start: false,
+    details: true,
+    retry: false,
+    overline: "Logged workout",
+    testID: "completed-workout-workspace",
+    sheet: { title: "Logged workout", testID: "session-editor" },
+  },
+} satisfies Record<WorkoutLogMode, WorkoutLogControls>;
 /** The edit with the controls its log mode allows. */
 export type WorkoutEditSnapshot = Readonly<
-  WorkoutEditState & {
-    mode: WorkoutLogMode;
-    /** The back button: leaving the Active workout's page keeps it running; others cancel. */
-    back: Extract<Action, "leave" | "cancel">;
-    /** The main action: Save on a completed log; otherwise End or Log completes it. */
-    primary: Extract<Action, "save" | "complete">;
-    discard: boolean;
-    /** Start from the manual page; a compact card has its own. */
-    start: boolean;
-    /** Name and duration, on the manual and completed pages. */
-    details: boolean;
-    /** Where "Link demo" returns: this workout's page. */
-    returnTo: WorkoutView;
-  }
+  WorkoutEditState &
+    WorkoutLogControls & {
+      mode: WorkoutLogMode;
+      /** Where "Link demo" returns: this workout's page. */
+      returnTo: WorkoutView;
+    }
 >;
 type Entry = {
   state: WorkoutEditState;
@@ -74,10 +144,8 @@ function localId() {
   return `set-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 function countProblem(row: SessionExercise, raw: string): string | null {
-  const text = raw.trim(),
-    count = Number(text);
-  if (!/^\d+$/.test(text) || !Number.isSafeInteger(count) || count < 0 || count > 100)
-    return `Enter a whole planned set count from 0 to 100 for ${row.exercise.name}.`;
+  const count = parsePlannedSetCount(raw);
+  if (count === null) return plannedSetCountMessage(row.exercise.name);
   const lastEntered = row.sets.reduce((last, set, index) => (isBlankSet(set) ? last : index), -1);
   return count <= lastEntered
     ? `${row.exercise.name} has entered values in later sets. Keep at least ${lastEntered + 1} sets.`
@@ -138,11 +206,7 @@ export function createWorkoutEditing(
     const snapshot: WorkoutEditSnapshot = {
       ...state,
       mode,
-      back: mode === "active" ? "leave" : "cancel",
-      primary: mode === "completed" ? "save" : "complete",
-      discard: mode !== "completed",
-      start: mode === "manual",
-      details: mode === "manual" || mode === "completed",
+      ...workoutLogControls[mode],
       returnTo: { kind: "session", id: state.session.id, manual: mode === "manual" },
     };
     entry.view = { state, snapshot };
@@ -165,8 +229,7 @@ export function createWorkoutEditing(
       if (!session) {
         if (!entry.pending) entries.delete(id);
       } else {
-        // A freshly retired editor can render once against an older React provider snapshot.
-        // Unchanged fields follow its next durable publication; entered raw fields never do.
+        // Untouched fields follow a newer saved log, e.g. from an account refresh; entered fields never do.
         const savedFields =
           entry.revision === 0 && !entry.pending
             ? {
@@ -184,7 +247,7 @@ export function createWorkoutEditing(
         entry.state = { ...entry.state, ...savedFields, session };
       }
     }
-    // Editors render again, so a successful retirement resolves from the saved document.
+    // Editors render again with the newer saved log.
     emit();
   }
   function entryFor(id: string) {

@@ -4,12 +4,7 @@ import { AppText, Overline, Panel } from "../components/ui";
 import { ButtonRow, AppButton, IconButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
 import { spacing } from "../theme/tokens";
-import {
-  durationFromMinutes,
-  previousSets,
-  type SessionExercise,
-  type WorkoutSession,
-} from "./model";
+import { durationFromMinutes, setHints, type SessionExercise, type WorkoutSession } from "./model";
 import { useExercises } from "./provider";
 import type { ExerciseTabView } from "./tab-view";
 import { ExerciseDemoSlot } from "./demo/exercise-demo";
@@ -54,17 +49,19 @@ export function SessionEditor({
     mode,
     back,
     primary,
+    primaryLabel,
     discard,
     start,
     details,
+    retry,
+    overline,
+    testID,
     returnTo,
   } = useWorkoutEdit(tab.edits, session.id);
   const store = useExercises();
   const sessions = store.state.kind === "ready" ? store.state.document.sessions : [];
   const [detailsOpen, setDetailsOpen] = useState(false),
     [notesId, setNotesId] = useState<string | null>(null);
-  const active = mode === "active",
-    completed = mode === "completed";
   // In a sheet, its back button is this workout's Cancel. The Active workout keeps running.
   const inSheet = useSheetBack({ onPress: () => void edit.run(back), disabled: busy });
   function renderExercise(row: SessionExercise, index: number) {
@@ -100,7 +97,7 @@ export function SessionEditor({
         </View>
         <ExerciseSetTable
           sets={row.sets}
-          previous={previousSets(sessions, session, row.exercise.id)}
+          hints={setHints(sessions, session, row)}
           rowLabel={rowLabel}
           busy={busy}
           onChange={(setId, build) => edit.change({ kind: "set", rowId: row.id, setId, build })}
@@ -126,7 +123,7 @@ export function SessionEditor({
   const feedback = (
     <>
       <InlineMessage>{error}</InlineMessage>
-      {error && !completed && (
+      {error && retry && (
         <AppButton
           label="Retry draft save"
           onPress={() => void edit.run("retry")}
@@ -189,7 +186,7 @@ export function SessionEditor({
   const actions = (
     <View testID="workout-log-actions" style={{ gap: spacing.sm }}>
       <AppButton
-        label={active ? "End workout" : completed ? "Save changes" : "Log completed workout"}
+        label={primaryLabel}
         onPress={() => void edit.run(primary)}
         tone="primary"
         disabled={busy}
@@ -206,7 +203,7 @@ export function SessionEditor({
   );
   const plannedHeading = (
     <View style={{ gap: 2 }}>
-      <Overline>Planned</Overline>
+      <Overline>{overline}</Overline>
       <AppText
         variant="heading"
         accessibilityRole="header"
@@ -224,7 +221,7 @@ export function SessionEditor({
   return (
     <Panel testID={inSheet ? undefined : "session-editor"}>
       {mode === "compact" ? (
-        <View testID="planned-workout-card" style={{ gap: spacing.md }}>
+        <View testID={testID} style={{ gap: spacing.md }}>
           {closeLabel ? (
             <View style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.sm }}>
               <View style={{ flex: 1, minWidth: 0 }}>{plannedHeading}</View>
@@ -232,7 +229,7 @@ export function SessionEditor({
                 label={closeLabel}
                 icon="xmark"
                 disabled={busy}
-                onPress={() => void edit.run("cancel")}
+                onPress={() => void edit.run(back)}
               />
             </View>
           ) : (
@@ -290,14 +287,8 @@ export function SessionEditor({
       ) : (
         <WorkoutWorkspace
           name={draft.name}
-          overline={active ? undefined : completed ? "Logged workout" : "Log a workout"}
-          testID={
-            active
-              ? "active-workout-workspace"
-              : completed
-                ? "completed-workout-workspace"
-                : "manual-workout-workspace"
-          }
+          overline={overline}
+          testID={testID}
           headerActions={headerActions}
           toolbar={toolbar}
           exercises={draft.exercises}

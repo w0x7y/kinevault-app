@@ -1,12 +1,11 @@
 import { LoadFailure } from "../components/load-failure";
 import { Panel } from "../components/ui";
-import { useFoodLog } from "./log-provider";
 import { KineLoading } from "../components/kine-loading";
+import type { DaySource } from "../daily/activity";
 
-export function FoodLogStatus() {
-  const log = useFoodLog();
-  if (log.state.kind === "ready") return null;
-  if (log.state.kind === "loading")
+export function FoodLogStatus({ source }: { source: DaySource }) {
+  if (source.kind === "ready") return null;
+  if (source.kind === "loading")
     return (
       <Panel>
         <KineLoading compact label="Loading your food log..." />
@@ -18,7 +17,7 @@ export function FoodLogStatus() {
       message="Couldn't load your food log"
       description="We couldn't read your saved entries. Retry to load them before logging food."
       retryLabel="Retry food log"
-      onRetry={log.retryLoad}
+      onRetry={source.retry}
     />
   );
 }

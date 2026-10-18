@@ -87,9 +87,17 @@ export function beverageForFood(food: CatalogFood): BeverageMetadata | null {
     },
   };
 }
+/** A drink amount is a whole number of milliliters from 1 to 10,000. */
+export function isDrinkMl(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 1 && value <= 10000;
+}
+export function drinkMlFromText(text: string): number | null {
+  if (!/^\d+$/.test(text.trim())) return null;
+  const ml = Number(text.trim());
+  return isDrinkMl(ml) ? ml : null;
+}
 export function nutritionForMl(basis: ServingNutrition, drinkMl: number): ServingNutrition {
-  if (!Number.isSafeInteger(drinkMl) || drinkMl < 1 || drinkMl > 10000)
-    throw new RangeError("Invalid drink amount");
+  if (!isDrinkMl(drinkMl)) throw new RangeError("Invalid drink amount");
   for (const key of ["calories", "carbs", "protein", "fat"] as const)
     if (typeof basis[key] !== "number" || !Number.isFinite(basis[key]) || basis[key] < 0)
       throw new Error("Invalid per-100ml nutrition");

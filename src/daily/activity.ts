@@ -10,6 +10,7 @@ import { calorieSegments, macroCategories } from "./nutrition.ts";
 import type { ExerciseSnapshot } from "../exercise/persistence.ts";
 import { summarizeSessions } from "../exercise/summary.ts";
 import { activeWorkout } from "../exercise/model.ts";
+import type { CompletedWorkout } from "./workout.ts";
 import type { ProfileSnapshot } from "../profile/persistence.ts";
 import { calorieState } from "../profile/calories.ts";
 import { macroTargets } from "../profile/macros.ts";
@@ -45,6 +46,7 @@ const source = ({ state, retryLoad }: Source<{ kind: DaySource["kind"] }>): DayS
 // One day's tracking and targets, for the Selected day or, in the Personal journal, Today.
 export function interpretDayActivity({
   date,
+  today,
   profile,
   food,
   water,
@@ -54,6 +56,7 @@ export function interpretDayActivity({
   loggedSteps,
 }: {
   date: string;
+  today: string;
   profile: ProfileSnapshot["state"];
   food: Source<FoodLogSnapshot["state"]>;
   water: Source<WaterLogSnapshot["state"]>;
@@ -107,7 +110,7 @@ export function interpretDayActivity({
       ? exercise.state.document.sessions.filter((session) => session.date === date)
       : [];
   // The Active workout stays on its original date; an unnamed one keeps a generic label.
-  const active = activeWorkout(sessions) ?? undefined;
+  const active = activeWorkout(sessions);
   const logged =
     loggedSteps.state.kind === "ready" ? (loggedSteps.state.document.days[date] ?? 0) : null;
   let streak: ReturnType<typeof profileStreak> | null | undefined;
@@ -124,9 +127,12 @@ export function interpretDayActivity({
               : { calories: null, carbs: null, protein: null, fat: null },
           )
         : null,
-    workout: summarizeSessions(sessions),
-    workoutState: exercise.state.kind,
-    activeWorkoutName: active ? active.name || "Active workout" : undefined,
+    workout: workoutTile(
+      source(exercise),
+      summarizeSessions(sessions),
+      active && (active.name || "Active workout"),
+      date === today,
+    ),
     water: { total, goal: waterGoal, progress, tile: waterTile(total, waterGoal, progress) },
     steps: { phone: phoneSteps, tile: stepsTile(date, phoneSteps, logged) },
     /** Each saved source on its own, so a screen can show and retry the one that failed. */
@@ -161,22 +167,37 @@ export type DayActivity = ReturnType<typeof interpretDayActivity>;
 
 type Nutrition = ReturnType<typeof summarizeDay>;
 
-/** Eaten against target, rounded the way every screen shows it. */
-function nutrientProgress(value: number, target: number | null, eaten: number) {
+/** Eaten against target, rounded and written the way every screen shows it. */
+function nutrientProgress(value: number, target: number | null, eaten: number, unit: string) {
   const fraction = progressFraction(value, target);
-  return { eaten, target, fraction, percentage: Math.round(fraction * 100) };
+  const ofTarget = `/ ${target === null ? unsetTarget.shown : target.toLocaleString()} ${unit}`;
+  return {
+    eaten,
+    target,
+    fraction,
+    percentage: Math.round(fraction * 100),
+    /** What follows the eaten figure: "/ 2,760 kcal", or "/ — kcal" while unset. */
+    ofTarget,
+    /** Eaten against target: "1,380 / 2,760 kcal". */
+    figure: `${eaten.toLocaleString()} ${ofTarget}`,
+  };
 }
 
 /** The day's calories and macros against their targets. Calories are whole kcal and macros
  * grams to one decimal, on screen and in accessibility labels alike. */
 function nutritionProgress(summary: Nutrition, targets: Record<keyof Nutrition, number | null>) {
   const goal = targets.calories;
-  const calories = nutrientProgress(summary.calories, goal, Math.round(summary.calories));
+  const calories = nutrientProgress(summary.calories, goal, Math.round(summary.calories), "kcal");
   const remaining = goal === null ? null : goal - calories.eaten;
   const macros = Object.fromEntries(
     macroCategories.map(({ key, label }) => {
       const target = targets[key];
-      const progress = nutrientProgress(summary[key], target, Math.round(summary[key] * 10) / 10);
+      const progress = nutrientProgress(
+        summary[key],
+        target,
+        Math.round(summary[key] * 10) / 10,
+        "g",
+      );
       return [
         key,
         {
@@ -194,6 +215,17 @@ function nutritionProgress(summary: Nutrition, targets: Record<keyof Nutrition, 
       ...calories,
       /** Calories left before the goal; negative once over it. */
       remaining,
+      /** The ring's figure and caption, and Daily macros' "N left" or "N over": what is left
+       * or over the goal, or what was eaten while it is unset. */
+      balance:
+        remaining === null
+          ? { value: calories.eaten.toLocaleString(), caption: "eaten" }
+          : {
+              value: Math.abs(remaining).toLocaleString(),
+              caption: remaining < 0 ? "over" : "left",
+            },
+      /** The Food title, which leaves out an unset goal: "1,380 kcal". */
+      title: goal === null ? `${calories.eaten.toLocaleString()} kcal` : calories.figure,
       /** How far past the goal, as a share of it. */
       overFraction: remaining !== null && remaining < 0 ? progressFraction(-remaining, goal) : 0,
       /** The eaten share split by each macro's energy. */
@@ -252,5 +284,62 @@ function stepsTile(date: string, phone: PhoneStepsReading, logged: number | null
     value,
     captions,
     label: `Log steps. ${figure} for ${shortDayLabel(date)}. ${captions.join(". ")}.`,
+  };
+}
+
+/** The Home and Exercise Workout tile: workouts loading or failed, an empty day, the Active
+ * workout before anything is completed, or the day's Completed workout. Minutes round the same
+ * way in the Exercise title and on the card. */
+function workoutTile(
+  { kind, retry }: DaySource,
+  completed: CompletedWorkout,
+  activeName: string | null,
+  today: boolean,
+): { retry: () => void; summary: string | null } & (
+  | { kind: "loading" }
+  | { kind: "error" }
+  | { kind: "empty"; message: string }
+  | { kind: "live"; name: string }
+  | {
+      kind: "done";
+      name: string;
+      /** "Live" while a workout still runs on the day. */
+      status: "Live" | "Done";
+      completed: CompletedWorkout;
+      stats: { label: string; value: string }[];
+    }
+) {
+  if (kind !== "ready") return { kind, retry, summary: null };
+  const minutes = `${Math.round(completed.durationSeconds / 60)} min`;
+  // The day's training in one line: volume when weights were logged, then duration.
+  let summary = "No workouts yet";
+  if (completed.sets > 0) {
+    summary =
+      completed.volume > 0
+        ? `${Math.round(completed.volume).toLocaleString()} kg`
+        : `${completed.sets} ${completed.sets === 1 ? "set" : "sets"}`;
+    if (completed.durationKnown && completed.durationSeconds > 0) summary += ` · ${minutes}`;
+  }
+  if (completed.name === null)
+    return activeName === null
+      ? {
+          kind: "empty",
+          retry,
+          summary: today ? summary : "No workouts logged",
+          message: today ? "Nothing logged yet today." : "No workouts logged.",
+        }
+      : { kind: "live", retry, summary, name: activeName };
+  return {
+    kind: "done",
+    retry,
+    summary,
+    name: completed.name,
+    status: activeName === null ? "Done" : "Live",
+    completed,
+    stats: [
+      { label: "Duration", value: completed.durationKnown ? minutes : "Not recorded" },
+      { label: "Sets", value: String(completed.sets) },
+      { label: "Reps", value: String(completed.reps) },
+    ],
   };
 }

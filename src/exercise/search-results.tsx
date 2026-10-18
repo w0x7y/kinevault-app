@@ -6,7 +6,7 @@ import { Tappable } from "../components/tappable";
 import { AppText, Overline, Panel } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
-import type { ExerciseDefinition } from "./model";
+import { matchingExercises, type ExerciseDefinition } from "./model";
 import { DemoThumbnail } from "./demo/exercise-demo";
 import { Hairline } from "./controls";
 
@@ -81,14 +81,7 @@ export function ExerciseSearchResults({
   const [page, setPage] = useState(0);
   const normalized = query.trim().toLocaleLowerCase();
   const matches = useMemo(
-    () =>
-      !normalized
-        ? []
-        : exercises.filter((exercise) =>
-            [exercise.name, exercise.muscleGroup, exercise.equipment, exercise.notes].some((text) =>
-              text.toLocaleLowerCase().includes(normalized),
-            ),
-          ),
+    () => (!normalized ? [] : matchingExercises(exercises, normalized)),
     [exercises, normalized],
   );
   const pageCount = Math.ceil(matches.length / pageSize);

@@ -5,7 +5,12 @@ import { createDocumentProvider } from "../persistence/document-provider";
 import { createExercisePersistence } from "./persistence";
 
 // Each account scope has its own storage, so a guest scope is one without an owner.
-export const { Provider: ExerciseProvider, useDocument: useExercises } = createDocumentProvider({
+export const {
+  Provider: ExerciseProvider,
+  useDocument: useExercises,
+  /** The exercise persistence itself, for the Exercise tab view that follows and writes it. */
+  useStore: useExercisePersistence,
+} = createDocumentProvider({
   name: "ExerciseProvider",
   create: (storage) =>
     createExercisePersistence({

@@ -107,20 +107,14 @@ export const FloatingTabBarInset = TabBarInset.Provider;
 
 export function Screen({
   title,
-  description,
   children,
-  showTitle = true,
   scrollRef,
   adjustKeyboardInsets = false,
-  fill = false,
   contentContainerStyle,
 }: PropsWithChildren<{
   title: string;
-  description?: string;
-  showTitle?: boolean;
   scrollRef?: Ref<ScrollView>;
   adjustKeyboardInsets?: boolean;
-  fill?: boolean;
   contentContainerStyle?: StyleProp<ViewStyle>;
 }>) {
   const { colors } = useTheme();
@@ -137,22 +131,9 @@ export function Screen({
         contentContainerStyle={[
           styles.screen,
           { paddingBottom: spacing.xl + tabBarInset },
-          fill && { flexGrow: 1 },
           contentContainerStyle,
         ]}
       >
-        {showTitle && (
-          <View style={styles.intro}>
-            <AppText variant="display" accessibilityRole="header" style={{ flexShrink: 1 }}>
-              {title}
-            </AppText>
-            {description && (
-              <AppText muted style={{ maxWidth: 600 }}>
-                {description}
-              </AppText>
-            )}
-          </View>
-        )}
         {children}
       </ScrollView>
     </SafeAreaView>
@@ -209,7 +190,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
   },
   screenTitleTrailing: { fontSize: 15, lineHeight: 20, letterSpacing: 0 },
-  intro: { gap: spacing.sm, paddingTop: spacing.sm, paddingBottom: spacing.xs },
   panel: {
     padding: spacing.card,
     borderRadius: radius.panel,

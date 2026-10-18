@@ -24,7 +24,7 @@ import { steps } from "../profile/answers";
 import type { ProfileDocument } from "../profile/model";
 import { calorieState } from "../profile/calories";
 import { createOnboardingFlow } from "../onboarding/flow";
-import { useProfile } from "../profile/provider";
+import { useProfile, useProfilePersistence } from "../profile/provider";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import { useAccount } from "../account/provider";
@@ -67,7 +67,7 @@ function OnboardingFlow({
   const [showAccount, setShowAccount] = useState(startWithAccount);
   const { colors } = useTheme();
   const { width, height } = useWindowDimensions();
-  const { save } = useProfile();
+  const { save } = useProfilePersistence();
   const { user } = useAccount();
   const [flow] = useState<ReturnType<typeof createOnboardingFlow>>(() =>
     createOnboardingFlow(initial, {

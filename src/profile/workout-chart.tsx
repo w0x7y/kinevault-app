@@ -16,13 +16,7 @@ import { useTheme } from "../theme/provider";
 import { AppText, Panel } from "../components/ui";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { parseDay } from "../calendar/dates";
-import {
-  workoutExerciseOptions,
-  workoutGraph,
-  type WorkoutMetric,
-  type WorkoutRange,
-} from "./activity";
-import { chartWeeks } from "./chart-weeks";
+import { workoutGraph, workoutWeekLabel, type WorkoutMetric, type WorkoutRange } from "./activity";
 import { SourceStatus } from "./profile-controls";
 import { SegmentedControl } from "../components/segmented-control";
 import { JournalDisclosure, JournalFigure, JournalHeading } from "./journal-ui";
@@ -39,15 +33,9 @@ export function WorkoutChart({ today }: { today: string }) {
   const [width, setWidth] = useState(320);
   const pressX = useRef<number | null>(null);
   const sessions = exercise.state.kind === "ready" ? exercise.state.document.sessions : null;
-  const options = useMemo(
-    () => (sessions ? workoutExerciseOptions(sessions, today) : []),
-    [sessions, today],
-  );
-  const selectedKey = options.some((option) => option.key === key) ? key : options[0]?.key;
   const graph = useMemo(
-    () =>
-      workoutGraph({ today, weeks, metric, sessions: sessions ?? [], exerciseKey: selectedKey }),
-    [today, weeks, metric, sessions, selectedKey],
+    () => workoutGraph({ today, weeks, metric, sessions: sessions ?? [], exerciseKey: key }),
+    [today, weeks, metric, sessions, key],
   );
   if (exercise.state.kind !== "ready")
     return (
@@ -56,7 +44,7 @@ export function WorkoutChart({ today }: { today: string }) {
         <SourceStatus name="workouts" kind={exercise.state.kind} retry={exercise.retryLoad} />
       </Panel>
     );
-  const points = chartWeeks(graph.points, metric);
+  const { weeks: points, latest, options } = graph;
   const selected = selectedWeek ? points.find((point) => point.date === selectedWeek) : null;
   const maximum = Math.max(
     1,
@@ -71,8 +59,6 @@ export function WorkoutChart({ today }: { today: string }) {
   const x = (i: number) => 42 + (i / Math.max(1, points.length - 1)) * 264;
   const y = (v: number) => 121 - (v / top) * 98;
   const number = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 1 });
-  const label = (point: (typeof graph.points)[number]) =>
-    `${point.date}: ${graph.tracking === "sides" ? `Left ${point.left === null ? "not logged" : `${number(point.left)} ${graph.unit}`}, Right ${point.right === null ? "not logged" : `${number(point.right)} ${graph.unit}`}` : point.total === null ? "No measurement recorded" : `${number(point.total)} ${graph.unit}`}${point.partialDuration ? " · Some workout durations were not recorded" : ""}`;
   const series =
     graph.tracking === "sides"
       ? [
@@ -80,15 +66,11 @@ export function WorkoutChart({ today }: { today: string }) {
           { field: "right" as const, color: colors.fat, label: "Right" },
         ]
       : [{ field: "total" as const, color: colors.brand, label: "Total" }];
-  const latest = points.at(-1)!;
-  const weeksWithData = points.filter(
-    (point) => point.total !== null || point.left !== null || point.right !== null,
-  ).length;
   // The plotted data; a change crossfades the series instead of swapping it.
   const dataKey = [
     metric,
     weeks,
-    selectedKey,
+    graph.exerciseKey,
     ...points.map((point) => `${point.total}/${point.left}/${point.right}`),
   ].join("|");
   const shortDate = (day: string) =>
@@ -131,7 +113,7 @@ export function WorkoutChart({ today }: { today: string }) {
                 value: option.key,
                 label: `${option.name}${option.tracking === "sides" ? " · Left / Right" : ""}`,
               }))}
-              value={selectedKey!}
+              value={graph.exerciseKey!}
               onChange={(value) => {
                 setKey(value);
                 setSelectedWeek(null);
@@ -197,8 +179,7 @@ export function WorkoutChart({ today }: { today: string }) {
           }}
         />
       </View>
-      {/* One week of data draws a lone dot, so the chart waits for a second week. */}
-      {weeksWithData < 2 ? (
+      {graph.pending ? (
         <AppText
           testID="profile-workout-chart-pending"
           variant="label"
@@ -210,9 +191,7 @@ export function WorkoutChart({ today }: { today: string }) {
             fontFamily: fonts.medium,
           }}
         >
-          {weeksWithData === 0
-            ? `No ${metric === "weight" ? "exercise weight" : metric} logged in the last ${weeks} weeks.`
-            : "Your trend appears after workouts in two different weeks."}
+          {graph.pending}
         </AppText>
       ) : (
         // The box keeps the drawing's aspect ratio from the first frame, so measuring its width
@@ -407,7 +386,7 @@ export function WorkoutChart({ today }: { today: string }) {
             color: colors.foreground,
           }}
         >
-          {`Week ending ${label(selected)}`}
+          {workoutWeekLabel(graph, selected)}
         </AppText>
       )}
     </Panel>

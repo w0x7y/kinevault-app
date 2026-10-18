@@ -21,7 +21,7 @@ const choices: SegmentOption<AppearancePreference>[] = [
 export default function SettingsScreen() {
   const { state } = useProfile();
   return (
-    <Screen title="Settings" showTitle={false} adjustKeyboardInsets>
+    <Screen title="Settings" adjustKeyboardInsets>
       <AccountSettings
         importRow={
           <SettingsLinkRow

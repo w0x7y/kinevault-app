@@ -2,31 +2,14 @@ import { View } from "react-native";
 import { AppButton } from "../components/button";
 import { LoadFailure } from "../components/load-failure";
 import { AppText, Overline, Panel } from "../components/ui";
-import { Icon, type IconName } from "../components/icon";
+import { Icon } from "../components/icon";
 import { IconWell } from "../components/icon-well";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
-import type { CompletedWorkout } from "./workout";
-
-/** A day's completed training in one line: volume when weights were logged, then duration. */
-export function workoutSummary(
-  workout: CompletedWorkout,
-  sourceState: "ready" | "loading" | "error",
-): string | null {
-  if (sourceState !== "ready") return null;
-  if (workout.sets === 0) return "No workouts yet";
-  const parts = [
-    workout.volume > 0
-      ? `${Math.round(workout.volume).toLocaleString()} kg`
-      : `${workout.sets} ${workout.sets === 1 ? "set" : "sets"}`,
-  ];
-  if (workout.durationKnown && workout.durationSeconds > 0)
-    parts.push(`${Math.round(workout.durationSeconds / 60)} min`);
-  return parts.join(" · ");
-}
+import type { DayActivity } from "./activity";
 
 /** "WORKOUT" with a small status chip on the right. */
-function WidgetTop({ status }: { status?: { label: string; icon?: IconName } }) {
+function WidgetTop({ status }: { status?: "Live" | "Done" }) {
   const { colors } = useTheme();
   return (
     <View
@@ -51,9 +34,9 @@ function WidgetTop({ status }: { status?: { label: string; icon?: IconName } }) 
             backgroundColor: colors.muted,
           }}
         >
-          {status.icon && <Icon name={status.icon} size={13} color={colors.primary} />}
+          {status === "Done" && <Icon name="check" size={13} color={colors.primary} />}
           <AppText variant="caption" style={{ fontFamily: fonts.bold, fontSize: 12 }}>
-            {status.label}
+            {status}
           </AppText>
         </View>
       )}
@@ -61,41 +44,23 @@ function WidgetTop({ status }: { status?: { label: string; icon?: IconName } }) 
   );
 }
 
+/** Draws the Workout tile Daily activity worked out. */
 export function WorkoutWidget({
-  workout,
+  tile,
   detailed = false,
-  sourceState = "ready",
-  onRetry,
-  showEmptyGuidance = false,
-  activeWorkoutName,
   onAddWorkout,
 }: {
-  workout: CompletedWorkout;
+  tile: DayActivity["workout"];
   detailed?: boolean;
-  sourceState?: "ready" | "loading" | "error";
-  onRetry: () => void;
-  showEmptyGuidance?: boolean;
-  activeWorkoutName?: string;
   onAddWorkout?: () => void;
 }) {
   const { colors } = useTheme();
   const testID = detailed ? "exercise-workout" : "home-workout";
-  const stats: { label: string; value: string }[] = [
-    {
-      label: "Duration",
-      value:
-        workout.durationKnown === false
-          ? "Not recorded"
-          : `${Math.floor(workout.durationSeconds / 60)} min`,
-    },
-    { label: "Sets", value: String(workout.sets) },
-    { label: "Reps", value: String(workout.reps) },
-  ];
-  if (sourceState !== "ready")
+  if (tile.kind === "loading" || tile.kind === "error")
     return (
       <Panel testID={testID}>
         <WidgetTop />
-        {sourceState === "loading" ? (
+        {tile.kind === "loading" ? (
           <AppText variant="label" muted>
             Loading your workouts...
           </AppText>
@@ -103,12 +68,12 @@ export function WorkoutWidget({
           <LoadFailure
             message="Couldn't load your workouts."
             retryLabel="Retry workouts"
-            onRetry={onRetry}
+            onRetry={tile.retry}
           />
         )}
       </Panel>
     );
-  if (showEmptyGuidance && workout.name === null && !activeWorkoutName)
+  if (tile.kind === "empty")
     return (
       <Panel testID={detailed ? "exercise-workout-empty" : "home-workout-empty"}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
@@ -116,7 +81,7 @@ export function WorkoutWidget({
           <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
             <Overline>Workout</Overline>
             <AppText variant="label" muted>
-              Nothing logged yet today.
+              {tile.message}
             </AppText>
           </View>
         </View>
@@ -130,41 +95,34 @@ export function WorkoutWidget({
       </Panel>
     );
   // A workout under way with nothing completed yet: its totals arrive when it ends.
-  if (workout.name === null && activeWorkoutName)
+  if (tile.kind === "live")
     return (
       <Panel testID={testID} style={{ gap: spacing.sm }}>
-        <WidgetTop status={{ label: "Live" }} />
+        <WidgetTop status="Live" />
         <AppText
           variant="heading"
           accessibilityRole="header"
           style={{ fontSize: 22, lineHeight: 28, letterSpacing: -0.4 }}
         >
-          {activeWorkoutName}
+          {tile.name}
         </AppText>
         <AppText variant="caption" muted>
           Workout in progress. Totals appear here when you end it.
         </AppText>
       </Panel>
     );
+  const workout = tile.completed;
   const lifted = workout.volume.toLocaleString();
   return (
     <Panel testID={testID} style={{ gap: spacing.layout }}>
       <View style={{ gap: spacing.xs }}>
-        <WidgetTop
-          status={
-            workout.name !== null
-              ? activeWorkoutName
-                ? { label: "Live" }
-                : { label: "Done", icon: "check" }
-              : undefined
-          }
-        />
+        <WidgetTop status={tile.status} />
         <AppText
           variant="heading"
           accessibilityRole="header"
           style={{ fontSize: 22, lineHeight: 28, letterSpacing: -0.4 }}
         >
-          {workout.name ?? activeWorkoutName ?? "Workout of the day"}
+          {tile.name}
         </AppText>
       </View>
       <View style={{ gap: 0 }}>
@@ -202,7 +160,7 @@ export function WorkoutWidget({
           borderColor: colors.border,
         }}
       >
-        {stats.map(({ label, value }, index) => (
+        {tile.stats.map(({ label, value }, index) => (
           <View
             key={label}
             style={{

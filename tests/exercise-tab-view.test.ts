@@ -253,8 +253,7 @@ async function owner(...sessions: WorkoutSession[]) {
   store.start();
   await tick();
   const tab = createExerciseTabView({ store, date: day, importSources: [] });
-  store.subscribe(() => tab.refreshDocument());
-  tab.refreshDocument();
+  tab.start();
   tab.setFocused(true);
   return tab;
 }

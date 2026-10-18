@@ -26,7 +26,7 @@ function deferred<T>() {
   });
   return { promise, resolve };
 }
-function harness() {
+function harness(openAuthSession: (url: string) => Promise<string | null> = async () => null) {
   let callback: Parameters<AccountAuthPort["onAuthStateChange"]>[0] | undefined;
   let subscriptionActive = false;
   let initial = Promise.resolve({
@@ -61,6 +61,14 @@ function harness() {
       submitted++;
       return result;
     },
+    async resend() {
+      submitted++;
+      return result;
+    },
+    async signInWithOAuth() {
+      submitted++;
+      return { data: { url: "https://auth.example/authorize" }, error: null };
+    },
     async resetPasswordForEmail() {
       submitted++;
       return result;
@@ -88,6 +96,7 @@ function harness() {
   };
   const controller = createAccountController(auth, {
     redirectTo: "kinevaulttrack://auth/callback",
+    openAuthSession,
   });
   return {
     auth,
@@ -203,6 +212,7 @@ test("email delivery owns its normalized recipient and clears with feedback", as
   assert.deepEqual(h.controller.getSnapshot().emailDelivery, {
     kind: "confirmation",
     email: "alex@example.com",
+    resends: 0,
   });
   h.controller.clearFeedback();
   assert.equal(h.controller.getSnapshot().emailDelivery, null);
@@ -214,6 +224,202 @@ test("email delivery owns its normalized recipient and clears with feedback", as
   h.emit("SIGNED_IN", session);
   assert.equal(h.controller.getSnapshot().emailDelivery, null);
   assert.equal(h.controller.getSnapshot().notice, null);
+});
+
+test("confirmation resends keep the confirmation screen and cap emails at three an hour", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 0 });
+  const h = harness();
+  h.setResult({ data: { session: null }, error: null });
+  await ready(h);
+  const resent: Parameters<AccountAuthPort["resend"]>[0][] = [];
+  h.auth.resend = async (credentials) => {
+    resent.push(credentials);
+    return { error: null };
+  };
+  assert.equal(await h.controller.resendConfirmation(), false);
+  assert.equal(await h.controller.signUp(" Alex@example.com ", "safe-password"), false);
+  assert.equal(await h.controller.resendConfirmation(), true);
+  assert.deepEqual(resent[0], {
+    type: "signup",
+    email: "Alex@example.com",
+    options: { emailRedirectTo: "kinevaulttrack://auth/callback" },
+  });
+  assert.deepEqual(h.controller.getSnapshot().emailDelivery, {
+    kind: "confirmation",
+    email: "Alex@example.com",
+    resends: 1,
+  });
+  assert.equal(await h.controller.resendConfirmation(), true);
+  t.mock.timers.tick(10 * 60 * 1000);
+  assert.equal(await h.controller.resendConfirmation(), false);
+  assert.equal(resent.length, 2);
+  assert.match(h.controller.getSnapshot().error ?? "", /limit of 3 .*Try again in 50 minutes/);
+  assert.equal(h.controller.getSnapshot().emailDelivery?.kind, "confirmation");
+  t.mock.timers.tick(50 * 60 * 1000);
+  assert.equal(await h.controller.resendConfirmation(), true);
+  assert.equal(resent.length, 3);
+});
+test("the cap's wait counts down to the send that frees a slot, even after extra sign-ups", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 0 });
+  const h = harness();
+  h.setResult({ data: { session: null }, error: null });
+  await ready(h);
+  // Signing up again isn't blocked, so four emails can be on record.
+  for (let minute = 0; minute < 4; minute++) {
+    await h.controller.signUp("alex@example.com", "safe-password");
+    t.mock.timers.tick(60 * 1000);
+  }
+  assert.equal(await h.controller.resendConfirmation(), false);
+  assert.match(h.controller.getSnapshot().error ?? "", /Try again in 57 minutes/);
+});
+test("a failed resend keeps the confirmation screen and does not count toward the cap", async () => {
+  const h = harness();
+  h.setResult({ data: { session: null }, error: null });
+  await ready(h);
+  await h.controller.signUp("alex@example.com", "safe-password");
+  let calls = 0;
+  h.auth.resend = async () =>
+    ++calls === 1
+      ? { error: { message: "rate limited", code: "over_email_send_rate_limit", status: 429 } }
+      : { error: null };
+  assert.equal(await h.controller.resendConfirmation(), false);
+  assert.match(h.controller.getSnapshot().error ?? "", /Too many requests/);
+  assert.equal(h.controller.getSnapshot().emailDelivery?.kind, "confirmation");
+  assert.equal(await h.controller.resendConfirmation(), true);
+  assert.equal(await h.controller.resendConfirmation(), true);
+  assert.equal(await h.controller.resendConfirmation(), false);
+  assert.equal(calls, 3);
+});
+test("a resent confirmation survives a provider remount and each resend publishes a new delivery", async () => {
+  const h = harness();
+  h.setResult({ data: { session: null }, error: null });
+  await ready(h);
+  await h.controller.signUp("alex@example.com", "safe-password");
+  assert.equal(await h.controller.resendConfirmation(), true);
+  const first = h.controller.getSnapshot().emailDelivery;
+  assert.equal(await h.controller.resendConfirmation(), true);
+  assert.notEqual(
+    h.controller.getSnapshot().emailDelivery,
+    first,
+    "the screen announces each send",
+  );
+  h.controller.stop();
+  await ready(h);
+  assert.deepEqual(h.controller.getSnapshot().emailDelivery, {
+    kind: "confirmation",
+    email: "alex@example.com",
+    resends: 2,
+  });
+  // Feedback cleared while a resend is in flight stays cleared.
+  await h.controller.signUp("sam@example.com", "safe-password");
+  const sent = deferred<{ error: null }>();
+  h.auth.resend = () => sent.promise;
+  const late = h.controller.resendConfirmation();
+  h.controller.clearFeedback();
+  sent.resolve({ error: null });
+  assert.equal(await late, true);
+  assert.equal(h.controller.getSnapshot().emailDelivery, null);
+});
+
+test("Google sign-in opens the provider and exchanges the returned PKCE code", async () => {
+  const opened: string[] = [];
+  const h = harness(async (url) => {
+    opened.push(url);
+    return "kinevaulttrack://auth/callback?code=google-code";
+  });
+  await ready(h);
+  h.auth.signInWithOAuth = async (credentials) => {
+    assert.deepEqual(credentials, {
+      provider: "google",
+      options: { redirectTo: "kinevaulttrack://auth/callback", skipBrowserRedirect: true },
+    });
+    return { data: { url: "https://auth.example/authorize?provider=google" }, error: null };
+  };
+  const exchanged: string[] = [];
+  h.auth.exchangeCodeForSession = async (code) => {
+    exchanged.push(code);
+    return { data: { session }, error: null };
+  };
+  assert.equal(await h.controller.signInWithGoogle(), true);
+  assert.deepEqual(opened, ["https://auth.example/authorize?provider=google"]);
+  assert.deepEqual(exchanged, ["google-code"]);
+  assert.equal(h.controller.getSnapshot().user?.id, "owner");
+});
+test("Google sign-in stays quiet on cancel and explains provider or browser failures", async () => {
+  const browser = [
+    async () => null,
+    async () => "kinevaulttrack://auth/callback?error=access_denied&error_code=bad_oauth_state",
+    async () => "kinevaulttrack://auth/callback?token_hash=someone-else&type=email",
+    async () => {
+      throw new Error("another browser is open");
+    },
+  ];
+  const h = harness(() => browser.shift()!());
+  await ready(h);
+  assert.equal(await h.controller.signInWithGoogle(), false);
+  assert.equal(h.controller.getSnapshot().error, null);
+  assert.equal(await h.controller.signInWithGoogle(), false);
+  assert.match(h.controller.getSnapshot().error ?? "", /Google sign-in didn't finish/);
+  // A token-hash link handed to the browser session isn't this sign-in's code.
+  h.auth.verifyOtp = async () => assert.fail("only a PKCE code completes Google sign-in");
+  h.controller.clearFeedback();
+  assert.equal(await h.controller.signInWithGoogle(), false);
+  assert.match(h.controller.getSnapshot().error ?? "", /Google sign-in didn't finish/);
+  assert.equal(await h.controller.signInWithGoogle(), false);
+  assert.match(h.controller.getSnapshot().error ?? "", /Couldn't open Google sign-in/);
+  assert.equal(h.controller.getSnapshot().busy, false);
+  assert.equal(h.controller.getSnapshot().user, null);
+});
+test("a second Google tap while its browser is open does nothing", async () => {
+  const browser = deferred<string | null>();
+  const h = harness(() => browser.promise);
+  await ready(h);
+  let starts = 0;
+  const signIn = h.auth.signInWithOAuth;
+  h.auth.signInWithOAuth = (credentials) => {
+    starts++;
+    return signIn(credentials);
+  };
+  const first = h.controller.signInWithGoogle();
+  await new Promise((resolve) => setTimeout(resolve, 0)); // the browser is now open
+  const second = h.controller.signInWithGoogle();
+  browser.resolve(null);
+  assert.equal(await second, false);
+  assert.equal(await first, false);
+  assert.equal(starts, 1, "a second start would replace the open browser's verifier");
+  assert.equal(await h.controller.signInWithGoogle(), false);
+  assert.equal(starts, 2, "the guard clears once the browser closes");
+});
+test("a link whose PKCE verifier was removed explains how to finish", async () => {
+  const h = harness();
+  await ready(h);
+  h.auth.exchangeCodeForSession = async () => ({
+    data: { session: null },
+    error: {
+      message: "PKCE code verifier not found in storage.",
+      code: "pkce_code_verifier_not_found",
+    },
+  });
+  assert.equal(await h.controller.completeAuthLink("kinevaulttrack://auth/callback?code=c"), false);
+  assert.match(h.controller.getSnapshot().error ?? "", /log in after confirming your email/);
+});
+test("Google's redirect may also reach the callback route while the browser is still open", async () => {
+  const link = "kinevaulttrack://auth/callback?code=google-code";
+  let routeResult: Promise<boolean> | undefined;
+  const h = harness(async () => {
+    routeResult = h.controller.completeAuthLink(link);
+    return link;
+  });
+  await ready(h);
+  let exchanges = 0;
+  h.auth.exchangeCodeForSession = async () => {
+    exchanges++;
+    return { data: { session }, error: null };
+  };
+  const signedIn = await h.controller.signInWithGoogle();
+  assert.equal(await routeResult, true);
+  assert.equal(signedIn, true);
+  assert.equal(exchanges, 1);
 });
 
 test("recovery belongs to the current identity and does not follow an account switch", async () => {
@@ -431,6 +637,7 @@ test("backend errors and thrown requests leave retryable feedback", async () => 
 test("missing configuration allows guest boot and explains blocked auth", async () => {
   const controller = createAccountController(null, {
     redirectTo: "kinevaulttrack://auth/callback",
+    openAuthSession: async () => null,
   });
   controller.start();
   assert.equal(controller.getSnapshot().loading, false);
@@ -498,9 +705,9 @@ test("links without a device-bound PKCE code never replace a signed-in account",
   ]) {
     assert.equal(await h.controller.completeAuthLink(link), false);
     assert.match(h.controller.getSnapshot().error ?? "", /already logged in/);
-    const resumed = h.controller.resumeAuthLink(link.replace(/[?#].*$/, ""));
-    assert.ok(resumed);
-    assert.equal(await resumed, false);
+    // The sanitized remount gets the retained refusal, not a new verification error.
+    assert.equal(await h.controller.completeAuthLink(link.replace(/[?#].*$/, "")), false);
+    assert.match(h.controller.getSnapshot().error ?? "", /already logged in/);
   }
   assert.equal(h.submitted, before, "no credentials from the link reach Auth");
   assert.equal(h.controller.getSnapshot().user?.id, "owner");
@@ -575,15 +782,15 @@ test("sanitized callback remount resumes the same in-flight recovery verificatio
   );
   h.emit("SIGNED_IN", session);
   // The old callback unmounts after its URL is cleaned; the new instance sees this URL.
-  const resumed = h.controller.resumeAuthLink("https://track.example/auth/callback");
-  assert.ok(resumed);
+  const resumed = h.controller.completeAuthLink("https://track.example/auth/callback");
   pending.resolve({ data: { session }, error: null });
   assert.equal(await verification, true);
   assert.equal(await resumed, true);
   assert.equal(exchanges, 1);
   assert.equal(h.controller.getSnapshot().recovery, true);
   h.controller.acknowledgeAuthLink();
-  assert.equal(h.controller.resumeAuthLink("https://track.example/auth/callback"), null);
+  assert.equal(await h.controller.completeAuthLink("https://track.example/auth/callback"), false);
+  assert.equal(exchanges, 1);
 });
 
 test("email verification retains its in-flight outcome when replacing an existing identity", async () => {
@@ -597,31 +804,37 @@ test("email verification retains its in-flight outcome when replacing an existin
     "https://track.example/auth/callback?code=other-account&flow=recovery",
   );
   h.emit("SIGNED_IN", replacement);
-  const resumed = h.controller.resumeAuthLink("https://track.example/auth/callback");
-  assert.ok(resumed, "the account-owned screen remount must retain this link's outcome");
+  const resumed = h.controller.completeAuthLink("https://track.example/auth/callback");
   pending.resolve({ data: { session: replacement }, error: null });
   assert.equal(await verification, true);
-  assert.equal(await resumed, true);
+  assert.equal(
+    await resumed,
+    true,
+    "the account-owned screen remount must retain this link's outcome",
+  );
   assert.equal(h.controller.getSnapshot().recovery, true);
 });
 test("a signed-in session alone cannot resume an unrelated or fresh callback", async () => {
   const h = harness();
   await ready(h);
   h.emit("SIGNED_IN", session);
-  assert.equal(h.controller.resumeAuthLink("https://track.example/auth/callback"), null);
-  await h.controller.completeAuthLink("https://track.example/auth/callback?code=verified");
-  assert.equal(h.controller.resumeAuthLink("https://other.example/auth/callback"), null);
+  const callback = "https://track.example/auth/callback";
+  assert.equal(await h.controller.completeAuthLink(callback), false);
+  assert.match(h.controller.getSnapshot().error ?? "", /couldn't be verified/);
+  assert.equal(await h.controller.completeAuthLink(`${callback}?code=verified`), true);
+  const exchanged = h.submitted;
+  assert.equal(await h.controller.completeAuthLink("https://other.example/auth/callback"), false);
+  assert.equal(await h.controller.completeAuthLink(`${callback}?error=expired`), false);
   assert.equal(
-    h.controller.resumeAuthLink("https://track.example/auth/callback?code=new-code"),
-    null,
+    await h.controller.completeAuthLink("https://track.example/auth/reset-password"),
+    false,
   );
-  assert.equal(
-    h.controller.resumeAuthLink("https://track.example/auth/callback?error=expired"),
-    null,
-  );
-  assert.equal(h.controller.resumeAuthLink("https://track.example/auth/reset-password"), null);
+  assert.equal(h.submitted, exchanged);
+  // A new link on the same path is exchanged, not answered with the retained result.
+  assert.equal(await h.controller.completeAuthLink(`${callback}?code=new-code`), true);
+  assert.equal(h.submitted, exchanged + 1);
   await h.controller.signOut();
-  assert.equal(h.controller.resumeAuthLink("https://track.example/auth/callback"), null);
+  assert.equal(await h.controller.completeAuthLink(callback), false);
 });
 
 test("sanitized remount preserves an explicit expired-link result without assuming authentication", async () => {
@@ -633,9 +846,7 @@ test("sanitized remount preserves an explicit expired-link result without assumi
     ),
     false,
   );
-  const result = h.controller.resumeAuthLink("https://track.example/auth/callback");
-  assert.ok(result);
-  assert.equal(await result, false);
+  assert.equal(await h.controller.completeAuthLink("https://track.example/auth/callback"), false);
   assert.match(h.controller.getSnapshot().error ?? "", /expired/);
   assert.equal(h.controller.getSnapshot().session, null);
   assert.equal(h.submitted, 0);

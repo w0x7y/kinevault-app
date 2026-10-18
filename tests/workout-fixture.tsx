@@ -2,9 +2,9 @@
 import { registerRootComponent } from "expo";
 import { ScrollView } from "react-native";
 import { ThemeProvider } from "../src/theme/provider";
+import { interpretDayActivity } from "../src/daily/activity";
 import { WorkoutWidget } from "../src/daily/workout-widget";
 import { parseWorkoutSession, type SessionExercise } from "../src/exercise/model";
-import { summarizeSessions } from "../src/exercise/summary";
 
 function row(id: string, name: string, values: [number, number][]): SessionExercise {
   return {
@@ -47,14 +47,39 @@ const planned = parseWorkoutSession({
   status: "planned",
   exercises: [row("planned", "Planned row", [[100, 5]])],
 });
-const workout = summarizeSessions([completed, planned]);
+const noRetry = () => undefined;
+const loading = { state: { kind: "loading" as const }, retryLoad: noRetry };
+const { workout } = interpretDayActivity({
+  date: completed.date,
+  today: completed.date,
+  profile: { kind: "loading" },
+  food: loading,
+  water: loading,
+  goal: loading,
+  exercise: {
+    state: {
+      kind: "ready",
+      document: { version: 1, exercises: [], workouts: [], sessions: [completed, planned] },
+    },
+    retryLoad: noRetry,
+  },
+  phoneSteps: {
+    access: null,
+    state: "loading",
+    steps: null,
+    retry: noRetry,
+    connect: async () => {},
+    openSettings: async () => {},
+  },
+  loggedSteps: loading,
+});
 
 function WorkoutFixture() {
   return (
     <ThemeProvider>
       <ScrollView contentContainerStyle={{ padding: 12, gap: 12 }}>
-        <WorkoutWidget workout={workout} onRetry={() => undefined} />
-        <WorkoutWidget workout={workout} detailed onRetry={() => undefined} />
+        <WorkoutWidget tile={workout} />
+        <WorkoutWidget tile={workout} detailed />
       </ScrollView>
     </ThemeProvider>
   );

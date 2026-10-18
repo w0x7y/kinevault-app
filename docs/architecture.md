@@ -7,8 +7,11 @@ current behavior belongs; the older design specs describe earlier increments.
 
 The Account controller owns session restoration, request exclusion, recovery,
 email-delivery feedback and email-link completion. Its interface returns stable
-snapshots and account intentions. Supabase Auth is an injected adapter, so tests
-exercise the same seam as the account screens.
+snapshots and account intentions. Supabase Auth and the Google sign-in browser
+(`openAuthSession`) are adapters injected when the controller is created, next to
+`redirectTo`, so tests exercise the same seam as the account screens. One Google
+browser runs at a time, and only a PKCE code it returns completes the sign-in. The account
+context passes the controller's actions on unchanged, without its lifecycle methods.
 
 The app retains one controller per stable auth adapter across root-layout remounts. Mounted providers attach and detach its lifecycle; request generations still retire abandoned work. Deletion feedback survives a remount, while a replacement identity clears the previous account's feedback.
 
@@ -18,9 +21,18 @@ ownership.
 
 Email verification feedback carries its purpose and normalized recipient. Screens
 do not infer a successful signup from arbitrary notice text or a mutable input.
+A confirmation delivery also counts its resends. Each successful resend publishes a new
+delivery, so its text survives a remount and changes with every send; Android and the
+web read it from the panel's live region, and iOS gets an announcement. Resend stops
+once three confirmation emails, sign-up included, went to an address in the past hour
+on this device (signing up again isn't blocked); Supabase's email rate limits are the
+server guard.
 An identity change invalidates request feedback and recovery from the prior owner.
 Only the active email-link result survives an owner replacement, allowing the
 callback screen to resume after the account-owned subtree changes.
+`completeAuthLink` is the only entry point: a cleaned callback URL that matches the
+retained link resumes its in-flight or settled result, while a URL that still carries
+a code, token or error is processed as a new link.
 
 Account management attempts own Settings action exclusion, owner/caller lifetime, confirmation fields, export delivery and action feedback. The React adapter supplies current account/connectivity readings and platform delivery; rendering submits intentions. Rejected deletion feedback is scoped to its caller, while confirmed deletion and its notice remain with the auth owner. Account management owns logical export assembly and the authenticated deletion sequence. Settings renders those intentions; file download/sharing and server requests are adapters. Deletion freezes the owner's storage before server work, then commits a tombstone and scoped cleanup after confirmed success. Session storage performs owner-conditional clearing so a delayed deletion cannot remove a replacement account. See [account management](account-management.md).
 
@@ -133,7 +145,8 @@ saved-item deletion feedback, scoped to the caller that requested it, and the Me
 destination that Logging attempts read and write.
 
 The Exercise tab view owns the tab's panel and the tokens that keep late results
-local to the panel they began on, the query, focus and the `workoutMenu`,
+local to the panel they began on, follows the exercise store directly (it subscribes
+while started, so tests and the app use the same store), the query, focus and the `workoutMenu`,
 `workoutImport` and `liveWorkout` route requests, which it receives as intents.
 Workout edits and Library drafts reach the panel through its panel seam; before a
 panel changes, the view asks Workout edits to save the logs it leaves and stays put
@@ -149,8 +162,12 @@ lookup of the Active workout. The app header reads the Active workout from
 the exercise store and opens the page through the `liveWorkout` route request. Workout edits own the selected exercise and the
 planned-set settings disclosure, which reopens when a planned count is invalid, and
 the same log mode drives planned-count validation. The edit's snapshot carries that
-mode and the controls it allows: whether Back leaves or cancels, Save or complete,
-Discard, Start and Details; the editor renders them. Library drafts own Exercise
+mode and the controls it allows from one table, `workoutLogControls`: whether Back
+leaves or cancels and its name, Save or complete and its label, Discard, Start,
+Details, Retry, the overline and the sheet's title and test ID; the editor and the
+sheet render them. `parsePlannedSetCount` in the exercise model is the one planned-count
+rule for Workout edits and Workout templates. `setHints` there gives each blank set its
+Previous sets hint, and `matchingExercises` is the one library search rule. Library drafts own Exercise
 definition, Workout template (including its selected exercise, builder disclosure and
 search), Saved workouts and Workout import state per panel, so the sheet can unmount when the tab
 loses focus without losing input; their durable success closes the originating
@@ -184,12 +201,15 @@ preparation that is current at that point, since the day or food may have change
 
 Daily activity (`src/daily/activity.ts`) reads one day from every saved source: the
 food log, Manual water and the Water goal, workouts, and Phone steps plus Logged steps.
-Each source reports its own availability and retry, and the activity owns the Home Steps
-and Water tile wording, so Home and the Personal journal read it instead of the providers.
+Each source reports its own availability and retry, and the activity owns the Home Steps,
+Water and Workout tile wording (Workout covers loading, error, empty, live and done, plus
+the Exercise title's one-line summary), so Home, Exercise and the Personal journal read it
+instead of the providers.
 It also computes the day's nutrition progress beside its targets (eaten, left or over,
 percentage and each macro's share of the calorie ring, rounded to whole kcal and grams to
-one decimal), so the Home ring and macros, the Food title, Daily macros and the journal
-only draw it. A missing calorie or macro target shows as "—" and is read as "unset", and
+one decimal) and writes the figures the screens show ("eaten / target unit", the Food
+title and the ring's left, over or eaten caption), so the Home ring and macros, the Food
+title, Daily macros and the journal only draw it. A missing calorie or macro target shows as "—" and is read as "unset", and
 "Set your goals" is one link that pages close before following.
 `useDayActivity` is its React adapter; only Home asks it to read Phone steps. The journal's
 streak comes from the same activity and is counted once per change of its sources.
@@ -197,6 +217,12 @@ streak comes from the same activity and is counted once per change of its source
 Completed Workout totals derive from persisted Workout sessions and their valid
 sets. Daily activity and test fixtures use the same Exercise summary interface;
 there is no separate workout interpreter or fixture-only measurement model.
+
+`workoutGraph` (`src/profile/activity.ts`) returns the weeks the Workout graph draws:
+weekly buckets ending today, the exercise options with the resolved selection, the
+latest week and the pending message (fewer than two weeks with measurements);
+`workoutWeekLabel` captions a selected week. `workout-chart.tsx` only scales the axes,
+draws and maps touches.
 
 Barcode lookup owns provider validation, cancellation, request budgets and its
 bounded cache. Responses are limited to 1 MiB of UTF-8 data before JSON parsing
@@ -220,6 +246,18 @@ the same interface. A notification during a write is deferred until the write
 settles. Draft owners remain mounted and merge their chosen fields into the latest
 saved document when the user saves. Tests cross the domain interface instead of
 depending on private lifecycle state.
+
+Manual water and Logged steps are both day amount documents (`{ version: 1, days:
+{ date: amount } }`, a whole amount from zero per date) built from
+`src/persistence/day-amount-log.ts`. It owns their parsing, the durable
+`set({ date, amount })` that replaces one date's amount, and the edit whose `adjust`
+keeps the draft between zero and the safe maximum. Each domain keeps its own storage
+key, parser and messages.
+
+`stepFields` in `src/profile/answers.ts` is the one map of which Answers fields each step
+owns. The Onboarding flow uses it to decide which errors block Continue; focused Profile
+edits use it to split errors between the section's Question and the editor's inline
+messages.
 
 Manual water, Logged steps, Water goal and focused Profile edits share the
 document-edit module.

@@ -13,7 +13,7 @@ import { spacing } from "../../theme/tokens";
 
 export default function AuthCallbackScreen() {
   const account = useAccount();
-  const { loading, completeAuthLink, resumeAuthLink, recovery, acknowledgeAuthLink } = account;
+  const { loading, completeAuthLink, recovery, acknowledgeAuthLink } = account;
   const { colors } = useTheme();
   const parameters = useLocalSearchParams();
   const incoming = Linking.useLinkingURL();
@@ -43,7 +43,7 @@ export default function AuthCallbackScreen() {
         : Linking.createURL("auth/callback"));
     original.current = url;
     // Start in the stable provider before URL cleanup can remount this screen.
-    const verification = resumeAuthLink(url) ?? completeAuthLink(url);
+    const verification = completeAuthLink(url);
     // Keep the link only in memory while processing, never in browser history.
     if (Platform.OS === "web" && typeof window !== "undefined") {
       const path = sanitizedAuthPath(url);
@@ -65,7 +65,7 @@ export default function AuthCallbackScreen() {
       active = false;
       started.current = false;
     };
-  }, [loading, completeAuthLink, resumeAuthLink]);
+  }, [loading, completeAuthLink]);
 
   useEffect(() => {
     if (verified) {
@@ -77,8 +77,7 @@ export default function AuthCallbackScreen() {
   async function retry() {
     if (!original.current || account.busy) return;
     setFailed(false);
-    const success = await (account.resumeAuthLink(original.current) ??
-      account.completeAuthLink(original.current));
+    const success = await account.completeAuthLink(original.current);
     if (success) setVerified(true);
     else setFailed(true);
   }
@@ -86,13 +85,13 @@ export default function AuthCallbackScreen() {
   return (
     <StatusScreen
       icon={showFailure ? "link" : "envelope-open-text"}
-      title={showFailure ? "Check your email link" : "Verifying your account"}
+      title={showFailure ? "Check your sign-in link" : "Verifying your account"}
       documentTitle="Account link"
       message={
         <AppText muted accessibilityLiveRegion="polite" style={{ textAlign: "center" }}>
           {showFailure
-            ? "Request a fresh link if this one has expired. Open it on the device where you requested it."
-            : "Please wait while we verify the link from your email."}
+            ? "If this link came from an email and has expired, request a fresh one and open it on the device where you requested it."
+            : "Please wait while we verify your sign-in."}
         </AppText>
       }
     >
