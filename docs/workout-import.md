@@ -205,7 +205,7 @@ needs a connection, so Get workout is disabled while offline.
 ## Flow
 
 Exercise tab → **Import workouts**, below the day's workouts when no panel is
-open and nothing is being searched → choose a source (a list, with Tracked
+open, nothing is being searched and there's no Active workout → choose a source (a list, with Tracked
 first) → paste the link → **Get workout** (with Cancel while loading) → preview: name, category, exercise count,
 new-to-library count, each exercise with its label, chips and a New / In your
 library marker, plus notes on Unilateral exercises and repeated names →
