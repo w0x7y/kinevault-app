@@ -7,7 +7,6 @@ import { useTheme } from "../theme/provider";
 import { cardShadow, fonts, radius, spacing } from "../theme/tokens";
 import type { DayActivity } from "./activity";
 import { WaterGoalCup, waterCupSize } from "../water/goal-cup";
-import type { stepsTile } from "../steps/summary";
 
 const tilePadding = 16;
 const besideGap = spacing.sm;
@@ -18,7 +17,7 @@ export function ActivityWidgets({
   onLogSteps,
   onAddWater,
 }: {
-  steps: ReturnType<typeof stepsTile>;
+  steps: DayActivity["steps"]["tile"];
   water: DayActivity["water"];
   onLogSteps: () => void;
   onAddWater: () => void;
@@ -26,14 +25,7 @@ export function ActivityWidgets({
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const [rowWidth, setRowWidth] = useState(0);
-  const { total, goal, progress } = water;
-  const goalMl = goal.kind === "ready" ? goal.ml : null;
-  const waterLabel =
-    goalMl === null
-      ? `Add water. ${total.kind === "ready" ? `${total.ml.toLocaleString()} ml consumed` : `Water total ${total.kind === "loading" ? "loading" : "unavailable"}`}. Daily goal ${goal.kind === "loading" ? "loading" : "unavailable"}. Progress unavailable.${goal.kind === "error" ? " Retry water goal in Settings." : ""}`
-      : progress === null || total.kind !== "ready"
-        ? `Add water. Water total ${total.kind === "loading" ? "loading" : "unavailable"}. Daily goal: ${goalMl.toLocaleString()} ml. Progress unavailable.`
-        : `Add water. ${total.ml.toLocaleString()} ml consumed of a ${goalMl.toLocaleString()} ml daily goal. ${Math.round(progress * 100)}% of goal.`;
+  const { progress, tile } = water;
 
   // Figures share the space beside the cup (or the steps icon), so long totals shrink to fit
   // narrow phones instead of running under it.
@@ -43,7 +35,7 @@ export function ActivityWidgets({
   const figureSize = (value: string) =>
     Math.max(10, Math.min(28, Math.floor(figureRoom / (value.length * 0.64))));
 
-  const waterValue = total.kind === "ready" ? (total.ml / 1000).toLocaleString() : "—";
+  const waterValue = tile.value ?? "—";
   const stepsValue = steps.value === null ? "—" : steps.value.toLocaleString();
   // Tiles split the row from a zero basis; padding lives on the inner surface so it can't
   // skew the split.
@@ -97,7 +89,7 @@ export function ActivityWidgets({
       </Tappable>
       <Tappable
         testID="home-water"
-        label={waterLabel}
+        label={tile.label}
         hint="Edit manual water for the selected day. Drinks count separately in your Home total."
         onPress={onAddWater}
         ring="outline"
@@ -113,11 +105,11 @@ export function ActivityWidgets({
             testID="home-water-amount"
             value={waterValue}
             size={figureSize(waterValue)}
-            unit={total.kind === "ready" ? "L" : undefined}
+            unit={tile.value === null ? undefined : "L"}
           />
-          {total.kind !== "ready" && (
+          {tile.status && (
             <AppText variant="caption" muted>
-              {total.kind === "loading" ? "loading..." : "tap to retry"}
+              {tile.status}
             </AppText>
           )}
         </TileTop>
@@ -131,28 +123,13 @@ export function ActivityWidgets({
               color: progress === null ? colors.mutedForeground : colors.foreground,
             }}
           >
-            {progress === null
-              ? "Goal progress unavailable"
-              : `${Math.round(progress * 100)}% of goal`}
+            {tile.progress}
           </AppText>
-          {goalMl !== null && (
-            <AppText variant="caption" muted>
-              Goal: {goalMl.toLocaleString()} ml
+          {tile.captions.map((caption) => (
+            <AppText key={caption} variant="caption" muted>
+              {caption}
             </AppText>
-          )}
-          {goal.kind !== "ready" && (
-            <AppText variant="caption" muted>
-              {goal.kind === "loading" ? "Goal loading..." : "Goal unavailable"}
-            </AppText>
-          )}
-          {goal.kind === "error" && (
-            <AppText variant="caption" muted>
-              Retry in Settings
-            </AppText>
-          )}
-          <AppText variant="caption" muted>
-            Includes Drinks
-          </AppText>
+          ))}
         </View>
       </Tappable>
     </View>

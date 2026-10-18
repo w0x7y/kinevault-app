@@ -1,30 +1,16 @@
 import {
+  activeWorkout,
   createEmptySet,
   durationFromMinutes,
   isBlankSet,
-  type ExerciseDefinition,
   type ExerciseDocument,
   type ExerciseSet,
   type SessionExercise,
   type WorkoutSession,
-  type WorkoutTemplate,
 } from "./model.ts";
-import type { createExercisePersistence } from "./persistence.ts";
+import { writeFailure, type createExercisePersistence, type ExerciseWrite } from "./persistence.ts";
+import type { ExercisePanels, WorkoutView } from "./tab-view.ts";
 
-export type WorkoutView =
-  | {
-      kind: "exercise";
-      exercise?: ExerciseDefinition;
-      /** Opened from "Link demo": focus the KineVault search. */
-      linkDemo?: boolean;
-      /** The workout to return to after Save or Cancel. */
-      returnTo?: WorkoutView;
-    }
-  | { kind: "workout"; workout?: WorkoutTemplate }
-  | { kind: "library"; date: string }
-  | { kind: "session"; id: string; manual?: boolean }
-  | { kind: "import"; source?: string };
-export type WorkoutPanel = { content: WorkoutView; token: number };
 /**
  * How a workout log presents: a compact planned card, the live workspace, manual logging of a
  * planned log, or an edit of a completed one.
@@ -54,8 +40,27 @@ type Change =
   | { kind: "add-set"; rowId: string }
   | { kind: "set"; rowId: string; setId: string; build: (set: ExerciseSet) => ExerciseSet };
 type Action = "retry" | "settings" | "cancel" | "leave" | "start" | "complete" | "save" | "discard";
+/** The edit with the controls its log mode allows. */
+export type WorkoutEditSnapshot = Readonly<
+  WorkoutEditState & {
+    mode: WorkoutLogMode;
+    /** The back button: leaving the Active workout's page keeps it running; others cancel. */
+    back: Extract<Action, "leave" | "cancel">;
+    /** The main action: Save on a completed log; otherwise End or Log completes it. */
+    primary: Extract<Action, "save" | "complete">;
+    discard: boolean;
+    /** Start from the manual page; a compact card has its own. */
+    start: boolean;
+    /** Name and duration, on the manual and completed pages. */
+    details: boolean;
+    /** Where "Link demo" returns: this workout's page. */
+    returnTo: WorkoutView;
+  }
+>;
 type Entry = {
   state: WorkoutEditState;
+  /** The last snapshot and the state it shows, rebuilt when the state or the mode changes. */
+  view: { state: WorkoutEditState; snapshot: WorkoutEditSnapshot } | null;
   revision: number;
   pending: Promise<boolean> | null;
   /** A change's draft save is running; later changes wait in `queued`, latest only. */
@@ -63,12 +68,8 @@ type Entry = {
   queued: { fields: WorkoutFields; revision: number } | null;
 };
 
-const draftFailure =
-  "Couldn't save your draft. Your fields are still here. Retry draft save before leaving the workout.";
 const invalidDuration =
   "Enter a nonnegative duration in minutes or leave it blank before leaving the workout. Your sets have been saved.";
-const saveFailure =
-  "Couldn't save. Enter a workout name and positive whole reps for each set; weight and minutes must be nonnegative numbers. Your fields are still here. Try again.";
 function localId() {
   return `set-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
@@ -98,15 +99,13 @@ function plannedCountError(fields: WorkoutFields, counts: Record<string, string>
 }
 
 // Fields outlive render mounts. Only durable success or explicit completed Cancel releases an edit.
-// Panel tokens and request generations keep late callbacks and competing departures local to their origin.
-export function createWorkoutEditing(store: Store) {
+// The tab view's panel tokens and request generations keep late callbacks local to their origin.
+export function createWorkoutEditing(
+  store: Store,
+  panels: Pick<ExercisePanels, "panel" | "origin" | "leave">,
+) {
   const entries = new Map<string, Entry>(),
     listeners = new Set<() => void>();
-  let snapshot: { panel: WorkoutPanel | null } = { panel: null };
-  let sequence = 0,
-    request = 0,
-    attached = true,
-    attachment = 0;
   let lastDocument: ExerciseDocument | null = null;
   const emit = () => {
     for (const listener of listeners) listener();
@@ -128,9 +127,30 @@ export function createWorkoutEditing(store: Store) {
   function current(id: string, entry: Entry) {
     return entries.get(id) === entry;
   }
+  function modeOf(entry: Entry) {
+    return workoutLogMode(entry.state.session, panels.panel()?.content);
+  }
+  function view(entry: Entry): WorkoutEditSnapshot {
+    const { state } = entry,
+      mode = modeOf(entry);
+    if (entry.view?.state === state && entry.view.snapshot.mode === mode)
+      return entry.view.snapshot;
+    const snapshot: WorkoutEditSnapshot = {
+      ...state,
+      mode,
+      back: mode === "active" ? "leave" : "cancel",
+      primary: mode === "completed" ? "save" : "complete",
+      discard: mode !== "completed",
+      start: mode === "manual",
+      details: mode === "manual" || mode === "completed",
+      returnTo: { kind: "session", id: state.session.id, manual: mode === "manual" },
+    };
+    entry.view = { state, snapshot };
+    return snapshot;
+  }
   function countsValid(entry: Entry) {
     // Planned set counts belong to the compact card; manual logging edits the sets themselves.
-    if (workoutLogMode(entry.state.session, snapshot.panel?.content) !== "compact") return true;
+    if (modeOf(entry) !== "compact") return true;
     const problem = plannedCountError(entry.state.fields, entry.state.counts);
     // A folded settings section opens so its error is never hidden.
     publish(entry, problem ? { countError: problem, settingsOpen: true } : { countError: problem });
@@ -164,8 +184,7 @@ export function createWorkoutEditing(store: Store) {
         entry.state = { ...entry.state, ...savedFields, session };
       }
     }
-    // A fresh snapshot also lets the adapter resolve successful retirement from the saved document.
-    snapshot = { ...snapshot };
+    // Editors render again, so a successful retirement resolves from the saved document.
     emit();
   }
   function entryFor(id: string) {
@@ -174,6 +193,7 @@ export function createWorkoutEditing(store: Store) {
     let entry = entries.get(id);
     if (!entry) {
       entry = {
+        view: null,
         revision: 0,
         pending: null,
         saving: false,
@@ -209,15 +229,26 @@ export function createWorkoutEditing(store: Store) {
         invalidMinutes = true;
       }
     }
-    const success = await store.updateSession({
+    const result = await store.updateSession({
       id,
       name: fields.name,
       exercises: fields.exercises,
       durationSeconds,
     });
     if (current(id, entry) && entry.revision === revision)
-      publish(entry, { error: !success ? draftFailure : invalidMinutes ? invalidDuration : null });
-    return success && !invalidMinutes;
+      publish(entry, {
+        error:
+          result.kind !== "saved"
+            ? writeFailure(
+                result,
+                "Couldn't save your draft.",
+                "Your fields are still here. Retry draft save before leaving the workout.",
+              )
+            : invalidMinutes
+              ? invalidDuration
+              : null,
+      });
+    return result.kind === "saved" && !invalidMinutes;
   }
   /** Takes the queued change unless its edit was released or became completed, which never autosaves. */
   function takeQueued(id: string, entry: Entry) {
@@ -264,33 +295,14 @@ export function createWorkoutEditing(store: Store) {
       return persist(id, entry, entry.state.fields, entry.revision);
     });
   }
-  function replace(content: WorkoutView | null) {
-    snapshot = { panel: content ? { content, token: ++sequence } : null };
-    emit();
-  }
-  /** Replaces panel `token` with `content` unless another view took over since the action began. */
-  function leaveOrigin(
-    token: number | null,
-    originAttachment: number,
-    originRequest: number,
-    content: WorkoutView | null = null,
-  ) {
-    if (
-      attached &&
-      attachment === originAttachment &&
-      request === originRequest &&
-      (snapshot.panel?.token ?? null) === token
-    ) {
-      ++request;
-      replace(content);
-    }
-  }
-  async function requestView(content: WorkoutView) {
-    const ticket = ++request,
-      originAttachment = attachment;
-    const panel = snapshot.panel;
-    const active = document()?.sessions.find((session) => session.status === "active");
-    const departing =
+  /**
+   * Saves the logs that opening `content` leaves: the open log, or on the default view the Active
+   * workout or the day's changed cards. True at once when none needs saving.
+   */
+  function depart(content: WorkoutView): true | Promise<boolean> {
+    const panel = panels.panel();
+    const active = activeWorkout(document()?.sessions ?? []);
+    const departing = (
       panel?.content.kind === "session"
         ? [panel.content.id]
         : panel
@@ -301,20 +313,23 @@ export function createWorkoutEditing(store: Store) {
                 .filter(
                   ([, entry]) => entry.state.session.status === "planned" && entry.revision > 0,
                 )
-                .map(([id]) => id);
-    for (const id of departing) {
+                .map(([id]) => id)
+    )
       // Opening a workout's own page doesn't leave it.
-      if (content.kind === "session" && content.id === id) continue;
-      if (!document()?.sessions.some((session) => session.id === id)) continue;
-      if (!(await flush(id, entryFor(id)))) return false;
-    }
-    if (!attached || attachment !== originAttachment || ticket !== request) return false;
-    replace(content);
-    return true;
+      .filter((id) => !(content.kind === "session" && content.id === id));
+    const saved = (id: string) => document()?.sessions.some((session) => session.id === id);
+    if (!departing.some(saved)) return true;
+    return (async () => {
+      for (const id of departing) {
+        if (!saved(id)) continue;
+        if (!(await flush(id, entryFor(id)))) return false;
+      }
+      return true;
+    })();
   }
   function edit(id: string) {
     const entry = entryFor(id),
-      originToken = snapshot.panel?.token ?? null;
+      originToken = panels.panel()?.token ?? null;
     function change(input: Change) {
       if (!current(id, entry) || entry.state.busy) return;
       let fields = entry.state.fields,
@@ -383,8 +398,7 @@ export function createWorkoutEditing(store: Store) {
       emit();
     }
     async function run(kind: Action): Promise<boolean> {
-      const originAttachment = attachment,
-        originRequest = request;
+      const origin = panels.origin();
       if (!current(id, entry)) return false;
       if (kind === "retry") return flush(id, entry);
       if (kind === "settings") {
@@ -399,7 +413,7 @@ export function createWorkoutEditing(store: Store) {
         const success = await flush(id, entry);
         if (success && current(id, entry)) {
           if (kind === "cancel") entries.delete(id);
-          leaveOrigin(originToken, originAttachment, originRequest);
+          panels.leave(originToken, origin);
         }
         return success;
       }
@@ -408,64 +422,62 @@ export function createWorkoutEditing(store: Store) {
         if (kind !== "discard" && !countsValid(entry)) return false;
         publish(entry, { error: null });
         const fields = entry.state.fields;
-        let success = false,
+        const [lead, retry] =
+          kind === "discard"
+            ? ["Couldn't discard this workout.", "Try again."]
+            : kind === "start"
+              ? ["Couldn't start.", "Try again."]
+              : ["Couldn't save.", "Your fields are still here. Try again."];
+        let result: ExerciseWrite<true> | null = null,
           error: string | null = null;
         try {
-          if (kind === "discard") success = await store.removeSession(id);
+          if (kind === "discard") result = await store.removeSession(id);
           else if (kind === "start") {
-            success = await persist(id, entry, fields, entry.revision);
-            if (success) {
-              if (!fields.name.trim()) {
-                success = false;
-                error = "Enter a workout name before starting.";
-              } else success = await store.startSession(id);
-            }
+            // A failed draft save shows its own feedback.
+            if (await persist(id, entry, fields, entry.revision))
+              result = await store.startSession(id);
           } else if (kind === "complete")
-            success = await store.completeSession({
+            result = await store.completeSession({
               id,
               name: fields.name,
               exercises: fields.exercises,
               durationMinutes: fields.minutes,
             });
           else
-            success = await store.updateSession({
+            result = await store.updateSession({
               id,
               name: fields.name,
               exercises: fields.exercises,
               durationSeconds: durationFromMinutes(fields.minutes),
             });
         } catch (reason) {
-          error =
-            reason instanceof Error ? reason.message : "Check your workout values and try again.";
+          error = `${lead} ${reason instanceof Error ? reason.message : "Check your workout values."}`;
         }
+        const success = result?.kind === "saved";
         if (!current(id, entry)) return success;
         if (success) {
           if (kind === "start") {
             const session = document()?.sessions.find((value) => value.id === id);
             if (session) publish(entry, { session, error: null });
             // A card started from the day opens the Active workout's page; a page stays up.
-            if (originToken === null)
-              leaveOrigin(null, originAttachment, originRequest, { kind: "session", id });
+            if (originToken === null) panels.leave(null, origin, { kind: "session", id });
           } else {
             entries.delete(id);
-            leaveOrigin(originToken, originAttachment, originRequest);
-            snapshot = { ...snapshot };
+            panels.leave(originToken, origin);
             emit();
           }
         } else
           publish(entry, {
             error:
               error ??
-              entry.state.error ??
-              (kind === "start"
-                ? "Couldn't start. Another workout may already be active. Try again."
-                : saveFailure),
+              (result ? writeFailure(result, lead, retry) : entry.state.error) ??
+              `${lead} ${retry}`,
           });
         return success;
       });
     }
     return {
-      getSnapshot: () => entry.state,
+      getSnapshot: () => view(entry),
       subscribe,
       change,
       run,
@@ -479,36 +491,7 @@ export function createWorkoutEditing(store: Store) {
       },
     };
   }
-  return {
-    getSnapshot: () => snapshot,
-    subscribe,
-    refreshDocument,
-    edit,
-    requestView,
-    /** Leaves panel `token` for the workout it returns to (after "Link demo"), or no panel. */
-    closeView(token: number) {
-      const content = snapshot.panel?.content;
-      if (attached && snapshot.panel?.token === token) {
-        ++request;
-        replace((content?.kind === "exercise" && content.returnTo) || null);
-      }
-    },
-    /** Panel `token` hands over to `content`, e.g. Saved workouts opening the log it added. */
-    replaceView(token: number, content: WorkoutView) {
-      if (attached && snapshot.panel?.token === token) {
-        ++request;
-        replace(content);
-      }
-    },
-    resume() {
-      attached = true;
-    },
-    suspend() {
-      attached = false;
-      ++attachment;
-      ++request;
-    },
-  };
+  return { subscribe, refreshDocument, edit, depart };
 }
 export type WorkoutEditing = ReturnType<typeof createWorkoutEditing>;
 export type WorkoutEdit = ReturnType<WorkoutEditing["edit"]>;

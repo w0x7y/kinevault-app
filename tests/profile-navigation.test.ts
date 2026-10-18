@@ -1,21 +1,22 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
+import { TabRouter } from "../node_modules/expo-router/build/react-navigation/routers/TabRouter.js";
 import {
-  TabRouter,
-  type BackBehavior,
-} from "../node_modules/expo-router/build/react-navigation/routers/TabRouter.js";
+  headerPage,
+  isJournal,
+  journalHandlesBack,
+  originatingTab,
+  parseRouteRequest,
+  popoverAfterNavigation,
+  routeRequest,
+  tabNavigator,
+  tabRouteNames,
+  type TabPath,
+} from "../src/navigation/track-tabs.ts";
 
-// Exercise the installed router using the route order and options the app supplies.
-const layout = readFileSync(new URL("../src/app/(tabs)/_layout.tsx", import.meta.url), "utf8");
-const routeNames = [...layout.matchAll(/<Tabs\.Screen\s+name="([^"]+)"/g)].map((match) => match[1]);
-const options = { routeNames, routeParamList: {}, routeGetIdList: {} };
-const router = TabRouter({
-  initialRouteName: layout.match(/initialRouteName="([^"]+)"/)?.[1],
-  backBehavior: layout.match(
-    /backBehavior="(firstRoute|initialRoute|order|history|fullHistory|none)"/,
-  )?.[1] as BackBehavior | undefined,
-});
+// Exercise the installed router with the route order and options the tab layout supplies.
+const options = { routeNames: tabRouteNames, routeParamList: {}, routeGetIdList: {} };
+const router = TabRouter(tabNavigator);
 const fresh = () => router.getInitialState(options);
 function jump(state: ReturnType<typeof fresh>, name: string) {
   const next = router.getStateForAction(state, { type: "JUMP_TO", payload: { name } }, options);
@@ -55,4 +56,67 @@ test("direct Profile entry has a Home fallback without earlier navigation histor
   const result = back(direct);
   assert.ok(result);
   assert.equal(active(result), "index");
+});
+
+// d85ba65: the journal's Back returns to the tab it was opened from, keeping the Selected day.
+test("the Personal journal returns to the last bar tab shown before it", () => {
+  const visit = (paths: string[]) =>
+    paths.reduce<TabPath>((previous, path) => originatingTab(previous, path), "/");
+  assert.equal(visit(["/profile"]), "/");
+  assert.equal(visit(["/food", "/profile"]), "/food");
+  assert.equal(visit(["/exercise", "/settings", "/profile"]), "/settings");
+  assert.equal(visit(["/food", "/profile", "/+not-found", "/profile"]), "/food");
+});
+
+test("Android Back leaves the journal only once header popovers have closed", () => {
+  assert.equal(journalHandlesBack("/profile", null), true);
+  assert.equal(journalHandlesBack("/profile", "profile"), false);
+  assert.equal(journalHandlesBack("/food", null), false);
+});
+
+test("the calendar survives tab changes but closes on the journal; the menu always closes", () => {
+  assert.equal(popoverAfterNavigation("calendar", "/food"), "calendar");
+  assert.equal(popoverAfterNavigation("calendar", "/settings"), "calendar");
+  assert.equal(popoverAfterNavigation("calendar", "/profile"), null);
+  assert.equal(popoverAfterNavigation("profile", "/food"), null);
+  assert.equal(popoverAfterNavigation(null, "/profile"), null);
+});
+
+test("only day screens show the Selected day and calendar", () => {
+  for (const path of ["/", "/food", "/exercise"]) assert.equal(headerPage(path), null);
+  assert.equal(headerPage("/profile"), "Profile");
+  assert.equal(headerPage("/settings"), "Settings");
+});
+
+// a49352e: the avatar menu marks Profile as the current page only on the journal.
+test("the Profile menu entry is current only on the journal", () => {
+  assert.equal(isJournal("/profile"), true);
+  for (const path of ["/", "/food", "/exercise", "/settings"]) assert.equal(isJournal(path), false);
+});
+
+test("route requests build the params their screens parse", () => {
+  assert.deepEqual(routeRequest("workoutMenu", "2026-10-18"), {
+    pathname: "/exercise",
+    params: { workoutMenu: "2026-10-18" },
+  });
+  assert.deepEqual(routeRequest("liveWorkout", "w1"), {
+    pathname: "/exercise",
+    params: { liveWorkout: "w1" },
+  });
+  assert.deepEqual(routeRequest("workoutImport", "tracked"), {
+    pathname: "/exercise",
+    params: { workoutImport: "tracked" },
+  });
+  assert.deepEqual(routeRequest("section", "Photos"), {
+    pathname: "/profile",
+    params: { section: "photos" },
+  });
+  assert.equal(parseRouteRequest("workoutMenu", "2026-10-18"), "2026-10-18");
+  assert.equal(parseRouteRequest("workoutMenu", "2026-02-30"), null);
+  assert.equal(parseRouteRequest("section", "photos"), "Photos");
+  assert.equal(parseRouteRequest("section", "overview"), "Overview");
+  assert.equal(parseRouteRequest("section", "goals"), "Goals");
+  assert.equal(parseRouteRequest("section", "Photos"), null);
+  assert.equal(parseRouteRequest("section", "constructor"), null);
+  assert.equal(parseRouteRequest("liveWorkout", "w1"), "w1");
 });

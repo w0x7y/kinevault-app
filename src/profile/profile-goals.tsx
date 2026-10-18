@@ -7,12 +7,9 @@ import { Tappable } from "../components/tappable";
 import { ProgressFill } from "../components/motion";
 import { AppText, Panel } from "../components/ui";
 import { cardShadow, fonts, radius, spacing } from "../theme/tokens";
-import { useFoodLog } from "../food/log-provider";
-import { useWaterLog } from "../water/provider";
-import { useWaterGoal } from "../water/goal-provider";
 import { WaterGoalEditor } from "./water-goal-editor";
-import { progressFraction } from "../daily/model";
 import { useDayActivity } from "../daily/use-day";
+import { unsetTarget } from "../daily/activity";
 import { useTheme } from "../theme/provider";
 import { activities, goals } from "./answers";
 import { useProfile } from "./provider";
@@ -26,15 +23,7 @@ export type ProfileEditorInstance = {
   section: ProfileEditSection | "water";
 };
 const number = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 1 });
-function ProgressBar({
-  consumed,
-  target,
-  color,
-}: {
-  consumed: number | null;
-  target: number | null;
-  color: string;
-}) {
+function ProgressBar({ fraction, color }: { fraction: number; color: string }) {
   const { colors } = useTheme();
   return (
     <View
@@ -45,11 +34,7 @@ function ProgressBar({
         overflow: "hidden",
       }}
     >
-      <ProgressFill
-        fraction={progressFraction(consumed ?? 0, target)}
-        color={color}
-        style={{ borderRadius: 3 }}
-      />
+      <ProgressFill fraction={fraction} color={color} style={{ borderRadius: 3 }} />
     </View>
   );
 }
@@ -98,10 +83,10 @@ function GoalRow({
   );
 }
 export function TodayNutrition({ today, onPress }: { today: string; onPress: () => void }) {
-  const activity = useDayActivity(today);
+  const activity = useDayActivity({ date: today });
   const { colors } = useTheme();
-  const calories = activity.food.kind === "ready" ? activity.food.summary.calories : null;
-  const target = activity.targets.kind === "ready" ? activity.targets.calories : null;
+  const calories = activity.nutrition?.calories;
+  const target = calories?.target ?? null;
   return (
     <Tappable
       label="Today's nutrition"
@@ -134,13 +119,13 @@ export function TodayNutrition({ today, onPress }: { today: string; onPress: () 
             Today’s nutrition
           </AppText>
           <AppText variant="label" numeric style={{ fontSize: 14 }}>
-            {calories === null ? "Unavailable" : number(calories)}
+            {calories ? number(calories.eaten) : "Unavailable"}
             <AppText variant="caption" muted>
-              {` / ${target === null ? "Not set" : number(target)} kcal`}
+              {` / ${target === null ? unsetTarget.shown : number(target)} kcal`}
             </AppText>
           </AppText>
         </View>
-        <ProgressBar consumed={calories} target={target} color={colors.primary} />
+        <ProgressBar fraction={calories?.fraction ?? 0} color={colors.primary} />
       </View>
       <Icon name="chevron-right" size={16} color={colors.mutedForeground} />
     </Tappable>
@@ -158,10 +143,8 @@ export function ProfileGoals({
   close: (id: number) => void;
 }) {
   const profile = useProfile(),
-    food = useFoodLog(),
-    water = useWaterLog(),
-    goal = useWaterGoal(),
-    activity = useDayActivity(today);
+    activity = useDayActivity({ date: today });
+  const { food, water, waterGoal } = activity.sources;
   const { colors } = useTheme();
   const [choosing, setChoosing] = useState(false);
   // The chosen editor opens once the chooser has gone, so it can take focus.
@@ -169,7 +152,11 @@ export function ProfileGoals({
   const { targets } = activity;
   if (profile.state.kind !== "ready" || targets.kind !== "ready") return null;
   const answers = profile.state.document.answers;
-  const summary = activity.food.kind === "ready" ? activity.food.summary : null;
+  const { nutrition } = activity;
+  const target = (value: number | null, unit: string) =>
+    value === null ? unsetTarget.shown : `${number(value)} ${unit}`;
+  const spokenTarget = (value: number | null) =>
+    value === null ? unsetTarget.spoken : number(value);
   const waterMl = activity.water.total.kind === "ready" ? activity.water.total.ml : null;
   const waterTarget = activity.water.goal.kind === "ready" ? activity.water.goal.ml : null;
   const rows = [
@@ -204,29 +191,25 @@ export function ProfileGoals({
             onPress={() => edit("calories")}
           />
         </JournalHeading>
-        {food.state.kind !== "ready" && (
-          <SourceStatus name="food log" kind={food.state.kind} retry={food.retryLoad} />
+        {food.kind !== "ready" && (
+          <SourceStatus name="food log" kind={food.kind} retry={food.retry} />
         )}
         <View
           testID="profile-goal-calories"
-          accessibilityLabel={`${summary?.calories ?? "Unavailable"} / ${targets.calories === null ? "Not set" : number(targets.calories)} kcal`}
+          accessibilityLabel={`${nutrition ? number(nutrition.calories.eaten) : "Unavailable"} / ${spokenTarget(targets.calories)} kcal`}
           style={{ gap: spacing.sm, marginBottom: spacing.xs }}
         >
           <JournalFigure
-            value={summary ? number(summary.calories) : "Unavailable"}
-            unit={`/ ${targets.calories === null ? "Not set" : number(targets.calories)} kcal`}
+            value={nutrition ? number(nutrition.calories.eaten) : "Unavailable"}
+            unit={`/ ${target(targets.calories, "kcal")}`}
           />
-          <ProgressBar
-            consumed={summary?.calories ?? null}
-            target={targets.calories}
-            color={colors.primary}
-          />
+          <ProgressBar fraction={nutrition?.calories.fraction ?? 0} color={colors.primary} />
         </View>
         {(["carbs", "protein", "fat"] as const).map((field) => (
           <View
             key={field}
             testID={`profile-goal-${field}`}
-            accessibilityLabel={`${summary?.[field] ?? "Unavailable"} / ${targets[field] === null ? "Not set" : number(targets[field])} g`}
+            accessibilityLabel={`${nutrition ? number(nutrition[field].eaten) : "Unavailable"} / ${spokenTarget(targets[field])} g`}
           >
             <GoalRow
               icon={
@@ -235,21 +218,17 @@ export function ProfileGoals({
                 />
               }
               name={field[0].toUpperCase() + field.slice(1)}
-              value={summary ? number(summary[field]) : "—"}
-              target={targets[field] === null ? "not set" : `${number(targets[field])} g`}
+              value={nutrition ? number(nutrition[field].eaten) : "—"}
+              target={target(targets[field], "g")}
               bar={
-                <ProgressBar
-                  consumed={summary?.[field] ?? null}
-                  target={targets[field]}
-                  color={colors[field]}
-                />
+                <ProgressBar fraction={nutrition?.[field].fraction ?? 0} color={colors[field]} />
               }
             />
           </View>
         ))}
         <View
           testID="profile-goal-water"
-          accessibilityLabel={`${waterMl === null ? "Unavailable" : number(waterMl)} / ${waterTarget === null ? "Not set" : number(waterTarget)} ml`}
+          accessibilityLabel={`${waterMl === null ? "Unavailable" : number(waterMl)} / ${waterTarget === null ? "Unavailable" : number(waterTarget)} ml`}
           style={{
             borderTopWidth: StyleSheet.hairlineWidth,
             borderColor: colors.border,
@@ -270,22 +249,22 @@ export function ProfileGoals({
               icon={<Icon name="droplet" size={18} color={colors.water} />}
               name="Water"
               value={waterMl === null ? "—" : number(waterMl)}
-              target={waterTarget === null ? "Not set" : `${number(waterTarget)} ml`}
-              bar={<ProgressBar consumed={waterMl} target={waterTarget} color={colors.water} />}
+              target={target(waterTarget, "ml")}
+              bar={<ProgressBar fraction={activity.water.progress ?? 0} color={colors.water} />}
               trailing={<Icon name="chevron-right" size={16} color={colors.mutedForeground} />}
             />
           </Tappable>
         </View>
-        {water.state.kind !== "ready" && (
-          <SourceStatus name="water log" kind={water.state.kind} retry={water.retryLoad} />
+        {water.kind !== "ready" && (
+          <SourceStatus name="water log" kind={water.kind} retry={water.retry} />
         )}
-        {goal.state.kind !== "ready" && (
-          <SourceStatus name="water goal" kind={goal.state.kind} retry={goal.retryLoad} />
+        {waterGoal.kind !== "ready" && (
+          <SourceStatus name="water goal" kind={waterGoal.kind} retry={waterGoal.retry} />
         )}
         {editor?.section === "calories" && (
           <ProfileEditor key={editor.id} section={editor.section} close={() => close(editor.id)} />
         )}
-        {editor?.section === "water" && goal.state.kind === "ready" && (
+        {editor?.section === "water" && waterGoal.kind === "ready" && (
           <WaterGoalEditor key={editor.id} close={() => close(editor.id)} />
         )}
       </Panel>

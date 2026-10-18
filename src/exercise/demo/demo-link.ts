@@ -44,6 +44,67 @@ export function demoStatus({
   return { kind: "ready", entry, videoPath: entry.videoPath, posterPath: entry.posterPath };
 }
 
+const connectText = "Connect to load this demonstration.";
+
+/**
+ * The player's status line and what its Retry button retries: the catalog download
+ * or the clip. `null` status means demos aren't configured; a ready demo shows none.
+ */
+export function demoNotice(
+  status: DemoStatus | null,
+): { text: string; retry?: "catalog" | "media" } | null {
+  if (!status || status.kind === "unavailable") return { text: "Demonstration unavailable." };
+  if (status.kind === "loading") return { text: "Loading demonstration." };
+  if (status.kind === "connect") return { text: connectText, retry: "catalog" };
+  if (status.kind === "catalog-unavailable")
+    return {
+      text: "KineVault demos aren't available right now. Try again later.",
+      retry: "catalog",
+    };
+  if (status.kind === "failed")
+    return {
+      text: status.offline
+        ? connectText
+        : "Couldn't load this demonstration. Check your connection and try again.",
+      retry: "media",
+    };
+  return null;
+}
+
+/**
+ * One try at showing a demo's media. `starting` is a tapped clip that hasn't reached
+ * readyToPlay yet; only then can the start timeout fail it. `attempt` keys the poster
+ * and video so a retry remounts them.
+ */
+export type DemoPlayback = {
+  phase: "poster" | "starting" | "playing";
+  failed: boolean;
+  attempt: number;
+};
+
+export type DemoPlaybackEvent = "play" | "started" | "failed" | "timed-out" | "blurred" | "retry";
+
+export const initialDemoPlayback: DemoPlayback = { phase: "poster", failed: false, attempt: 0 };
+
+export function demoPlayback(state: DemoPlayback, event: DemoPlaybackEvent): DemoPlayback {
+  switch (event) {
+    case "play":
+      return state.phase === "poster" ? { ...state, phase: "starting" } : state;
+    case "started":
+      return state.phase === "starting" ? { ...state, phase: "playing" } : state;
+    case "failed":
+      return state.failed ? state : { ...state, failed: true };
+    // A request that never answers raises no error; buffering after the start doesn't count.
+    case "timed-out":
+      return state.phase === "starting" && !state.failed ? { ...state, failed: true } : state;
+    // Tab screens stay mounted when blurred, so leaving the screen returns to the poster.
+    case "blurred":
+      return state.phase === "poster" ? state : { ...state, phase: "poster" };
+    case "retry":
+      return { phase: "poster", failed: false, attempt: state.attempt + 1 };
+  }
+}
+
 export type ExerciseFields = Omit<ExerciseDefinition, "id">;
 
 /** Links a KineVault exercise and fills only the fields the user left blank. */

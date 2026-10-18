@@ -1,13 +1,13 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 import { useFocusEffect } from "expo-router";
 import { BackHandler, Platform, View, type StyleProp, type ViewStyle } from "react-native";
 import Animated from "react-native-reanimated";
 import { AppButton, ButtonRow, IconButton } from "../components/button";
-import { useDeleteConfirmation } from "../components/delete-button";
 import { useLayoutMotion, useReducedMotion, useStateTransition } from "../components/motion";
 import { AppText } from "../components/ui";
 import { fonts, spacing } from "../theme/tokens";
 import type { FoodEntry } from "./model";
+import type { FoodEntryRemoval } from "../food/tab-view";
 import { InlineMessage } from "../components/inline-message";
 
 /** How long a removed entry takes to fade before its meal closes up. */
@@ -18,10 +18,11 @@ export function FoodLogEntry({
   mealLabel,
   fresh = false,
   saving,
+  removal,
   onEdit,
-  onRemove,
   onArm,
-  onLeaving,
+  onCancel,
+  onConfirm,
   style,
 }: {
   food: FoodEntry;
@@ -29,39 +30,27 @@ export function FoodLogEntry({
   /** Just logged while the log was on screen: the entry rises into its meal. */
   fresh?: boolean;
   saving: boolean;
+  /** This entry's removal, from the Food tab view. */
+  removal: FoodEntryRemoval["state"] | null;
   onEdit: (entry: FoodEntry) => void;
-  onRemove: (id: string) => Promise<boolean>;
-  /** Called as the remove confirmation opens, in the same update. */
-  onArm?: () => void;
-  /** Brackets the confirmed removal, fade included, so other entries wait for it. */
-  onLeaving?: (leaving: boolean) => void;
+  onArm: () => void;
+  onCancel: () => void;
+  /** Removes the entry once `leave` (its fade) has played. */
+  onConfirm: (leave: () => Promise<void>) => void;
   style?: StyleProp<ViewStyle>;
 }) {
   const reduced = useReducedMotion();
   const motion = useLayoutMotion();
   const fadeOut = useStateTransition(["opacity"], leaveDuration);
+  const armed = removal !== null;
+  const busy = removal === "removing";
+  const failed = removal === "failed";
   // A confirmed entry fades where it is, then leaves; the meal closes up once it has gone.
-  const [leaving, setLeaving] = useState(false);
-  const { armed, busy, failed, arm, cancel, confirm } = useDeleteConfirmation({
-    onDelete: async () => {
-      onLeaving?.(true);
-      if (!reduced) {
-        setLeaving(true);
-        await new Promise((resolve) => setTimeout(resolve, leaveDuration));
-      }
-      try {
-        const removed = await onRemove(food.id);
-        if (!removed) setLeaving(false);
-        return removed;
-      } catch (error) {
-        setLeaving(false);
-        throw error;
-      } finally {
-        onLeaving?.(false);
-      }
-    },
-    disabled: saving,
-  });
+  const leaving = busy && !reduced;
+  const confirm = () =>
+    onConfirm(() =>
+      reduced ? Promise.resolve() : new Promise((resolve) => setTimeout(resolve, leaveDuration)),
+    );
   const disabled = saving || busy;
   const trashButton = useRef<View>(null);
   const cancelButton = useRef<View>(null);
@@ -71,7 +60,7 @@ export function FoodLogEntry({
       if (Platform.OS === "web" && !disabled) cancelButton.current?.focus();
       const close = () => {
         if (disabled) return;
-        cancel();
+        onCancel();
         if (Platform.OS === "web") trashButton.current?.focus();
       };
       const back = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -92,7 +81,7 @@ export function FoodLogEntry({
         back.remove();
         if (Platform.OS === "web") document.removeEventListener("keydown", escape);
       };
-    }, [armed, disabled, cancel, food.id]),
+    }, [armed, disabled, onCancel, food.id]),
   );
   return (
     <Animated.View
@@ -128,10 +117,7 @@ export function FoodLogEntry({
               label={`Edit ${food.name} in ${mealLabel}`}
               icon="pen"
               disabled={disabled}
-              onPress={() => {
-                cancel();
-                onEdit(food);
-              }}
+              onPress={() => onEdit(food)}
             />
             <IconButton
               ref={trashButton}
@@ -140,10 +126,7 @@ export function FoodLogEntry({
               disabled={disabled}
               expanded={armed}
               destructive
-              onPress={() => {
-                arm();
-                onArm?.();
-              }}
+              onPress={onArm}
             />
           </View>
         </View>
@@ -166,7 +149,7 @@ export function FoodLogEntry({
                 accessibilityLabel={`Cancel removing ${food.name} from ${mealLabel}`}
                 disabled={disabled}
                 onPress={() => {
-                  cancel();
+                  onCancel();
                   if (Platform.OS === "web") trashButton.current?.focus();
                 }}
                 fill
@@ -176,7 +159,7 @@ export function FoodLogEntry({
                 accessibilityLabel={`Confirm remove ${food.name} from ${mealLabel}`}
                 disabled={disabled}
                 busy={busy}
-                onPress={() => void confirm()}
+                onPress={confirm}
                 tone="destructive"
                 fill
               />

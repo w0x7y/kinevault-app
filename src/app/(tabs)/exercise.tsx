@@ -1,10 +1,8 @@
 import { AppButton } from "../../components/button";
 import { StepFade, useLayoutMotion } from "../../components/motion";
-import { useIsFocused } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { View, type ScrollView } from "react-native";
 import Animated from "react-native-reanimated";
-import { parseDay } from "../../calendar/dates";
 import { SheetPage } from "../../components/sheet-page";
 import { AppText, Panel, Screen, ScreenTitle } from "../../components/ui";
 import { useDayActivity } from "../../daily/use-day";
@@ -17,59 +15,34 @@ import { useExercises } from "../../exercise/provider";
 import { ExerciseSearchResults } from "../../exercise/search-results";
 import { SessionEditor } from "../../exercise/session-editor";
 import { ActiveWorkoutTimer } from "../../exercise/timer";
-import { useWorkoutEditing } from "../../exercise/use-workout-editing";
-import { exerciseTabView } from "../../exercise/tab-view";
+import { useExerciseTabView } from "../../exercise/use-workout-editing";
 import { WorkoutLibrary } from "../../exercise/workout-library";
 import { useRouteRequest } from "../../navigation/use-route-request";
 
 export default function ExerciseScreen() {
   const activity = useDayActivity(),
     store = useExercises();
-  const { editing, drafts, panel: openPanel } = useWorkoutEditing();
-  const open = editing.requestView;
-  const [query, setQuery] = useState("");
-  const focused = useIsFocused();
+  const { tab, view } = useExerciseTabView(activity.date);
+  const { drafts } = tab;
+  const open = tab.requestView;
   const scrollRef = useRef<ScrollView>(null),
     resultsTop = useRef(0);
   const document = store.state.kind === "ready" ? store.state.document : null;
   useRouteRequest("workoutMenu", { ready: document !== null }, (date) => {
-    try {
-      parseDay(date);
-    } catch {
-      return;
-    }
-    void open({ kind: "library", date });
+    void tab.openWorkoutMenu(date);
   });
   // `/exercise?workoutImport=tracked` opens the import sheet, e.g. from a Settings shortcut.
-  // An import already open keeps its link, preview or pending save.
-  const importOpen = openPanel?.content.kind === "import";
   useRouteRequest("workoutImport", { ready: document !== null }, (source) => {
-    if (importOpen) return;
-    void open({ kind: "import", source });
+    void tab.openImport(source);
   });
   // `/exercise?liveWorkout=<id>` opens the Active workout's page, e.g. from the header timer.
   useRouteRequest("liveWorkout", { ready: document !== null }, (id) => {
-    if (openPanel?.content.kind === "session" && openPanel.content.id === id) return;
-    if (document?.sessions.some((session) => session.id === id && session.status === "active"))
-      void open({ kind: "session", id });
-  });
-  const view = exerciseTabView({
-    document,
-    date: activity.date,
-    panel: openPanel,
-    query,
-    workoutState: activity.workoutState,
+    void tab.openLiveWorkout(id);
   });
   const { inline, sheet } = view;
   // Ending (or discarding) the live workout swaps its card for the day's card, which fades in
-  // where the live card was. A card that is simply there on arrival doesn't animate.
+  // where the live card was.
   const { fade } = useLayoutMotion();
-  const hadLive = useRef(false);
-  const live = view.live !== null || sheet?.log?.mode === "active";
-  const liveEnded = hadLive.current && !live;
-  useEffect(() => {
-    hadLive.current = live;
-  });
   const content = sheet?.panel.content;
   function scrollToResults() {
     scrollRef.current?.scrollTo({ y: resultsTop.current, animated: false });
@@ -82,8 +55,8 @@ export default function ExerciseScreen() {
       />
       <SearchActions
         kind="exercise"
-        query={query}
-        onQueryChange={setQuery}
+        query={view.query}
+        onQueryChange={tab.search}
         disabled={!document}
         onCreateExercise={() => void open({ kind: "exercise" })}
         onCreateWorkout={() => void open({ kind: "workout" })}
@@ -92,7 +65,7 @@ export default function ExerciseScreen() {
       {document && view.search && (
         <ExerciseSearchResults
           key={view.search}
-          query={query}
+          query={view.query}
           exercises={document.exercises}
           onLayout={(event) => {
             resultsTop.current = event.nativeEvent.layout.y;
@@ -102,21 +75,21 @@ export default function ExerciseScreen() {
         />
       )}
       {view.showDailyWorkout && (
-        <Animated.View entering={liveEnded ? fade : undefined}>
+        <Animated.View entering={view.liveEnded ? fade : undefined}>
           <WorkoutWidget
             workout={activity.workout}
             detailed
             showEmptyGuidance
             activeWorkoutName={activity.activeWorkoutName}
             sourceState={activity.workoutState}
-            onRetry={store.retryLoad}
+            onRetry={activity.sources.workouts.retry}
             onAddWorkout={() => void open({ kind: "library", date: activity.date })}
           />
         </Animated.View>
       )}
       {view.plannedCards.map((session) => (
         <View key={session.id} testID={`planned-workout-${session.id}`}>
-          <SessionEditor editing={editing} session={session} mode="compact" />
+          <SessionEditor tab={tab} session={session} />
         </View>
       ))}
       {view.live && (
@@ -128,9 +101,8 @@ export default function ExerciseScreen() {
       {inline && (
         <SessionEditor
           key={inline.panel.token}
-          editing={editing}
+          tab={tab}
           session={inline.session}
-          mode={inline.mode}
           closeLabel={inline.closeLabel}
         />
       )}
@@ -143,7 +115,7 @@ export default function ExerciseScreen() {
         />
       )}
       {/* Away from the tab the sheet hides; its page's draft waits with the panel. */}
-      {sheet && focused && (
+      {sheet && (
         <SheetPage
           title={sheet.title}
           closeLabel={sheet.closeLabel}
@@ -154,7 +126,7 @@ export default function ExerciseScreen() {
             ) : undefined
           }
           page={sheet.panel.token}
-          onClose={() => editing.closeView(sheet.panel.token)}
+          onClose={() => tab.closeView(sheet.panel.token)}
         >
           {/* The sheet stays up while its page changes (the library opening a workout); each new
               page fades in over the last. */}
@@ -183,17 +155,13 @@ export default function ExerciseScreen() {
             {content?.kind === "import" && (
               <WorkoutImport
                 flow={drafts.workoutImport(sheet.panel.token, content.source)}
-                onClose={() => editing.closeView(sheet.panel.token)}
+                onClose={() => tab.closeView(sheet.panel.token)}
                 onOpenLibrary={() => void open({ kind: "library", date: activity.date })}
               />
             )}
             {content?.kind === "session" &&
               (sheet.log ? (
-                <SessionEditor
-                  editing={editing}
-                  session={sheet.log.session}
-                  mode={sheet.log.mode}
-                />
+                <SessionEditor tab={tab} session={sheet.log.session} />
               ) : (
                 <Panel>
                   <AppText>This workout is no longer available.</AppText>

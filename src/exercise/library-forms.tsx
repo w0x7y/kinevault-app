@@ -128,11 +128,8 @@ export function WorkoutForm({
 }) {
   const store = useExercises();
   const exercises = store.state.kind === "ready" ? store.state.document.exercises : [];
-  const { draft, busy, error } = useLibraryDraft(template);
-  const [query, setQuery] = useState(""),
-    [limit, setLimit] = useState(20);
-  const [settingsOpen, setSettingsOpen] = useState(!workout),
-    [selectedId, setSelectedId] = useState(workout?.exercises[0]?.id);
+  const { draft, busy, error, selectedId, settingsOpen, query } = useLibraryDraft(template);
+  const [limit, setLimit] = useState(20);
   const [notesId, setNotesId] = useState<string | null>(null);
   const rise = useLayoutMotion().enter();
   const search = query.trim().toLocaleLowerCase();
@@ -162,7 +159,7 @@ export function WorkoutForm({
         label="Search workout exercises"
         value={query}
         onChange={(value) => {
-          setQuery(value);
+          template.search(value);
           setLimit(20);
         }}
         disabled={busy}
@@ -189,7 +186,7 @@ export function WorkoutForm({
                 exercise={item}
                 onPress={() => {
                   template.change((current) => current.add(item));
-                  setSelectedId(item.id);
+                  template.select(item.id);
                 }}
                 disabled={busy}
               />
@@ -282,14 +279,14 @@ export function WorkoutForm({
             label="Exercises"
             accessibilityLabel="Name and exercises"
             expanded={settingsOpen}
-            onPress={() => setSettingsOpen((value) => !value)}
+            onPress={() => template.showSettings(!settingsOpen)}
             disabled={busy}
           />
         }
         toolbar={settingsOpen ? builder : undefined}
         exercises={rows}
         selectedId={selectedExercise?.id}
-        onSelect={setSelectedId}
+        onSelect={template.select}
         busy={busy}
         feedback={<InlineMessage>{error}</InlineMessage>}
         actions={

@@ -8,20 +8,17 @@ import { Tappable } from "../components/tappable";
 import { AppText, Overline, Panel } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
-import { progressFraction } from "./model";
-import { calorieSegments } from "./nutrition";
-import type { Nutrition } from "../food/catalog";
+import { unsetTarget, type NutritionProgress } from "./activity";
 
 /** The day's energy card: total against goal and its detail (Home's ring and macros). */
 export function CalorieWidget({
-  current,
-  goal,
+  calories,
   children,
 }: {
-  current: number;
-  goal: number | null;
+  calories: NutritionProgress["calories"];
   children?: ReactNode;
 }) {
+  const goal = calories.target;
   return (
     <Panel testID="home-calories" style={{ gap: spacing.card }}>
       <View
@@ -40,8 +37,8 @@ export function CalorieWidget({
           selectable
           style={{ fontFamily: fonts.semibold, fontVariant: ["tabular-nums"] }}
         >
-          {Math.round(current).toLocaleString()} / {goal === null ? "—" : goal.toLocaleString()}{" "}
-          kcal
+          {calories.eaten.toLocaleString()} /{" "}
+          {goal === null ? unsetTarget.shown : goal.toLocaleString()} kcal
         </AppText>
       </View>
       {children}
@@ -50,13 +47,15 @@ export function CalorieWidget({
   );
 }
 
-/** A quiet pill that opens Settings while the day has no calorie goal. */
-function GoalsLink() {
+/** A quiet pill that opens Settings while the day has no calorie goal. `onPress` runs first,
+ * for a page that must close before Settings opens behind it. */
+export function GoalsLink({ onPress }: { onPress?: () => void }) {
   const { colors } = useTheme();
   return (
     <Tappable
       role="link"
       href="/settings"
+      onPress={onPress}
       label="Set calorie and macro goals in Settings"
       style={({ pressed }) => ({
         flexDirection: "row",
@@ -83,15 +82,11 @@ function GoalsLink() {
  * eaten (energy without macro data in the foreground color) and carries the accessible
  * calorie progress. */
 export function CalorieRing({
-  current,
-  goal,
-  macros,
+  calories,
   size,
   testID,
 }: {
-  current: number;
-  goal: number | null;
-  macros: Omit<Nutrition, "calories">;
+  calories: NutritionProgress["calories"];
   size: number;
   testID?: string;
 }) {
@@ -99,18 +94,16 @@ export function CalorieRing({
   const stroke = Math.max(8, Math.round(size * 0.075));
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
-  const eaten = Math.round(current);
-  const over = goal !== null && eaten > goal;
-  const percentage = Math.round(progressFraction(current, goal) * 100);
+  const { remaining, percentage, overFraction } = calories;
+  const over = remaining !== null && remaining < 0;
   // Past the goal the ring stays full and the excess laps it in the danger color.
-  const overFraction = over ? progressFraction(eaten - goal, goal) : 0;
-  const figure = goal === null ? eaten : Math.abs(goal - eaten);
-  const caption = goal === null ? "kcal eaten" : over ? "kcal over" : "kcal left";
+  const figure = remaining === null ? calories.eaten : Math.abs(remaining);
+  const caption = remaining === null ? "kcal eaten" : over ? "kcal over" : "kcal left";
   const digits = figure.toLocaleString().length;
   const figureSize = Math.min(size * 0.22, (size - stroke * 2 - 16) / (digits * 0.62));
   const center = size / 2;
-  const segments = calorieSegments({ ...macros, calories: current }, goal).reduce<
-    (ReturnType<typeof calorieSegments>[number] & { start: number; length: number })[]
+  const segments = calories.segments.reduce<
+    (NutritionProgress["calories"]["segments"][number] & { start: number; length: number })[]
   >((arcs, segment) => {
     const previous = arcs.at(-1);
     const start = previous ? previous.start + previous.length : 0;
@@ -121,7 +114,7 @@ export function CalorieRing({
       <View
         testID="home-calorie-track"
         accessibilityRole="progressbar"
-        accessibilityLabel={`${current} kilocalories consumed, calorie goal ${goal === null ? "unset" : `${goal} kilocalories`}`}
+        accessibilityLabel={calories.label}
         accessibilityValue={{ min: 0, max: 100, now: percentage }}
         aria-valuemin={0}
         aria-valuemax={100}

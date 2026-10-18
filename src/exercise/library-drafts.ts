@@ -1,14 +1,22 @@
 import { createWorkoutImportFlow, type WorkoutImportFlowSource } from "./import/import-flow.ts";
 import type { ExerciseDefinition, WorkoutTemplate } from "./model.ts";
-import type { createExercisePersistence } from "./persistence.ts";
-import type { WorkoutPanel, WorkoutView } from "./workout-editing.ts";
+import { writeFailure, type createExercisePersistence, type ExerciseWrite } from "./persistence.ts";
+import type { ExercisePanels } from "./tab-view.ts";
 import { createWorkoutTemplateDraft, type WorkoutTemplateDraft } from "./workout-template-draft.ts";
 
 type ExerciseValues = Omit<ExerciseDefinition, "id">;
 /** The panel's pending save or removal and the feedback of its last failure. */
 type Attempt = { busy: boolean; error: string | null };
 type ExerciseDraftState = Attempt & { values: ExerciseValues };
-type TemplateDraftState = Attempt & { draft: WorkoutTemplateDraft };
+type TemplateDraftState = Attempt & {
+  draft: WorkoutTemplateDraft;
+  /** The exercise on screen. */
+  selectedId: string | undefined;
+  /** Whether the name and exercises builder shows. */
+  settingsOpen: boolean;
+  /** The builder's exercise search. */
+  query: string;
+};
 type SavedWorkoutsState = Attempt;
 type Store = Pick<
   ReturnType<typeof createExercisePersistence>,
@@ -21,26 +29,22 @@ type Store = Pick<
   | "importWorkoutPlan"
 >;
 /** The Exercise tab's panels, which library drafts close or hand over once they succeed. */
-type Panels = {
-  getSnapshot(): { panel: WorkoutPanel | null };
-  subscribe(listener: () => void): () => void;
-  closeView(token: number): void;
-  replaceView(token: number, content: WorkoutView): void;
-};
+type Panels = Pick<ExercisePanels, "panel" | "subscribe" | "closeView" | "replaceView">;
 type Entry =
   | { kind: "exercise"; state: ExerciseDraftState }
   | { kind: "template"; state: TemplateDraftState }
   | { kind: "saved-workouts"; state: SavedWorkoutsState }
   | { kind: "import"; flow: ReturnType<typeof createWorkoutImportFlow> };
 
+/** Each write's lead, followed by its command's reason or, when storage couldn't take it, a retry. */
 const failures = {
-  saveExercise: "Couldn't save. Enter an exercise name and try again; your fields are still here.",
-  removeExercise: "Couldn't delete this exercise. Try again.",
-  saveWorkout: "Couldn't save. Enter a workout name, choose at least one exercise, and try again.",
-  removeWorkout: "Couldn't delete this workout. Try again.",
-  plan: "Couldn't add this workout. Try again.",
-  removeLog: "Couldn't delete this workout. Try again.",
-};
+  saveExercise: ["Couldn't save.", "Try again; your fields are still here."],
+  removeExercise: ["Couldn't delete this exercise.", "Try again."],
+  saveWorkout: ["Couldn't save.", "Try again; your fields are still here."],
+  removeWorkout: ["Couldn't delete this workout.", "Try again."],
+  plan: ["Couldn't add this workout.", "Try again."],
+  removeLog: ["Couldn't delete this workout.", "Try again."],
+} as const;
 
 /**
  * Owns the unfinished input of the Exercise tab's library panels: an Exercise definition edit, a
@@ -72,7 +76,7 @@ export function createLibraryDrafts({
   }
   // Drafts follow the open panel: once it closes or changes, its draft is gone.
   panels.subscribe(() => {
-    const token = panels.getSnapshot().panel?.token;
+    const token = panels.panel()?.token;
     for (const [owner, entry] of entries) {
       if (owner === token) continue;
       entries.delete(owner);
@@ -88,27 +92,30 @@ export function createLibraryDrafts({
     if (existing?.kind === kind) return existing as Extract<Entry, { kind: Kind }>;
     const entry = create();
     // Only the open panel keeps a draft.
-    if (panels.getSnapshot().panel?.token === token) entries.set(token, entry);
+    if (panels.panel()?.token === token) entries.set(token, entry);
     return entry;
   }
   /** Runs one durable save or removal at a time. Only its success leaves the panel. */
   async function attempt<Value>(
     entry: { state: Attempt },
-    work: () => Promise<Value | null | false>,
-    failure: string,
+    work: () => Promise<ExerciseWrite<Value>>,
+    [lead, retry]: readonly [string, string],
     onSuccess: (value: Value) => void,
   ): Promise<boolean> {
     if (entry.state.busy) return false;
     publish(entry, { busy: true, error: null });
-    let value: Value | null | false = null;
+    let result: ExerciseWrite<Value>;
     try {
-      value = await work();
+      result = await work();
     } catch {
-      value = null;
+      result = { kind: "unavailable" };
     }
-    publish(entry, { busy: false, error: value ? null : failure });
-    if (!value) return false;
-    onSuccess(value);
+    publish(entry, {
+      busy: false,
+      error: result.kind === "saved" ? null : writeFailure(result, lead, retry),
+    });
+    if (result.kind !== "saved") return false;
+    onSuccess(result.value);
     return true;
   }
   return {
@@ -152,7 +159,15 @@ export function createLibraryDrafts({
     template(token: number, workout?: WorkoutTemplate) {
       const entry = entryFor(token, "template", () => ({
         kind: "template",
-        state: { draft: createWorkoutTemplateDraft(workout), busy: false, error: null },
+        state: {
+          draft: createWorkoutTemplateDraft(workout),
+          busy: false,
+          error: null,
+          // A new template opens on its builder; a saved one on its first exercise.
+          selectedId: workout?.exercises[0]?.id,
+          settingsOpen: !workout,
+          query: "",
+        },
       }));
       return {
         getSnapshot: () => entry.state,
@@ -160,6 +175,9 @@ export function createLibraryDrafts({
         change(update: (draft: WorkoutTemplateDraft) => WorkoutTemplateDraft) {
           if (!entry.state.busy) publish(entry, { draft: update(entry.state.draft) });
         },
+        select: (selectedId: string) => publish(entry, { selectedId }),
+        showSettings: (settingsOpen: boolean) => publish(entry, { settingsOpen }),
+        search: (query: string) => publish(entry, { query }),
         async save() {
           if (entry.state.busy) return false;
           const preparation = entry.state.draft.prepare();

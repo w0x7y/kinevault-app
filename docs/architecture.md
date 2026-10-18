@@ -29,6 +29,26 @@ loading or failure. A signed-in Account with a damaged Profile sees Profile
 recovery and can log out without deleting its saved data. Tracking still requires
 an authenticated Account and a completed Profile.
 
+The entry policy module (`src/account/entry-policy.ts`) holds that rule. Its
+input is the route class (sign-in and email-link, account, onboarding, tracking,
+other) and the Account, storage and Profile readings; its output is one decision:
+render, loading, wait, redirect, Profile recovery or storage failure. It also says
+whether a reminder tap waits, opens or is dropped, and where a saved Onboarding flow
+exits. The app evaluates the rule in layers because each layer's readings exist only
+below the one above it: AccountDataProvider (session, then storage), the root
+navigator (theme, fonts, Profile) and each route. Those are adapters that render the
+decision through `EntryGate`; `entryDecision` composes the layers, and its unit test
+covers every route and reading combination.
+
+The Track tabs module (`src/navigation/track-tabs.ts`) owns the tab list, the hidden
+Personal journal tab after it and the navigator's `initialRoute` Back, so native Back
+returns Home and never selects the journal. It also decides which screens show the
+Selected day and calendar, the originating tab the journal's Back returns to, which
+header popover survives a route change, and the route requests (`workoutMenu`,
+`liveWorkout`, `workoutImport`, `section`): their builders, and the parsers
+`useRouteRequest` applies before a screen sees a value. The tab layout and the app
+header are adapters over it.
+
 ## Account tracking storage
 
 Account storage owns device namespaces, legacy onboarding import, durable pending
@@ -112,19 +132,33 @@ Catalog drafts receive the Custom food persistence when created and also own
 saved-item deletion feedback, scoped to the caller that requested it, and the Meal
 destination that Logging attempts read and write.
 
-The Exercise tab view decides where every Workout log and panel goes: compact
+The Exercise tab view owns the tab's panel and the tokens that keep late results
+local to the panel they began on, the query, focus and the `workoutMenu`,
+`workoutImport` and `liveWorkout` route requests, which it receives as intents.
+Workout edits and Library drafts reach the panel through its panel seam; before a
+panel changes, the view asks Workout edits to save the logs it leaves and stays put
+if one can't save. Its snapshot decides where every Workout log and panel goes: compact
 cards stay on the tab, and every other panel, the Active workout's page included, is
 a sheet with its title, back name and test ID. On the default view the Active
-workout is a Live workout card that opens its page. Workout edits open that page
+workout is a Live workout card that opens its page; when that workout ends, the
+snapshot marks the day's card that replaces it to fade in. Workout edits open that page
 after a Start from the day, keep the edit when its back button leaves it (the
 `leave` action saves first and stays put if the save fails), and don't save a
-workout before opening its own page. The app header reads the Active workout from
+workout before opening its own page. `activeWorkout` in the exercise model is the one
+lookup of the Active workout. The app header reads the Active workout from
 the exercise store and opens the page through the `liveWorkout` route request. Workout edits own the selected exercise and the
 planned-set settings disclosure, which reopens when a planned count is invalid, and
-the same log mode drives planned-count validation. Library drafts own Exercise definition, Workout template, Saved
-workouts and Workout import state per panel, so the sheet can unmount when the tab
+the same log mode drives planned-count validation. The edit's snapshot carries that
+mode and the controls it allows: whether Back leaves or cancels, Save or complete,
+Discard, Start and Details; the editor renders them. Library drafts own Exercise
+definition, Workout template (including its selected exercise, builder disclosure and
+search), Saved workouts and Workout import state per panel, so the sheet can unmount when the tab
 loses focus without losing input; their durable success closes the originating
-panel through the same token guards as Workout edits. The sheet page owns its
+panel through the same panel seam as Workout edits. Exercise persistence returns
+each write's outcome: saved with its value, rejected with its command's reason, or
+unavailable when storage failed, a refresh blocked it or the document isn't loaded.
+Workout edits and Library drafts show that reason after their own lead ("Couldn't
+start.") and offer a retry only when nothing was written. The sheet page owns its
 header overrides and scroll positioning: pages claim the back button with
 `useSheetBack`, request a scroll target with `useSheetScrollTarget`, and a new
 `page` starts at the top. A page can replace its centered title with `center`, as
@@ -136,13 +170,29 @@ behind that page (a Logging attempt, a Product import flow). Catalog views
 a day change and follow the new day; other views return to the new day's log and
 reset the Meal destination. Leaving the tab hides the page without discarding it:
 the scanner closes, a pending lookup is interrupted, and saves that finish while
-hidden still route their page. React keeps only scroll and keyboard effects.
+hidden still route their page. It also owns removing a Logged food entry: one open
+confirmation, the removal, and its failure. From confirmation until the write settles, the
+entry's fade included, the removal counts as a write, so other entries, search and resuming
+stay locked. A logged entry's details and Daily macros show only over a loaded food log.
+React keeps only scroll and keyboard effects and the entry's fade.
 
 A Logging attempt is built from the food-log persistence, the Custom food
 persistence and the Meal destination. It derives whether it can submit from them
 and follows the live saved item; only its own pending write reads as saving, and
 a save started during a food-log refresh waits for the refresh, then writes the
 preparation that is current at that point, since the day or food may have changed.
+
+Daily activity (`src/daily/activity.ts`) reads one day from every saved source: the
+food log, Manual water and the Water goal, workouts, and Phone steps plus Logged steps.
+Each source reports its own availability and retry, and the activity owns the Home Steps
+and Water tile wording, so Home and the Personal journal read it instead of the providers.
+It also computes the day's nutrition progress beside its targets (eaten, left or over,
+percentage and each macro's share of the calorie ring, rounded to whole kcal and grams to
+one decimal), so the Home ring and macros, the Food title, Daily macros and the journal
+only draw it. A missing calorie or macro target shows as "—" and is read as "unset", and
+"Set your goals" is one link that pages close before following.
+`useDayActivity` is its React adapter; only Home asks it to read Phone steps. The journal's
+streak comes from the same activity and is counted once per change of its sources.
 
 Completed Workout totals derive from persisted Workout sessions and their valid
 sets. Daily activity and test fixtures use the same Exercise summary interface;

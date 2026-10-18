@@ -1,4 +1,5 @@
 import {
+  activeWorkout,
   createEmptySet,
   durationFromMinutes,
   elapsedSeconds,
@@ -100,9 +101,9 @@ function remove<T extends { id: string }>(items: T[], id: string): T[] {
   if (!items.some((item) => item.id === id)) throw new Error("This item is no longer available.");
   return items.filter((item) => item.id !== id);
 }
-function name(input: string): string {
-  if (typeof input !== "string" || !input.trim() || input.length > 400)
-    throw new Error("Enter a name.");
+function name(input: string, kind: "an exercise" | "a workout"): string {
+  if (typeof input !== "string" || !input.trim()) throw new Error(`Enter ${kind} name.`);
+  if (input.length > 400) throw new Error("Use a name of 400 characters or fewer.");
   return input.trim();
 }
 function loggedExercises(exercises: SessionExercise[]): SessionExercise[] {
@@ -131,7 +132,7 @@ export function createExerciseCommands({
       const exercise = parseExerciseDefinition({
         ...input,
         id: input.id ?? createId(),
-        name: name(input.name),
+        name: name(input.name, "an exercise"),
       });
       const exercises =
         input.id === undefined
@@ -170,7 +171,7 @@ export function createExerciseCommands({
             );
       const workout = {
         id: input.id ?? createId(),
-        name: name(input.name),
+        name: name(input.name, "a workout"),
         exercises,
         ...(setCounts === undefined ? {} : { setCounts }),
       };
@@ -234,14 +235,11 @@ export function createExerciseCommands({
     },
     startSession(document: ExerciseDocument, id: string): ExerciseChange<true> {
       const session = requireSession(document, id);
-      if (
-        session.status !== "planned" ||
-        document.sessions.some((item) => item.status === "active")
-      )
+      if (session.status !== "planned" || activeWorkout(document.sessions))
         throw new Error("A workout is already active or this workout has finished.");
       return replaceSession(document, {
         ...session,
-        name: name(session.name),
+        name: name(session.name, "a workout"),
         status: "active",
         startedAt: now(),
         durationSeconds: null,
@@ -256,7 +254,7 @@ export function createExerciseCommands({
       return replaceSession(document, {
         ...session,
         status: "completed",
-        name: name(input.name),
+        name: name(input.name, "a workout"),
         exercises: loggedExercises(input.exercises),
         durationSeconds,
       });

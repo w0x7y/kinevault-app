@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Animated from "react-native-reanimated";
 import { useIsFocused, useRouter } from "expo-router";
+import { routeRequest } from "../../navigation/track-tabs";
 import { View, useWindowDimensions } from "react-native";
 import { AppText, Screen } from "../../components/ui";
 import { Kine } from "../../onboarding/kine";
@@ -12,10 +13,6 @@ import { ActivityWidgets } from "../../daily/activity-widgets";
 import { FoodLogStatus } from "../../food/log-status";
 import { WaterEntryModal } from "../../water/entry-modal";
 import { StepsEntryModal } from "../../steps/entry-modal";
-import { useStepsLog } from "../../steps/provider";
-import { stepsTile } from "../../steps/summary";
-import { useDeviceSteps } from "../../steps/use-device-steps";
-import { useExercises } from "../../exercise/provider";
 import { useProfile } from "../../profile/provider";
 import { useSelectedDay } from "../../calendar/provider";
 import { parseDay } from "../../calendar/dates";
@@ -24,8 +21,7 @@ import { useLayoutMotion } from "../../components/motion";
 
 export default function HomeScreen() {
   const router = useRouter();
-  const activity = useDayActivity();
-  const { retryLoad: retryWorkouts } = useExercises();
+  const activity = useDayActivity({ phoneSteps: true });
   const { width } = useWindowDimensions();
   const [contentWidth, setContentWidth] = useState(0);
   const [waterEntryDay, setWaterEntryDay] = useState<string | null>(null);
@@ -34,13 +30,6 @@ export default function HomeScreen() {
     setWaterEntryDay(null);
     setStepsEntryDay(null);
   }, [activity.date]);
-  const phone = useDeviceSteps(activity.date);
-  const { state: stepsLog } = useStepsLog();
-  const steps = stepsTile(
-    activity.date,
-    phone,
-    stepsLog.kind === "ready" ? (stepsLog.document.days[activity.date] ?? 0) : null,
-  );
   const { targets } = activity;
   const motion = useLayoutMotion();
   // The cards rise in once, the first time Home has data to show. Later mounts (the calorie card
@@ -53,7 +42,7 @@ export default function HomeScreen() {
   }, [ready]);
   if (!ready) return null;
   const enter = (index: number) => (arrived.current ? undefined : motion.enter(index));
-  const summary = activity.food.kind === "ready" ? activity.food.summary : null;
+  const { nutrition } = activity;
   // The ring sits beside the macro rows; narrow phones get a smaller ring so the rows keep
   // room for their figures.
   const cardInner =
@@ -67,25 +56,19 @@ export default function HomeScreen() {
       >
         <Greeting foodLoading={activity.food.kind === "loading"} />
       </Animated.View>
-      {summary ? (
+      {nutrition ? (
         <Animated.View key="calories" entering={arrived.current ? motion.fade : enter(1)}>
-          <CalorieWidget current={summary.calories} goal={targets.calories}>
+          <CalorieWidget calories={nutrition.calories}>
             <View
               testID="home-nutrition-row"
               style={{ flexDirection: "row", alignItems: "center", gap: spacing.card }}
             >
               <CalorieRing
                 testID="home-calorie-hero"
-                current={summary.calories}
-                goal={targets.calories}
-                macros={summary}
+                calories={nutrition.calories}
                 size={ringSize}
               />
-              <NutritionWidget
-                width={cardInner - ringSize - spacing.card}
-                targets={targets}
-                summary={summary}
-              />
+              <NutritionWidget width={cardInner - ringSize - spacing.card} nutrition={nutrition} />
             </View>
           </CalorieWidget>
         </Animated.View>
@@ -96,7 +79,7 @@ export default function HomeScreen() {
       )}
       <Animated.View entering={enter(2)}>
         <ActivityWidgets
-          steps={steps}
+          steps={activity.steps.tile}
           water={activity.water}
           onLogSteps={() => setStepsEntryDay(activity.date)}
           onAddWater={() => setWaterEntryDay(activity.date)}
@@ -106,19 +89,17 @@ export default function HomeScreen() {
         <WorkoutWidget
           workout={activity.workout}
           sourceState={activity.workoutState}
-          onRetry={retryWorkouts}
+          onRetry={activity.sources.workouts.retry}
           showEmptyGuidance
           activeWorkoutName={activity.activeWorkoutName}
-          onAddWorkout={() =>
-            router.push({ pathname: "/exercise", params: { workoutMenu: activity.date } })
-          }
+          onAddWorkout={() => router.push(routeRequest("workoutMenu", activity.date))}
         />
       </Animated.View>
       {stepsEntryDay === activity.date && (
         <StepsEntryModal
           key={stepsEntryDay}
           date={stepsEntryDay}
-          phone={phone}
+          phone={activity.steps.phone}
           onDismiss={() =>
             setStepsEntryDay((current) => (current === stepsEntryDay ? null : current))
           }

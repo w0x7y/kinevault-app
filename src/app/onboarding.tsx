@@ -1,4 +1,4 @@
-import { Redirect, router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   AccessibilityInfo,
@@ -28,15 +28,22 @@ import { useProfile } from "../profile/provider";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import { useAccount } from "../account/provider";
+import { onboardingExit, routeDecision } from "../account/entry-policy";
+import { EntryGate } from "../account/entry-gate";
 
 export default function OnboardingScreen() {
   const { setupStage } = useLocalSearchParams<{ setupStage?: string }>();
   const { state } = useProfile();
   const { user, recovery } = useAccount();
-  if (recovery) return <Redirect href="/auth/reset-password" />;
-  if (state.kind !== "ready") return null;
-  if (user && state.document.kind === "complete" && setupStage === "account")
-    return <Redirect href="/(tabs)" />;
+  const decision = routeDecision("onboarding", {
+    recovery,
+    signedIn: user !== null,
+    profile: state,
+    setupStage,
+  });
+  // The flow renders only with a ready Profile; the second check narrows its type.
+  if (decision.kind !== "render" || state.kind !== "ready")
+    return <EntryGate decision={decision} />;
   const resumeSavedReview =
     state.document.kind === "complete" && (setupStage === "account" || setupStage === "review");
   const initial: ProfileDocument = resumeSavedReview
@@ -67,12 +74,13 @@ function OnboardingFlow({
       save,
       exit: (destination) => {
         // The flow exits only after saving. Account UI follows the final review.
-        if (destination === "today" && !user) {
+        const next = onboardingExit(destination, user !== null);
+        if (next.kind === "accountStep") {
           router.setParams({ setupStage: "account" });
           setShowAccount(true);
           return;
         }
-        router.replace(destination === "settings" ? "/(tabs)/settings" : "/(tabs)");
+        router.replace(next.href);
       },
     }),
   );

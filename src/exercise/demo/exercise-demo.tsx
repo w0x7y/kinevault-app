@@ -2,7 +2,7 @@ import { useEvent } from "expo";
 import { Image } from "expo-image";
 import { useIsFocused } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useReducer, type ReactNode } from "react";
 import { Platform, View } from "react-native";
 import { AppButton } from "../../components/button";
 import { Icon } from "../../components/icon";
@@ -14,7 +14,13 @@ import { darkColors, radius, spacing } from "../../theme/tokens";
 import type { CatalogLink, ExerciseDefinition } from "../model";
 import { useExercises } from "../provider";
 import { demoBackdrop, demoCatalogConfig, demoObjectUrl } from "./config";
-import { demoStatus, resolveDemoLink } from "./demo-link";
+import {
+  demoNotice,
+  demoPlayback,
+  demoStatus,
+  initialDemoPlayback,
+  resolveDemoLink,
+} from "./demo-link";
 import { useDemoCatalog } from "./provider";
 import { RetryButton } from "../../components/load-failure";
 import { StatusLine } from "./status-line";
@@ -40,7 +46,19 @@ function Frame({ children }: { children: ReactNode }) {
 /** How long a tapped clip may take to become ready before it counts as failed. */
 const clipStartTimeoutMs = 20_000;
 
-function DemoVideo({ uri, label, onError }: { uri: string; label: string; onError: () => void }) {
+function DemoVideo({
+  uri,
+  label,
+  onError,
+  onStarted,
+  onTimedOut,
+}: {
+  uri: string;
+  label: string;
+  onError: () => void;
+  onStarted: () => void;
+  onTimedOut: () => void;
+}) {
   // Clips are cached on iOS and Android after the first view; the web build
   // relies on the browser's HTTP cache.
   const player = useVideoPlayer({ uri, useCaching: Platform.OS !== "web" }, (created) => {
@@ -52,19 +70,22 @@ function DemoVideo({ uri, label, onError }: { uri: string; label: string; onErro
   useEffect(() => {
     if (status === "error") onError();
   }, [status, onError]);
-  // A request that never answers raises no error, so give up if the clip
-  // hasn't reached readyToPlay in time. Later buffering doesn't count.
+  // A request that never answers raises no error, so report a clip that hasn't reached
+  // readyToPlay in time. demoPlayback ignores the timeout once the clip has started.
   useEffect(() => {
-    if (player.status === "readyToPlay") return;
-    const timer = setTimeout(onError, clipStartTimeoutMs);
+    if (player.status === "readyToPlay") {
+      onStarted();
+      return;
+    }
+    const timer = setTimeout(onTimedOut, clipStartTimeoutMs);
     const subscription = player.addListener("statusChange", ({ status: next }) => {
-      if (next === "readyToPlay") clearTimeout(timer);
+      if (next === "readyToPlay") onStarted();
     });
     return () => {
       clearTimeout(timer);
       subscription.remove();
     };
-  }, [player, onError]);
+  }, [player, onStarted, onTimedOut]);
   return (
     <VideoView
       testID="exercise-demo-video"
@@ -83,41 +104,28 @@ export function ExerciseDemo({ link, label }: { link: CatalogLink; label: string
   const { colors } = useTheme();
   const catalog = useDemoCatalog();
   const offline = useConnectivity() === "offline";
-  const [playing, setPlaying] = useState(false);
-  const [mediaFailed, setMediaFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  const fail = useCallback(() => setMediaFailed(true), []);
+  const [playback, dispatch] = useReducer(demoPlayback, initialDemoPlayback);
+  const fail = useCallback(() => dispatch("failed"), []);
+  const started = useCallback(() => dispatch("started"), []);
+  const timedOut = useCallback(() => dispatch("timed-out"), []);
   const focused = useIsFocused();
-  // Tab screens stay mounted when blurred, so leaving the screen returns to the poster.
   useEffect(() => {
-    if (!focused) setPlaying(false);
+    if (!focused) dispatch("blurred");
   }, [focused]);
   const config = demoCatalogConfig;
-  const status = config ? demoStatus({ state: catalog.state, link, mediaFailed, offline }) : null;
+  const status = config
+    ? demoStatus({ state: catalog.state, link, mediaFailed: playback.failed, offline })
+    : null;
   const ready = status?.kind === "ready" ? status : null;
   // One container and one status line stay mounted whatever the state, so
   // screen readers announce the status text as it changes.
-  let notice: { text: string; onRetry?: () => void | Promise<void> } | null = null;
-  if (!status || status.kind === "unavailable") notice = { text: "Demonstration unavailable." };
-  else if (status.kind === "loading") notice = { text: "Loading demonstration." };
-  else if (status.kind === "connect")
-    notice = { text: "Connect to load this demonstration.", onRetry: catalog.retry };
-  else if (status.kind === "catalog-unavailable")
-    notice = {
-      text: "KineVault demos aren't available right now. Try again later.",
-      onRetry: catalog.retry,
-    };
-  else if (status.kind === "failed")
-    notice = {
-      text: status.offline
-        ? "Connect to load this demonstration."
-        : "Couldn't load this demonstration. Check your connection and try again.",
-      onRetry: () => {
-        setMediaFailed(false);
-        setPlaying(false);
-        setAttempt((value) => value + 1);
-      },
-    };
+  const notice = demoNotice(status);
+  const onRetry =
+    notice?.retry === "catalog"
+      ? catalog.retry
+      : notice?.retry === "media"
+        ? () => dispatch("retry")
+        : undefined;
   return (
     <View
       testID={ready ? "exercise-demo" : "exercise-demo-message"}
@@ -133,33 +141,35 @@ export function ExerciseDemo({ link, label }: { link: CatalogLink; label: string
       }
     >
       <StatusLine text={notice?.text ?? ""} />
-      {notice?.onRetry && (
+      {onRetry && (
         <RetryButton
           label="Retry"
           accessibilityLabel="Retry loading the demonstration"
-          onRetry={notice.onRetry}
+          onRetry={onRetry}
         />
       )}
       {config && ready && (
         <>
           <Frame>
-            {playing ? (
+            {playback.phase !== "poster" ? (
               <DemoVideo
-                key={`video-${attempt}`}
+                key={`video-${playback.attempt}`}
                 uri={demoObjectUrl(config, ready.videoPath)}
                 label={label}
                 onError={fail}
+                onStarted={started}
+                onTimedOut={timedOut}
               />
             ) : (
               // The poster itself is the control; it doesn't shrink inside its frame.
               <Tappable
                 label={`Play demonstration of ${label}`}
-                onPress={() => setPlaying(true)}
+                onPress={() => dispatch("play")}
                 feedback="none"
                 style={{ flex: 1, borderRadius: radius.control }}
               >
                 <Image
-                  key={`poster-${attempt}`}
+                  key={`poster-${playback.attempt}`}
                   source={{ uri: demoObjectUrl(config, ready.posterPath) }}
                   cachePolicy="memory-disk"
                   contentFit="contain"

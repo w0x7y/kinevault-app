@@ -7,8 +7,8 @@ import { createAccountStorage } from "./storage";
 import { AccountStorageProvider } from "./storage-context";
 import { createAccountRemote } from "./remote";
 import { createAccountScope } from "./scope";
-import { isPublicAccountRoute } from "./navigation";
-import { KineLoading } from "../components/kine-loading";
+import { entryRoute, sessionGate, storageGate } from "./entry-policy";
+import { EntryGate } from "./entry-gate";
 import { View } from "react-native";
 import { AppButton } from "../components/button";
 import { InlineMessage } from "../components/inline-message";
@@ -19,7 +19,8 @@ import { useConnectivityStore } from "../connectivity/provider";
 
 export function AccountDataProvider({ children }: PropsWithChildren) {
   const { loading, user } = useAccount();
-  if (loading) return <KineLoading fill />;
+  const gate = sessionGate({ accountLoading: loading });
+  if (gate) return <EntryGate decision={gate} />;
   return (
     <ScopedData key={user?.id ?? "guest"} userId={user?.id ?? null}>
       {children}
@@ -30,8 +31,7 @@ export function AccountDataProvider({ children }: PropsWithChildren) {
 function ScopedData({ userId, children }: PropsWithChildren<{ userId: string | null }>) {
   const connectivity = useConnectivityStore();
   const account = useAccount();
-  const segments = useSegments();
-  const authRoute = isPublicAccountRoute(segments);
+  const route = entryRoute(useSegments());
   const [storage] = useState(() =>
     createAccountStorage({
       userId,
@@ -48,7 +48,8 @@ function ScopedData({ userId, children }: PropsWithChildren<{ userId: string | n
   useEffect(() => {
     if (state === "error") void SplashScreen.hideAsync();
   }, [state]);
-  if (state === "error" && !authRoute)
+  const gate = storageGate(route, { storage: state });
+  if (gate?.kind === "storageFailure")
     return (
       <StatusScreen
         icon="cloud"
@@ -67,7 +68,7 @@ function ScopedData({ userId, children }: PropsWithChildren<{ userId: string | n
         </View>
       </StatusScreen>
     );
-  if (state === "loading" && !authRoute) return <KineLoading fill />;
+  if (gate) return <EntryGate decision={gate} />;
   return (
     <AccountStorageProvider storage={storage}>
       <ProfileProvider>{children}</ProfileProvider>

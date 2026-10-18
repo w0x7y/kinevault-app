@@ -6,7 +6,7 @@ import { useSelectedDay } from "../calendar/provider";
 import { useRouteRequest } from "../navigation/use-route-request";
 import { spacing } from "../theme/tokens";
 import { ProfileIdentity } from "./profile-identity";
-import { ProfileControls, profileSections, type ProfileSection } from "./profile-controls";
+import { ProfileControls, type ProfileSection } from "./profile-controls";
 import { ProfileStreak } from "./profile-streak";
 import { WorkoutChart } from "./workout-chart";
 import { WeightJournal } from "./weight-journal";
@@ -23,9 +23,8 @@ export function ProfileScreen() {
   const appear = useAppear("fade");
   // `/profile?section=photos` opens a section, e.g. from a Progress photo reminder.
   // It never closes an open editor, which would discard unsaved changes.
-  useRouteRequest("section", { ready: true }, (requested) => {
-    const next = profileSections.find((name) => name.toLowerCase() === requested);
-    if (!next || next === section || editor) return;
+  useRouteRequest("section", { ready: true }, (next) => {
+    if (next === section || editor) return;
     setSection(next);
   });
   function select(next: ProfileSection) {

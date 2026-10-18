@@ -11,7 +11,7 @@ import {
   type WorkoutSession,
 } from "./model";
 import { useExercises } from "./provider";
-import type { WorkoutEditing, WorkoutLogMode, WorkoutView } from "./workout-editing";
+import type { ExerciseTabView } from "./tab-view";
 import { ExerciseDemoSlot } from "./demo/exercise-demo";
 import { useWorkoutEdit } from "./use-workout-editing";
 import { InlineMessage } from "../components/inline-message";
@@ -34,13 +34,11 @@ function durationCaption(minutes: string) {
 
 export function SessionEditor({
   session,
-  editing,
-  mode,
+  tab,
   closeLabel = null,
 }: {
   session: WorkoutSession;
-  editing: WorkoutEditing;
-  mode: WorkoutLogMode;
+  tab: ExerciseTabView;
   /** Names a compact card's close control, when a panel opened the card on its own. */
   closeLabel?: string | null;
 }) {
@@ -53,7 +51,14 @@ export function SessionEditor({
     countError: settingsError,
     selectedId,
     settingsOpen,
-  } = useWorkoutEdit(editing, session.id);
+    mode,
+    back,
+    primary,
+    discard,
+    start,
+    details,
+    returnTo,
+  } = useWorkoutEdit(tab.edits, session.id);
   const store = useExercises();
   const sessions = store.state.kind === "ready" ? store.state.document.sessions : [];
   const [detailsOpen, setDetailsOpen] = useState(false),
@@ -61,12 +66,7 @@ export function SessionEditor({
   const active = mode === "active",
     completed = mode === "completed";
   // In a sheet, its back button is this workout's Cancel. The Active workout keeps running.
-  const inSheet = useSheetBack({
-    onPress: () => void edit.run(active ? "leave" : "cancel"),
-    disabled: busy,
-  });
-  // "Link demo" returns to this workout's page.
-  const returnTo: WorkoutView = { kind: "session", id: session.id, manual: mode === "manual" };
+  const inSheet = useSheetBack({ onPress: () => void edit.run(back), disabled: busy });
   function renderExercise(row: SessionExercise, index: number) {
     const rowLabel = exerciseRowLabel(draft.exercises, row, index);
     return (
@@ -111,7 +111,7 @@ export function SessionEditor({
           label={rowLabel}
           disabled={busy}
           onLinkDemo={(definition) =>
-            void editing.requestView({
+            void tab.requestView({
               kind: "exercise",
               exercise: definition,
               linkDemo: true,
@@ -136,7 +136,7 @@ export function SessionEditor({
     </>
   );
   // Manual and completed logs can rename the workout and set its duration.
-  const headerActions = !active && (
+  const headerActions = details && (
     <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
       <AppButton
         size="compact"
@@ -149,7 +149,7 @@ export function SessionEditor({
       />
     </View>
   );
-  const toolbar = !active && (
+  const toolbar = details && (
     <>
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
         <Overline>Duration</Overline>
@@ -161,7 +161,7 @@ export function SessionEditor({
           {durationCaption(draft.minutes)}
         </AppText>
       </View>
-      {mode === "manual" && (
+      {start && (
         <AppButton label="Start workout" onPress={() => void edit.run("start")} disabled={busy} />
       )}
       {detailsOpen && (
@@ -190,11 +190,11 @@ export function SessionEditor({
     <View testID="workout-log-actions" style={{ gap: spacing.sm }}>
       <AppButton
         label={active ? "End workout" : completed ? "Save changes" : "Log completed workout"}
-        onPress={() => void edit.run(completed ? "save" : "complete")}
+        onPress={() => void edit.run(primary)}
         tone="primary"
         disabled={busy}
       />
-      {!completed && (
+      {discard && (
         <DeleteButton
           label="Discard workout"
           confirmAccessibilityLabel="Confirm discard workout"
@@ -250,7 +250,7 @@ export function SessionEditor({
               label="Log completed workout"
               fill
               onPress={() =>
-                void editing.requestView({ kind: "session", id: session.id, manual: true })
+                void tab.requestView({ kind: "session", id: session.id, manual: true })
               }
               disabled={busy}
             />

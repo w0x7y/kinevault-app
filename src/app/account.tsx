@@ -1,19 +1,16 @@
-import { Redirect, router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useAccount } from "../account/provider";
+import { routeDecision } from "../account/entry-policy";
+import { EntryGate } from "../account/entry-gate";
 import { useProfile } from "../profile/provider";
-import { ProfileRecovery } from "../profile/recovery";
-import { KineLoading } from "../components/kine-loading";
 import { AccountScreen } from "../onboarding/account-screen";
 
 export default function AccountRoute() {
   const { user, recovery } = useAccount();
   const { state } = useProfile();
   const { mode } = useLocalSearchParams<{ mode?: string }>();
-  if (recovery) return <Redirect href="/auth/reset-password" />;
-  if (user && state.kind === "loading") return <KineLoading fill />;
-  if (user && state.kind === "error") return <ProfileRecovery />;
-  if (user && state.kind === "ready")
-    return <Redirect href={state.document.kind === "complete" ? "/(tabs)" : "/onboarding"} />;
+  const decision = routeDecision("account", { recovery, signedIn: user !== null, profile: state });
+  if (decision.kind !== "render") return <EntryGate decision={decision} />;
   return (
     <AccountScreen
       initialMode={mode === "create" ? "create" : "login"}

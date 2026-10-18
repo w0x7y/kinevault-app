@@ -1,4 +1,4 @@
-import { Redirect, Tabs } from "expo-router";
+import { Tabs } from "expo-router";
 import { BottomTabBar } from "expo-router/js-tabs";
 import { useState } from "react";
 import { View } from "react-native";
@@ -14,7 +14,9 @@ import { useProfile } from "../../profile/provider";
 import { DemoCatalogProvider } from "../../exercise/demo/provider";
 import { useAccount } from "../../account/provider";
 import { AccountTrackingProvider, TrackingRefreshNotices } from "../../account/tracking-provider";
-import { trackingAccess } from "../../account/tracking-access";
+import { routeDecision } from "../../account/entry-policy";
+import { EntryGate } from "../../account/entry-gate";
+import { journalTab, tabNavigator, trackTabs } from "../../navigation/track-tabs";
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
@@ -23,9 +25,8 @@ export default function TabLayout() {
   const { colors, appearance } = useTheme();
   const { state } = useProfile();
   const { user, recovery } = useAccount();
-  const access = trackingAccess({ recovery, signedIn: user !== null, profile: state });
-  if (access.kind === "redirect") return <Redirect href={access.href} />;
-  if (access.kind === "wait") return null;
+  const access = routeDecision("tracking", { recovery, signedIn: user !== null, profile: state });
+  if (access.kind !== "render") return <EntryGate decision={access} />;
   return (
     <AccountTrackingProvider>
       <DemoCatalogProvider>
@@ -35,8 +36,7 @@ export default function TabLayout() {
               <View style={{ flex: 1, paddingTop: headerHeight }}>
                 <TrackingRefreshNotices />
                 <Tabs
-                  initialRouteName="index"
-                  backBehavior="initialRoute"
+                  {...tabNavigator}
                   tabBar={(props) => (
                     // The bar floats over the scrolling page; screens pad their end by its
                     // measured height so their last card clears it.
@@ -101,35 +101,17 @@ export default function TabLayout() {
                     sceneStyle: { backgroundColor: colors.background },
                   }}
                 >
-                  <Tabs.Screen
-                    name="index"
-                    options={{
-                      title: "Home",
-                      tabBarIcon: ({ focused }) => <TabIcon name="house" focused={focused} />,
-                    }}
-                  />
-                  <Tabs.Screen
-                    name="food"
-                    options={{
-                      title: "Food",
-                      tabBarIcon: ({ focused }) => <TabIcon name="utensils" focused={focused} />,
-                    }}
-                  />
-                  <Tabs.Screen
-                    name="exercise"
-                    options={{
-                      title: "Exercise",
-                      tabBarIcon: ({ focused }) => <TabIcon name="dumbbell" focused={focused} />,
-                    }}
-                  />
-                  <Tabs.Screen
-                    name="settings"
-                    options={{
-                      title: "Settings",
-                      tabBarIcon: ({ focused }) => <TabIcon name="gear" focused={focused} />,
-                    }}
-                  />
-                  <Tabs.Screen name="profile" options={{ href: null }} />
+                  {trackTabs.map(({ name, title, icon }) => (
+                    <Tabs.Screen
+                      key={name}
+                      name={name}
+                      options={{
+                        title,
+                        tabBarIcon: ({ focused }) => <TabIcon name={icon} focused={focused} />,
+                      }}
+                    />
+                  ))}
+                  <Tabs.Screen name={journalTab.name} options={{ href: null }} />
                 </Tabs>
               </View>
               <AppHeader onHeightChange={setHeaderHeight} />
