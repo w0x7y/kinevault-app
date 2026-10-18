@@ -40,7 +40,11 @@ export function AccountProvider({ children }: PropsWithChildren) {
   const [client] = useState(getSupabaseClient);
   // The controller's methods are closures, so its actions can be passed on unbound.
   const [{ start, stop, subscribe, ...actions }] = useState(() =>
-    getAppAccountController(getAccountAuthPort(), { redirectTo: redirectTo(), openAuthSession }),
+    getAppAccountController(getAccountAuthPort(), {
+      redirectTo: redirectTo(),
+      openAuthSession,
+      oauthRedirectOpensCallback: Platform.OS !== "ios",
+    }),
   );
   const snapshot = useSyncExternalStore(subscribe, actions.getSnapshot, actions.getSnapshot);
   useEffect(() => {

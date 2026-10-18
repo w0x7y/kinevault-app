@@ -42,7 +42,7 @@ and docs/ describe behavior and link here instead of repeating status.
 - [ ] Publish the Google sign-in consent screen without buying a domain: deploy the Track web app to a free `*.vercel.app` address with a `/privacy` page, add its home page and privacy policy links on the Google Auth Platform Branding page, add that address as an authorized domain, then click Publish app. Until then only listed test users can use Google sign-in (100 over the project's lifetime).
 - [ ] Make new Android and iOS builds (`expo-web-browser` is a new native module), then check Continue with Google, Resend email and the email callback on a physical iPhone and Android phone.
 - [ ] Add Sign in with Apple before an App Store release: apps that offer Google sign-in must also offer it. Needs a paid Apple Developer Program team.
-- [ ] Clear the retained email-link result after Google sign-in on iOS, where no callback screen acknowledges it, without breaking the Android callback route's remount. Low impact: the user is already signed in.
+- [x] Clear the retained email-link result after Google sign-in on iOS, where no callback screen acknowledges it, without breaking the Android callback route's remount. Unit-tested only; check Continue with Google on an iPhone and an Android phone with the new builds.
 
 ## Quality & security
 
