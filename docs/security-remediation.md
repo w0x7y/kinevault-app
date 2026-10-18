@@ -196,3 +196,54 @@ advisories above. `package-lock.json` resolves `node-forge@1.4.0` through
 through `micromatch` in `metro-file-map` (Metro 0.84.5). Both run only in
 development and build tooling; neither is part of the shipped bundle. The audit
 was not rerun for this note.
+
+## Findings, 2026-10-18
+
+A repository-wide review on 18 October 2026 recorded these. The hosted settings below
+were read through the Management API; none was changed.
+
+### A stolen session can pass the deletion password check
+
+`delete-account` deletes once `signInWithPassword` succeeds. On the hosted project
+both `security_update_password_require_current_password` and
+`security_update_password_require_reauthentication` are off, so any session can set a
+new password with `updateUser` and then confirm deletion with it. This also works on
+Google-only accounts, and it leaves the attacker a password login. Manual identity
+linking is off, which stops a linked Google identity from passing the Google check.
+
+Requiring the current password closes this for accounts that have one. A Google-only
+account has none to ask for; requiring reauthentication then asks for an emailed code,
+but Supabase Auth skips it for sessions created in the last 24 hours. Both settings
+exempt recovery sessions, which is the only place Track changes a password.
+`mailer_notifications_password_changed_enabled` (also off) would tell the owner when it
+happens. These settings are shared with the other site on this project. Still open.
+
+### The Tracked relay accepted anonymous sign-ins
+
+`tracked-workout` checked only that `getUser` returned a user, and an anonymous
+sign-in is one. Anonymous sign-ins are off on the hosted project, so this wasn't
+reachable. Fixed in code on 18 October 2026: the handler refuses anonymous users, with
+a test. The deployed version 1 predates the fix; redeploy with the command in
+[Supabase setup](supabase-setup.md).
+
+### The release signing key is present while Gradle runs
+
+`android-release-build.yml` passes the keystore and its password to
+`./gradlew assembleRelease`, which runs every native module's Gradle script and the
+bundler. A compromised dependency could read the key. Building unsigned and then
+signing with `apksigner` in a step that runs no project code would keep the key away
+from dependencies. Still open; the change needs a release run to verify.
+
+### Smaller items
+
+- The Edge Functions have no `deno.lock`, so a deploy resolves transitive packages
+  such as `iceberg-js` fresh.
+- On iOS and Android, the Tracked download reads a response without a
+  `Content-Length` header in full before the size check
+  (`src/exercise/import/tracked-fetch.ts`). Only `app.tracked.gg` is read.
+- The generated Android manifest asked for `SYSTEM_ALERT_WINDOW` (display over other
+  apps). Fixed on 18 October 2026: `app.json` blocks it in release builds; debug
+  builds keep it for the development overlay.
+
+`npm audit` still reports the same 19 high findings, all from `node-forge` and
+`braces` in development tooling.
