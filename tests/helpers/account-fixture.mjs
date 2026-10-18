@@ -58,6 +58,7 @@ export async function installAccountFixture(
     session,
     signedIn,
     signupConfirmation,
+    signupExisting: false,
     loginError: null,
     recoveryError: null,
     cloudError: false,
@@ -122,7 +123,13 @@ export async function installAccountFixture(
       return json(route, state.session.user);
     }
     if (url.pathname === "/auth/v1/signup") {
-      if (state.signupConfirmation) return json(route, { user: state.session.user, session: null });
+      // Auth answers an already-registered email with a stand-in user without identities.
+      if (state.signupExisting) return json(route, { ...state.session.user, identities: [] });
+      if (state.signupConfirmation)
+        return json(route, {
+          user: { ...state.session.user, identities: [{ provider: "email" }] },
+          session: null,
+        });
       state.signedIn = true;
       return json(route, state.session);
     }

@@ -19,6 +19,9 @@ Server rendering does not create the app's Supabase client or its session refres
 timers. The browser and native runtimes retain their existing client and refresh
 ownership.
 
+Signing up with an email that already has a confirmed account shows an error that
+says to log in: Auth sends no email then and returns a stand-in user without
+identities. This tells anyone whether an email has an account.
 Email verification feedback carries its purpose and normalized recipient. Screens
 do not infer a successful signup from arbitrary notice text or a mutable input.
 A confirmation delivery also counts its resends. Each successful resend publishes a new
@@ -40,7 +43,9 @@ a code, token or error is processed as a new link.
 Account management attempts own Settings action exclusion, owner/caller lifetime, confirmation fields, export delivery and action feedback. The React adapter supplies current account/connectivity readings and platform delivery; rendering submits intentions. Rejected deletion feedback is scoped to its caller, while confirmed deletion and its notice remain with the auth owner. Account management owns logical export assembly and the authenticated deletion sequence. Settings renders those intentions; file download/sharing and server requests are adapters. Deletion freezes the owner's storage before server work, then commits a tombstone and scoped cleanup after confirmed success. Session storage performs owner-conditional clearing so a delayed deletion cannot remove a replacement account. See [account management](account-management.md).
 
 The entry policy permits sign-in and email-link routes independently of Profile
-loading or failure. A signed-in Account with a damaged Profile sees Profile
+loading or failure. Once someone signs in on the sign-in screen, it waits for the
+account's first download like the guarded routes, so it never acts on the new
+account's empty Profile before setup answers from this device are imported. A signed-in Account with a damaged Profile sees Profile
 recovery and can log out without deleting its saved data. Tracking still requires
 an authenticated Account and a completed Profile.
 

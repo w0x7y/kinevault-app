@@ -825,6 +825,23 @@ test("account onboarding also gates age-skipped setup", async (t) => {
   await heading(page, "Calories");
 });
 
+test("creating an account with a registered email says to log in and promises no email", async (t) => {
+  const page = await openAccountAtReview(t, { signupConfirmation: true });
+  page.accountFixture.signupExisting = true;
+  await accountField(page, "Email").fill("track-fixture@example.com");
+  await accountField(page, "Password").fill("preview-password-937");
+  await accountSubmitButton(page, "Create account").click();
+  await page.getByRole("alert").filter({ hasText: "already exists. Log in instead" }).waitFor();
+  assert.equal(
+    await page.getByRole("heading", { name: "Check your email", exact: true }).count(),
+    0,
+  );
+  await accountModeButton(page, "Log in").click();
+  await accountField(page, "Password").fill("fixture-password-123");
+  await accountSubmitButton(page, "Log in").click();
+  await heading(page, "Calories");
+});
+
 test("account onboarding supports signup confirmation, login failure and password reset requests", async (t) => {
   const page = await openAccountAtReview(t, { signupConfirmation: true });
   await accountField(page, "Email").fill("account-preview@example.com");
