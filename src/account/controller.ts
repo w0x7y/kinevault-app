@@ -14,7 +14,7 @@ export type AccountAuthPort = {
     email: string;
     password: string;
     options: { emailRedirectTo: string };
-  }) => Promise<SessionResult>;
+  }) => Promise<Result & { data: { session: Session | null; user?: User | null } }>;
   signInWithOAuth: (credentials: {
     provider: "google";
     options: { redirectTo: string; skipBrowserRedirect: true };
@@ -373,6 +373,16 @@ export function createAccountController(
           options: { emailRedirectTo: options.redirectTo },
         });
         if (!check(result, current, sameJourney)) return false;
+        // For an email with a confirmed account, Auth sends nothing and returns a
+        // stand-in user without identities instead of an error.
+        if (!result.data.session && result.data.user?.identities?.length === 0) {
+          if (sameJourney())
+            publish({
+              error:
+                "An account with this email already exists. Log in instead, or use Continue with Google if you created it with Google.",
+            });
+          return false;
+        }
         if (!result.data.session) {
           recordConfirmation(normalized);
           if (!sameJourney()) return false;

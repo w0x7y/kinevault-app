@@ -290,6 +290,25 @@ test("a failed resend keeps the confirmation screen and does not count toward th
   assert.equal(await h.controller.resendConfirmation(), false);
   assert.equal(calls, 3);
 });
+test("signing up with an email that already has an account says so instead of promising an email", async () => {
+  const h = harness();
+  await ready(h);
+  h.auth.signUp = async () => ({
+    data: { session: null, user: { ...session.user, identities: [] } },
+    error: null,
+  });
+  assert.equal(await h.controller.signUp("alex@example.com", "long-enough-password"), false);
+  assert.match(h.controller.getSnapshot().error ?? "", /already exists\. Log in instead/);
+  assert.equal(h.controller.getSnapshot().notice, null);
+  assert.equal(h.controller.getSnapshot().emailDelivery, null);
+  // A new address still gets the confirmation email.
+  h.auth.signUp = async () => ({
+    data: { session: null, user: { ...session.user, identities: [{} as never] } },
+    error: null,
+  });
+  assert.equal(await h.controller.signUp("new@example.com", "long-enough-password"), false);
+  assert.equal(h.controller.getSnapshot().emailDelivery?.kind, "confirmation");
+});
 test("a resent confirmation survives a provider remount and each resend publishes a new delivery", async () => {
   const h = harness();
   h.setResult({ data: { session: null }, error: null });

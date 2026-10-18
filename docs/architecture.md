@@ -19,6 +19,9 @@ Server rendering does not create the app's Supabase client or its session refres
 timers. The browser and native runtimes retain their existing client and refresh
 ownership.
 
+Signing up with an email that already has a confirmed account shows an error that
+says to log in: Auth sends no email then and returns a stand-in user without
+identities. This tells anyone whether an email has an account.
 Email verification feedback carries its purpose and normalized recipient. Screens
 do not infer a successful signup from arbitrary notice text or a mutable input.
 A confirmation delivery also counts its resends. Each successful resend publishes a new
