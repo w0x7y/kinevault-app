@@ -144,6 +144,13 @@ and follows the live saved item; only its own pending write reads as saving, and
 a save started during a food-log refresh waits for the refresh, then writes the
 preparation that is current at that point, since the day or food may have changed.
 
+Daily activity (`src/daily/activity.ts`) reads one day from every saved source: the
+food log, Manual water and the Water goal, workouts, and Phone steps plus Logged steps.
+Each source reports its own availability and retry, and the activity owns the Home Steps
+and Water tile wording, so Home and the Personal journal read it instead of the providers.
+`useDayActivity` is its React adapter; only Home asks it to read Phone steps. The journal's
+streak comes from the same activity and is counted once per change of its sources.
+
 Completed Workout totals derive from persisted Workout sessions and their valid
 sets. Daily activity and test fixtures use the same Exercise summary interface;
 there is no separate workout interpreter or fixture-only measurement model.

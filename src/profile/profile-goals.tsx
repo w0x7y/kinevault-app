@@ -7,9 +7,6 @@ import { Tappable } from "../components/tappable";
 import { ProgressFill } from "../components/motion";
 import { AppText, Panel } from "../components/ui";
 import { cardShadow, fonts, radius, spacing } from "../theme/tokens";
-import { useFoodLog } from "../food/log-provider";
-import { useWaterLog } from "../water/provider";
-import { useWaterGoal } from "../water/goal-provider";
 import { WaterGoalEditor } from "./water-goal-editor";
 import { progressFraction } from "../daily/model";
 import { useDayActivity } from "../daily/use-day";
@@ -98,7 +95,7 @@ function GoalRow({
   );
 }
 export function TodayNutrition({ today, onPress }: { today: string; onPress: () => void }) {
-  const activity = useDayActivity(today);
+  const activity = useDayActivity({ date: today });
   const { colors } = useTheme();
   const calories = activity.food.kind === "ready" ? activity.food.summary.calories : null;
   const target = activity.targets.kind === "ready" ? activity.targets.calories : null;
@@ -158,10 +155,8 @@ export function ProfileGoals({
   close: (id: number) => void;
 }) {
   const profile = useProfile(),
-    food = useFoodLog(),
-    water = useWaterLog(),
-    goal = useWaterGoal(),
-    activity = useDayActivity(today);
+    activity = useDayActivity({ date: today });
+  const { food, water, waterGoal } = activity.sources;
   const { colors } = useTheme();
   const [choosing, setChoosing] = useState(false);
   // The chosen editor opens once the chooser has gone, so it can take focus.
@@ -204,8 +199,8 @@ export function ProfileGoals({
             onPress={() => edit("calories")}
           />
         </JournalHeading>
-        {food.state.kind !== "ready" && (
-          <SourceStatus name="food log" kind={food.state.kind} retry={food.retryLoad} />
+        {food.kind !== "ready" && (
+          <SourceStatus name="food log" kind={food.kind} retry={food.retry} />
         )}
         <View
           testID="profile-goal-calories"
@@ -276,16 +271,16 @@ export function ProfileGoals({
             />
           </Tappable>
         </View>
-        {water.state.kind !== "ready" && (
-          <SourceStatus name="water log" kind={water.state.kind} retry={water.retryLoad} />
+        {water.kind !== "ready" && (
+          <SourceStatus name="water log" kind={water.kind} retry={water.retry} />
         )}
-        {goal.state.kind !== "ready" && (
-          <SourceStatus name="water goal" kind={goal.state.kind} retry={goal.retryLoad} />
+        {waterGoal.kind !== "ready" && (
+          <SourceStatus name="water goal" kind={waterGoal.kind} retry={waterGoal.retry} />
         )}
         {editor?.section === "calories" && (
           <ProfileEditor key={editor.id} section={editor.section} close={() => close(editor.id)} />
         )}
-        {editor?.section === "water" && goal.state.kind === "ready" && (
+        {editor?.section === "water" && waterGoal.kind === "ready" && (
           <WaterGoalEditor key={editor.id} close={() => close(editor.id)} />
         )}
       </Panel>

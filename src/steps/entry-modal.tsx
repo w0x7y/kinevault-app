@@ -15,7 +15,7 @@ import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { createManualStepsEdit } from "./manual-editing";
 import { useStepsLogPersistence } from "./provider";
-import type { DeviceStepsReading } from "./use-device-steps";
+import type { PhoneStepsReading } from "./summary";
 
 // Home keys this modal by date, so each open day gets its own steps edit.
 export function StepsEntryModal({
@@ -24,7 +24,7 @@ export function StepsEntryModal({
   onDismiss,
 }: {
   date: string;
-  phone: DeviceStepsReading;
+  phone: PhoneStepsReading;
   onDismiss: () => void;
 }) {
   const log = useStepsLogPersistence();
@@ -103,7 +103,7 @@ export function StepsEntryModal({
 }
 
 /** What the phone counted for the day, or how to let the app read it. */
-function PhoneSteps({ phone }: { phone: DeviceStepsReading }) {
+function PhoneSteps({ phone }: { phone: PhoneStepsReading }) {
   const { colors } = useTheme();
   let status: string,
     action: { label: string; onPress: () => void | Promise<void> } | null = null;

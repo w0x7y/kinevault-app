@@ -30,7 +30,7 @@ function formatNutrient(value: number | null): string {
 }
 
 export function DailyMacros({ day, onBack }: { day: FoodDay; onBack: () => void }) {
-  const { targets } = useDayActivity(day.date);
+  const { targets } = useDayActivity({ date: day.date });
   const { colors } = useTheme();
   const router = useRouter();
   const [showMissing, setShowMissing] = useState(false);
