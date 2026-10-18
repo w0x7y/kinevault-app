@@ -2,29 +2,14 @@ import {
   createEmptySet,
   durationFromMinutes,
   isBlankSet,
-  type ExerciseDefinition,
   type ExerciseDocument,
   type ExerciseSet,
   type SessionExercise,
   type WorkoutSession,
-  type WorkoutTemplate,
 } from "./model.ts";
 import type { createExercisePersistence } from "./persistence.ts";
+import type { ExercisePanels, WorkoutView } from "./tab-view.ts";
 
-export type WorkoutView =
-  | {
-      kind: "exercise";
-      exercise?: ExerciseDefinition;
-      /** Opened from "Link demo": focus the KineVault search. */
-      linkDemo?: boolean;
-      /** The workout to return to after Save or Cancel. */
-      returnTo?: WorkoutView;
-    }
-  | { kind: "workout"; workout?: WorkoutTemplate }
-  | { kind: "library"; date: string }
-  | { kind: "session"; id: string; manual?: boolean }
-  | { kind: "import"; source?: string };
-export type WorkoutPanel = { content: WorkoutView; token: number };
 /**
  * How a workout log presents: a compact planned card, the live workspace, manual logging of a
  * planned log, or an edit of a completed one.
@@ -98,15 +83,13 @@ function plannedCountError(fields: WorkoutFields, counts: Record<string, string>
 }
 
 // Fields outlive render mounts. Only durable success or explicit completed Cancel releases an edit.
-// Panel tokens and request generations keep late callbacks and competing departures local to their origin.
-export function createWorkoutEditing(store: Store) {
+// The tab view's panel tokens and request generations keep late callbacks local to their origin.
+export function createWorkoutEditing(
+  store: Store,
+  panels: Pick<ExercisePanels, "panel" | "origin" | "leave">,
+) {
   const entries = new Map<string, Entry>(),
     listeners = new Set<() => void>();
-  let snapshot: { panel: WorkoutPanel | null } = { panel: null };
-  let sequence = 0,
-    request = 0,
-    attached = true,
-    attachment = 0;
   let lastDocument: ExerciseDocument | null = null;
   const emit = () => {
     for (const listener of listeners) listener();
@@ -130,7 +113,7 @@ export function createWorkoutEditing(store: Store) {
   }
   function countsValid(entry: Entry) {
     // Planned set counts belong to the compact card; manual logging edits the sets themselves.
-    if (workoutLogMode(entry.state.session, snapshot.panel?.content) !== "compact") return true;
+    if (workoutLogMode(entry.state.session, panels.panel()?.content) !== "compact") return true;
     const problem = plannedCountError(entry.state.fields, entry.state.counts);
     // A folded settings section opens so its error is never hidden.
     publish(entry, problem ? { countError: problem, settingsOpen: true } : { countError: problem });
@@ -164,8 +147,7 @@ export function createWorkoutEditing(store: Store) {
         entry.state = { ...entry.state, ...savedFields, session };
       }
     }
-    // A fresh snapshot also lets the adapter resolve successful retirement from the saved document.
-    snapshot = { ...snapshot };
+    // Editors render again, so a successful retirement resolves from the saved document.
     emit();
   }
   function entryFor(id: string) {
@@ -264,33 +246,14 @@ export function createWorkoutEditing(store: Store) {
       return persist(id, entry, entry.state.fields, entry.revision);
     });
   }
-  function replace(content: WorkoutView | null) {
-    snapshot = { panel: content ? { content, token: ++sequence } : null };
-    emit();
-  }
-  /** Replaces panel `token` with `content` unless another view took over since the action began. */
-  function leaveOrigin(
-    token: number | null,
-    originAttachment: number,
-    originRequest: number,
-    content: WorkoutView | null = null,
-  ) {
-    if (
-      attached &&
-      attachment === originAttachment &&
-      request === originRequest &&
-      (snapshot.panel?.token ?? null) === token
-    ) {
-      ++request;
-      replace(content);
-    }
-  }
-  async function requestView(content: WorkoutView) {
-    const ticket = ++request,
-      originAttachment = attachment;
-    const panel = snapshot.panel;
+  /**
+   * Saves the logs that opening `content` leaves: the open log, or on the default view the Active
+   * workout or the day's changed cards. True at once when none needs saving.
+   */
+  function depart(content: WorkoutView): true | Promise<boolean> {
+    const panel = panels.panel();
     const active = document()?.sessions.find((session) => session.status === "active");
-    const departing =
+    const departing = (
       panel?.content.kind === "session"
         ? [panel.content.id]
         : panel
@@ -301,20 +264,23 @@ export function createWorkoutEditing(store: Store) {
                 .filter(
                   ([, entry]) => entry.state.session.status === "planned" && entry.revision > 0,
                 )
-                .map(([id]) => id);
-    for (const id of departing) {
+                .map(([id]) => id)
+    )
       // Opening a workout's own page doesn't leave it.
-      if (content.kind === "session" && content.id === id) continue;
-      if (!document()?.sessions.some((session) => session.id === id)) continue;
-      if (!(await flush(id, entryFor(id)))) return false;
-    }
-    if (!attached || attachment !== originAttachment || ticket !== request) return false;
-    replace(content);
-    return true;
+      .filter((id) => !(content.kind === "session" && content.id === id));
+    const saved = (id: string) => document()?.sessions.some((session) => session.id === id);
+    if (!departing.some(saved)) return true;
+    return (async () => {
+      for (const id of departing) {
+        if (!saved(id)) continue;
+        if (!(await flush(id, entryFor(id)))) return false;
+      }
+      return true;
+    })();
   }
   function edit(id: string) {
     const entry = entryFor(id),
-      originToken = snapshot.panel?.token ?? null;
+      originToken = panels.panel()?.token ?? null;
     function change(input: Change) {
       if (!current(id, entry) || entry.state.busy) return;
       let fields = entry.state.fields,
@@ -383,8 +349,7 @@ export function createWorkoutEditing(store: Store) {
       emit();
     }
     async function run(kind: Action): Promise<boolean> {
-      const originAttachment = attachment,
-        originRequest = request;
+      const origin = panels.origin();
       if (!current(id, entry)) return false;
       if (kind === "retry") return flush(id, entry);
       if (kind === "settings") {
@@ -399,7 +364,7 @@ export function createWorkoutEditing(store: Store) {
         const success = await flush(id, entry);
         if (success && current(id, entry)) {
           if (kind === "cancel") entries.delete(id);
-          leaveOrigin(originToken, originAttachment, originRequest);
+          panels.leave(originToken, origin);
         }
         return success;
       }
@@ -444,12 +409,10 @@ export function createWorkoutEditing(store: Store) {
             const session = document()?.sessions.find((value) => value.id === id);
             if (session) publish(entry, { session, error: null });
             // A card started from the day opens the Active workout's page; a page stays up.
-            if (originToken === null)
-              leaveOrigin(null, originAttachment, originRequest, { kind: "session", id });
+            if (originToken === null) panels.leave(null, origin, { kind: "session", id });
           } else {
             entries.delete(id);
-            leaveOrigin(originToken, originAttachment, originRequest);
-            snapshot = { ...snapshot };
+            panels.leave(originToken, origin);
             emit();
           }
         } else
@@ -479,36 +442,7 @@ export function createWorkoutEditing(store: Store) {
       },
     };
   }
-  return {
-    getSnapshot: () => snapshot,
-    subscribe,
-    refreshDocument,
-    edit,
-    requestView,
-    /** Leaves panel `token` for the workout it returns to (after "Link demo"), or no panel. */
-    closeView(token: number) {
-      const content = snapshot.panel?.content;
-      if (attached && snapshot.panel?.token === token) {
-        ++request;
-        replace((content?.kind === "exercise" && content.returnTo) || null);
-      }
-    },
-    /** Panel `token` hands over to `content`, e.g. Saved workouts opening the log it added. */
-    replaceView(token: number, content: WorkoutView) {
-      if (attached && snapshot.panel?.token === token) {
-        ++request;
-        replace(content);
-      }
-    },
-    resume() {
-      attached = true;
-    },
-    suspend() {
-      attached = false;
-      ++attachment;
-      ++request;
-    },
-  };
+  return { subscribe, refreshDocument, edit, depart };
 }
 export type WorkoutEditing = ReturnType<typeof createWorkoutEditing>;
 export type WorkoutEdit = ReturnType<WorkoutEditing["edit"]>;

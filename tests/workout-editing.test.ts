@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createWorkoutEditing } from "../src/exercise/workout-editing.ts";
+import { createExerciseTabView } from "../src/exercise/tab-view.ts";
 import { createExercisePersistence, exerciseStorageKey } from "../src/exercise/persistence.ts";
 import {
   parseExerciseDocument,
@@ -49,6 +49,9 @@ function session(status: WorkoutSession["status"]): WorkoutSession {
     ],
   };
 }
+function tabView(store: Parameters<typeof createExerciseTabView>[0]["store"]) {
+  return createExerciseTabView({ store, date: "2026-10-04", importSources: [] });
+}
 async function fixture(status: WorkoutSession["status"] = "completed") {
   const document: ExerciseDocument = {
     version: 1,
@@ -75,41 +78,40 @@ async function fixture(status: WorkoutSession["status"] = "completed") {
   });
   store.start();
   await tick();
-  const editing = createWorkoutEditing(store);
-  assert.ok(editing, "workout editing must own retained fields and panel lifetime");
+  const tab = tabView(store);
   const sync = () => {
     const state = store.getSnapshot().state;
-    if (state.kind === "ready") editing.refreshDocument();
+    if (state.kind === "ready") tab.refreshDocument();
   };
   sync();
   store.subscribe(sync);
   const saved = () => parseExerciseDocument(raw).sessions[0]!;
-  return { editing, store, storage, write, saved, raw: () => raw };
+  return { tab, editing: tab.edits, store, storage, write, saved, raw: () => raw };
 }
 
 test("completed edits remain local across panels; Cancel releases all retained fields", async () => {
   const f = await fixture();
-  await f.editing.requestView({ kind: "session", id: "log" });
+  await f.tab.requestView({ kind: "session", id: "log" });
   const edit = f.editing.edit("log");
   edit.change({ kind: "name", value: "Unfinished" });
   edit.change({ kind: "minutes", value: "bad" });
   edit.change({ kind: "set", rowId: "row", setId: "set", build: (set) => ({ ...set, reps: "-" }) });
-  await f.editing.requestView({ kind: "library", date: "2026-10-05" });
-  await f.editing.requestView({ kind: "session", id: "log" });
+  await f.tab.requestView({ kind: "library", date: "2026-10-05" });
+  await f.tab.requestView({ kind: "session", id: "log" });
   const resumed = f.editing.edit("log");
   assert.equal(resumed.getSnapshot().fields.name, "Unfinished");
   assert.equal(resumed.getSnapshot().fields.minutes, "bad");
   assert.equal(f.saved().name, "Strength");
   assert.equal(f.saved().exercises[0]!.sets[0]!.kind, "single");
   assert.equal(await resumed.run("cancel"), true);
-  assert.equal(f.editing.getSnapshot().panel, null);
+  assert.equal(f.tab.getSnapshot().panel, null);
   assert.equal(f.editing.edit("log").getSnapshot().fields.name, "Strength");
   assert.equal(f.editing.edit("log").getSnapshot().fields.minutes, "2");
 });
 
 test("the selected exercise row outlives the editor until Cancel releases the edit", async () => {
   const f = await fixture();
-  await f.editing.requestView({ kind: "session", id: "log" });
+  await f.tab.requestView({ kind: "session", id: "log" });
   const edit = f.editing.edit("log");
   assert.equal(edit.getSnapshot().selectedId, null);
   let notified = 0;
@@ -117,8 +119,8 @@ test("the selected exercise row outlives the editor until Cancel releases the ed
   edit.select("row");
   unsubscribe();
   assert.ok(notified > 0, "selecting a row notifies the editor that renders it");
-  await f.editing.requestView({ kind: "library", date: "2026-10-05" });
-  await f.editing.requestView({ kind: "session", id: "log" });
+  await f.tab.requestView({ kind: "library", date: "2026-10-05" });
+  await f.tab.requestView({ kind: "session", id: "log" });
   assert.equal(f.editing.edit("log").getSnapshot().selectedId, "row");
   assert.equal(await f.editing.edit("log").run("cancel"), true);
   assert.equal(f.editing.edit("log").getSnapshot().selectedId, null);
@@ -135,7 +137,7 @@ test("a compact card's settings stay open until they save, beside any count prob
   assert.ok(edit.getSnapshot().countError);
   // Another panel keeps the disclosure with the edit rather than with the card on screen.
   edit.change({ kind: "count", rowId: "row", value: "4" });
-  assert.equal(await f.editing.requestView({ kind: "library", date: "2026-10-04" }), true);
+  assert.equal(await f.tab.requestView({ kind: "library", date: "2026-10-04" }), true);
   assert.equal(f.editing.edit("log").getSnapshot().settingsOpen, true);
   assert.equal(await f.editing.edit("log").run("settings"), true);
   assert.equal(f.editing.edit("log").getSnapshot().settingsOpen, false);
@@ -167,14 +169,14 @@ test("failed active fields survive editor replacement and query/day changes unti
   });
   await tick();
   assert.ok(edit.getSnapshot().error);
-  assert.equal(await f.editing.requestView({ kind: "library", date: "2026-10-05" }), false);
-  f.editing.refreshDocument();
+  assert.equal(await f.tab.requestView({ kind: "library", date: "2026-10-05" }), false);
+  f.tab.refreshDocument();
   const remounted = f.editing.edit("log");
   const set = remounted.getSnapshot().fields.exercises[0]!.sets[0]!;
   assert.equal(set.kind === "single" && set.reps, "1e");
   f.storage.setItem = f.write;
   assert.equal(await remounted.run("retry"), true);
-  assert.equal(await f.editing.requestView({ kind: "library", date: "2026-10-05" }), true);
+  assert.equal(await f.tab.requestView({ kind: "library", date: "2026-10-05" }), true);
   assert.equal(f.saved().status, "active");
   assert.equal(f.saved().date, "2026-10-04");
   assert.equal(f.saved().startedAt, 1000000);
@@ -182,7 +184,7 @@ test("failed active fields survive editor replacement and query/day changes unti
 
 test("invalid manual duration retains text, saves sets, and blocks departure until corrected", async () => {
   const f = await fixture("planned");
-  await f.editing.requestView({ kind: "session", id: "log", manual: true });
+  await f.tab.requestView({ kind: "session", id: "log", manual: true });
   const edit = f.editing.edit("log");
   edit.change({ kind: "minutes", value: "1e" });
   edit.change({
@@ -196,24 +198,24 @@ test("invalid manual duration retains text, saves sets, and blocks departure unt
   assert.equal(f.saved().durationSeconds, null);
   const set = f.saved().exercises[0]!.sets[0]!;
   assert.equal(set.kind === "single" && set.reps, "12");
-  assert.equal(await f.editing.requestView({ kind: "exercise" }), false);
+  assert.equal(await f.tab.requestView({ kind: "exercise" }), false);
   assert.equal(await edit.run("complete"), false);
   assert.equal(f.saved().status, "planned");
   edit.change({ kind: "minutes", value: "2.5" });
-  assert.equal(await f.editing.requestView({ kind: "exercise" }), true);
+  assert.equal(await f.tab.requestView({ kind: "exercise" }), true);
   assert.equal(f.saved().durationSeconds, 150);
 });
 
 test("planned counts retain invalid text, reject shrink over entered sets, and resize blank rows", async () => {
   const f = await fixture("planned");
-  await f.editing.requestView({ kind: "session", id: "log" });
+  await f.tab.requestView({ kind: "session", id: "log" });
   const edit = f.editing.edit("log");
   for (const value of ["-", "101", "1.5", "0"]) {
     edit.change({ kind: "count", rowId: "row", value });
     assert.equal(edit.getSnapshot().counts.row, value);
     assert.equal(edit.getSnapshot().fields.exercises[0]!.sets.length, 2);
     assert.equal(await edit.run("start"), false);
-    assert.equal(await f.editing.requestView({ kind: "library", date: "2026-10-04" }), false);
+    assert.equal(await f.tab.requestView({ kind: "library", date: "2026-10-04" }), false);
   }
   assert.equal(await edit.run("settings"), false);
   edit.change({ kind: "count", rowId: "row", value: "3" });
@@ -235,17 +237,17 @@ test("planned counts retain invalid text, reject shrink over entered sets, and r
 test("starting a card from the day opens the Active workout's page; a manual page stays up", async () => {
   const f = await fixture("planned");
   assert.equal(await f.editing.edit("log").run("start"), true);
-  assert.deepEqual(f.editing.getSnapshot().panel?.content, { kind: "session", id: "log" });
+  assert.deepEqual(f.tab.getSnapshot().panel?.content, { kind: "session", id: "log" });
   const manual = await fixture("planned");
-  await manual.editing.requestView({ kind: "session", id: "log", manual: true });
-  const page = manual.editing.getSnapshot().panel;
+  await manual.tab.requestView({ kind: "session", id: "log", manual: true });
+  const page = manual.tab.getSnapshot().panel;
   assert.equal(await manual.editing.edit("log").run("start"), true);
-  assert.equal(manual.editing.getSnapshot().panel, page);
+  assert.equal(manual.tab.getSnapshot().panel, page);
 });
 
 test("leaving the Active workout's page saves its fields and keeps the edit for the next visit", async () => {
   const f = await fixture("active");
-  await f.editing.requestView({ kind: "session", id: "log" });
+  await f.tab.requestView({ kind: "session", id: "log" });
   const edit = f.editing.edit("log");
   edit.select("row");
   edit.change({
@@ -255,7 +257,7 @@ test("leaving the Active workout's page saves its fields and keeps the edit for 
     build: (set) => ({ ...set, reps: "6" }),
   });
   assert.equal(await f.editing.edit("log").run("leave"), true);
-  assert.equal(f.editing.getSnapshot().panel, null);
+  assert.equal(f.tab.getSnapshot().panel, null);
   assert.deepEqual(f.saved().exercises[0]!.sets[1], {
     id: "blank",
     kind: "single",
@@ -279,15 +281,15 @@ test("the Active workout's page opens while its draft can't save, but nothing el
     build: (set) => ({ ...set, reps: "6" }),
   });
   await tick();
-  assert.equal(await f.editing.requestView({ kind: "session", id: "log" }), true);
-  assert.deepEqual(f.editing.getSnapshot().panel?.content, { kind: "session", id: "log" });
-  assert.equal(await f.editing.requestView({ kind: "library", date: "2026-10-05" }), false);
-  assert.deepEqual(f.editing.getSnapshot().panel?.content, { kind: "session", id: "log" });
+  assert.equal(await f.tab.requestView({ kind: "session", id: "log" }), true);
+  assert.deepEqual(f.tab.getSnapshot().panel?.content, { kind: "session", id: "log" });
+  assert.equal(await f.tab.requestView({ kind: "library", date: "2026-10-05" }), false);
+  assert.deepEqual(f.tab.getSnapshot().panel?.content, { kind: "session", id: "log" });
 });
 
 test("a cleared manual workout name stays editable until corrected before Start", async () => {
   const f = await fixture("planned");
-  await f.editing.requestView({ kind: "session", id: "log", manual: true });
+  await f.tab.requestView({ kind: "session", id: "log", manual: true });
   const edit = f.editing.edit("log");
   for (const value of ["", "   "]) {
     edit.change({ kind: "name", value });
@@ -314,21 +316,21 @@ test("competing view requests wait for the same save and only the latest request
   };
   edit.change({ kind: "name", value: "First" });
   edit.change({ kind: "name", value: "Latest" });
-  const first = f.editing.requestView({ kind: "exercise" });
-  const second = f.editing.requestView({ kind: "library", date: "2026-10-05" });
+  const first = f.tab.requestView({ kind: "exercise" });
+  const second = f.tab.requestView({ kind: "library", date: "2026-10-05" });
   await tick();
-  assert.equal(f.editing.getSnapshot().panel, null);
+  assert.equal(f.tab.getSnapshot().panel, null);
   assert.equal(edit.getSnapshot().busy, true);
   pending.resolve();
   assert.deepEqual(await Promise.all([first, second]), [false, true]);
-  assert.deepEqual(f.editing.getSnapshot().panel?.content, { kind: "library", date: "2026-10-05" });
+  assert.deepEqual(f.tab.getSnapshot().panel?.content, { kind: "library", date: "2026-10-05" });
   assert.equal(f.saved().name, "Latest");
   assert.equal(edit.getSnapshot().error, null);
 });
 
 test("completed Save fails without retiring fields and succeeds before releasing the edit", async () => {
   const f = await fixture();
-  await f.editing.requestView({ kind: "session", id: "log" });
+  await f.tab.requestView({ kind: "session", id: "log" });
   const edit = f.editing.edit("log");
   edit.change({ kind: "name", value: "Saved edit" });
   edit.change({ kind: "add-set", rowId: "row" });
@@ -349,7 +351,7 @@ test("completed Save fails without retiring fields and succeeds before releasing
   assert.equal(f.saved().name, "Strength");
   pending.resolve();
   assert.equal(await saving, true);
-  assert.equal(f.editing.getSnapshot().panel, null);
+  assert.equal(f.tab.getSnapshot().panel, null);
   assert.equal(f.editing.edit("log").getSnapshot().fields.exercises[0]!.sets.length, 1);
   edit.change({ kind: "name", value: "Stale" });
   assert.equal(f.editing.edit("log").getSnapshot().fields.name, "Saved edit");
@@ -379,9 +381,9 @@ test("completion and discard retire only after durable success", async () => {
 
 test("stale panel callbacks and completed save feedback cannot replace a newer view", async () => {
   const f = await fixture();
-  await f.editing.requestView({ kind: "library", date: "2026-10-04" });
-  const oldToken = f.editing.getSnapshot().panel!.token;
-  await f.editing.requestView({ kind: "session", id: "log" });
+  await f.tab.requestView({ kind: "library", date: "2026-10-04" });
+  const oldToken = f.tab.getSnapshot().panel!.token;
+  await f.tab.requestView({ kind: "session", id: "log" });
   const edit = f.editing.edit("log");
   edit.change({ kind: "name", value: "Captured" });
   const pending = gate();
@@ -391,14 +393,13 @@ test("stale panel callbacks and completed save feedback cannot replace a newer v
   };
   const saving = edit.run("save");
   await tick();
-  await f.editing.requestView({ kind: "exercise" });
-  const current = f.editing.getSnapshot().panel;
-  f.editing.closeView(oldToken);
-  f.editing.replaceView(oldToken, { kind: "session", id: "log" });
-  assert.equal(f.editing.getSnapshot().panel, current);
+  await f.tab.requestView({ kind: "exercise" });
+  const current = f.tab.getSnapshot().panel;
+  f.tab.closeView(oldToken);
+  assert.equal(f.tab.getSnapshot().panel, current);
   pending.resolve();
   assert.equal(await saving, true);
-  assert.equal(f.editing.getSnapshot().panel, current);
+  assert.equal(f.tab.getSnapshot().panel, current);
   assert.equal(f.saved().name, "Captured");
 });
 
@@ -411,35 +412,35 @@ test("suspend/resume rejects pending old navigation and permits fresh edits and 
     await f.write(key, value);
   };
   edit.change({ kind: "name", value: "Retained through replay" });
-  const leaving = f.editing.requestView({ kind: "exercise" });
+  const leaving = f.tab.requestView({ kind: "exercise" });
   await tick();
-  f.editing.suspend();
-  f.editing.resume();
+  f.tab.stop();
+  f.tab.start();
   pending.resolve();
   assert.equal(await leaving, false);
-  assert.equal(f.editing.getSnapshot().panel, null);
+  assert.equal(f.tab.getSnapshot().panel, null);
   assert.equal(edit.getSnapshot().busy, false);
   assert.equal(edit.getSnapshot().error, null);
   assert.equal(f.editing.edit("log").getSnapshot().fields.name, "Retained through replay");
-  assert.equal(await f.editing.requestView({ kind: "library", date: "2026-10-05" }), true);
+  assert.equal(await f.tab.requestView({ kind: "library", date: "2026-10-05" }), true);
 });
 
 test("a handle rendered before effect replay can still Save and close its current panel", async () => {
   const f = await fixture();
-  await f.editing.requestView({ kind: "session", id: "log" });
+  await f.tab.requestView({ kind: "session", id: "log" });
   const edit = f.editing.edit("log");
-  f.editing.suspend();
-  f.editing.resume();
+  f.tab.stop();
+  f.tab.start();
   edit.change({ kind: "name", value: "After replay" });
   assert.equal(await edit.run("save"), true);
-  assert.equal(f.editing.getSnapshot().panel, null);
+  assert.equal(f.tab.getSnapshot().panel, null);
 });
 
 test("successful discard closes its original panel despite the document removing the workout", async () => {
   const f = await fixture("planned");
-  await f.editing.requestView({ kind: "session", id: "log" });
+  await f.tab.requestView({ kind: "session", id: "log" });
   assert.equal(await f.editing.edit("log").run("discard"), true);
-  assert.equal(f.editing.getSnapshot().panel, null);
+  assert.equal(f.tab.getSnapshot().panel, null);
 });
 
 test("reentrant observable feedback cannot start a second destructive action", async () => {
@@ -467,14 +468,14 @@ test("reentrant observable feedback cannot start a second destructive action", a
 
 test("manual metadata Settings do not validate retained compact planned counts", async () => {
   const f = await fixture("planned");
-  await f.editing.requestView({ kind: "session", id: "log", manual: true });
+  await f.tab.requestView({ kind: "session", id: "log", manual: true });
   const edit = f.editing.edit("log");
   edit.change({ kind: "count", rowId: "row", value: "-" });
   edit.change({ kind: "name", value: "Manual metadata" });
   assert.equal(await edit.run("settings"), true);
   assert.equal(f.saved().name, "Manual metadata");
   assert.equal(edit.getSnapshot().counts.row, "-");
-  assert.equal(await f.editing.requestView({ kind: "exercise" }), true);
+  assert.equal(await f.tab.requestView({ kind: "exercise" }), true);
 });
 
 test("manual logging from an empty legacy row saves new sets and permits cancellation/departure", async () => {
@@ -485,14 +486,14 @@ test("manual logging from an empty legacy row saves new sets and permits cancell
       name: "Strength",
       exercises: [{ ...f.saved().exercises[0]!, sets: [] }],
     });
-    await f.editing.requestView({ kind: "session", id: "log", manual: true });
+    await f.tab.requestView({ kind: "session", id: "log", manual: true });
     const edit = f.editing.edit("log");
     edit.change({ kind: "add-set", rowId: "row" });
     const setId = edit.getSnapshot().fields.exercises[0]!.sets[0]!.id;
     edit.change({ kind: "set", rowId: "row", setId, build: (set) => ({ ...set, reps: "10" }) });
     const success =
       action === "navigate"
-        ? await f.editing.requestView({ kind: "library", date: "2026-10-05" })
+        ? await f.tab.requestView({ kind: "library", date: "2026-10-05" })
         : await edit.run(action);
     assert.equal(success, true);
     assert.equal(f.saved().exercises[0]!.sets.length, 1);
@@ -503,7 +504,7 @@ test("manual logging from an empty legacy row saves new sets and permits cancell
 
 test("a newer departure waiting on completion wins over the original panel's success close", async () => {
   const f = await fixture("active");
-  await f.editing.requestView({ kind: "session", id: "log" });
+  await f.tab.requestView({ kind: "session", id: "log" });
   const edit = f.editing.edit("log"),
     pending = gate();
   f.storage.setItem = async (key, value) => {
@@ -512,26 +513,26 @@ test("a newer departure waiting on completion wins over the original panel's suc
   };
   const completing = edit.run("complete");
   await tick();
-  const leaving = f.editing.requestView({ kind: "library", date: "2026-10-05" });
+  const leaving = f.tab.requestView({ kind: "library", date: "2026-10-05" });
   pending.resolve();
   assert.equal(await completing, true);
   assert.equal(await leaving, true);
-  assert.deepEqual(f.editing.getSnapshot().panel?.content, { kind: "library", date: "2026-10-05" });
+  assert.deepEqual(f.tab.getSnapshot().panel?.content, { kind: "library", date: "2026-10-05" });
 });
 
 test("retirement follows the durable document when the React snapshot publication arrives after save", async () => {
   const f = await fixture();
   let visible = f.store.getSnapshot();
-  const editing = createWorkoutEditing({ ...f.store, getSnapshot: () => visible });
-  editing.refreshDocument();
-  await editing.requestView({ kind: "session", id: "log" });
-  const edit = editing.edit("log");
+  const tab = tabView({ ...f.store, getSnapshot: () => visible });
+  tab.refreshDocument();
+  await tab.requestView({ kind: "session", id: "log" });
+  const edit = tab.edits.edit("log");
   edit.change({ kind: "name", value: "Durable saved name" });
   assert.equal(await edit.run("save"), true);
-  editing.edit("log"); // A render may read the previous provider snapshot before publication.
+  tab.edits.edit("log"); // A render may read the previous provider snapshot before publication.
   visible = f.store.getSnapshot();
-  editing.refreshDocument();
-  assert.equal(editing.edit("log").getSnapshot().fields.name, "Durable saved name");
+  tab.refreshDocument();
+  assert.equal(tab.edits.edit("log").getSnapshot().fields.name, "Durable saved name");
 });
 
 test("completed edits stay separate and deletion releases only the removed workout's local fields", async () => {
@@ -542,11 +543,11 @@ test("completed edits stay separate and deletion releases only the removed worko
   const otherId = await f.store.planWorkout({ date: "2026-10-04", workoutId });
   assert.ok(otherId);
   await f.store.completeSession({ id: otherId, name: "Evening", exercises: f.saved().exercises });
-  await f.editing.requestView({ kind: "session", id: "log" });
+  await f.tab.requestView({ kind: "session", id: "log" });
   const first = f.editing.edit("log");
   first.change({ kind: "name", value: "Morning unfinished" });
   first.change({ kind: "minutes", value: "7" });
-  await f.editing.requestView({ kind: "session", id: otherId });
+  await f.tab.requestView({ kind: "session", id: otherId });
   const second = f.editing.edit(otherId);
   second.change({ kind: "name", value: "Evening unfinished" });
   second.change({ kind: "minutes", value: "9" });
@@ -564,7 +565,7 @@ test("untouched compact planned cards do not require a draft write merely to ope
   f.storage.setItem = async () => {
     throw new Error("Disk full");
   };
-  assert.equal(await f.editing.requestView({ kind: "library", date: "2026-10-04" }), true);
+  assert.equal(await f.tab.requestView({ kind: "library", date: "2026-10-04" }), true);
   assert.equal(f.saved().name, "Strength");
 });
 
@@ -576,7 +577,7 @@ test("editing a valid count keeps another row's count problem visible while savi
     name: "Strength",
     exercises: [row, { ...row, id: "other-row", sets: [] }],
   });
-  await f.editing.requestView({ kind: "session", id: "log" });
+  await f.tab.requestView({ kind: "session", id: "log" });
   const edit = f.editing.edit("log");
   edit.change({ kind: "count", rowId: "row", value: "-" });
   edit.change({ kind: "count", rowId: "other-row", value: "3" });
@@ -619,18 +620,18 @@ test("planned count validation observers cannot replace Complete with a competin
 
 test("planned departure validation observers cannot replace the owned save with a competing Discard", async () => {
   const f = await fixture("planned");
-  await f.editing.requestView({ kind: "session", id: "log" });
+  await f.tab.requestView({ kind: "session", id: "log" });
   const edit = f.editing.edit("log");
   let discarding: Promise<boolean> | undefined;
   const unsubscribe = edit.subscribe(() => {
     unsubscribe();
     discarding = edit.run("discard");
   });
-  const leaving = f.editing.requestView({ kind: "library", date: "2026-10-05" });
+  const leaving = f.tab.requestView({ kind: "library", date: "2026-10-05" });
   assert.equal(await leaving, true);
   assert.equal(await discarding, false);
   assert.equal(parseExerciseDocument(f.raw()).sessions[0]!.status, "planned");
-  assert.deepEqual(f.editing.getSnapshot().panel?.content, { kind: "library", date: "2026-10-05" });
+  assert.deepEqual(f.tab.getSnapshot().panel?.content, { kind: "library", date: "2026-10-05" });
 });
 
 function holdWrites(f: Awaited<ReturnType<typeof fixture>>, fail: (write: number) => boolean) {
@@ -673,7 +674,7 @@ test("Complete or Discard during a change save is never followed by a draft save
   for (const action of ["complete", "discard"] as const) {
     const f = await fixture("active"),
       calls: string[] = [];
-    const editing = createWorkoutEditing({
+    const tab = tabView({
       ...f.store,
       updateSession(input) {
         calls.push("update");
@@ -688,9 +689,9 @@ test("Complete or Discard during a change save is never followed by a draft save
         return f.store.removeSession(id);
       },
     });
-    editing.refreshDocument();
-    f.store.subscribe(() => editing.refreshDocument());
-    const edit = editing.edit("log"),
+    tab.refreshDocument();
+    f.store.subscribe(() => tab.refreshDocument());
+    const edit = tab.edits.edit("log"),
       held = holdWrites(f, () => false);
     edit.change({ kind: "name", value: "Typed" });
     edit.change({ kind: "name", value: "Typed later" });
@@ -743,7 +744,7 @@ test("a departure refused for a count problem still saves the change queued behi
   edit.change({ kind: "name", value: "First" });
   edit.change({ kind: "set", rowId: "row", setId: "set", build: (set) => ({ ...set, reps: "9" }) });
   edit.change({ kind: "count", rowId: "row", value: "-" });
-  const leaving = f.editing.requestView({ kind: "library", date: "2026-10-05" });
+  const leaving = f.tab.requestView({ kind: "library", date: "2026-10-05" });
   held.release();
   assert.equal(await leaving, false);
   await settle();
@@ -755,7 +756,7 @@ test("an edit released while its change saves drops the queued change", async ()
   const f = await fixture("active");
   let visible = f.store.getSnapshot(),
     updates = 0;
-  const editing = createWorkoutEditing({
+  const tab = tabView({
     ...f.store,
     getSnapshot: () => visible,
     updateSession(input) {
@@ -763,8 +764,8 @@ test("an edit released while its change saves drops the queued change", async ()
       return f.store.updateSession(input);
     },
   });
-  editing.refreshDocument();
-  const edit = editing.edit("log"),
+  tab.refreshDocument();
+  const edit = tab.edits.edit("log"),
     held = holdWrites(f, () => false);
   edit.change({ kind: "name", value: "First" });
   edit.change({ kind: "name", value: "Latest" });
@@ -775,7 +776,7 @@ test("an edit released while its change saves drops the queued change", async ()
       ...visible,
       state: { kind: "ready", document: { ...state.document, sessions: [] } },
     };
-  editing.refreshDocument();
+  tab.refreshDocument();
   held.release();
   await settle();
   assert.equal(updates, 1);

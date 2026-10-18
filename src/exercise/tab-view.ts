@@ -1,10 +1,49 @@
-import type { ExerciseDocument, WorkoutSession } from "./model.ts";
-import {
-  workoutLogMode,
-  type WorkoutLogMode,
-  type WorkoutPanel,
-  type WorkoutView,
-} from "./workout-editing.ts";
+import { parseDay } from "../calendar/dates.ts";
+import type { WorkoutImportFlowSource } from "./import/import-flow.ts";
+import { createLibraryDrafts } from "./library-drafts.ts";
+import type {
+  ExerciseDefinition,
+  ExerciseDocument,
+  WorkoutSession,
+  WorkoutTemplate,
+} from "./model.ts";
+import type { createExercisePersistence } from "./persistence.ts";
+import { createWorkoutEditing, workoutLogMode, type WorkoutLogMode } from "./workout-editing.ts";
+
+export type WorkoutView =
+  | {
+      kind: "exercise";
+      exercise?: ExerciseDefinition;
+      /** Opened from "Link demo": focus the KineVault search. */
+      linkDemo?: boolean;
+      /** The workout to return to after Save or Cancel. */
+      returnTo?: WorkoutView;
+    }
+  | { kind: "workout"; workout?: WorkoutTemplate }
+  | { kind: "library"; date: string }
+  | { kind: "session"; id: string; manual?: boolean }
+  | { kind: "import"; source?: string };
+export type WorkoutPanel = { content: WorkoutView; token: number };
+/** The panel and request a Workout edit's action began on. */
+type PanelOrigin = { readonly request: number; readonly attachment: number };
+/**
+ * The tab's panel seam. Workout edits and Library drafts read the open panel and, once their
+ * durable work succeeds, leave or hand over the panel it began on, never a newer one.
+ */
+export type ExercisePanels = {
+  panel(): WorkoutPanel | null;
+  subscribe(listener: () => void): () => void;
+  origin(): PanelOrigin;
+  /** Replaces panel `token` (none: the default view) with `content` unless another view took over since `origin`. */
+  leave(token: number | null, origin: PanelOrigin, content?: WorkoutView | null): void;
+  /** Leaves panel `token` for the workout it returns to (after "Link demo"), or no panel. */
+  closeView(token: number): void;
+  /** Panel `token` hands over to `content`, e.g. Saved workouts opening the log it added. */
+  replaceView(token: number, content: WorkoutView): void;
+};
+type Store = Parameters<typeof createWorkoutEditing>[0] &
+  Parameters<typeof createLibraryDrafts>[0]["store"] &
+  Pick<ReturnType<typeof createExercisePersistence>, "getSnapshot">;
 
 /** A compact workout card that a panel opened on the tab itself rather than on a sheet. */
 type InlineWorkoutLog = {
@@ -30,7 +69,7 @@ type ExerciseTabSheet = {
   } | null;
 };
 
-type ExerciseTabView = {
+type ExerciseTabProjection = {
   /** Normalized search text while searching the available library. */
   search: string | null;
   /** The daily workout card, whose "Add workout" fallback hides behind every other view. */
@@ -45,7 +84,7 @@ type ExerciseTabView = {
 };
 
 /**
- * Where every Workout log and panel of the Exercise tab goes. The default view is the tab with
+ * The tab view's snapshot builder: where every Workout log and panel of the Exercise tab goes. The default view is the tab with
  * no panel open and no search; it shows the Selected day's drafts as compact cards, or a card for
  * the Active workout, whatever its date, that opens it. A panel that opens a compact card keeps it
  * on the tab; every other panel, the Active workout's included, is a sheet over the tab.
@@ -62,7 +101,7 @@ export function exerciseTabView({
   panel: WorkoutPanel | null;
   query: string;
   workoutState: "ready" | "loading" | "error";
-}): ExerciseTabView {
+}): ExerciseTabProjection {
   const search = query.trim().toLocaleLowerCase();
   // Panels open only over an available library.
   const open = document ? panel : null;
@@ -162,3 +201,188 @@ function sheetPage(
         : { title: "Workout", closeLabel: "Close workout", log: null };
   }
 }
+
+type ExerciseTabSnapshot = Readonly<
+  ExerciseTabProjection & {
+    query: string;
+    panel: WorkoutPanel | null;
+    /** The live workout just ended: the day's card fades in where the live card was. */
+    liveEnded: boolean;
+  }
+>;
+
+/**
+ * Owns the Exercise tab's view: its panel and the tokens that keep late results local to the
+ * panel they began on, the query, focus and route requests. Workout edits and Library drafts
+ * consume its panel seam; before a panel changes, Workout edits save the logs it leaves. Away from
+ * the tab the sheet hides, and its panel and drafts wait for the return.
+ */
+export function createExerciseTabView({
+  store,
+  date,
+  importSources,
+}: {
+  store: Store;
+  date: string;
+  importSources: readonly WorkoutImportFlowSource[];
+}) {
+  const listeners = new Set<() => void>();
+  let panel: WorkoutPanel | null = null;
+  let day = date,
+    query = "",
+    focused = false;
+  let sequence = 0,
+    request = 0,
+    attached = true,
+    attachment = 0;
+  let wasLive = false,
+    liveEnded = false,
+    dailyShown = false;
+  let snapshot = build();
+
+  function build(): ExerciseTabSnapshot {
+    const state = store.getSnapshot().state;
+    const document = state.kind === "ready" ? state.document : null;
+    const view = exerciseTabView({ document, date: day, panel, query, workoutState: state.kind });
+    const live = view.live !== null || view.sheet?.log?.mode === "active";
+    // When the live workout ends (not when a panel or search covers it), the day's card that
+    // replaces it fades in where the live card was. It stays marked until it hides; a card that is
+    // simply there on arrival doesn't animate.
+    if (live || (dailyShown && !view.showDailyWorkout)) liveEnded = false;
+    else if (wasLive && !document?.sessions.some((session) => session.status === "active"))
+      liveEnded = true;
+    wasLive = live;
+    dailyShown = view.showDailyWorkout;
+    return {
+      ...view,
+      sheet: focused ? view.sheet : null,
+      query,
+      panel,
+      liveEnded: liveEnded && view.showDailyWorkout,
+    };
+  }
+  function publish() {
+    snapshot = build();
+    for (const listener of listeners) listener();
+  }
+  function subscribe(listener: () => void) {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }
+  function replace(content: WorkoutView | null) {
+    panel = content ? { content, token: ++sequence } : null;
+    publish();
+  }
+  const panels: ExercisePanels = {
+    panel: () => panel,
+    subscribe,
+    origin: () => ({ request, attachment }),
+    leave(token, origin, content = null) {
+      if (
+        attached &&
+        attachment === origin.attachment &&
+        request === origin.request &&
+        (panel?.token ?? null) === token
+      ) {
+        ++request;
+        replace(content);
+      }
+    },
+    closeView(token) {
+      const content = panel?.content;
+      if (attached && panel?.token === token) {
+        ++request;
+        replace((content?.kind === "exercise" && content.returnTo) || null);
+      }
+    },
+    replaceView(token, content) {
+      if (attached && panel?.token === token) {
+        ++request;
+        replace(content);
+      }
+    },
+  };
+  // Library drafts subscribe first, so a replaced panel's draft retires before the screen renders.
+  const drafts = createLibraryDrafts({ store, panels, importSources });
+  const edits = createWorkoutEditing(store, panels);
+
+  /** Opens `content` once the logs it leaves are saved; only the latest request opens. */
+  async function requestView(content: WorkoutView) {
+    const ticket = ++request,
+      originAttachment = attachment;
+    const departed = edits.depart(content);
+    if (departed !== true && !(await departed)) return false;
+    if (!attached || attachment !== originAttachment || ticket !== request) return false;
+    replace(content);
+    return true;
+  }
+  function document(): ExerciseDocument | null {
+    const state = store.getSnapshot().state;
+    return state.kind === "ready" ? state.document : null;
+  }
+
+  return {
+    getSnapshot: () => snapshot,
+    subscribe,
+    /** Workout edits, which save the logs a panel change leaves. */
+    edits,
+    /** Library drafts, one per library panel. */
+    drafts,
+    requestView,
+    closeView: panels.closeView,
+    search(text: string) {
+      query = text;
+      publish();
+    },
+    setDay(date: string) {
+      if (date === day) return;
+      day = date;
+      publish();
+    },
+    /** Away from the tab the sheet hides; its panel and drafts wait for the return. */
+    setFocused(next: boolean) {
+      if (next === focused) return;
+      focused = next;
+      publish();
+    },
+    /** Follows a newly published exercise document. */
+    refreshDocument() {
+      edits.refreshDocument();
+      publish();
+    },
+    start() {
+      attached = true;
+    },
+    /** Leaving rejects pending navigation and late panel changes from before. */
+    stop() {
+      attached = false;
+      ++attachment;
+      ++request;
+    },
+    /** `?workoutMenu=<day>`: Saved workouts for that day. A malformed day does nothing. */
+    openWorkoutMenu(date: string) {
+      try {
+        parseDay(date);
+      } catch {
+        return Promise.resolve(false);
+      }
+      return requestView({ kind: "library", date });
+    },
+    /** `?workoutImport=<source>`: an import already open keeps its link, preview or pending save. */
+    openImport(source: string) {
+      if (panel?.content.kind === "import") return Promise.resolve(false);
+      return requestView({ kind: "import", source });
+    },
+    /** `?liveWorkout=<id>`: the Active workout's page, unless it is already up or no longer active. */
+    openLiveWorkout(id: string) {
+      if (panel?.content.kind === "session" && panel.content.id === id)
+        return Promise.resolve(false);
+      if (!document()?.sessions.some((session) => session.id === id && session.status === "active"))
+        return Promise.resolve(false);
+      return requestView({ kind: "session", id });
+    },
+  };
+}
+export type ExerciseTabView = ReturnType<typeof createExerciseTabView>;

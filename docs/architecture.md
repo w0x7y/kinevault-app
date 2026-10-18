@@ -112,10 +112,16 @@ Catalog drafts receive the Custom food persistence when created and also own
 saved-item deletion feedback, scoped to the caller that requested it, and the Meal
 destination that Logging attempts read and write.
 
-The Exercise tab view decides where every Workout log and panel goes: compact
+The Exercise tab view owns the tab's panel and the tokens that keep late results
+local to the panel they began on, the query, focus and the `workoutMenu`,
+`workoutImport` and `liveWorkout` route requests, which it receives as intents.
+Workout edits and Library drafts reach the panel through its panel seam; before a
+panel changes, the view asks Workout edits to save the logs it leaves and stays put
+if one can't save. Its snapshot decides where every Workout log and panel goes: compact
 cards stay on the tab, and every other panel, the Active workout's page included, is
 a sheet with its title, back name and test ID. On the default view the Active
-workout is a Live workout card that opens its page. Workout edits open that page
+workout is a Live workout card that opens its page; when that workout ends, the
+snapshot marks the day's card that replaces it to fade in. Workout edits open that page
 after a Start from the day, keep the edit when its back button leaves it (the
 `leave` action saves first and stays put if the save fails), and don't save a
 workout before opening its own page. The app header reads the Active workout from
@@ -124,7 +130,7 @@ planned-set settings disclosure, which reopens when a planned count is invalid, 
 the same log mode drives planned-count validation. Library drafts own Exercise definition, Workout template, Saved
 workouts and Workout import state per panel, so the sheet can unmount when the tab
 loses focus without losing input; their durable success closes the originating
-panel through the same token guards as Workout edits. The sheet page owns its
+panel through the same panel seam as Workout edits. The sheet page owns its
 header overrides and scroll positioning: pages claim the back button with
 `useSheetBack`, request a scroll target with `useSheetScrollTarget`, and a new
 `page` starts at the top. A page can replace its centered title with `center`, as

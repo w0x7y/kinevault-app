@@ -1,7 +1,7 @@
 import { createWorkoutImportFlow, type WorkoutImportFlowSource } from "./import/import-flow.ts";
 import type { ExerciseDefinition, WorkoutTemplate } from "./model.ts";
 import type { createExercisePersistence } from "./persistence.ts";
-import type { WorkoutPanel, WorkoutView } from "./workout-editing.ts";
+import type { ExercisePanels } from "./tab-view.ts";
 import { createWorkoutTemplateDraft, type WorkoutTemplateDraft } from "./workout-template-draft.ts";
 
 type ExerciseValues = Omit<ExerciseDefinition, "id">;
@@ -21,12 +21,7 @@ type Store = Pick<
   | "importWorkoutPlan"
 >;
 /** The Exercise tab's panels, which library drafts close or hand over once they succeed. */
-type Panels = {
-  getSnapshot(): { panel: WorkoutPanel | null };
-  subscribe(listener: () => void): () => void;
-  closeView(token: number): void;
-  replaceView(token: number, content: WorkoutView): void;
-};
+type Panels = Pick<ExercisePanels, "panel" | "subscribe" | "closeView" | "replaceView">;
 type Entry =
   | { kind: "exercise"; state: ExerciseDraftState }
   | { kind: "template"; state: TemplateDraftState }
@@ -72,7 +67,7 @@ export function createLibraryDrafts({
   }
   // Drafts follow the open panel: once it closes or changes, its draft is gone.
   panels.subscribe(() => {
-    const token = panels.getSnapshot().panel?.token;
+    const token = panels.panel()?.token;
     for (const [owner, entry] of entries) {
       if (owner === token) continue;
       entries.delete(owner);
@@ -88,7 +83,7 @@ export function createLibraryDrafts({
     if (existing?.kind === kind) return existing as Extract<Entry, { kind: Kind }>;
     const entry = create();
     // Only the open panel keeps a draft.
-    if (panels.getSnapshot().panel?.token === token) entries.set(token, entry);
+    if (panels.panel()?.token === token) entries.set(token, entry);
     return entry;
   }
   /** Runs one durable save or removal at a time. Only its success leaves the panel. */

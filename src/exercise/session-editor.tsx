@@ -11,7 +11,8 @@ import {
   type WorkoutSession,
 } from "./model";
 import { useExercises } from "./provider";
-import type { WorkoutEditing, WorkoutLogMode, WorkoutView } from "./workout-editing";
+import type { WorkoutLogMode } from "./workout-editing";
+import type { ExerciseTabView, WorkoutView } from "./tab-view";
 import { ExerciseDemoSlot } from "./demo/exercise-demo";
 import { useWorkoutEdit } from "./use-workout-editing";
 import { InlineMessage } from "../components/inline-message";
@@ -34,12 +35,12 @@ function durationCaption(minutes: string) {
 
 export function SessionEditor({
   session,
-  editing,
+  tab,
   mode,
   closeLabel = null,
 }: {
   session: WorkoutSession;
-  editing: WorkoutEditing;
+  tab: ExerciseTabView;
   mode: WorkoutLogMode;
   /** Names a compact card's close control, when a panel opened the card on its own. */
   closeLabel?: string | null;
@@ -53,7 +54,7 @@ export function SessionEditor({
     countError: settingsError,
     selectedId,
     settingsOpen,
-  } = useWorkoutEdit(editing, session.id);
+  } = useWorkoutEdit(tab.edits, session.id);
   const store = useExercises();
   const sessions = store.state.kind === "ready" ? store.state.document.sessions : [];
   const [detailsOpen, setDetailsOpen] = useState(false),
@@ -111,7 +112,7 @@ export function SessionEditor({
           label={rowLabel}
           disabled={busy}
           onLinkDemo={(definition) =>
-            void editing.requestView({
+            void tab.requestView({
               kind: "exercise",
               exercise: definition,
               linkDemo: true,
@@ -250,7 +251,7 @@ export function SessionEditor({
               label="Log completed workout"
               fill
               onPress={() =>
-                void editing.requestView({ kind: "session", id: session.id, manual: true })
+                void tab.requestView({ kind: "session", id: session.id, manual: true })
               }
               disabled={busy}
             />
