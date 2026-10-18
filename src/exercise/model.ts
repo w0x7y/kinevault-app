@@ -276,6 +276,10 @@ export function parseExerciseDocument(raw: string | null): ExerciseDocument {
       : {}),
   };
 }
+/** The Active workout: the one log with a running timer, whatever its date. */
+export function activeWorkout(sessions: readonly WorkoutSession[]): WorkoutSession | null {
+  return sessions.find((session) => session.status === "active") ?? null;
+}
 export function elapsedSeconds(session: WorkoutSession, now: number): number {
   if (session.status !== "active" || session.startedAt === null)
     return session.status === "completed" ? (session.durationSeconds ?? 0) : 0;

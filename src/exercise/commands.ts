@@ -1,4 +1,5 @@
 import {
+  activeWorkout,
   createEmptySet,
   durationFromMinutes,
   elapsedSeconds,
@@ -234,10 +235,7 @@ export function createExerciseCommands({
     },
     startSession(document: ExerciseDocument, id: string): ExerciseChange<true> {
       const session = requireSession(document, id);
-      if (
-        session.status !== "planned" ||
-        document.sessions.some((item) => item.status === "active")
-      )
+      if (session.status !== "planned" || activeWorkout(document.sessions))
         throw new Error("A workout is already active or this workout has finished.");
       return replaceSession(document, {
         ...session,

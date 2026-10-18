@@ -1,11 +1,12 @@
 import { parseDay } from "../calendar/dates.ts";
 import type { WorkoutImportFlowSource } from "./import/import-flow.ts";
 import { createLibraryDrafts } from "./library-drafts.ts";
-import type {
-  ExerciseDefinition,
-  ExerciseDocument,
-  WorkoutSession,
-  WorkoutTemplate,
+import {
+  activeWorkout,
+  type ExerciseDefinition,
+  type ExerciseDocument,
+  type WorkoutSession,
+  type WorkoutTemplate,
 } from "./model.ts";
 import type { createExercisePersistence } from "./persistence.ts";
 import { createWorkoutEditing, workoutLogMode, type WorkoutLogMode } from "./workout-editing.ts";
@@ -113,7 +114,7 @@ export function exerciseTabView({
       ? (sessions.find((session) => session.id === content.id) ?? null)
       : null;
   // The edit owner preserves the Active workout's fields across panel, search and calendar changes.
-  const workspace = open ? null : (sessions.find((session) => session.status === "active") ?? null);
+  const workspace = open ? null : activeWorkout(sessions);
   const planned = sessions.filter(
     (session) => session.date === date && session.status === "planned",
   );
@@ -249,8 +250,7 @@ export function createExerciseTabView({
     // replaces it fades in where the live card was. It stays marked until it hides; a card that is
     // simply there on arrival doesn't animate.
     if (live || (dailyShown && !view.showDailyWorkout)) liveEnded = false;
-    else if (wasLive && !document?.sessions.some((session) => session.status === "active"))
-      liveEnded = true;
+    else if (wasLive && !activeWorkout(document?.sessions ?? [])) liveEnded = true;
     wasLive = live;
     dailyShown = view.showDailyWorkout;
     return {
@@ -379,8 +379,7 @@ export function createExerciseTabView({
     openLiveWorkout(id: string) {
       if (panel?.content.kind === "session" && panel.content.id === id)
         return Promise.resolve(false);
-      if (!document()?.sessions.some((session) => session.id === id && session.status === "active"))
-        return Promise.resolve(false);
+      if (activeWorkout(document()?.sessions ?? [])?.id !== id) return Promise.resolve(false);
       return requestView({ kind: "session", id });
     },
   };

@@ -124,7 +124,8 @@ workout is a Live workout card that opens its page; when that workout ends, the
 snapshot marks the day's card that replaces it to fade in. Workout edits open that page
 after a Start from the day, keep the edit when its back button leaves it (the
 `leave` action saves first and stays put if the save fails), and don't save a
-workout before opening its own page. The app header reads the Active workout from
+workout before opening its own page. `activeWorkout` in the exercise model is the one
+lookup of the Active workout. The app header reads the Active workout from
 the exercise store and opens the page through the `liveWorkout` route request. Workout edits own the selected exercise and the
 planned-set settings disclosure, which reopens when a planned count is invalid, and
 the same log mode drives planned-count validation. The edit's snapshot carries that

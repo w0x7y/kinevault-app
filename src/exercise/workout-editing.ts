@@ -1,4 +1,5 @@
 import {
+  activeWorkout,
   createEmptySet,
   durationFromMinutes,
   isBlankSet,
@@ -300,7 +301,7 @@ export function createWorkoutEditing(
    */
   function depart(content: WorkoutView): true | Promise<boolean> {
     const panel = panels.panel();
-    const active = document()?.sessions.find((session) => session.status === "active");
+    const active = activeWorkout(document()?.sessions ?? []);
     const departing = (
       panel?.content.kind === "session"
         ? [panel.content.id]
