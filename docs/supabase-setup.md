@@ -121,7 +121,11 @@ The follow-up attempt was rejected with HTTP 402 because the current plan does
 not include it; a read-back confirmed protection is still disabled. The local
 Management API token is ready for a retry after upgrading the organization.
 
-Use Resend SMTP for account emails and Vercel for the exported Track web app.
+Account emails currently go through Gmail SMTP (`smtp.gmail.com`, sender
+`kinevault.track@gmail.com`, name "KineVault"), set by hand in the project's Auth
+settings. Gmail caps how many messages an account sends a day, so Resend SMTP with a
+verified sender domain is still the plan before a public release. Use Vercel for the
+exported Track web app.
 `vercel.json` defines the static build and clean routes. Create the Vercel project
 from `Application/`, add the two public Supabase environment variables (and
 `EXPO_PUBLIC_SENTRY_DSN` if you use Sentry), and use its
@@ -135,7 +139,8 @@ from the same origin plus Expo Router's one inline script by its SHA-256 hash
 `o4512218785120256.ingest.de.sentry.io`; a DSN for another Sentry organization or
 region needs its host added. Images, video, styles and fonts aren't restricted.
 
-Neither Resend nor Vercel credentials are connected in this workspace. Public email
+Neither Resend nor Vercel credentials are connected in this workspace. The full
+configuration script below replaces the Gmail SMTP settings with Resend's. Public email
 delivery also requires a verified sender domain that you own. Once those are ready,
 the prepared configuration script appends callbacks while preserving the friend's
 Site URL and existing redirects. Put server credentials in an ignored
@@ -156,8 +161,8 @@ node --env-file=.env.auth.local scripts/configure-auth.mjs --apply
 
 The first command shows the proposed settings without credentials. The second
 applies Resend SMTP and the additive redirect list, and sets the server password
-minimum to at least 10 characters while preserving stricter existing settings. The current MCP server cannot
-manage Auth configuration, so SMTP and the password minimum have not been applied yet.
+minimum to at least 10 characters while preserving stricter existing settings. It
+hasn't been run, so Resend and the password minimum aren't applied yet.
 The native and localhost callbacks listed below were added to the redirect allowlist
 by hand on 2026-10-18. Before that the list was empty, so confirmation links fell back
 to the default Site URL, `http://localhost:3000`.
