@@ -60,7 +60,7 @@ and docs/ describe behavior and link here instead of repeating status.
 - [ ] Decide on token-hash email links on a never-signed-in device: if every Track email template uses `{{ .ConfirmationURL }}` (PKCE), refuse token-hash links. Check with the friend's shared project first. See docs/security-remediation.md.
 - [ ] Move the Android signing secrets into a GitHub Environment limited to `main` with a required reviewer. The workflow already uses the `android-release` environment; create it, move the two secrets and delete the repository copies (docs/android-apk.md).
 - [ ] Enable Supabase Auth CAPTCHA (e.g. Turnstile) so sign-up, resend and reset emails can't be spammed through the shared project; the in-app resend cap is only a convenience.
-- [ ] Before deploying the web app, add `script-src` and `connect-src` to the Content-Security-Policy in `vercel.json` and test it against the export.
+- [x] Before deploying the web app, add `script-src` and `connect-src` to the Content-Security-Policy in `vercel.json` and test it against the export. Checked locally against `npm run export:web` served with these headers; recheck in the browser console after the first Vercel deploy.
 - [ ] Remove the `localhost` callbacks and the `http://localhost:3000` Site URL from the production Auth settings, or move local testing to a separate Supabase project.
 - [ ] Apply the 10-character password minimum on the server (`password_min_length`); today only the app enforces it.
 - [x] Pin GitHub Actions to commit SHAs instead of tags, with the release tag in a comment. Update the SHA and comment together when bumping an action.

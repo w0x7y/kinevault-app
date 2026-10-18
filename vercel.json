@@ -10,7 +10,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
+          "value": "script-src 'self' 'sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8='; connect-src 'self' blob: data: https://kkywpvkckxniriatelta.supabase.co https://world.openfoodfacts.org https://o4512218785120256.ingest.de.sentry.io; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
         },
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
