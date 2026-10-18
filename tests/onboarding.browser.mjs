@@ -825,6 +825,22 @@ test("account onboarding also gates age-skipped setup", async (t) => {
   await heading(page, "Calories");
 });
 
+test("a signed-in account without setup isn't offered the sign-in screen on the welcome step", async (t) => {
+  const page = await open(t, null, { accountSignedIn: true });
+  await button(page, "Let's go").waitFor();
+  assert.equal(await button(page, "I already have an account").count(), 0);
+  assert.equal(
+    await page.getByText("Your answers are saved to your account after you sign in.").count(),
+    0,
+  );
+});
+
+test("a signed-out guest can still reach the sign-in screen from the welcome step", async (t) => {
+  const page = await open(t, null);
+  await button(page, "I already have an account").click();
+  await heading(page, "Welcome back");
+});
+
 test("creating an account with a registered email says to log in and promises no email", async (t) => {
   const page = await openAccountAtReview(t, { signupConfirmation: true });
   page.accountFixture.signupExisting = true;
