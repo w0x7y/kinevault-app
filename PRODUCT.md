@@ -196,8 +196,7 @@ emulator checks cover the new photo flows, durable reopening, carousel scrolling
 and larger text. Physical-iPhone Profile acceptance remains separate from the
 completed workout checks.
 
-Food search needs no credentials or hosted service. API and shared-login
-requirements remain undecided.
+Food search needs no credentials or hosted service.
 
 ## Brand commitments
 
