@@ -19,6 +19,7 @@ import { readMembership, type Membership } from "./membership";
 import { useConnectivity } from "../connectivity/provider";
 import { useAccountManagementAttempts } from "./use-management-attempts";
 import { accountTrackingDocument } from "./tracking-documents";
+import { recentGoogleSignIn } from "./management";
 
 /** Routine settings render between the account summary and the account's data, sign-out and
  * deletion actions, which sit last and apart. `importRow` joins the data group's rows. */
@@ -45,7 +46,9 @@ export function AccountSettings({
     notice: managementNotice,
     deletion,
     attempts,
+    proof,
   } = useAccountManagementAttempts({ account, storage, offline });
+  const googleConfirmed = proof === "google" && recentGoogleSignIn(account.session?.access_token);
   const userId = account.user?.id;
   useEffect(() => {
     if (!userId) return;
@@ -260,14 +263,32 @@ export function AccountSettings({
                       data first. Photos on other devices must be removed on those devices.
                     </AppText>
                   </View>
-                  <TextField
-                    size="large"
-                    label="Current password"
-                    value={deletion.password}
-                    onChange={attempts.setPassword}
-                    kind="password"
-                    disabled={working}
-                  />
+                  {proof === "password" ? (
+                    <TextField
+                      size="large"
+                      label="Current password"
+                      value={deletion.password}
+                      onChange={attempts.setPassword}
+                      kind="password"
+                      disabled={working}
+                    />
+                  ) : (
+                    <View style={{ gap: spacing.sm }}>
+                      <AppText variant="caption" muted>
+                        {googleConfirmed
+                          ? "Google sign-in confirmed. Delete within 10 minutes of signing in."
+                          : "Your account uses Google sign-in. Sign in with Google again to confirm it's you, then delete within 10 minutes."}
+                      </AppText>
+                      {!googleConfirmed && (
+                        <AppButton
+                          label="Sign in with Google again"
+                          icon="google"
+                          disabled={offline || working || account.busy}
+                          onPress={() => void account.signInWithGoogle()}
+                        />
+                      )}
+                    </View>
+                  )}
                   <TextField
                     size="large"
                     label="Type DELETE to confirm"
@@ -292,7 +313,7 @@ export function AccountSettings({
                         working ||
                         account.busy ||
                         deletion.confirmation !== "DELETE" ||
-                        !deletion.password
+                        (proof === "password" ? !deletion.password : !googleConfirmed)
                       }
                       onPress={() => void attempts.deleteData()}
                     />

@@ -81,7 +81,7 @@ script rejects them before making a request.
 ## Open findings, 2026-10-17
 
 A review on 17 October 2026 recorded these. Each was checked against the code;
-none is fixed yet.
+none was fixed then.
 
 ### Token-hash email links on a guest device
 
@@ -110,9 +110,14 @@ Found 18 October 2026, after "Continue with Google" was added. The
 `delete-account` function (`supabase/functions/delete-account/handler.ts`) confirms
 deletion with `signInWithPassword`, and an account created through Google has no
 password, so its deletion always fails. Accounts that also have an email password
-are unaffected. The fix needs a server change and a redeploy: confirm OAuth-only
-accounts by a recent sign-in instead (sign in with Google again, then check the
-session's sign-in time in the function), or by `reauthenticate()`'s emailed code.
+are unaffected.
+
+Fixed in code on 18 October 2026, not deployed yet: without a password, the function
+accepts the caller session's own Google sign-in from the last 10 minutes (the `oauth`
+entry of the access token's `amr` claim). Settings offers "Sign in with Google again"
+for Google-only accounts. `reauthenticate()` wasn't used: its emailed code is only
+checked by a password change, so the function couldn't verify it. See
+[account management](account-management.md).
 
 ### Development tunnels are public
 

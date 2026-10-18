@@ -20,7 +20,8 @@ type AccountManagementPorts = {
   offline: () => boolean;
   readPhoto: Parameters<typeof buildAccountExport>[0]["readPhoto"];
   deliverExport: (contents: string, isCurrent: () => boolean) => Promise<void>;
-  deleteOnServer: (ownerId: string, password: string) => Promise<void>;
+  deletionProof: "password" | "google";
+  deleteOnServer: (ownerId: string, password: string | null) => Promise<void>;
   removePhoto: Parameters<typeof deleteAccountData>[0]["removePhoto"];
   onDeleted: () => void;
 };
@@ -185,7 +186,7 @@ export function createAccountManagementAttempts(ports: AccountManagementPorts) {
               storage: ports.storage,
               ownerId,
               isCurrent: () => attempt.isCurrent() && isOwner(),
-              password,
+              password: ports.deletionProof === "google" ? null : password,
               confirmation,
               deleteOnServer: (secret) => ports.deleteOnServer(ownerId, secret),
               removePhoto: ports.removePhoto,

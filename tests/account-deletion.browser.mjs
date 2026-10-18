@@ -8,6 +8,7 @@ import {
   fixturePassword,
   fixtureUserId,
   installAccountFixture,
+  sessionFor,
 } from "./helpers/account-fixture.mjs";
 
 const baseURL = process.env.KINE_PREVIEW_URL || "http://localhost:8081";
@@ -75,7 +76,7 @@ async function settings(page) {
   await page.getByText("All changes saved to your account.", { exact: true }).waitFor();
 }
 
-async function open(t) {
+async function open(t, fixture = {}) {
   const browser = await launchBrowser();
   t.after(() => browser.close());
   const context = await browser.newContext({
@@ -107,7 +108,7 @@ async function open(t) {
     },
     { profileKey, waterKey, foodKey, goalKey, profile, water, food, goal, preserved, ownerPrefix },
   );
-  const account = await installAccountFixture(context);
+  const account = await installAccountFixture(context, fixture);
   const deletion = [0, 1].map(() => ({ started: deferred(), response: deferred() }));
   t.after(() => deletion.forEach((attempt) => attempt.response.resolve()));
   const deletionRequests = [];
@@ -331,4 +332,38 @@ test("Settings gates deletion, clears submitted passwords, preserves failed data
   assert.equal(reloaded.auth, null);
   assert.deepEqual(reloaded.owned, after.owned);
   assert.deepEqual(reloaded.preserved, preserved);
+});
+
+test("a Google-only account confirms deletion with a fresh Google sign-in instead of a password", async (t) => {
+  const signedIn = (minutesAgo) =>
+    sessionFor({
+      providers: ["google"],
+      amr: [{ method: "oauth", timestamp: Math.floor(Date.now() / 1000) - minutesAgo * 60 }],
+    });
+  const { page, account, deletion, deletionRequests } = await open(t, { session: signedIn(60) });
+  await button(page, "Delete account").click();
+  const confirmation = page.getByLabel("Type DELETE to confirm", { exact: true });
+  const submit = button(page, "Permanently delete my account");
+  assert.equal(await page.getByLabel("Current password", { exact: true }).count(), 0);
+  await page.getByText(/Sign in with Google again to confirm it's you/).waitFor();
+  await confirmation.fill("DELETE");
+  assert.equal(await submit.isDisabled(), true);
+
+  // The fixture's PKCE exchange now returns a session signed in with Google just now.
+  account.session = signedIn(0);
+  await button(page, "Sign in with Google again").click();
+  await page.waitForURL((url) => url.pathname !== "/settings" && url.pathname !== "/auth/callback");
+  await settings(page);
+  await button(page, "Delete account").click();
+  await page.getByText(/Google sign-in confirmed/).waitFor();
+  assert.equal(await button(page, "Sign in with Google again").count(), 0);
+  await confirmation.fill("DELETE");
+  await Promise.all([submit.click(), deletion[0].started.promise]);
+  assert.deepEqual(deletionRequests[0], {
+    method: "POST",
+    body: { confirmation: "DELETE" },
+    authorization: `Bearer ${account.session.access_token}`,
+  });
+  deletion[0].response.resolve();
+  await page.getByRole("alert").filter({ hasText: "sign in with Google again" }).waitFor();
 });

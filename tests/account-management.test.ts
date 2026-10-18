@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildAccountExport, deleteAccountData } from "../src/account/management.ts";
+import {
+  buildAccountExport,
+  deleteAccountData,
+  deletionProof,
+  recentGoogleSignIn,
+} from "../src/account/management.ts";
 import {
   createAccountStorage,
   type AccountLocalStorage,
@@ -424,6 +429,50 @@ test("server rejects victim IDs, missing auth, wrong passwords, identity mismatc
       false,
     );
   }
+});
+
+test("Settings asks Google-only accounts for a fresh Google sign-in instead of a password", () => {
+  const user = (providers?: string[]) =>
+    ({ app_metadata: providers ? { providers } : {} }) as Parameters<typeof deletionProof>[0];
+  assert.equal(deletionProof(user(["google"])), "google");
+  assert.equal(deletionProof(user(["email", "google"])), "password");
+  assert.equal(deletionProof(user(["email"])), "password");
+  assert.equal(deletionProof(user()), "password");
+  const now = Date.UTC(2026, 9, 18, 12);
+  const token = (amr: unknown) =>
+    `header.${Buffer.from(JSON.stringify({ amr })).toString("base64url")}.sig`;
+  const at = (minutesAgo: number) => now / 1000 - minutesAgo * 60;
+  assert.equal(recentGoogleSignIn(token([{ method: "oauth", timestamp: at(9) }]), now), true);
+  assert.equal(recentGoogleSignIn(token([{ method: "oauth", timestamp: at(11) }]), now), false);
+  assert.equal(recentGoogleSignIn(token([{ method: "password", timestamp: at(1) }]), now), false);
+  assert.equal(recentGoogleSignIn("not-a-jwt", now), false);
+  assert.equal(recentGoogleSignIn(undefined, now), false);
+});
+
+test("without a password, only the caller session's own recent Google sign-in confirms deletion", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const token = (amr: unknown) =>
+    `Bearer header.${Buffer.from(JSON.stringify({ sub: "a", amr })).toString("base64url")}.sig`;
+  const fresh = token([{ method: "oauth", timestamp: now - 60 }]);
+  for (const stale of [
+    token([{ method: "oauth", timestamp: now - 11 * 60 }]),
+    token([{ method: "password", timestamp: now - 60 }]),
+    token("oauth"),
+    "Bearer not-a-jwt",
+  ]) {
+    const h = serverHarness();
+    const response = await h.request({ confirmation: "DELETE" }, stale);
+    assert.equal(response.status, 403);
+    assert.deepEqual(await response.json(), { error: "Recent Google sign-in required" });
+    assert.equal(h.actions.length, 1, h.actions.join());
+  }
+  const h = serverHarness();
+  assert.equal((await h.request({ password: "", confirmation: "DELETE" }, fresh)).status, 400);
+  assert.equal((await h.request({ confirmation: "DELETE" }, fresh)).status, 200);
+  const caller = fresh.slice("Bearer ".length);
+  assert.deepEqual(h.actions, [`authenticate:${caller}`, `revoke:${caller}`, "delete:a"]);
+  const unverified = serverHarness({ authenticate: async () => null });
+  assert.equal((await unverified.request({ confirmation: "DELETE" }, fresh)).status, 401);
 });
 
 test("revocation and admin deletion failures cannot return deletion success", async () => {
