@@ -120,7 +120,7 @@ deletion with `signInWithPassword`, and an account created through Google has no
 password, so its deletion always fails. Accounts that also have an email password
 are unaffected.
 
-Fixed in code on 18 October 2026, not deployed yet: without a password, the function
+Fixed and deployed on 18 October 2026: without a password, the function
 accepts the caller session's own Google sign-in from the last 10 minutes (the `oauth`
 entry of the access token's `amr` claim). Settings offers "Sign in with Google again"
 for Google-only accounts. `reauthenticate()` wasn't used: its emailed code is only
@@ -163,7 +163,7 @@ session can keep guessing the password. `tracked-workout` fetches a Tracked page
 (up to 2 MiB and three redirects) for every signed-in request. Both cap the
 request body (2,048 and 512 bytes), not the request count.
 
-`delete-account` is limited since 18 October 2026, not deployed yet: after
+`delete-account` is limited since 18 October 2026 (deployed that day): after
 authenticating the caller, it records the attempt through
 `record_account_deletion_attempt` (migration `20261018120000_account_deletion_attempts.sql`)
 and replies 429 once the account made 5 attempts in the past hour, before any

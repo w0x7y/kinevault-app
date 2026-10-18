@@ -62,8 +62,8 @@ Four later migrations are in `supabase/migrations/`:
   table and the `exercise-demos` storage bucket. It was applied on 2026-10-13;
   see [exercise demos](exercise-demos.md).
 - `20261018120000_account_deletion_attempts.sql` adds the per-account attempt limit
-  that `delete-account` checks. It is not applied; apply it before deploying the
-  function, which otherwise replies 503 to every deletion.
+  that `delete-account` checks. It was applied on 2026-10-18, before the function
+  was deployed.
 
 The migration was applied to the inspected empty project. Verification passed for
 account isolation, anonymous denial, subscription/role write denial, signup defaults,
@@ -80,10 +80,10 @@ and [row-level security documentation](https://supabase.com/docs/guides/database
 
 ## Edge Functions
 
-| Function          | Purpose                                                        | Status                                                                        |
-| ----------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `delete-account`  | Deletes the signed-in account                                  | Not deployed. See [account management](account-management.md#server-rollout). |
-| `tracked-workout` | Downloads Tracked share pages for the web app's workout import | Deployed 2026-10-13 with `verify_jwt = true`                                  |
+| Function          | Purpose                                                        | Status                                                                                                        |
+| ----------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `delete-account`  | Deletes the signed-in account                                  | Deployed 2026-10-18 with `verify_jwt = true`. See [account management](account-management.md#server-rollout). |
+| `tracked-workout` | Downloads Tracked share pages for the web app's workout import | Deployed 2026-10-13 with `verify_jwt = true`                                                                  |
 
 `tracked-workout` exists because browsers can't read Tracked's pages. It needs no
 secrets and no service-role key: it uses the platform's `SUPABASE_URL` and
