@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createExercisePersistence, exerciseStorageKey } from "../src/exercise/persistence.ts";
+import {
+  createExercisePersistence,
+  exerciseStorageKey,
+  type ExerciseWrite,
+} from "../src/exercise/persistence.ts";
 import {
   parseExerciseDocument,
   type ExerciseSet,
@@ -21,6 +25,15 @@ function deferred<T>() {
   });
   return { promise, resolve, reject };
 }
+/** The value a write saved; fails the test when it didn't save. */
+async function value<Value>(write: Promise<ExerciseWrite<Value>>): Promise<Value> {
+  const result = await write;
+  if (result.kind !== "saved") assert.fail(`Expected a saved write: ${JSON.stringify(result)}`);
+  return result.value;
+}
+const ok = <Value>(value: Value) => ({ kind: "saved", value }) as const;
+const rejected = (reason: string) => ({ kind: "rejected", reason }) as const;
+const unavailable = { kind: "unavailable" } as const;
 function fixture(initial: string | null = null, development = false) {
   let raw = initial,
     clock = 1000000,
@@ -69,17 +82,19 @@ function doc(store: ReturnType<typeof fixture>["store"]) {
   return state.document;
 }
 async function planned(f: ReturnType<typeof fixture>, name = "Strength") {
-  const exerciseId = await f.store.saveExercise({
-    name: "Squat",
-    muscleGroup: "Legs",
-    equipment: "Barbell",
-    notes: "",
-    tracking: "single",
-  });
+  const exerciseId = await value(
+    f.store.saveExercise({
+      name: "Squat",
+      muscleGroup: "Legs",
+      equipment: "Barbell",
+      notes: "",
+      tracking: "single",
+    }),
+  );
   assert.ok(exerciseId);
-  const workoutId = await f.store.saveWorkout({ name, exerciseIds: [exerciseId] });
+  const workoutId = await value(f.store.saveWorkout({ name, exerciseIds: [exerciseId] }));
   assert.ok(workoutId);
-  const sessionId = await f.store.planWorkout({ date: "2026-10-04", workoutId });
+  const sessionId = await value(f.store.planWorkout({ date: "2026-10-04", workoutId }));
   assert.ok(sessionId);
   return { sessionId, exerciseId, workoutId };
 }
@@ -95,9 +110,11 @@ function entered(f: ReturnType<typeof fixture>, sessionId: string, reps = "8"): 
 test("library and templates preserve history and resolve live definitions before retained snapshots", async () => {
   const f = await ready();
   const { exerciseId, sessionId } = await planned(f);
-  const workoutId = await f.store.saveWorkout({ name: "Leg day", exerciseIds: [exerciseId] });
+  const workoutId = await value(
+    f.store.saveWorkout({ name: "Leg day", exerciseIds: [exerciseId] }),
+  );
   assert.ok(workoutId);
-  assert.equal(
+  assert.deepEqual(
     await f.store.saveExercise({
       id: exerciseId,
       name: "Front squat",
@@ -106,9 +123,9 @@ test("library and templates preserve history and resolve live definitions before
       notes: "new",
       tracking: "single",
     }),
-    exerciseId,
+    ok(exerciseId),
   );
-  const first = await f.store.planWorkout({ date: "2026-10-03", workoutId });
+  const first = await value(f.store.planWorkout({ date: "2026-10-03", workoutId }));
   assert.ok(first);
   assert.equal(
     doc(f.store).sessions.find((session) => session.id === first)!.exercises[0]!.exercise.name,
@@ -118,34 +135,38 @@ test("library and templates preserve history and resolve live definitions before
     doc(f.store).sessions.find((session) => session.id === sessionId)!.exercises[0]!.exercise.name,
     "Squat",
   );
-  assert.equal(await f.store.removeExercise(exerciseId), true);
-  const second = await f.store.planWorkout({ date: "2026-10-02", workoutId });
+  assert.deepEqual(await f.store.removeExercise(exerciseId), ok(true));
+  const second = await value(f.store.planWorkout({ date: "2026-10-02", workoutId }));
   assert.ok(second);
   assert.equal(
     doc(f.store).sessions.find((session) => session.id === second)!.exercises[0]!.exercise.name,
     "Squat",
   );
-  assert.equal(
+  assert.deepEqual(
     await f.store.saveWorkout({ id: workoutId, name: "Renamed", exerciseIds: [exerciseId] }),
-    workoutId,
+    ok(workoutId),
   );
-  assert.equal(await f.store.removeWorkout(workoutId), true);
+  assert.deepEqual(await f.store.removeWorkout(workoutId), ok(true));
   assert.equal(doc(f.store).sessions.length, 3);
 });
 test("ordered templates and sessions support repeated library exercise occurrences", async () => {
   const f = await ready();
   const { exerciseId, sessionId } = await planned(f);
-  const next = await f.store.saveExercise({
-    name: "Press",
-    muscleGroup: "",
-    equipment: "",
-    notes: "",
-    tracking: "sides",
-  });
+  const next = await value(
+    f.store.saveExercise({
+      name: "Press",
+      muscleGroup: "",
+      equipment: "",
+      notes: "",
+      tracking: "sides",
+    }),
+  );
   assert.ok(next);
-  const workoutId = await f.store.saveWorkout({ name: "Upper", exerciseIds: [next, exerciseId] });
+  const workoutId = await value(
+    f.store.saveWorkout({ name: "Upper", exerciseIds: [next, exerciseId] }),
+  );
   assert.ok(workoutId);
-  const id = await f.store.planWorkout({ date: "2026-10-01", workoutId });
+  const id = await value(f.store.planWorkout({ date: "2026-10-01", workoutId }));
   assert.ok(id);
   assert.deepEqual(
     doc(f.store)
@@ -154,13 +175,13 @@ test("ordered templates and sessions support repeated library exercise occurrenc
     [next, exerciseId],
   );
   const originalRows = doc(f.store).sessions.find((session) => session.id === sessionId)!.exercises;
-  assert.equal(
+  assert.deepEqual(
     await f.store.updateSession({
       id: sessionId,
       name: "Strength",
       exercises: [...originalRows, { ...originalRows[0]!, id: "repeated-occurrence" }],
     }),
-    true,
+    ok(true),
   );
   const rows = doc(f.store).sessions.find((session) => session.id === sessionId)!.exercises;
   assert.equal(rows.length, 2);
@@ -191,7 +212,7 @@ test("rapid drafts serialize without losing the last input and detach caller-own
   });
   assert.equal(doc(f.store).sessions[0]!.name, "Strength");
   gate.resolve();
-  assert.deepEqual(await Promise.all([first, second, third]), [true, true, true]);
+  assert.deepEqual(await Promise.all([first, second, third]), [ok(true), ok(true), ok(true)]);
   assert.equal(doc(f.store).sessions[0]!.name, "Third");
   assert.equal((doc(f.store).sessions[0]!.exercises[0]!.sets[0] as { reps: string }).reps, "-");
   assert.equal(parseExerciseDocument(f.raw()).sessions[0]!.name, "Third");
@@ -199,25 +220,25 @@ test("rapid drafts serialize without losing the last input and detach caller-own
 test("active restart keeps start time, drafts and captured date across midnight", async () => {
   const f = await ready();
   const { sessionId } = await planned(f);
-  assert.equal(await f.store.startSession(sessionId), true);
-  assert.equal(
+  assert.deepEqual(await f.store.startSession(sessionId), ok(true));
+  assert.deepEqual(
     await f.store.updateSession({
       id: sessionId,
       name: "Strength",
       exercises: entered(f, sessionId),
     }),
-    true,
+    ok(true),
   );
   const restored = await ready(f.raw());
   restored.setNow(1120000);
   assert.equal(doc(restored.store).sessions[0]!.startedAt, 1000000);
-  assert.equal(
+  assert.deepEqual(
     await restored.store.completeSession({
       id: sessionId,
       name: "Strength",
       exercises: doc(restored.store).sessions[0]!.exercises,
     }),
-    true,
+    ok(true),
   );
   assert.equal(doc(restored.store).sessions[0]!.durationSeconds, 120);
   assert.equal(doc(restored.store).sessions[0]!.date, "2026-10-04");
@@ -225,7 +246,7 @@ test("active restart keeps start time, drafts and captured date across midnight"
 test("double starts and competing active workouts are rejected atomically", async () => {
   const f = await ready();
   const { sessionId, workoutId } = await planned(f);
-  const other = await f.store.planWorkout({ date: "2026-10-05", workoutId });
+  const other = await value(f.store.planWorkout({ date: "2026-10-05", workoutId }));
   assert.ok(other);
   assert.deepEqual(
     await Promise.all([
@@ -233,7 +254,11 @@ test("double starts and competing active workouts are rejected atomically", asyn
       f.store.startSession(sessionId),
       f.store.startSession(other),
     ]),
-    [true, false, false],
+    [
+      ok(true),
+      rejected("A workout is already active or this workout has finished."),
+      rejected("A workout is already active or this workout has finished."),
+    ],
   );
   assert.equal(doc(f.store).sessions.filter((session) => session.status === "active").length, 1);
 });
@@ -241,35 +266,35 @@ test("Start rejects unnamed drafts without starting their timer and accepts a co
   const f = await ready();
   const { sessionId } = await planned(f);
   for (const name of ["", "   "]) {
-    assert.equal(
+    assert.deepEqual(
       await f.store.updateSession({ id: sessionId, name, exercises: entered(f, sessionId) }),
-      true,
+      ok(true),
     );
     const raw = f.raw(),
       writes = f.writes();
-    assert.equal(await f.store.startSession(sessionId), false);
+    assert.deepEqual(await f.store.startSession(sessionId), rejected("Enter a workout name."));
     assert.equal(f.raw(), raw);
     assert.equal(f.writes(), writes);
     assert.equal(doc(f.store).sessions[0]!.status, "planned");
     assert.equal(doc(f.store).sessions[0]!.startedAt, null);
     assert.match(f.store.getSnapshot().error!, /name/i);
   }
-  assert.equal(
+  assert.deepEqual(
     await f.store.updateSession({
       id: sessionId,
       name: "Corrected",
       exercises: entered(f, sessionId),
     }),
-    true,
+    ok(true),
   );
-  assert.equal(await f.store.startSession(sessionId), true);
-  assert.equal(
+  assert.deepEqual(await f.store.startSession(sessionId), ok(true));
+  assert.deepEqual(
     await f.store.completeSession({
       id: sessionId,
       name: "Corrected",
       exercises: doc(f.store).sessions[0]!.exercises,
     }),
-    true,
+    ok(true),
   );
   assert.equal(doc(f.store).sessions[0]!.status, "completed");
 });
@@ -285,9 +310,9 @@ test("failed active completion retains running timestamp and retry measures the 
     throw new Error("Disk full");
   };
   f.setNow(1060000);
-  assert.equal(
+  assert.deepEqual(
     await f.store.completeSession({ id: sessionId, name: "Edited", exercises: rows }),
-    false,
+    unavailable,
   );
   assert.equal(f.raw(), raw);
   assert.equal(doc(f.store).sessions[0]!.status, "active");
@@ -295,9 +320,9 @@ test("failed active completion retains running timestamp and retry measures the 
   assert.ok(f.store.getSnapshot().error);
   f.storage.setItem = write;
   f.setNow(1120000);
-  assert.equal(
+  assert.deepEqual(
     await f.store.completeSession({ id: sessionId, name: "Edited", exercises: rows }),
-    true,
+    ok(true),
   );
   assert.equal(doc(f.store).sessions[0]!.durationSeconds, 120);
   assert.equal(f.store.getSnapshot().error, null);
@@ -305,59 +330,68 @@ test("failed active completion retains running timestamp and retry measures the 
 test("manual completion distinguishes unknown duration and supports validated completed edits", async () => {
   const f = await ready();
   const { sessionId } = await planned(f);
-  assert.equal(
+  assert.deepEqual(
     await f.store.completeSession({
       id: sessionId,
       name: "Manual",
       exercises: entered(f, sessionId),
       durationMinutes: "",
     }),
-    true,
+    ok(true),
   );
   assert.equal(doc(f.store).sessions[0]!.durationSeconds, null);
-  assert.equal(
+  assert.deepEqual(
     await f.store.updateSession({
       id: sessionId,
       name: "Updated",
       exercises: entered(f, sessionId, "10"),
       durationSeconds: 150,
     }),
-    true,
+    ok(true),
   );
   assert.equal(doc(f.store).sessions[0]!.durationSeconds, 150);
-  assert.equal(
+  assert.deepEqual(
     await f.store.updateSession({
       id: sessionId,
       name: "Bad",
       exercises: entered(f, sessionId, "abc"),
     }),
-    false,
+    rejected("Enter whole repetitions for each set."),
   );
   assert.equal(doc(f.store).sessions[0]!.name, "Updated");
-  assert.equal(
+  assert.deepEqual(
     await f.store.completeSession({
       id: sessionId,
       name: "Updated",
       exercises: entered(f, sessionId),
       durationMinutes: "2.5",
     }),
-    true,
+    ok(true),
   );
   assert.equal(doc(f.store).sessions[0]!.durationSeconds, 150);
-  assert.equal(await f.store.removeSession(sessionId), true);
+  assert.deepEqual(await f.store.removeSession(sessionId), ok(true));
   assert.deepEqual(doc(f.store).sessions, []);
 });
 test("invalid completion never changes the durable draft", async () => {
   const f = await ready();
   const { sessionId } = await planned(f);
   const raw = f.raw();
-  for (const input of [
-    { name: "", exercises: entered(f, sessionId) },
-    { name: "Name", exercises: [] },
-    { name: "Name", exercises: entered(f, sessionId, "0") },
-    { name: "Name", exercises: entered(f, sessionId), durationMinutes: "1e2" },
-  ])
-    assert.equal(await f.store.completeSession({ id: sessionId, ...input }), false);
+  for (const [input, reason] of [
+    [{ name: "", exercises: entered(f, sessionId) }, "Enter a workout name."],
+    [{ name: "Name", exercises: [] }, "Enter at least one set."],
+    [
+      { name: "Name", exercises: entered(f, sessionId, "0") },
+      "Enter from 1 to 100,000 repetitions for each set.",
+    ],
+    [
+      { name: "Name", exercises: entered(f, sessionId), durationMinutes: "1e2" },
+      "Enter weights and minutes as numbers of 0 or more.",
+    ],
+  ] as const)
+    assert.deepEqual(
+      await f.store.completeSession({ id: sessionId, ...input, exercises: [...input.exercises] }),
+      rejected(reason),
+    );
   assert.equal(f.raw(), raw);
 });
 test("queued stale draft cannot overwrite completion or recreate a deleted session", async () => {
@@ -380,8 +414,8 @@ test("queued stale draft cannot overwrite completion or recreate a deleted sessi
     exercises: entered(f, sessionId, "-"),
   });
   gate.resolve();
-  assert.equal(await completing, true);
-  assert.equal(await stale, false);
+  assert.deepEqual(await completing, ok(true));
+  assert.deepEqual(await stale, rejected("This workout changed. Reopen it to continue editing."));
   assert.equal(doc(f.store).sessions[0]!.name, "Finished");
   const deleting = f.store.removeSession(sessionId);
   const deletedUpdate = f.store.updateSession({
@@ -389,8 +423,11 @@ test("queued stale draft cannot overwrite completion or recreate a deleted sessi
     name: "Revive",
     exercises: entered(f, sessionId),
   });
-  assert.equal(await deleting, true);
-  assert.equal(await deletedUpdate, false);
+  assert.deepEqual(await deleting, ok(true));
+  assert.deepEqual(
+    await deletedUpdate,
+    rejected("This workout changed. Reopen it to continue editing."),
+  );
   assert.deepEqual(doc(f.store).sessions, []);
 });
 test("stop/start invalidates queued work while an in-flight write reloads its durable outcome", async () => {
@@ -417,16 +454,16 @@ test("stop/start invalidates queued work while an in-flight write reloads its du
   f.store.start();
   assert.equal(f.store.getSnapshot().state.kind, "loading");
   gate.resolve();
-  assert.deepEqual(await Promise.all([first, queued]), [false, false]);
+  assert.deepEqual(await Promise.all([first, queued]), [unavailable, unavailable]);
   await flush();
   assert.equal(doc(f.store).sessions[0]!.name, "Written");
-  assert.equal(
+  assert.deepEqual(
     await f.store.updateSession({
       id: sessionId,
       name: "Restarted",
       exercises: entered(f, sessionId),
     }),
-    true,
+    ok(true),
   );
 });
 test("corrupt and unavailable storage block edits until recovery without writing fake emptiness", async () => {
@@ -439,7 +476,10 @@ test("corrupt and unavailable storage block edits until recovery without writing
     f.store.start();
     await flush();
     assert.equal(f.store.getSnapshot().state.kind, "error");
-    assert.equal(await f.store.planWorkout({ date: "2026-10-04", workoutId: "missing" }), null);
+    assert.deepEqual(
+      await f.store.planWorkout({ date: "2026-10-04", workoutId: "missing" }),
+      unavailable,
+    );
     assert.equal(f.writes(), 0);
     f.storage.getItem = async () => null;
     f.store.retryLoad();
@@ -452,7 +492,7 @@ test("updates cannot alter captured identity, date, status or start time through
   const f = await ready();
   const { sessionId } = await planned(f);
   await f.store.startSession(sessionId);
-  assert.equal(
+  assert.deepEqual(
     await f.store.updateSession({
       id: sessionId,
       name: "Name",
@@ -461,7 +501,7 @@ test("updates cannot alter captured identity, date, status or start time through
       status: "completed",
       startedAt: 0,
     } as never),
-    true,
+    ok(true),
   );
   const saved = doc(f.store).sessions[0]!;
   assert.equal(saved.date, "2026-10-04");
@@ -474,32 +514,32 @@ test("input capture works without a browser-only clone API and never converts in
     globalThis.structuredClone = undefined as never;
     const f = await ready();
     const { sessionId } = await planned(f);
-    assert.equal(
+    assert.deepEqual(
       await f.store.updateSession({
         id: sessionId,
         name: "Native draft",
         exercises: entered(f, sessionId),
       }),
-      true,
+      ok(true),
     );
-    assert.equal(
+    assert.deepEqual(
       await f.store.completeSession({
         id: sessionId,
         name: "Native saved",
         exercises: entered(f, sessionId),
       }),
-      true,
+      ok(true),
     );
     const raw = f.raw();
     for (const durationSeconds of [NaN, Infinity, -1]) {
-      assert.equal(
+      assert.deepEqual(
         await f.store.updateSession({
           id: sessionId,
           name: "Invalid",
           exercises: entered(f, sessionId),
           durationSeconds,
         }),
-        false,
+        rejected("Invalid workout duration."),
       );
     }
     assert.equal(f.raw(), raw);
@@ -583,7 +623,7 @@ test("concurrent seed requests write once and deleted examples stay deleted acro
     [true, true],
   );
   assert.equal(f.writes(), 1);
-  assert.equal(await f.store.removeExercise("development-example-push-up"), true);
+  assert.deepEqual(await f.store.removeExercise("development-example-push-up"), ok(true));
   const restored = await ready(f.raw(), true);
   assert.equal(await restored.store.seedDevelopmentExamples(), true);
   assert.deepEqual(doc(restored.store).exercises, [demoExercises[0], demoExercises[2]]);
@@ -641,24 +681,29 @@ test("production never injects development examples even on an explicit seed req
 
 test("only a saved workout can create a new log and deleting its template preserves the log", async () => {
   const f = await ready();
-  const exerciseId = await f.store.saveExercise({
-    name: "Press",
-    muscleGroup: "chest",
-    equipment: "barbell",
-    notes: "",
-    tracking: "single",
-  });
+  const exerciseId = await value(
+    f.store.saveExercise({
+      name: "Press",
+      muscleGroup: "chest",
+      equipment: "barbell",
+      notes: "",
+      tracking: "single",
+    }),
+  );
   assert.ok(exerciseId);
   const before = f.raw();
-  assert.equal(await f.store.planWorkout({ date: "2026-10-04", workoutId: "missing" }), null);
+  assert.deepEqual(
+    await f.store.planWorkout({ date: "2026-10-04", workoutId: "missing" }),
+    rejected("This workout is no longer available."),
+  );
   assert.deepEqual(doc(f.store).sessions, []);
   assert.equal(f.raw(), before);
-  const workoutId = await f.store.saveWorkout({ name: "Chest", exerciseIds: [exerciseId] });
+  const workoutId = await value(f.store.saveWorkout({ name: "Chest", exerciseIds: [exerciseId] }));
   assert.ok(workoutId);
-  const sessionId = await f.store.planWorkout({ date: "2026-10-04", workoutId });
+  const sessionId = await value(f.store.planWorkout({ date: "2026-10-04", workoutId }));
   assert.ok(sessionId);
-  assert.equal(await f.store.removeWorkout(workoutId), true);
-  assert.equal(await f.store.startSession(sessionId), true);
+  assert.deepEqual(await f.store.removeWorkout(workoutId), ok(true));
+  assert.deepEqual(await f.store.startSession(sessionId), ok(true));
   assert.equal(doc(f.store).sessions[0]!.exercises[0]!.exercise.name, "Press");
 });
 test("legacy ad hoc logs remain editable and retain their date after loading", async () => {
@@ -679,11 +724,11 @@ test("legacy ad hoc logs remain editable and retain their date after loading", a
     ],
   };
   const f = await ready(JSON.stringify(initial));
-  assert.equal(
+  assert.deepEqual(
     await f.store.updateSession({ id: "old-ad-hoc", name: "Edited", exercises: [] }),
-    true,
+    ok(true),
   );
-  assert.equal(await f.store.startSession("old-ad-hoc"), true);
+  assert.deepEqual(await f.store.startSession("old-ad-hoc"), ok(true));
   assert.equal(doc(f.store).sessions[0]!.date, "2026-10-03");
 });
 
@@ -696,7 +741,7 @@ test("planning preserves the trimmed name of a legacy saved workout", async () =
     workouts: doc(f.store).workouts.map((workout) => ({ ...workout, name: "  Legacy strength  " })),
   };
   const restored = await ready(JSON.stringify(initial));
-  const sessionId = await restored.store.planWorkout({ date: "2026-10-03", workoutId });
+  const sessionId = await value(restored.store.planWorkout({ date: "2026-10-03", workoutId }));
   assert.ok(sessionId);
   assert.equal(doc(restored.store).sessions[0]!.name, "Legacy strength");
 });
@@ -725,25 +770,27 @@ test("development seeding cannot overwrite corrupt or unreadable storage during 
 test("configured template set counts persist through restart and seed matching blank sets without totals", async () => {
   const f = await ready();
   const { exerciseId, workoutId } = await planned(f);
-  const sidesId = await f.store.saveExercise({
-    name: "Curl",
-    muscleGroup: "",
-    equipment: "",
-    notes: "",
-    tracking: "sides",
-  });
+  const sidesId = await value(
+    f.store.saveExercise({
+      name: "Curl",
+      muscleGroup: "",
+      equipment: "",
+      notes: "",
+      tracking: "sides",
+    }),
+  );
   assert.ok(sidesId);
-  assert.equal(
+  assert.deepEqual(
     await f.store.saveWorkout({
       id: workoutId,
       name: "Configured",
       exerciseIds: [exerciseId, sidesId],
       setCounts: { [exerciseId]: 3, [sidesId]: 2 },
     }),
-    workoutId,
+    ok(workoutId),
   );
   const restored = await ready(f.raw());
-  const sessionId = await restored.store.planWorkout({ date: "2026-10-05", workoutId });
+  const sessionId = await value(restored.store.planWorkout({ date: "2026-10-05", workoutId }));
   assert.ok(sessionId);
   const rows = doc(restored.store).sessions.find((item) => item.id === sessionId)!.exercises;
   assert.deepEqual(
@@ -772,13 +819,15 @@ test("configured template set counts persist through restart and seed matching b
 test("editing without set counts preserves configured counts across reordering and trims removed exercises", async () => {
   const f = await ready();
   const { exerciseId, workoutId } = await planned(f);
-  const next = await f.store.saveExercise({
-    name: "Press",
-    muscleGroup: "",
-    equipment: "",
-    notes: "",
-    tracking: "single",
-  });
+  const next = await value(
+    f.store.saveExercise({
+      name: "Press",
+      muscleGroup: "",
+      equipment: "",
+      notes: "",
+      tracking: "single",
+    }),
+  );
   assert.ok(next);
   await f.store.saveWorkout({
     id: workoutId,
@@ -790,7 +839,7 @@ test("editing without set counts preserves configured counts across reordering a
   assert.deepEqual(doc(f.store).workouts[0]!.setCounts, { [exerciseId]: 3, [next]: 0 });
   await f.store.saveWorkout({ id: workoutId, name: "Removed", exerciseIds: [next] });
   assert.deepEqual(doc(f.store).workouts[0]!.setCounts, { [next]: 0 });
-  assert.equal((await f.store.planWorkout({ date: "2026-10-06", workoutId })) !== null, true);
+  assert.equal((await f.store.planWorkout({ date: "2026-10-06", workoutId })).kind, "saved");
   assert.equal(doc(f.store).sessions.at(-1)!.exercises[0]!.sets.length, 0);
 });
 test("legacy omitted counts plan zero rows and explicit invalid counts never change storage", async () => {
@@ -800,14 +849,14 @@ test("legacy omitted counts plan zero rows and explicit invalid counts never cha
   assert.equal(doc(f.store).sessions[0]!.exercises[0]!.sets.length, 0);
   const before = f.raw();
   for (const setCounts of [{ missing: 3 }, { [exerciseId]: 101 }]) {
-    assert.equal(
+    assert.deepEqual(
       await f.store.saveWorkout({
         id: workoutId,
         name: "Invalid",
         exerciseIds: [exerciseId],
         setCounts,
       } as never),
-      null,
+      rejected("Set counts must be whole numbers from 0 to 100 for selected exercises."),
     );
   }
   assert.equal(f.raw(), before);
@@ -823,9 +872,9 @@ test("single-load completion drops untouched placeholders and retains unlogged e
     id: "unlogged",
     sets: [{ id: "unlogged-set", kind: "single", reps: "", weightKg: "" }],
   });
-  assert.equal(
+  assert.deepEqual(
     await f.store.completeSession({ id: sessionId, name: "One set", exercises: rows }),
-    true,
+    ok(true),
   );
   const saved = doc(f.store).sessions[0]!;
   assert.deepEqual(
@@ -846,52 +895,59 @@ test("completed edits omit added blank sets but all-blank and partially entered 
   await f.store.completeSession({ id: sessionId, name: "Saved", exercises: entered(f, sessionId) });
   const rows = entered(f, sessionId, "10");
   rows[0]!.sets.push({ id: "blank", kind: "single", reps: "", weightKg: "" });
-  assert.equal(
+  assert.deepEqual(
     await f.store.updateSession({ id: sessionId, name: "Edited", exercises: rows }),
-    true,
+    ok(true),
   );
   assert.equal(doc(f.store).sessions[0]!.exercises[0]!.sets.length, 1);
   const before = f.raw();
-  for (const invalid of [
-    [{ id: "blank", kind: "single", reps: "", weightKg: "" }],
-    [...rows[0]!.sets, { id: "partial", kind: "single", reps: "", weightKg: "10" }],
-  ]) {
-    assert.equal(
+  for (const [invalid, reason] of [
+    [[{ id: "blank", kind: "single", reps: "", weightKg: "" }], "Enter at least one set."],
+    [
+      [...rows[0]!.sets, { id: "partial", kind: "single", reps: "", weightKg: "10" }],
+      "Enter whole repetitions for each set.",
+    ],
+  ] as const) {
+    assert.deepEqual(
       await f.store.updateSession({
         id: sessionId,
         name: "Invalid",
-        exercises: [{ ...rows[0]!, sets: invalid as ExerciseSet[] }],
+        exercises: [{ ...rows[0]!, sets: invalid as unknown as ExerciseSet[] }],
       }),
-      false,
+      rejected(reason),
     );
-    assert.equal(
+    assert.deepEqual(
       await f.store.completeSession({
         id: sessionId,
         name: "Invalid",
-        exercises: [{ ...rows[0]!, sets: invalid as ExerciseSet[] }],
+        exercises: [{ ...rows[0]!, sets: invalid as unknown as ExerciseSet[] }],
       }),
-      false,
+      rejected(reason),
     );
   }
   assert.equal(f.raw(), before);
 });
 test("side completion skips only fully untouched pairs and retains valid unilateral logging", async () => {
   const f = await ready();
-  const sideId = await f.store.saveExercise({
-    name: "Curl",
-    muscleGroup: "",
-    equipment: "",
-    notes: "",
-    tracking: "sides",
-  });
+  const sideId = await value(
+    f.store.saveExercise({
+      name: "Curl",
+      muscleGroup: "",
+      equipment: "",
+      notes: "",
+      tracking: "sides",
+    }),
+  );
   assert.ok(sideId);
-  const workoutId = await f.store.saveWorkout({
-    name: "Arms",
-    exerciseIds: [sideId],
-    setCounts: { [sideId]: 3 },
-  });
+  const workoutId = await value(
+    f.store.saveWorkout({
+      name: "Arms",
+      exerciseIds: [sideId],
+      setCounts: { [sideId]: 3 },
+    }),
+  );
   assert.ok(workoutId);
-  const sessionId = await f.store.planWorkout({ date: "2026-10-04", workoutId });
+  const sessionId = await value(f.store.planWorkout({ date: "2026-10-04", workoutId }));
   assert.ok(sessionId);
   const rows = doc(f.store).sessions[0]!.exercises;
   const blank: ExerciseSet = {
@@ -906,25 +962,31 @@ test("side completion skips only fully untouched pairs and retains valid unilate
     left: { reps: "", weightKg: "" },
     right: { reps: "6", weightKg: "12" },
   };
-  for (const bad of [
-    { ...blank, id: "bad", left: { reps: "", weightKg: "10" } },
-    { ...blank, id: "bad", left: { reps: "0", weightKg: "" } },
-  ])
-    assert.equal(
+  for (const [bad, reason] of [
+    [
+      { ...blank, id: "bad", left: { reps: "", weightKg: "10" } },
+      "Enter whole repetitions for each set.",
+    ],
+    [
+      { ...blank, id: "bad", left: { reps: "0", weightKg: "" } },
+      "Enter repetitions on at least one side of each set.",
+    ],
+  ] as const)
+    assert.deepEqual(
       await f.store.completeSession({
         id: sessionId,
         name: "Arms",
         exercises: [{ ...rows[0]!, sets: [blank, logged, bad] }],
       }),
-      false,
+      rejected(reason),
     );
-  assert.equal(
+  assert.deepEqual(
     await f.store.completeSession({
       id: sessionId,
       name: "Arms",
       exercises: [{ ...rows[0]!, sets: [blank, logged] }],
     }),
-    true,
+    ok(true),
   );
   const result = summarizeSessions(doc(f.store).sessions);
   assert.equal(result.sets, 1);
@@ -941,19 +1003,19 @@ test("all untouched planned sets cannot create a completed workout with fake zer
     exerciseIds: [exerciseId],
     setCounts: { [exerciseId]: 3 },
   });
-  const sessionId = await f.store.planWorkout({ date: "2026-10-05", workoutId });
+  const sessionId = await value(f.store.planWorkout({ date: "2026-10-05", workoutId }));
   assert.ok(sessionId);
   const rows = doc(f.store).sessions.at(-1)!.exercises,
     before = f.raw();
-  assert.equal(
+  assert.deepEqual(
     await f.store.updateSession({ id: sessionId, name: "Still planned", exercises: rows }),
-    true,
+    ok(true),
   );
   const draft = f.raw();
   assert.notEqual(draft, before);
-  assert.equal(
+  assert.deepEqual(
     await f.store.completeSession({ id: sessionId, name: "Empty", exercises: rows }),
-    false,
+    rejected("Enter at least one set."),
   );
   assert.equal(f.raw(), draft);
   assert.equal(doc(f.store).sessions.at(-1)!.status, "planned");

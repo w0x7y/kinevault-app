@@ -18,6 +18,17 @@ import type { ImportedWorkoutPlan } from "./import/plan.ts";
 
 export const exerciseStorageKey = "kinevault-track.exercise.v1";
 export type ExerciseSnapshot = DurableSnapshot<ExerciseDocument>;
+/**
+ * A write's outcome: saved with its value, rejected by its command with the reason, or not written
+ * because storage failed, a refresh blocked it or the document isn't loaded.
+ */
+export type ExerciseWrite<Value> =
+  { kind: "saved"; value: Value } | { kind: "rejected"; reason: string } | { kind: "unavailable" };
+const unavailable = { kind: "unavailable" } as const;
+/** Feedback for a failed write: its lead, then the command's reason or, when nothing was written, a retry. */
+export function writeFailure(result: ExerciseWrite<unknown>, lead: string, retry: string) {
+  return `${lead} ${result.kind === "rejected" ? result.reason : retry}`;
+}
 
 function copyInput<Value>(value: Value): Value {
   if (Array.isArray(value)) return value.map((item) => copyInput(item)) as Value;
@@ -50,44 +61,53 @@ export function createExercisePersistence({
     lifecycle = 0;
   let tail: Promise<unknown> = Promise.resolve();
 
-  function enqueue<Value>(run: () => Promise<Value | null> | Value | null): Promise<Value | null> {
-    if (!active || durable.getSnapshot().state.kind !== "ready") return Promise.resolve(null);
+  function enqueue<Value>(
+    run: () => Promise<ExerciseWrite<Value>> | ExerciseWrite<Value>,
+  ): Promise<ExerciseWrite<Value>> {
+    if (!active || durable.getSnapshot().state.kind !== "ready")
+      return Promise.resolve(unavailable);
     const ticket = lifecycle;
-    const result = tail.then(() => (!active || ticket !== lifecycle ? null : run()));
+    const result = tail.then(() => (!active || ticket !== lifecycle ? unavailable : run()));
     tail = result.then(
       () => undefined,
       () => undefined,
     );
     return result;
   }
-  function commit<Value>(
+  // The durable write reports only that nothing was saved; a command's reason is caught here.
+  async function commit<Value>(
     build: (document: ExerciseDocument) => ExerciseChange<Value>,
-  ): Promise<Value | null> {
-    return durable.update((document) => {
+  ): Promise<ExerciseWrite<Value>> {
+    let reason: string | null = null;
+    const value = await durable.update((document) => {
       try {
         return build(document);
       } catch (error) {
-        return { error: error instanceof Error ? error.message : "Check your workout values." };
+        reason = error instanceof Error ? error.message : "Check your workout values.";
+        if (!/[.?!]$/.test(reason)) reason += ".";
+        return { error: reason };
       }
     }, "Couldn't save your exercise changes. Your values are still here. Try again.");
+    if (value !== null) return { kind: "saved", value };
+    return reason === null ? unavailable : { kind: "rejected", reason };
   }
   function queue<Value>(
     build: (document: ExerciseDocument) => ExerciseChange<Value>,
-  ): Promise<Value | null> {
+  ): Promise<ExerciseWrite<Value>> {
     return enqueue(() => commit(build));
   }
   function capture<Input, Value>(
     input: Input,
     build: (document: ExerciseDocument, input: Input) => ExerciseChange<Value>,
     sessionId?: string,
-  ): Promise<Value | null> {
+  ): Promise<ExerciseWrite<Value>> {
     // Capture input and the lifecycle state before waiting behind another write.
     // This prevents caller mutation and old draft commands replacing completion.
     let captured: Input;
     try {
       captured = copyInput(input);
     } catch {
-      return Promise.resolve(null);
+      return Promise.resolve({ kind: "rejected", reason: "Check your workout values." });
     }
     const state = durable.getSnapshot().state;
     const expectedStatus =
@@ -120,37 +140,25 @@ export function createExercisePersistence({
     },
     async seedDevelopmentExamples(): Promise<boolean> {
       if (!development) return false;
-      return (
-        (await enqueue(() => {
-          const state = durable.getSnapshot().state;
-          if (state.kind !== "ready") return null;
-          return state.document.developmentExamplesSeeded === true
-            ? true
-            : commit(seedDevelopmentExamples);
-        })) === true
-      );
+      const result = await enqueue(() => {
+        const state = durable.getSnapshot().state;
+        if (state.kind !== "ready") return unavailable;
+        return state.document.developmentExamplesSeeded === true
+          ? { kind: "saved", value: true }
+          : commit(seedDevelopmentExamples);
+      });
+      return result.kind === "saved";
     },
     saveExercise: (input: SaveExerciseInput) => capture(input, commands.saveExercise),
-    async removeExercise(id: string): Promise<boolean> {
-      return (await queue((document) => commands.removeExercise(document, id))) === true;
-    },
+    removeExercise: (id: string) => queue((document) => commands.removeExercise(document, id)),
     saveWorkout: (input: SaveWorkoutInput) => capture(input, commands.saveWorkout),
-    async removeWorkout(id: string): Promise<boolean> {
-      return (await queue((document) => commands.removeWorkout(document, id))) === true;
-    },
+    removeWorkout: (id: string) => queue((document) => commands.removeWorkout(document, id)),
     planWorkout: (input: PlanWorkoutInput) => capture(input, commands.planWorkout),
-    async updateSession(input: UpdateSessionInput): Promise<boolean> {
-      return (await capture(input, commands.updateSession, input.id)) === true;
-    },
-    async startSession(id: string): Promise<boolean> {
-      return (await queue((document) => commands.startSession(document, id))) === true;
-    },
-    async completeSession(input: CompleteSessionInput): Promise<boolean> {
-      return (await capture(input, commands.completeSession, input.id)) === true;
-    },
-    async removeSession(id: string): Promise<boolean> {
-      return (await queue((document) => commands.removeSession(document, id))) === true;
-    },
+    updateSession: (input: UpdateSessionInput) => capture(input, commands.updateSession, input.id),
+    startSession: (id: string) => queue((document) => commands.startSession(document, id)),
+    completeSession: (input: CompleteSessionInput) =>
+      capture(input, commands.completeSession, input.id),
+    removeSession: (id: string) => queue((document) => commands.removeSession(document, id)),
     // The plan maps against the latest saved library when its turn in the queue arrives.
     importWorkoutPlan: (plan: ImportedWorkoutPlan) => capture(plan, commands.importWorkoutPlan),
   };

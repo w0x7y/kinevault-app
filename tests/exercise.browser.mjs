@@ -501,7 +501,7 @@ test("the saved workout menu restores manual duration, blocks Start without a na
   await button(editor, "Start workout").click();
   await editor
     .getByRole("alert")
-    .getByText("Enter a workout name before starting.", { exact: true })
+    .getByText("Couldn't start. Enter a workout name.", { exact: true })
     .waitFor();
   const retained = await documentFrom(page);
   assert.equal(retained.sessions[0].status, "planned");

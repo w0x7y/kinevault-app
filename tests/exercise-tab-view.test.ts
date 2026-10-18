@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { ExerciseDocument, WorkoutSession } from "../src/exercise/model.ts";
-import { exerciseTabView } from "../src/exercise/tab-view.ts";
-import type { WorkoutPanel, WorkoutView } from "../src/exercise/workout-editing.ts";
+import { createExercisePersistence, exerciseStorageKey } from "../src/exercise/persistence.ts";
+import { createExerciseTabView, exerciseTabView } from "../src/exercise/tab-view.ts";
+import type { WorkoutPanel, WorkoutView } from "../src/exercise/tab-view.ts";
 
 const day = "2026-10-04";
 function session(
@@ -229,4 +230,114 @@ test("a session page whose workout is gone says so behind a Close workout button
     closeLabel: "Close workout",
     log: null,
   });
+});
+
+const tick = async () => {
+  for (let i = 0; i < 30; i++) await Promise.resolve();
+};
+async function owner(...sessions: WorkoutSession[]) {
+  let raw = JSON.stringify(documentWith(...sessions));
+  const store = createExercisePersistence({
+    storage: {
+      async getItem(key: string) {
+        assert.equal(key, exerciseStorageKey);
+        return raw;
+      },
+      async setItem(_key: string, value: string) {
+        raw = value;
+      },
+    },
+    createId: () => "unused",
+    now: () => 1120000,
+  });
+  store.start();
+  await tick();
+  const tab = createExerciseTabView({ store, date: day, importSources: [] });
+  store.subscribe(() => tab.refreshDocument());
+  tab.refreshDocument();
+  tab.setFocused(true);
+  return tab;
+}
+
+test("a Saved workouts request opens that day's menu and ignores a malformed day", async () => {
+  const tab = await owner();
+  assert.equal(await tab.openWorkoutMenu("2026-02-30"), false);
+  assert.equal(await tab.openWorkoutMenu("tomorrow"), false);
+  assert.equal(tab.getSnapshot().panel, null);
+  assert.equal(await tab.openWorkoutMenu("2026-10-03"), true);
+  assert.deepEqual(tab.getSnapshot().panel?.content, { kind: "library", date: "2026-10-03" });
+});
+
+test("an import request keeps an import that is already open", async () => {
+  const tab = await owner();
+  assert.equal(await tab.openImport("tracked"), true);
+  const open = tab.getSnapshot().panel;
+  assert.deepEqual(open?.content, { kind: "import", source: "tracked" });
+  assert.equal(await tab.openImport("tracked"), false);
+  assert.equal(tab.getSnapshot().panel, open);
+});
+
+test("a live workout request opens only the Active workout's page, once", async () => {
+  const tab = await owner(session("active", "active", "2026-10-03"), session("draft", "planned"));
+  assert.equal(await tab.openLiveWorkout("draft"), false);
+  assert.equal(await tab.openLiveWorkout("missing"), false);
+  assert.equal(tab.getSnapshot().panel, null);
+  assert.equal(await tab.openLiveWorkout("active"), true);
+  const page = tab.getSnapshot().panel;
+  assert.deepEqual(page?.content, { kind: "session", id: "active" });
+  assert.equal(await tab.openLiveWorkout("active"), false);
+  assert.equal(tab.getSnapshot().panel, page);
+});
+
+test("discarding the live workout marks the day's card to fade in until it hides", async () => {
+  const tab = await owner(session("active", "active"));
+  assert.equal(tab.getSnapshot().liveEnded, false);
+  await tab.requestView({ kind: "session", id: "active" });
+  const edit = tab.edits.edit("active");
+  assert.equal(await edit.run("discard"), true);
+  await tick();
+  assert.equal(tab.getSnapshot().panel, null);
+  assert.equal(tab.getSnapshot().showDailyWorkout, true);
+  assert.equal(tab.getSnapshot().liveEnded, true);
+  // An unrelated change keeps the mark while the card stays up.
+  tab.setDay("2026-10-05");
+  tab.setDay(day);
+  assert.equal(tab.getSnapshot().liveEnded, true);
+  // A card that comes back after hiding is simply there.
+  tab.search("squat");
+  assert.equal(tab.getSnapshot().liveEnded, false);
+  tab.search("");
+  assert.equal(tab.getSnapshot().showDailyWorkout, true);
+  assert.equal(tab.getSnapshot().liveEnded, false);
+});
+
+test("a live workout covered by a panel, then discarded there, doesn't fade the card in", async () => {
+  const tab = await owner(session("active", "active"));
+  await tab.requestView({ kind: "library", date: day });
+  assert.equal(
+    await tab.drafts.savedWorkouts(tab.getSnapshot().panel!.token, day).removeLog("active"),
+    true,
+  );
+  tab.closeView(tab.getSnapshot().panel!.token);
+  assert.equal(tab.getSnapshot().showDailyWorkout, true);
+  assert.equal(tab.getSnapshot().liveEnded, false);
+});
+
+test("a card on the tab from the start doesn't fade in", async () => {
+  const tab = await owner(session("done", "completed"));
+  assert.equal(tab.getSnapshot().showDailyWorkout, true);
+  assert.equal(tab.getSnapshot().liveEnded, false);
+});
+
+test("away from the tab the sheet hides and its panel and query wait for the return", async () => {
+  const tab = await owner();
+  tab.search("Squat");
+  await tab.requestView({ kind: "library", date: day });
+  const open = tab.getSnapshot().panel;
+  tab.setFocused(false);
+  assert.equal(tab.getSnapshot().sheet, null);
+  assert.equal(tab.getSnapshot().panel, open);
+  tab.setFocused(true);
+  assert.equal(tab.getSnapshot().sheet?.panel, open);
+  assert.equal(tab.getSnapshot().query, "Squat");
 });

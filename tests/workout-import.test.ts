@@ -6,7 +6,7 @@ import {
   type ExerciseDefinition,
   type ExerciseDocument,
 } from "../src/exercise/model.ts";
-import { createExercisePersistence } from "../src/exercise/persistence.ts";
+import { createExercisePersistence, type ExerciseWrite } from "../src/exercise/persistence.ts";
 import type { DurableStorage } from "../src/persistence/durable-write.ts";
 import { readTrackedLink } from "../src/exercise/import/tracked-link.ts";
 import {
@@ -22,6 +22,13 @@ import {
 } from "../src/exercise/import/mapping.ts";
 import { WorkoutImportError } from "../src/exercise/import/plan.ts";
 import { fetchTrackedWorkout } from "../src/exercise/import/tracked-fetch.ts";
+
+/** The value a write saved; fails the test when it didn't save. */
+async function value<Value>(write: Promise<ExerciseWrite<Value>>): Promise<Value> {
+  const result = await write;
+  if (result.kind !== "saved") assert.fail(`Expected a saved write: ${JSON.stringify(result)}`);
+  return result.value;
+}
 
 // Captured from a public Tracked share link on 2026-10-12 with `RSC: 1`. The sharer's
 // username and avatar URL are replaced and SVG path data is shortened; rows, element
@@ -511,13 +518,15 @@ test("persists an import as one write and plans its set counts", async () => {
   store.start();
   for (let n = 0; n < 12; n++) await Promise.resolve();
   const plan = parseTrackedWorkoutPage(page, workoutId);
-  const result = await store.importWorkoutPlan(plan);
+  const result = await value(store.importWorkoutPlan(plan));
   assert.equal(result?.created, 20);
   assert.equal(writes, 1);
   const saved = parseExerciseDocument(raw);
   assert.equal(saved.workouts.length, 1);
   assert.equal(saved.exercises.length, 20);
-  const sessionId = await store.planWorkout({ date: "2026-10-12", workoutId: result!.templateId });
+  const sessionId = await value(
+    store.planWorkout({ date: "2026-10-12", workoutId: result!.templateId }),
+  );
   const session = parseExerciseDocument(raw).sessions.find((item) => item.id === sessionId)!;
   assert.equal(session.exercises[2]!.sets.length, 4);
   assert.equal(session.exercises[2]!.sets[0]!.kind, "sides");
