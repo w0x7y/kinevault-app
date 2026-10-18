@@ -3,6 +3,7 @@ import test from "node:test";
 import { createWorkoutImportFlow } from "../src/exercise/import/import-flow.ts";
 import type { WorkoutImportResult } from "../src/exercise/import/mapping.ts";
 import { WorkoutImportError, type ImportedWorkoutPlan } from "../src/exercise/import/plan.ts";
+import type { ExerciseWrite } from "../src/exercise/persistence.ts";
 
 const plan: ImportedWorkoutPlan = {
   source: "tracked",
@@ -44,7 +45,7 @@ function setup() {
     signal: AbortSignal;
     reply: ReturnType<typeof deferred<ImportedWorkoutPlan>>;
   }[] = [];
-  const saves: ReturnType<typeof deferred<WorkoutImportResult | null>>[] = [];
+  const saves: ReturnType<typeof deferred<ExerciseWrite<WorkoutImportResult>>>[] = [];
   const flow = createWorkoutImportFlow({
     sources: [
       {
@@ -57,7 +58,7 @@ function setup() {
       },
     ],
     importPlan() {
-      const save = deferred<WorkoutImportResult | null>();
+      const save = deferred<ExerciseWrite<WorkoutImportResult>>();
       saves.push(save);
       return save.promise;
     },
@@ -88,7 +89,7 @@ test("walks from source choice through preview to an imported workout", async ()
   const saving = flow.confirm();
   void flow.confirm();
   assert.equal(saves.length, 1);
-  saves[0]!.resolve(result);
+  saves[0]!.resolve({ kind: "saved", value: result });
   await saving;
   assert.deepEqual(flow.getSnapshot(), { step: "done", source: "tracked", result });
 });
@@ -137,7 +138,7 @@ test("retains the preview after a failed save and ignores results after closing"
   loads[0]!.reply.resolve(plan);
   await loading;
   const failed = flow.confirm();
-  saves[0]!.resolve(null);
+  saves[0]!.resolve({ kind: "unavailable" });
   await failed;
   const state = flow.getSnapshot();
   assert.equal(state.step, "preview");
@@ -165,9 +166,26 @@ test("opens a requested source directly", () => {
   const flow = createWorkoutImportFlow({
     sources: [{ id: "tracked", load: async () => plan }],
     initialSource: "tracked",
-    importPlan: async () => result,
+    importPlan: async () => ({ kind: "saved", value: result }),
   });
   assert.equal(flow.getSnapshot().step, "link");
   flow.back();
   assert.deepEqual(flow.getSnapshot(), { step: "sources" });
+});
+
+test("a rejected import shows the reason and keeps the preview", async () => {
+  const { flow, loads, saves } = setup();
+  flow.choose("tracked");
+  flow.setText("link");
+  const loading = flow.load();
+  loads[0]!.reply.resolve(plan);
+  await loading;
+  const failed = flow.confirm();
+  saves[0]!.resolve({ kind: "rejected", reason: "Invalid imported workout." });
+  await failed;
+  const state = flow.getSnapshot();
+  assert.equal(
+    state.step === "preview" && state.error,
+    "Couldn't import this workout. Invalid imported workout.",
+  );
 });

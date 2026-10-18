@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createExerciseTabView } from "../src/exercise/tab-view.ts";
-import { createExercisePersistence, exerciseStorageKey } from "../src/exercise/persistence.ts";
+import {
+  createExercisePersistence,
+  exerciseStorageKey,
+  type ExerciseWrite,
+} from "../src/exercise/persistence.ts";
 import {
   parseExerciseDocument,
   type ExerciseDocument,
@@ -19,6 +23,13 @@ function gate() {
   });
   return { promise, resolve };
 }
+/** The value a write saved; fails the test when it didn't save. */
+async function value<Value>(write: Promise<ExerciseWrite<Value>>): Promise<Value> {
+  const result = await write;
+  if (result.kind !== "saved") assert.fail(`Expected a saved write: ${JSON.stringify(result)}`);
+  return result.value;
+}
+const ok = <Value>(value: Value) => ({ kind: "saved", value }) as const;
 const exercise = {
   id: "squat",
   name: "Squat",
@@ -168,7 +179,10 @@ test("failed active fields survive editor replacement and query/day changes unti
     build: (set) => ({ ...set, reps: "1e" }),
   });
   await tick();
-  assert.ok(edit.getSnapshot().error);
+  assert.equal(
+    edit.getSnapshot().error,
+    "Couldn't save your draft. Your fields are still here. Retry draft save before leaving the workout.",
+  );
   assert.equal(await f.tab.requestView({ kind: "library", date: "2026-10-05" }), false);
   f.tab.refreshDocument();
   const remounted = f.editing.edit("log");
@@ -296,7 +310,7 @@ test("a cleared manual workout name stays editable until corrected before Start"
     assert.equal(await edit.run("start"), false);
     assert.equal(f.saved().status, "planned");
     assert.equal(edit.getSnapshot().fields.name, value);
-    assert.match(edit.getSnapshot().error!, /name/i);
+    assert.equal(edit.getSnapshot().error, "Couldn't start. Enter a workout name.");
   }
   edit.change({ kind: "name", value: "Corrected workout" });
   assert.equal(await edit.run("start"), true);
@@ -339,7 +353,7 @@ test("completed Save fails without retiring fields and succeeds before releasing
   };
   assert.equal(await edit.run("save"), false);
   assert.equal(edit.getSnapshot().fields.name, "Saved edit");
-  assert.ok(edit.getSnapshot().error);
+  assert.equal(edit.getSnapshot().error, "Couldn't save. Your fields are still here. Try again.");
   const pending = gate();
   f.storage.setItem = async (key, value) => {
     await pending.promise;
@@ -367,7 +381,12 @@ test("completion and discard retire only after durable success", async () => {
     };
     assert.equal(await edit.run(action), false);
     assert.equal(f.saved().status, "active");
-    assert.ok(edit.getSnapshot().error);
+    assert.equal(
+      edit.getSnapshot().error,
+      action === "discard"
+        ? "Couldn't discard this workout. Try again."
+        : "Couldn't save. Your fields are still here. Try again.",
+    );
     f.storage.setItem = f.write;
     assert.equal(await edit.run(action), true);
     const saved = parseExerciseDocument(f.raw()).sessions;
@@ -538,9 +557,9 @@ test("retirement follows the durable document when the React snapshot publicatio
 test("completed edits stay separate and deletion releases only the removed workout's local fields", async () => {
   const f = await fixture();
   // Seed a second real log using the existing persistence commands.
-  const workoutId = await f.store.saveWorkout({ name: "Evening", exerciseIds: ["squat"] });
+  const workoutId = await value(f.store.saveWorkout({ name: "Evening", exerciseIds: ["squat"] }));
   assert.ok(workoutId);
-  const otherId = await f.store.planWorkout({ date: "2026-10-04", workoutId });
+  const otherId = await value(f.store.planWorkout({ date: "2026-10-04", workoutId }));
   assert.ok(otherId);
   await f.store.completeSession({ id: otherId, name: "Evening", exercises: f.saved().exercises });
   await f.tab.requestView({ kind: "session", id: "log" });
@@ -552,7 +571,7 @@ test("completed edits stay separate and deletion releases only the removed worko
   second.change({ kind: "name", value: "Evening unfinished" });
   second.change({ kind: "minutes", value: "9" });
   assert.equal(f.editing.edit("log").getSnapshot().fields.minutes, "7");
-  assert.equal(await f.store.removeSession("log"), true);
+  assert.deepEqual(await f.store.removeSession("log"), ok(true));
   assert.throws(() => f.editing.edit("log"), /no longer available/);
   first.change({ kind: "name", value: "Stale removed fields" });
   assert.equal(f.editing.edit(otherId).getSnapshot().fields.name, "Evening unfinished");
@@ -844,4 +863,31 @@ test("each log mode allows its own controls, and the mode follows the open panel
   // An unchanged edit keeps its snapshot, as React's store subscription requires.
   const edit = completed.editing.edit("log");
   assert.equal(edit.getSnapshot(), edit.getSnapshot());
+});
+
+test("a rejected write shows its command's reason", async () => {
+  // Start while another workout runs.
+  const f = await fixture("planned");
+  await f.store.updateSession({ id: "log", name: "Strength", exercises: f.saved().exercises });
+  const other = await value(f.store.saveWorkout({ name: "Evening", exerciseIds: ["squat"] }));
+  const running = await value(f.store.planWorkout({ date: "2026-10-04", workoutId: other }));
+  assert.deepEqual(await f.store.startSession(running), ok(true));
+  const card = f.editing.edit("log");
+  assert.equal(await card.run("start"), false);
+  assert.equal(
+    card.getSnapshot().error,
+    "Couldn't start. A workout is already active or this workout has finished.",
+  );
+  // Complete with a set that has weight but no repetitions.
+  await f.tab.requestView({ kind: "session", id: "log", manual: true });
+  const manual = f.editing.edit("log");
+  manual.change({
+    kind: "set",
+    rowId: "row",
+    setId: "set",
+    build: (set) => ({ ...set, reps: "" }),
+  });
+  assert.equal(await manual.run("complete"), false);
+  assert.equal(manual.getSnapshot().error, "Couldn't save. Enter whole repetitions for each set.");
+  assert.equal(f.saved().status, "planned");
 });

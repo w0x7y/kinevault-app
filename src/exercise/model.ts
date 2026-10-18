@@ -147,18 +147,19 @@ export function parseSessionExercise(value: unknown): SessionExercise {
 function decimal(value: string, blank: number | null): number {
   const input = value.trim();
   if (input === "" && blank !== null) return blank;
-  if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(input)) throw new Error("Enter a nonnegative decimal");
+  if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(input))
+    throw new Error("Enter weights and minutes as numbers of 0 or more.");
   const amount = Number(input);
   if (!Number.isFinite(amount) || amount < 0 || amount > 100000)
-    throw new Error("Exercise measurement is out of range");
+    throw new Error("Enter weights and minutes of 100,000 or less.");
   return amount;
 }
 function measurement(value: SetSide, zeroAllowed: boolean) {
   if (zeroAllowed && !value.reps.trim() && !value.weightKg.trim()) return { reps: 0, weightKg: 0 };
-  if (!/^\d+$/.test(value.reps.trim())) throw new Error("Enter whole repetitions");
+  if (!/^\d+$/.test(value.reps.trim())) throw new Error("Enter whole repetitions for each set.");
   const reps = Number(value.reps.trim());
   if (!Number.isSafeInteger(reps) || reps < (zeroAllowed ? 0 : 1) || reps > 100000)
-    throw new Error("Invalid repetitions");
+    throw new Error("Enter from 1 to 100,000 repetitions for each set.");
   return { reps, weightKg: decimal(value.weightKg, 0) };
 }
 export function setMeasurements(set: ExerciseSet): {
@@ -171,7 +172,7 @@ export function setMeasurements(set: ExerciseSet): {
       ? [measurement(set, false)]
       : [measurement(set.left, true), measurement(set.right, true)];
   const reps = values.reduce((sum, value) => sum + value.reps, 0);
-  if (reps === 0) throw new Error("Enter repetitions on at least one side");
+  if (reps === 0) throw new Error("Enter repetitions on at least one side of each set.");
   return {
     reps,
     volume: values.reduce((sum, value) => sum + value.reps * value.weightKg, 0),
@@ -209,7 +210,7 @@ export function parseWorkoutSession(value: unknown): WorkoutSession {
   const name = text(item.name, 400, status === "completed");
   const exercises = unique(list(item.exercises, parseSessionExercise, 1000));
   if (status === "completed") {
-    if (!exercises.some((row) => row.sets.length > 0)) throw new Error("Enter at least one set");
+    if (!exercises.some((row) => row.sets.length > 0)) throw new Error("Enter at least one set.");
     for (const row of exercises) for (const set of row.sets) setMeasurements(set);
     if (startedAt !== null && durationSeconds === null)
       throw new Error("Completed timer needs duration");

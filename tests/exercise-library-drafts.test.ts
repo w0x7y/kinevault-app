@@ -79,6 +79,7 @@ async function fixture(sources: readonly WorkoutImportFlowSource[] = []) {
     tab,
     drafts: tab.drafts,
     token,
+    store,
     storage,
     /** Holds the next writes until the returned gate opens. */
     hold() {
@@ -132,7 +133,7 @@ test("a failed save keeps the entered fields and its feedback until a retry succ
   assert.equal(await draft.save(), false);
   const retained = f.drafts.exercise(f.token(), squat).getSnapshot();
   assert.equal(retained.values.name, "Front squat");
-  assert.match(retained.error!, /Couldn't save/);
+  assert.equal(retained.error, "Couldn't save. Try again; your fields are still here.");
   assert.equal(f.tab.getSnapshot().panel?.content.kind, "exercise");
   f.restore();
   assert.equal(await f.drafts.exercise(f.token(), squat).save(), true);
@@ -270,4 +271,21 @@ test("a template draft keeps its selected exercise, builder and search when its 
     [created.settingsOpen, created.query, created.selectedId],
     [true, "", undefined],
   );
+});
+
+test("a rejected library write shows its command's reason and keeps the panel", async () => {
+  const f = await fixture();
+  await f.tab.requestView({ kind: "exercise" });
+  const draft = f.drafts.exercise(f.token());
+  assert.equal(await draft.save(), false);
+  assert.equal(draft.getSnapshot().error, "Couldn't save. Enter an exercise name.");
+  await f.tab.requestView({ kind: "exercise", exercise: squat });
+  const stale = f.drafts.exercise(f.token(), squat);
+  await f.store.removeExercise("squat");
+  assert.equal(await stale.remove(), false);
+  assert.equal(
+    stale.getSnapshot().error,
+    "Couldn't delete this exercise. This item is no longer available.",
+  );
+  assert.equal(f.tab.getSnapshot().panel?.content.kind, "exercise");
 });

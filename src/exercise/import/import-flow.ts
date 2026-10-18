@@ -1,4 +1,5 @@
 import type { WorkoutImportResult } from "./mapping.ts";
+import { writeFailure, type ExerciseWrite } from "../persistence.ts";
 import { WorkoutImportError, type ImportedWorkoutPlan } from "./plan.ts";
 
 export type WorkoutImportFlowSource = {
@@ -19,7 +20,6 @@ export type WorkoutImportState =
   | { step: "done"; source: string; result: WorkoutImportResult };
 
 const loadFailure = "Couldn't get this workout. Try again.";
-const saveFailure = "Couldn't import this workout. Your library hasn't changed. Try again.";
 
 // One owner for the import journey. Tickets keep a cancelled or replaced download,
 // or a save that finishes after the panel closed, from changing the current step.
@@ -30,7 +30,7 @@ export function createWorkoutImportFlow({
 }: {
   sources: readonly WorkoutImportFlowSource[];
   initialSource?: string;
-  importPlan: (plan: ImportedWorkoutPlan) => Promise<WorkoutImportResult | null>;
+  importPlan: (plan: ImportedWorkoutPlan) => Promise<ExerciseWrite<WorkoutImportResult>>;
 }) {
   const listeners = new Set<() => void>();
   let state: WorkoutImportState = sources.some((source) => source.id === initialSource)
@@ -115,17 +115,25 @@ export function createWorkoutImportFlow({
       const current = state,
         own = ++ticket;
       publish({ ...current, saving: true, error: null });
-      let result: WorkoutImportResult | null = null;
+      let result: ExerciseWrite<WorkoutImportResult>;
       try {
         result = await importPlan(current.plan);
       } catch {
-        result = null;
+        result = { kind: "unavailable" };
       }
       if (own !== ticket || !active) return;
       publish(
-        result
-          ? { step: "done", source: current.source, result }
-          : { ...current, saving: false, error: saveFailure },
+        result.kind === "saved"
+          ? { step: "done", source: current.source, result: result.value }
+          : {
+              ...current,
+              saving: false,
+              error: writeFailure(
+                result,
+                "Couldn't import this workout.",
+                "Your library hasn't changed. Try again.",
+              ),
+            },
       );
     },
     back() {

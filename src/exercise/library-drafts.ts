@@ -1,6 +1,6 @@
 import { createWorkoutImportFlow, type WorkoutImportFlowSource } from "./import/import-flow.ts";
 import type { ExerciseDefinition, WorkoutTemplate } from "./model.ts";
-import type { createExercisePersistence } from "./persistence.ts";
+import { writeFailure, type createExercisePersistence, type ExerciseWrite } from "./persistence.ts";
 import type { ExercisePanels } from "./tab-view.ts";
 import { createWorkoutTemplateDraft, type WorkoutTemplateDraft } from "./workout-template-draft.ts";
 
@@ -36,14 +36,15 @@ type Entry =
   | { kind: "saved-workouts"; state: SavedWorkoutsState }
   | { kind: "import"; flow: ReturnType<typeof createWorkoutImportFlow> };
 
+/** Each write's lead, followed by its command's reason or, when storage couldn't take it, a retry. */
 const failures = {
-  saveExercise: "Couldn't save. Enter an exercise name and try again; your fields are still here.",
-  removeExercise: "Couldn't delete this exercise. Try again.",
-  saveWorkout: "Couldn't save. Enter a workout name, choose at least one exercise, and try again.",
-  removeWorkout: "Couldn't delete this workout. Try again.",
-  plan: "Couldn't add this workout. Try again.",
-  removeLog: "Couldn't delete this workout. Try again.",
-};
+  saveExercise: ["Couldn't save.", "Try again; your fields are still here."],
+  removeExercise: ["Couldn't delete this exercise.", "Try again."],
+  saveWorkout: ["Couldn't save.", "Try again; your fields are still here."],
+  removeWorkout: ["Couldn't delete this workout.", "Try again."],
+  plan: ["Couldn't add this workout.", "Try again."],
+  removeLog: ["Couldn't delete this workout.", "Try again."],
+} as const;
 
 /**
  * Owns the unfinished input of the Exercise tab's library panels: an Exercise definition edit, a
@@ -97,21 +98,24 @@ export function createLibraryDrafts({
   /** Runs one durable save or removal at a time. Only its success leaves the panel. */
   async function attempt<Value>(
     entry: { state: Attempt },
-    work: () => Promise<Value | null | false>,
-    failure: string,
+    work: () => Promise<ExerciseWrite<Value>>,
+    [lead, retry]: readonly [string, string],
     onSuccess: (value: Value) => void,
   ): Promise<boolean> {
     if (entry.state.busy) return false;
     publish(entry, { busy: true, error: null });
-    let value: Value | null | false = null;
+    let result: ExerciseWrite<Value>;
     try {
-      value = await work();
+      result = await work();
     } catch {
-      value = null;
+      result = { kind: "unavailable" };
     }
-    publish(entry, { busy: false, error: value ? null : failure });
-    if (!value) return false;
-    onSuccess(value);
+    publish(entry, {
+      busy: false,
+      error: result.kind === "saved" ? null : writeFailure(result, lead, retry),
+    });
+    if (result.kind !== "saved") return false;
+    onSuccess(result.value);
     return true;
   }
   return {

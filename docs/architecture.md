@@ -133,7 +133,11 @@ Discard, Start and Details; the editor renders them. Library drafts own Exercise
 definition, Workout template (including its selected exercise, builder disclosure and
 search), Saved workouts and Workout import state per panel, so the sheet can unmount when the tab
 loses focus without losing input; their durable success closes the originating
-panel through the same panel seam as Workout edits. The sheet page owns its
+panel through the same panel seam as Workout edits. Exercise persistence returns
+each write's outcome: saved with its value, rejected with its command's reason, or
+unavailable when storage failed, a refresh blocked it or the document isn't loaded.
+Workout edits and Library drafts show that reason after their own lead ("Couldn't
+start.") and offer a retry only when nothing was written. The sheet page owns its
 header overrides and scroll positioning: pages claim the back button with
 `useSheetBack`, request a scroll target with `useSheetScrollTarget`, and a new
 `page` starts at the top. A page can replace its centered title with `center`, as

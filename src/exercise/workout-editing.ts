@@ -7,7 +7,7 @@ import {
   type SessionExercise,
   type WorkoutSession,
 } from "./model.ts";
-import type { createExercisePersistence } from "./persistence.ts";
+import { writeFailure, type createExercisePersistence, type ExerciseWrite } from "./persistence.ts";
 import type { ExercisePanels, WorkoutView } from "./tab-view.ts";
 
 /**
@@ -67,12 +67,8 @@ type Entry = {
   queued: { fields: WorkoutFields; revision: number } | null;
 };
 
-const draftFailure =
-  "Couldn't save your draft. Your fields are still here. Retry draft save before leaving the workout.";
 const invalidDuration =
   "Enter a nonnegative duration in minutes or leave it blank before leaving the workout. Your sets have been saved.";
-const saveFailure =
-  "Couldn't save. Enter a workout name and positive whole reps for each set; weight and minutes must be nonnegative numbers. Your fields are still here. Try again.";
 function localId() {
   return `set-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
@@ -232,15 +228,26 @@ export function createWorkoutEditing(
         invalidMinutes = true;
       }
     }
-    const success = await store.updateSession({
+    const result = await store.updateSession({
       id,
       name: fields.name,
       exercises: fields.exercises,
       durationSeconds,
     });
     if (current(id, entry) && entry.revision === revision)
-      publish(entry, { error: !success ? draftFailure : invalidMinutes ? invalidDuration : null });
-    return success && !invalidMinutes;
+      publish(entry, {
+        error:
+          result.kind !== "saved"
+            ? writeFailure(
+                result,
+                "Couldn't save your draft.",
+                "Your fields are still here. Retry draft save before leaving the workout.",
+              )
+            : invalidMinutes
+              ? invalidDuration
+              : null,
+      });
+    return result.kind === "saved" && !invalidMinutes;
   }
   /** Takes the queued change unless its edit was released or became completed, which never autosaves. */
   function takeQueued(id: string, entry: Entry) {
@@ -414,36 +421,38 @@ export function createWorkoutEditing(
         if (kind !== "discard" && !countsValid(entry)) return false;
         publish(entry, { error: null });
         const fields = entry.state.fields;
-        let success = false,
+        const [lead, retry] =
+          kind === "discard"
+            ? ["Couldn't discard this workout.", "Try again."]
+            : kind === "start"
+              ? ["Couldn't start.", "Try again."]
+              : ["Couldn't save.", "Your fields are still here. Try again."];
+        let result: ExerciseWrite<true> | null = null,
           error: string | null = null;
         try {
-          if (kind === "discard") success = await store.removeSession(id);
+          if (kind === "discard") result = await store.removeSession(id);
           else if (kind === "start") {
-            success = await persist(id, entry, fields, entry.revision);
-            if (success) {
-              if (!fields.name.trim()) {
-                success = false;
-                error = "Enter a workout name before starting.";
-              } else success = await store.startSession(id);
-            }
+            // A failed draft save shows its own feedback.
+            if (await persist(id, entry, fields, entry.revision))
+              result = await store.startSession(id);
           } else if (kind === "complete")
-            success = await store.completeSession({
+            result = await store.completeSession({
               id,
               name: fields.name,
               exercises: fields.exercises,
               durationMinutes: fields.minutes,
             });
           else
-            success = await store.updateSession({
+            result = await store.updateSession({
               id,
               name: fields.name,
               exercises: fields.exercises,
               durationSeconds: durationFromMinutes(fields.minutes),
             });
         } catch (reason) {
-          error =
-            reason instanceof Error ? reason.message : "Check your workout values and try again.";
+          error = `${lead} ${reason instanceof Error ? reason.message : "Check your workout values."}`;
         }
+        const success = result?.kind === "saved";
         if (!current(id, entry)) return success;
         if (success) {
           if (kind === "start") {
@@ -460,10 +469,8 @@ export function createWorkoutEditing(
           publish(entry, {
             error:
               error ??
-              entry.state.error ??
-              (kind === "start"
-                ? "Couldn't start. Another workout may already be active. Try again."
-                : saveFailure),
+              (result ? writeFailure(result, lead, retry) : entry.state.error) ??
+              `${lead} ${retry}`,
           });
         return success;
       });
