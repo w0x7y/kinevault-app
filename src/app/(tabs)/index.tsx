@@ -24,12 +24,11 @@ export default function HomeScreen() {
   const activity = useDayActivity({ phoneSteps: true });
   const { width } = useWindowDimensions();
   const [contentWidth, setContentWidth] = useState(0);
-  const [waterEntryDay, setWaterEntryDay] = useState<string | null>(null);
-  const [stepsEntryDay, setStepsEntryDay] = useState<string | null>(null);
-  useEffect(() => {
-    setWaterEntryDay(null);
-    setStepsEntryDay(null);
-  }, [activity.date]);
+  // The entry sheet open for a day; changing the day closes it.
+  const [entry, setEntry] = useState<{ kind: "water" | "steps"; date: string } | null>(null);
+  useEffect(() => setEntry(null), [activity.date]);
+  const sheet = entry?.date === activity.date ? entry : null;
+  const closeEntry = () => setEntry((current) => (current === sheet ? null : current));
   const { targets } = activity;
   const motion = useLayoutMotion();
   // The cards rise in once, the first time Home has data to show. Later mounts (the calorie card
@@ -81,8 +80,8 @@ export default function HomeScreen() {
         <ActivityWidgets
           steps={activity.steps.tile}
           water={activity.water}
-          onLogSteps={() => setStepsEntryDay(activity.date)}
-          onAddWater={() => setWaterEntryDay(activity.date)}
+          onLogSteps={() => setEntry({ kind: "steps", date: activity.date })}
+          onAddWater={() => setEntry({ kind: "water", date: activity.date })}
         />
       </Animated.View>
       <Animated.View entering={enter(3)}>
@@ -91,24 +90,16 @@ export default function HomeScreen() {
           onAddWorkout={() => router.push(routeRequest("workoutMenu", activity.date))}
         />
       </Animated.View>
-      {stepsEntryDay === activity.date && (
+      {sheet?.kind === "steps" && (
         <StepsEntryModal
-          key={stepsEntryDay}
-          date={stepsEntryDay}
+          key={sheet.date}
+          date={sheet.date}
           phone={activity.steps.phone}
-          onDismiss={() =>
-            setStepsEntryDay((current) => (current === stepsEntryDay ? null : current))
-          }
+          onDismiss={closeEntry}
         />
       )}
-      {waterEntryDay === activity.date && (
-        <WaterEntryModal
-          key={waterEntryDay}
-          date={waterEntryDay}
-          onDismiss={() =>
-            setWaterEntryDay((current) => (current === waterEntryDay ? null : current))
-          }
-        />
+      {sheet?.kind === "water" && (
+        <WaterEntryModal key={sheet.date} date={sheet.date} onDismiss={closeEntry} />
       )}
     </Screen>
   );
