@@ -5,7 +5,8 @@ import type { WaterGoalSnapshot } from "../water/goal-persistence.ts";
 import { waterGoalProgress } from "../water/goal-model.ts";
 import type { StepsLogSnapshot } from "../steps/persistence.ts";
 import type { PhoneStepsReading } from "../steps/summary.ts";
-import { summarizeDay, type FoodDay } from "./model.ts";
+import { progressFraction, summarizeDay, type FoodDay } from "./model.ts";
+import { calorieSegments, macroCategories } from "./nutrition.ts";
 import type { ExerciseSnapshot } from "../exercise/persistence.ts";
 import { summarizeSessions } from "../exercise/summary.ts";
 import type { ProfileSnapshot } from "../profile/persistence.ts";
@@ -31,6 +32,9 @@ type Targets =
 type Source<State> = { state: State; retryLoad: () => void };
 /** Whether a saved source of the day could be read, and how to read it again. */
 export type DaySource = { kind: "loading" | "error" | "ready"; retry: () => void };
+
+/** A missing calorie or macro target: a dash on screen, a word for assistive technology. */
+export const unsetTarget = { shown: "—", spoken: "unset" } as const;
 
 const source = ({ state, retryLoad }: Source<{ kind: DaySource["kind"] }>): DaySource => ({
   kind: state.kind,
@@ -110,6 +114,15 @@ export function interpretDayActivity({
     date,
     targets,
     food: foodActivity,
+    nutrition:
+      foodActivity.kind === "ready"
+        ? nutritionProgress(
+            foodActivity.summary,
+            targets.kind === "ready"
+              ? targets
+              : { calories: null, carbs: null, protein: null, fat: null },
+          )
+        : null,
     workout: summarizeSessions(sessions),
     workoutState: exercise.state.kind,
     activeWorkoutName: active ? active.name || "Active workout" : undefined,
@@ -144,6 +157,52 @@ export function interpretDayActivity({
 }
 
 export type DayActivity = ReturnType<typeof interpretDayActivity>;
+
+type Nutrition = ReturnType<typeof summarizeDay>;
+
+/** Eaten against target, rounded the way every screen shows it. */
+function nutrientProgress(value: number, target: number | null, eaten: number) {
+  const fraction = progressFraction(value, target);
+  return { eaten, target, fraction, percentage: Math.round(fraction * 100) };
+}
+
+/** The day's calories and macros against their targets. Calories are whole kcal and macros
+ * grams to one decimal, on screen and in accessibility labels alike. */
+function nutritionProgress(summary: Nutrition, targets: Record<keyof Nutrition, number | null>) {
+  const goal = targets.calories;
+  const calories = nutrientProgress(summary.calories, goal, Math.round(summary.calories));
+  const remaining = goal === null ? null : goal - calories.eaten;
+  const macros = Object.fromEntries(
+    macroCategories.map(({ key, label }) => {
+      const target = targets[key];
+      const progress = nutrientProgress(summary[key], target, Math.round(summary[key] * 10) / 10);
+      return [
+        key,
+        {
+          ...progress,
+          label: `${label}, ${progress.eaten} grams consumed, target ${target === null ? unsetTarget.spoken : `${target} grams`}`,
+        },
+      ];
+    }),
+  ) as Record<
+    (typeof macroCategories)[number]["key"],
+    ReturnType<typeof nutrientProgress> & { label: string }
+  >;
+  return {
+    calories: {
+      ...calories,
+      /** Calories left before the goal; negative once over it. */
+      remaining,
+      /** How far past the goal, as a share of it. */
+      overFraction: remaining !== null && remaining < 0 ? progressFraction(-remaining, goal) : 0,
+      /** The eaten share split by each macro's energy. */
+      segments: calorieSegments(summary, goal),
+      label: `${calories.eaten} kilocalories consumed, calorie goal ${goal === null ? unsetTarget.spoken : `${goal} kilocalories`}`,
+    },
+    ...macros,
+  };
+}
+export type NutritionProgress = ReturnType<typeof nutritionProgress>;
 
 /** The Home Water tile: the day's total against the Water goal, and what is missing. */
 function waterTile(total: WaterTotal, goal: WaterGoal, progress: number | null) {

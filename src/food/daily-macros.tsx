@@ -1,15 +1,13 @@
 import { AppButton } from "../components/button";
 import { useState } from "react";
-import { useRouter } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import { SheetPage } from "../components/sheet-page";
-import { Tappable } from "../components/tappable";
 import { parseDay } from "../calendar/dates.ts";
 import { AppText, Overline, Panel } from "../components/ui";
-import { progressFraction, summarizeDay, type FoodDay } from "../daily/model.ts";
-import { calorieSegments, macroCategories } from "../daily/nutrition.ts";
+import { macroCategories } from "../daily/nutrition.ts";
 import { sumDetailedNutrients } from "../daily/detailed-nutrition.ts";
-import { useDayActivity } from "../daily/use-day";
+import { unsetTarget, type DayActivity } from "../daily/activity";
+import { GoalsLink } from "../daily/calorie-widget";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { detailedNutrients } from "./nutrients.ts";
@@ -29,24 +27,21 @@ function formatNutrient(value: number | null): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-export function DailyMacros({ day, onBack }: { day: FoodDay; onBack: () => void }) {
-  const { targets } = useDayActivity({ date: day.date });
+export function DailyMacros({ activity, onBack }: { activity: DayActivity; onBack: () => void }) {
+  const { targets, food, nutrition } = activity;
   const { colors } = useTheme();
-  const router = useRouter();
   const [showMissing, setShowMissing] = useState(false);
   // The page opens at once; its figures appear when the day's targets have loaded.
-  if (targets.kind !== "ready")
+  if (targets.kind !== "ready" || food.kind !== "ready" || !nutrition)
     return <SheetPage title="Daily macros" closeLabel="Back to food log" onClose={onBack} />;
-  const summary = summarizeDay(day);
+  const { day, summary } = food;
+  const { calories } = nutrition;
   const details = sumDetailedNutrients(day.foods, getFoodDatabase().getById);
   const values = { ...summary, ...details };
   // Nutrients without data fold away behind one control instead of a column of placeholders.
   const missing = nutrientRows.filter(({ key }) => values[key] === null);
   const rows = showMissing ? nutrientRows : nutrientRows.filter(({ key }) => values[key] !== null);
-  const fraction = progressFraction(summary.calories, targets.calories);
-  const percentage = Math.round(fraction * 100);
-  const remaining =
-    targets.calories === null ? null : targets.calories - Math.round(summary.calories);
+  const { remaining } = calories;
   return (
     <SheetPage title="Daily macros" closeLabel="Back to food log" onClose={onBack}>
       <View testID="daily-macro-view" style={{ gap: spacing.layout }}>
@@ -71,24 +66,27 @@ export function DailyMacros({ day, onBack }: { day: FoodDay; onBack: () => void 
               )}
             </View>
             <AppText variant="hero" selectable>
-              {Math.round(summary.calories).toLocaleString()}
+              {calories.eaten.toLocaleString()}
               <AppText
                 variant="body"
                 muted
                 style={{ fontFamily: fonts.semibold, letterSpacing: 0 }}
               >
                 {" "}
-                / {targets.calories === null ? "—" : targets.calories.toLocaleString()} kcal
+                / {calories.target === null
+                  ? unsetTarget.shown
+                  : calories.target.toLocaleString()}{" "}
+                kcal
               </AppText>
             </AppText>
             <View
               testID="day-calorie-track"
               accessibilityRole="progressbar"
-              accessibilityLabel={`${summary.calories} kilocalories consumed, calorie goal ${targets.calories === null ? "unset" : `${targets.calories} kilocalories`}`}
-              accessibilityValue={{ min: 0, max: 100, now: percentage }}
+              accessibilityLabel={calories.label}
+              accessibilityValue={{ min: 0, max: 100, now: calories.percentage }}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-valuenow={percentage}
+              aria-valuenow={calories.percentage}
               style={{
                 height: 10,
                 borderRadius: radius.pill,
@@ -97,7 +95,7 @@ export function DailyMacros({ day, onBack }: { day: FoodDay; onBack: () => void 
                 flexDirection: "row",
               }}
             >
-              {calorieSegments(summary, targets.calories).map((segment) => (
+              {calories.segments.map((segment) => (
                 <View
                   key={segment.key}
                   testID={`day-calorie-${segment.key}`}
@@ -128,36 +126,17 @@ export function DailyMacros({ day, onBack }: { day: FoodDay; onBack: () => void 
                     variant="label"
                     style={{ fontFamily: fonts.extrabold, fontVariant: ["tabular-nums"] }}
                   >
-                    {Math.round(summary[key]).toLocaleString()}
+                    {nutrition[key].eaten.toLocaleString()}
                     <AppText variant="caption" muted>
-                      {targets[key] === null ? " g" : ` / ${targets[key].toLocaleString()} g`}
+                      {` / ${nutrition[key].target?.toLocaleString() ?? unsetTarget.shown} g`}
                     </AppText>
                   </AppText>
                 </View>
               ))}
             </View>
-            {targets.calories === null && (
-              <Tappable
-                role="link"
-                label="Set your calorie goal in Settings"
-                // Settings opens behind this page, so the page closes first.
-                onPress={() => {
-                  onBack();
-                  router.push("/settings");
-                }}
-                feedback="fill"
-                style={{
-                  justifyContent: "center",
-                  alignSelf: "flex-start",
-                  paddingHorizontal: spacing.sm,
-                  marginHorizontal: -spacing.sm,
-                  borderRadius: radius.control,
-                }}
-              >
-                <AppText variant="label" style={{ color: colors.brand }}>
-                  Set your goals
-                </AppText>
-              </Tappable>
+            {calories.target === null && (
+              // Settings opens behind this page, so the page closes first.
+              <GoalsLink onPress={onBack} />
             )}
           </View>
           <View

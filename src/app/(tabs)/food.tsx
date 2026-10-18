@@ -63,7 +63,7 @@ function FoodDay({
   activity: ReturnType<typeof useDayActivity>;
   tab: FoodTabView;
 }) {
-  const { date, food, targets } = activity;
+  const { date, food, nutrition } = activity;
   const view = useSyncExternalStore(tab.subscribe, tab.getSnapshot, tab.getSnapshot);
   const { page } = view;
   const drafts = useFoodDrafts();
@@ -150,19 +150,14 @@ function FoodDay({
         onDeleteItem={tab.deleteItem}
       />
     ) : page.kind === "macros" && food.kind === "ready" ? (
-      <DailyMacros day={food.day} onBack={tab.back} />
+      <DailyMacros activity={activity} onBack={tab.back} />
     ) : null;
-  const eaten =
-    food.kind === "ready"
-      ? Math.round(food.day.foods.reduce((sum, entry) => sum + entry.calories, 0))
-      : null;
-  const goal = targets.kind === "ready" ? targets.calories : null;
   const calorieSummary =
-    eaten === null
+    nutrition === null
       ? null
-      : goal === null
-        ? `${eaten.toLocaleString()} kcal`
-        : `${eaten.toLocaleString()} / ${goal.toLocaleString()} kcal`;
+      : nutrition.calories.target === null
+        ? `${nutrition.calories.eaten.toLocaleString()} kcal`
+        : `${nutrition.calories.eaten.toLocaleString()} / ${nutrition.calories.target.toLocaleString()} kcal`;
   return (
     <Screen title="Food" showTitle={false} scrollRef={scrollRef} adjustKeyboardInsets>
       <ScreenTitle title="Daily food log" trailing={calorieSummary} />

@@ -2266,6 +2266,19 @@ test("unset and maximum calorie goals keep a readable ring beside macros and Kin
         .getByRole("link", { name: "Set calorie and macro goals in Settings", exact: true })
         .click();
       await heading(page, "Your account");
+      // Daily macros offers the same link and closes before Settings opens behind it.
+      await page.goBack();
+      await page.getByRole("tab", { name: /Food/ }).click();
+      await button(page, "Daily macros").click();
+      await page
+        .getByTestId("daily-macro-view")
+        .getByRole("link", { name: "Set calorie and macro goals in Settings", exact: true })
+        .click();
+      await heading(page, "Your account");
+      await page.goBack();
+      await page.getByRole("tab", { name: /Food/ }).click();
+      await heading(page, "Daily food log");
+      assert.equal(await page.getByTestId("daily-macro-view").count(), 0);
     }
   }
 });

@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { interpretDayActivity } from "../src/daily/activity.ts";
 import type { FoodEntry } from "../src/daily/model.ts";
+import type { CatalogFood } from "../src/food/catalog.ts";
+import { entryForFood } from "../src/food/log-model.ts";
 import { emptyAnswers } from "../src/profile/answers.ts";
 import type { PhoneStepsReading } from "../src/steps/summary.ts";
 import { parseWaterGoal } from "../src/water/goal-model.ts";
@@ -436,4 +439,78 @@ test("the journal streak waits for food, water and workouts and is counted once"
   const streak = activity.streak();
   assert.equal(streak?.current, 1);
   assert.equal(activity.streak(), streak);
+});
+
+test("accessibility labels read the rounded figures the screen shows", () => {
+  const { foods }: { foods: CatalogFood[] } = JSON.parse(
+    readFileSync(new URL("../assets/food/usda-fndds.json", import.meta.url), "utf8"),
+  );
+  const banana = foods.find((food) => food.name === "Banana, raw");
+  assert.ok(banana);
+  const day = [10, 10].map((grams, index) =>
+    entryForFood({ id: `banana-${index}`, food: banana, grams, meal: "lunch" }),
+  );
+  const activity = interpretDayActivity({
+    ...sources,
+    profile: { kind: "ready", document: { version: 1, kind: "complete", answers: emptyAnswers } },
+    food: source({ kind: "ready", document: { version: 1, days: { [date]: day } } }),
+  });
+  // The raw sum is 19.400000000000002, which a label once read out in full.
+  assert.ok(activity.food.kind === "ready" && !Number.isInteger(activity.food.summary.calories));
+  const nutrition = activity.nutrition;
+  assert.ok(nutrition);
+  assert.equal(nutrition.calories.label, "19 kilocalories consumed, calorie goal unset");
+  const carbs = Math.round(activity.food.summary.carbs * 10) / 10;
+  assert.equal(nutrition.carbs.eaten, carbs);
+  assert.equal(nutrition.carbs.label, `Carbs, ${carbs} grams consumed, target unset`);
+});
+
+test("nutrition progress counts what is left, how far over and each macro's share once", () => {
+  const meal = (calories: number): FoodEntry => ({
+    ...drink,
+    id: `meal-${calories}`,
+    meal: "lunch",
+    measurement: "grams",
+    grams: 100,
+    drinkMl: undefined,
+    calories,
+  });
+  const progress = (foods: FoodEntry[]) => {
+    const { nutrition } = interpretDayActivity({
+      ...sources,
+      food: source({ kind: "ready", document: { version: 1, days: { [date]: foods } } }),
+    });
+    assert.ok(nutrition);
+    return nutrition;
+  };
+  // The adult fixture's goal is 2,760 kcal with 345 g carbs.
+  const under = progress([meal(1379.6)]);
+  assert.deepEqual(
+    { ...under.calories, segments: undefined, label: undefined },
+    {
+      eaten: 1380,
+      target: 2760,
+      fraction: 1379.6 / 2760,
+      percentage: 50,
+      remaining: 1380,
+      overFraction: 0,
+      segments: undefined,
+      label: undefined,
+    },
+  );
+  assert.equal(under.calories.label, "1380 kilocalories consumed, calorie goal 2760 kilocalories");
+  assert.equal(under.carbs.percentage, Math.round((20 / 345) * 100));
+  const shares = under.calories.segments.reduce((sum, part) => sum + part.fraction, 0);
+  assert.ok(Math.abs(shares - under.calories.fraction) < 1e-12);
+
+  const over = progress([meal(3036)]).calories;
+  assert.equal(over.remaining, -276);
+  assert.equal(over.percentage, 100);
+  assert.ok(Math.abs(over.overFraction - 0.1) < 1e-12);
+
+  const unavailable = interpretDayActivity({ ...sources, food: source({ kind: "loading" }) });
+  assert.equal(unavailable.nutrition, null);
+  const noTargets = interpretDayActivity({ ...sources, profile: { kind: "loading" } }).nutrition;
+  assert.equal(noTargets?.calories.target, null);
+  assert.equal(noTargets?.calories.remaining, null);
 });

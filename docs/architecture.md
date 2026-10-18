@@ -148,6 +148,11 @@ Daily activity (`src/daily/activity.ts`) reads one day from every saved source: 
 food log, Manual water and the Water goal, workouts, and Phone steps plus Logged steps.
 Each source reports its own availability and retry, and the activity owns the Home Steps
 and Water tile wording, so Home and the Personal journal read it instead of the providers.
+It also computes the day's nutrition progress beside its targets (eaten, left or over,
+percentage and each macro's share of the calorie ring, rounded to whole kcal and grams to
+one decimal), so the Home ring and macros, the Food title, Daily macros and the journal
+only draw it. A missing calorie or macro target shows as "—" and is read as "unset", and
+"Set your goals" is one link that pages close before following.
 `useDayActivity` is its React adapter; only Home asks it to read Phone steps. The journal's
 streak comes from the same activity and is counted once per change of its sources.
 

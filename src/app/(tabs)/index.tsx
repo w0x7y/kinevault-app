@@ -41,7 +41,7 @@ export default function HomeScreen() {
   }, [ready]);
   if (!ready) return null;
   const enter = (index: number) => (arrived.current ? undefined : motion.enter(index));
-  const summary = activity.food.kind === "ready" ? activity.food.summary : null;
+  const { nutrition } = activity;
   // The ring sits beside the macro rows; narrow phones get a smaller ring so the rows keep
   // room for their figures.
   const cardInner =
@@ -55,25 +55,19 @@ export default function HomeScreen() {
       >
         <Greeting foodLoading={activity.food.kind === "loading"} />
       </Animated.View>
-      {summary ? (
+      {nutrition ? (
         <Animated.View key="calories" entering={arrived.current ? motion.fade : enter(1)}>
-          <CalorieWidget current={summary.calories} goal={targets.calories}>
+          <CalorieWidget calories={nutrition.calories}>
             <View
               testID="home-nutrition-row"
               style={{ flexDirection: "row", alignItems: "center", gap: spacing.card }}
             >
               <CalorieRing
                 testID="home-calorie-hero"
-                current={summary.calories}
-                goal={targets.calories}
-                macros={summary}
+                calories={nutrition.calories}
                 size={ringSize}
               />
-              <NutritionWidget
-                width={cardInner - ringSize - spacing.card}
-                targets={targets}
-                summary={summary}
-              />
+              <NutritionWidget width={cardInner - ringSize - spacing.card} nutrition={nutrition} />
             </View>
           </CalorieWidget>
         </Animated.View>
