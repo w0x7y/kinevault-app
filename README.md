@@ -661,8 +661,10 @@ launcher icons and splash screens. It runs independently of the Expo app.
   durable publication, and restart recovery for food, catalog, exercise, water, and goal
   records. Each domain retains its own keys, validation, and saved results.
 - `src/persistence/document-edit.ts`: shared draft, save and load-retry lifecycle for
-  Manual water, Water goal and focused Profile edits; `use-document-edit.ts` is its
-  one React adapter.
+  Manual water, Logged steps, Water goal and focused Profile edits; `use-document-edit.ts`
+  is its one React adapter.
+- `src/persistence/day-amount-log.ts`: the day amount document behind Manual water and
+  Logged steps and its edit; `day-amount-sheet.tsx` is the entry sheet both use.
 - `src/persistence/document-provider.tsx`: `createDocumentProvider`, which builds
   each tracking document's provider per account scope.
 - `src/account/`: Supabase Auth adapter, account controller, account storage and

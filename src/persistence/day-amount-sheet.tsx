@@ -43,7 +43,7 @@ export function DayAmountSheet({
   fieldLabel: string;
   unit: string;
   step: number;
-  /** Completes "Save …" and "Saving …...". */
+  /** Names what Save saves: "water" gives "Save water" and "Saving water...". */
   noun: string;
   loadingLabel: string;
   loadFailure: string;
