@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { Platform, View } from "react-native";
 import Svg, {
   Circle,
@@ -38,6 +38,17 @@ export function WorkoutChart({ today }: { today: string }) {
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
   const [width, setWidth] = useState(320);
   const pressX = useRef<number | null>(null);
+  const sessions = exercise.state.kind === "ready" ? exercise.state.document.sessions : null;
+  const options = useMemo(
+    () => (sessions ? workoutExerciseOptions(sessions, today) : []),
+    [sessions, today],
+  );
+  const selectedKey = options.some((option) => option.key === key) ? key : options[0]?.key;
+  const graph = useMemo(
+    () =>
+      workoutGraph({ today, weeks, metric, sessions: sessions ?? [], exerciseKey: selectedKey }),
+    [today, weeks, metric, sessions, selectedKey],
+  );
   if (exercise.state.kind !== "ready")
     return (
       <Panel>
@@ -45,16 +56,6 @@ export function WorkoutChart({ today }: { today: string }) {
         <SourceStatus name="workouts" kind={exercise.state.kind} retry={exercise.retryLoad} />
       </Panel>
     );
-  const sessions = exercise.state.document.sessions;
-  const options = workoutExerciseOptions(sessions, today);
-  const selectedKey = options.some((option) => option.key === key) ? key : options[0]?.key;
-  const graph = workoutGraph({
-    today,
-    weeks,
-    metric,
-    sessions,
-    exerciseKey: selectedKey,
-  });
   const points = chartWeeks(graph.points, metric);
   const selected = selectedWeek ? points.find((point) => point.date === selectedWeek) : null;
   const maximum = Math.max(

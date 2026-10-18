@@ -1,6 +1,6 @@
 import { createId } from "../persistence/create-id";
 import { createDocumentProvider } from "../persistence/document-provider";
-import { foodDatabase } from "./database";
+import { getFoodDatabase } from "./database";
 import { createFoodLogPersistence } from "./log-persistence";
 
 export const {
@@ -11,5 +11,9 @@ export const {
 } = createDocumentProvider({
   name: "FoodLogProvider",
   create: (storage) =>
-    createFoodLogPersistence({ storage, findFood: foodDatabase.getById, createId }),
+    createFoodLogPersistence({
+      storage,
+      findFood: (fdcId) => getFoodDatabase().getById(fdcId),
+      createId,
+    }),
 });

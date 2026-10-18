@@ -205,7 +205,7 @@ export function createPartitionedLocalStorage(local: AccountLocalStorage): Accou
   if (existing) return existing;
   const readers = new Map<string, number>(),
     retired = new Map<string, Set<string>>();
-  const decoded = new Map<string, { raw: string; parts: HistoryParts }>();
+  const decoded = new Map<string, { raw: string; parts: HistoryParts; payload?: string | null }>();
   const logicalKey = (key: string) =>
     historyKeys.find((history) => key === history || key.endsWith(`.${history}`));
   async function cleanup(key: string) {
@@ -214,19 +214,25 @@ export function createPartitionedLocalStorage(local: AccountLocalStorage): Accou
     retired.delete(key);
     if (refs) await Promise.allSettled([...refs].map((ref) => local.removeItem(ref)));
   }
-  async function load(key: string, root: LocalManifest, raw: string): Promise<HistoryParts> {
-    const cached = decoded.get(key);
-    if (cached?.raw === raw) return cached.parts;
-    const parts: HistoryParts = {};
-    for (const [part, ref] of Object.entries(root.refs)) {
-      if (!validPart(logicalKey(key)!, part) || !ref.startsWith(`${key}.partition.v2.${part}.`))
-        throw new Error("Invalid local history reference");
-      const value = await local.getItem(ref);
-      if (value === null) throw new Error("Missing history partition");
-      parts[part] = value;
+  async function load(
+    key: string,
+    root: LocalManifest,
+    raw: string,
+  ): Promise<{ parts: HistoryParts; payload: string | null }> {
+    let cached = decoded.get(key);
+    if (cached?.raw !== raw) {
+      const refs = Object.entries(root.refs);
+      for (const [part, ref] of refs)
+        if (!validPart(logicalKey(key)!, part) || !ref.startsWith(`${key}.partition.v2.${part}.`))
+          throw new Error("Invalid local history reference");
+      const values = await Promise.all(refs.map(([, ref]) => local.getItem(ref)));
+      if (values.includes(null)) throw new Error("Missing history partition");
+      cached = { raw, parts: Object.fromEntries(refs.map(([part], i) => [part, values[i]!])) };
+      decoded.set(key, cached);
     }
-    decoded.set(key, { raw, parts });
-    return parts;
+    // Committed fragments are never rewritten, so a root's assembly cannot change.
+    cached.payload ??= assembleHistory(logicalKey(key)!, cached.parts, root.deleted);
+    return { parts: cached.parts, payload: cached.payload };
   }
   const adapter: AccountLocalStorage = {
     async getItem(key) {
@@ -237,7 +243,7 @@ export function createPartitionedLocalStorage(local: AccountLocalStorage): Accou
         const raw = await local.getItem(key),
           root = manifest(raw);
         if (!root) return raw;
-        const payload = assembleHistory(history, await load(key, root, raw!), root.deleted);
+        const { payload } = await load(key, root, raw!);
         return root.envelope === null ? payload : JSON.stringify({ ...root.envelope, payload });
       } finally {
         readers.set(key, readers.get(key)! - 1);
@@ -252,18 +258,21 @@ export function createPartitionedLocalStorage(local: AccountLocalStorage): Accou
       const payload = isEnvelope ? (value.payload as string | null) : raw;
       const oldRaw = await local.getItem(key),
         old = manifest(oldRaw);
-      let previous: HistoryParts = {};
+      let previous: HistoryParts = {},
+        unchanged = false;
       if (old) {
         // A valid replacement can recover damaged fragments. Root metadata
         // still preserves the envelope's revision and pending-save status.
         try {
-          previous = await load(key, old, oldRaw!);
-          assembleHistory(history, previous, old.deleted);
+          const loaded = await load(key, old, oldRaw!);
+          previous = loaded.parts;
+          unchanged = loaded.payload === payload;
         } catch {
           previous = {};
         }
       }
-      const parts = partitionHistory(history, payload, previous);
+      // An unchanged rewrite, such as an upload acknowledgment, replaces only the root.
+      const parts = unchanged ? previous : partitionHistory(history, payload, previous);
       const generation = (old?.generation ?? 0) + 1,
         refs: Record<string, string> = {};
       const created: string[] = [];
@@ -287,7 +296,7 @@ export function createPartitionedLocalStorage(local: AccountLocalStorage): Accou
         };
         const serialized = JSON.stringify(root);
         await local.setItem(key, serialized);
-        decoded.set(key, { raw: serialized, parts });
+        decoded.set(key, { raw: serialized, parts, payload: unchanged ? payload : undefined });
       } catch (error) {
         await Promise.allSettled(created.map((ref) => local.removeItem(ref)));
         throw error;

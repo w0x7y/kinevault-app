@@ -233,3 +233,165 @@ test("a stale attempt cannot publish after Try again starts a newer one", async 
   assert.deepEqual(states, ["error"]);
   scope.stop();
 });
+
+const goalKey = "kinevault-track.water-goal.v1";
+const goal = (dailyMl: number) => JSON.stringify({ version: 1, dailyMl });
+const completeProfile = (name: string) => {
+  const { answers } = parseProfile(null);
+  return JSON.stringify({
+    version: 1,
+    kind: "complete",
+    answers: {
+      ...answers,
+      name,
+      age: "30",
+      height: "180",
+      weight: "80",
+      sex: "male",
+      goal: "maintain",
+      activity: "moderate",
+      eligible: true,
+    },
+  });
+};
+/** This device already holds `documents` for Account "a", synced at revision 1. */
+function savedLocally(documents: Record<string, string>) {
+  const local = memory();
+  for (const [key, payload] of Object.entries(documents))
+    local.values.set(
+      `kinevault-track.account.a.${key}`,
+      JSON.stringify({ version: 1, payload, revision: 1, dirty: false, sequence: 0 }),
+    );
+  return local;
+}
+/** A cloud whose list() waits for `release`. */
+function heldCloud(rows: CloudDocument[]) {
+  const cloud = server(rows);
+  const listed = deferred<void>();
+  const list = cloud.remote.list;
+  cloud.remote.list = async (...args) => {
+    await listed.promise;
+    return list(...args);
+  };
+  return {
+    ...cloud,
+    release: () => listed.resolve(),
+    fail: () => listed.reject(new Error("Offline")),
+  };
+}
+
+test("a completed Profile on this device opens before the cloud download, which then refreshes the changed document", async () => {
+  assert.equal(parseProfile(completeProfile("Saved")).kind, "complete");
+  const local = savedLocally({
+    [profileStorageKey]: completeProfile("Saved"),
+    [goalKey]: goal(2000),
+  });
+  const cloud = heldCloud([
+    { document_key: profileStorageKey, payload: completeProfile("Saved"), revision: 1 },
+    { document_key: goalKey, payload: goal(2600), revision: 2 },
+  ]);
+  const { scope, storage, states } = harness("a", local.storage, cloud.remote);
+  const durableAtNotice: (string | undefined)[] = [];
+  storage.subscribeItem(goalKey, () =>
+    durableAtNotice.push(local.values.get(`kinevault-track.account.a.${goalKey}`)),
+  );
+  scope.start();
+  try {
+    await settle();
+    assert.equal(cloud.lists(), 0, "the download is still pending");
+    assert.equal(scope.getSnapshot(), "ready");
+    assert.equal(await storage.getItem(goalKey), goal(2000));
+  } finally {
+    cloud.release();
+  }
+  await settle();
+  assert.equal(durableAtNotice.length, 1);
+  assert.equal(JSON.parse(durableAtNotice[0]!).payload, goal(2600));
+  assert.equal(await storage.getItem(goalKey), goal(2600));
+  assert.equal(storage.getSnapshot().state, "idle");
+  assert.deepEqual(states, ["ready"]);
+  scope.stop();
+});
+
+test("without a completed Profile on this device the Account waits for the cloud download", async () => {
+  const draft = parseProfile(null);
+  for (const documents of [
+    {} as Record<string, string>,
+    {
+      [profileStorageKey]: JSON.stringify({
+        ...draft,
+        step: "age",
+        answers: { ...draft.answers, name: "Draft" },
+      }),
+    },
+  ]) {
+    const local = savedLocally(documents);
+    const cloud = heldCloud([
+      { document_key: profileStorageKey, payload: completeProfile("Cloud"), revision: 2 },
+    ]);
+    const { scope, storage, states } = harness("a", local.storage, cloud.remote);
+    scope.start();
+    try {
+      await settle();
+      assert.equal(scope.getSnapshot(), "loading");
+    } finally {
+      cloud.release();
+    }
+    await settle();
+    assert.equal(scope.getSnapshot(), "ready");
+    assert.deepEqual(states, ["ready"]);
+    assert.equal(JSON.parse((await storage.getItem(profileStorageKey))!).kind, "complete");
+    scope.stop();
+  }
+});
+
+test("a background sync failure after opening shows the sync error without an unhandled rejection", async () => {
+  const unhandled: unknown[] = [];
+  const record = (reason: unknown) => unhandled.push(reason);
+  process.on("unhandledRejection", record);
+  try {
+    const local = savedLocally({ [profileStorageKey]: completeProfile("Saved") });
+    const cloud = heldCloud([]);
+    const { scope, storage, states } = harness("a", local.storage, cloud.remote);
+    scope.start();
+    await settle();
+    assert.equal(scope.getSnapshot(), "ready");
+    cloud.fail();
+    await settle();
+    assert.equal(storage.getSnapshot().state, "error");
+    assert.equal(
+      storage.getSnapshot().error,
+      "Your changes are saved on this device. Cloud sync couldn't finish. Try again.",
+    );
+    assert.deepEqual(states, ["ready"]);
+    scope.stop();
+    await settle();
+  } finally {
+    process.off("unhandledRejection", record);
+  }
+  assert.deepEqual(unhandled, []);
+});
+
+test("stopping during the background sync publishes and writes nothing afterward", async () => {
+  const local = savedLocally({
+    [profileStorageKey]: completeProfile("Saved"),
+    [goalKey]: goal(2000),
+  });
+  const cloud = heldCloud([{ document_key: goalKey, payload: goal(2600), revision: 2 }]);
+  const { scope, storage, states, calls } = harness("a", local.storage, cloud.remote);
+  scope.start();
+  await settle();
+  assert.equal(scope.getSnapshot(), "ready");
+  let published = 0,
+    changed = 0;
+  storage.subscribe(() => published++);
+  storage.subscribeItem(goalKey, () => changed++);
+  const before = new Map(local.values);
+  scope.stop();
+  cloud.release();
+  await settle();
+  assert.deepEqual([published, changed], [0, 0]);
+  assert.deepEqual(local.values, before);
+  assert.deepEqual(states, ["ready"]);
+  assert.deepEqual(calls, ["start", "stop"]);
+});

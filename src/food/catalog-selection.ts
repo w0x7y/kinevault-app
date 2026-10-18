@@ -17,14 +17,15 @@ export function createFoodSelection({
 }: {
   savedFoods: readonly CustomFood[];
   savedMeals: readonly CustomMeal[];
-  bundledFoods: readonly CatalogFood[];
+  /** Read on first search, so the bundled catalog loads only when someone searches. */
+  bundledFoods: () => readonly CatalogFood[];
 }) {
   const saved = new Map<string, SavedCatalogItem>();
   for (const food of savedFoods) saved.set(food.customId, { kind: "food", food });
   for (const food of savedMeals) saved.set(food.customId, { kind: "meal", food });
   const matches = {
-    logging: createFoodSearch([...savedFoods, ...savedMeals, ...bundledFoods]),
-    ingredient: createFoodSearch([...savedFoods, ...bundledFoods]),
+    logging: createFoodSearch([...savedFoods, ...savedMeals], bundledFoods),
+    ingredient: createFoodSearch(savedFoods, bundledFoods),
   };
 
   return {

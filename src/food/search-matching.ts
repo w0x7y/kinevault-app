@@ -246,6 +246,7 @@ type SearchEntry = {
   keys: SearchKey[];
   nameTokens: string[];
   tokenCount: number;
+  byProduct: boolean;
   kind: "direct" | "qualifier" | "generic";
 };
 export type FoodSearchMatch = {
@@ -253,6 +254,7 @@ export type FoodSearchMatch = {
   rank: number;
   genericDrink: boolean;
   tokenCount: number;
+  byProduct: boolean;
 };
 
 function buildFoodSearchIndex(foods: readonly CatalogFood[]) {
@@ -260,11 +262,13 @@ function buildFoodSearchIndex(foods: readonly CatalogFood[]) {
   const documents: { id: number; text: string }[] = [];
   for (const food of foods) {
     const nameTokens = searchWords(food.name);
+    const byProduct = isByProduct(food.name);
     const segments = [nameTokens, searchWords(food.brand ?? "")];
     const addEntry = (kind: SearchEntry["kind"], alias?: string) => {
       const keys = keysFor(alias === undefined ? segments : [...segments, searchWords(alias)]);
       const id = entries.size;
-      entries.set(id, { id, food, keys, nameTokens, tokenCount: segments.flat().length, kind });
+      const tokenCount = segments.flat().length;
+      entries.set(id, { id, food, keys, nameTokens, tokenCount, byProduct, kind });
       documents.push({ id, text: keys.map((key) => key.text).join(" ") });
     };
     addEntry("direct");
@@ -281,27 +285,49 @@ function buildFoodSearchIndex(foods: readonly CatalogFood[]) {
   return { entries, index };
 }
 
-export function createFoodSearch(foods: readonly CatalogFood[]) {
+type FoodSearchIndex = ReturnType<typeof buildFoodSearchIndex>;
+// Shared catalogs (the bundled foods) are indexed once per array and reused by every search.
+const sharedIndexes = new WeakMap<readonly CatalogFood[], FoodSearchIndex>();
+
+/** Searches `foods` together with the optional `shared` catalog, which is read on first search.
+ * Splitting the index is safe: membership is per document, scores never rank and the final sort
+ * is a total order.
+ */
+export function createFoodSearch(
+  foods: readonly CatalogFood[],
+  shared?: () => readonly CatalogFood[],
+) {
   const snapshot = [...foods];
-  let ready: ReturnType<typeof buildFoodSearchIndex> | undefined;
+  let ready: FoodSearchIndex | undefined;
   return (query: string): FoodSearchMatch[] => {
     const terms = searchWords(query.slice(0, 100));
     if (!terms.some((term) => term.length >= 2)) return [];
-    const { entries, index } = (ready ??= buildFoodSearchIndex(snapshot));
+    const indexes = [(ready ??= buildFoodSearchIndex(snapshot))];
+    if (shared) {
+      const sharedFoods = shared();
+      let sharedIndex = sharedIndexes.get(sharedFoods);
+      if (!sharedIndex)
+        sharedIndexes.set(sharedFoods, (sharedIndex = buildFoodSearchIndex(sharedFoods)));
+      indexes.push(sharedIndex);
+    }
     // The index supplies a broad union of candidates; matchCost enforces AND
     // semantics including alternative compact spans and qualifier protection.
     const queryKeys = keysFor([terms])
       .map((key) => key.text)
       .join(" ");
-    const candidates = index.search(queryKeys, {
-      combineWith: "OR",
-      fuzzy: (term) => (eligibleForFuzzy(term) ? 1 : false),
-      prefix: (term) => !numeric(term) && !protectedTerms.has(term),
-    });
+    const candidates = indexes.flatMap(({ entries, index }) =>
+      index
+        .search(queryKeys, {
+          combineWith: "OR",
+          fuzzy: (term) => (eligibleForFuzzy(term) ? 1 : false),
+          prefix: (term) => !numeric(term) && !protectedTerms.has(term),
+        })
+        .map((candidate) =>
+          typeof candidate.id === "number" ? entries.get(candidate.id) : undefined,
+        ),
+    );
     const matches = new Map<string, FoodSearchMatch>();
-    for (const candidate of candidates) {
-      if (typeof candidate.id !== "number") continue;
-      const entry = entries.get(candidate.id);
+    for (const entry of candidates) {
       if (!entry) continue;
       const cost = matchCost(terms, entry.keys);
       if (cost === null) continue;
@@ -326,6 +352,7 @@ export function createFoodSearch(foods: readonly CatalogFood[]) {
           rank,
           genericDrink,
           tokenCount: entry.tokenCount,
+          byProduct: entry.byProduct,
         });
     }
     const common = (match: FoodSearchMatch) =>
@@ -337,7 +364,7 @@ export function createFoodSearch(foods: readonly CatalogFood[]) {
       (a, b) =>
         tier(a) - tier(b) ||
         (common(a) === common(b) ? 0 : common(a) < common(b) ? -1 : 1) ||
-        Number(isByProduct(a.food.name)) - Number(isByProduct(b.food.name)) ||
+        Number(a.byProduct) - Number(b.byProduct) ||
         a.tokenCount - b.tokenCount ||
         a.food.name.length - b.food.name.length ||
         a.food.name.localeCompare(b.food.name) ||

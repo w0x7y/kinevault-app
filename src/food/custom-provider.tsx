@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import data from "../../assets/food/usda-fndds.json";
 import { createId } from "../persistence/create-id";
 import { createDocumentProvider } from "../persistence/document-provider";
 import { createFoodSelection } from "./catalog-selection.ts";
+import { getFoodDatabase } from "./database";
 import { createCustomFoodPersistence } from "./custom-persistence.ts";
 
 export const {
@@ -19,7 +19,7 @@ export const {
         createFoodSelection({
           savedFoods: snapshot.state.kind === "ready" ? snapshot.state.document.foods : [],
           savedMeals: snapshot.state.kind === "ready" ? snapshot.state.document.meals : [],
-          bundledFoods: data.foods,
+          bundledFoods: () => getFoodDatabase().foods,
         }),
       [snapshot.state],
     );

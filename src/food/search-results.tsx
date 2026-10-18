@@ -5,10 +5,13 @@ import { AppText, Overline, Panel } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import { foodKey, foodPageSize, type CatalogFood } from "./catalog.ts";
-import { foodSource } from "./database";
+import { getFoodDatabase } from "./database";
 import { useCustomFoods } from "./custom-provider";
 import { useFoodLog } from "./log-provider";
 import { FoodResult, GenericNotice } from "./food-result";
+
+// The results remount for every query, so count per food log snapshot rather than per mount.
+const loggedCounts = new WeakMap<object, Map<string, number>>();
 
 export function FoodSearchResults({
   query,
@@ -27,10 +30,13 @@ export function FoodSearchResults({
   const log = useFoodLog();
   const days = log.state.kind === "ready" ? log.state.document.days : null;
   const logged = useMemo(() => {
+    const cached = days && loggedCounts.get(days);
+    if (cached) return cached;
     const counts = new Map<string, number>();
     for (const entries of Object.values(days ?? {}))
       for (const entry of entries)
         counts.set(foodKey(entry), (counts.get(foodKey(entry)) ?? 0) + 1);
+    if (days) loggedCounts.set(days, counts);
     return counts;
   }, [days]);
   const [page, setPage] = useState(0);
@@ -119,7 +125,7 @@ export function FoodSearchResults({
           selectable
           style={{ paddingHorizontal: spacing.xs, textAlign: "center" }}
         >
-          {foodSource.name} · {foodSource.dataset}
+          {getFoodDatabase().source.name} · {getFoodDatabase().source.dataset}
         </AppText>
       )}
     </View>

@@ -36,7 +36,7 @@ initializeCrashReporting();
 initializeReminderNotifications();
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
-function RootNavigator() {
+function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const reduced = useReducedMotion();
   const { colors, appearance, ready } = useTheme();
   const profile = useProfile();
@@ -44,18 +44,7 @@ function RootNavigator() {
   const { user, recovery } = useAccount();
   const segments = useSegments();
   const authRoute = isPublicAccountRoute(segments);
-  const [fontsLoaded, fontError] = useFonts({
-    Comfortaa_600SemiBold,
-    Manrope_400Regular,
-    Manrope_500Medium,
-    Manrope_600SemiBold,
-    Manrope_700Bold,
-    Manrope_800ExtraBold,
-    ...FontAwesome6.font,
-    ...Ionicons.font,
-  });
-  const loaded =
-    ready && (fontsLoaded || Boolean(fontError)) && (authRoute || state.kind !== "loading");
+  const loaded = ready && fontsReady && (authRoute || state.kind !== "loading");
   // Reminder taps wait for startup, then open tracking only where the tab
   // layout would allow it.
   const tracking = trackingAccess({ recovery, signedIn: user !== null, profile: state });
@@ -99,6 +88,18 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  // Fonts load from launch, alongside the session restore and the account's data.
+  const [fontsLoaded, fontError] = useFonts({
+    Comfortaa_600SemiBold,
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
+    // Icon draws Font Awesome only as the solid face.
+    "FontAwesome6Free-Solid": FontAwesome6.font["FontAwesome6Free-Solid"],
+    ...Ionicons.font,
+  });
   return (
     <AppErrorBoundary>
       <ThemeProvider>
@@ -109,7 +110,7 @@ export default function RootLayout() {
                 <OfflineNotice />
                 <AccountDataProvider>
                   <ReminderProvider>
-                    <RootNavigator />
+                    <RootNavigator fontsReady={fontsLoaded || Boolean(fontError)} />
                   </ReminderProvider>
                 </AccountDataProvider>
               </View>

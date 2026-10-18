@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Animated from "react-native-reanimated";
-import { useRouter } from "expo-router";
+import { useIsFocused, useRouter } from "expo-router";
 import { View, useWindowDimensions } from "react-native";
 import { AppText, Screen } from "../../components/ui";
 import { Kine } from "../../onboarding/kine";
@@ -148,6 +148,8 @@ function Greeting({ foodLoading }: { foodLoading: boolean }) {
       : "";
   const name = first ? first[0]!.toUpperCase() + first.slice(1) : "";
   const narrow = useWindowDimensions().width < 360;
+  // Re-renders on focus so returning to Home past noon or 6 pm updates the time of day.
+  useIsFocused();
   let greeting: string;
   if (selectedDay === today) {
     const hour = new Date().getHours();

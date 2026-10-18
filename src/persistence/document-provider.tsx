@@ -1,7 +1,9 @@
 import {
   createContext,
+  memo,
   useContext,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
   type PropsWithChildren,
@@ -34,7 +36,7 @@ type DocumentProvider<Store, Value> = {
  * One saved document per account scope. Without `useValue`, screens read the snapshot plus
  * `retryLoad`; `useValue` shapes that value instead and may run the document's own effects.
  */
-export function createDocumentProvider<Store extends DocumentStore, Value>(options: {
+export function createDocumentProvider<Store extends DocumentStore, Value extends object>(options: {
   name: string;
   create(storage: AccountStorage): Store;
   useValue(snapshot: SnapshotOf<Store>, store: Store): Value;
@@ -43,7 +45,7 @@ export function createDocumentProvider<Store extends DocumentStore>(options: {
   name: string;
   create(storage: AccountStorage): Store;
 }): DocumentProvider<Store, DefaultValue<Store>>;
-export function createDocumentProvider<Store extends DocumentStore, Value>({
+export function createDocumentProvider<Store extends DocumentStore, Value extends object>({
   name,
   create,
   useValue = (snapshot, store) => ({ ...snapshot, retryLoad: store.retryLoad }) as Value,
@@ -67,17 +69,20 @@ export function createDocumentProvider<Store extends DocumentStore, Value>({
       store.start();
       return store.stop;
     }, [store]);
-    const value = useValue(snapshot, store);
+    // Layouts above re-render on every navigation; an unchanged value spares every reader.
+    const next = useValue(snapshot, store);
+    const value = useRef(next);
+    if (!sameFields(value.current, next)) value.current = next;
     return (
       <StoreContext.Provider value={store}>
-        <ValueContext.Provider value={value}>{children}</ValueContext.Provider>
+        <ValueContext.Provider value={value.current}>{children}</ValueContext.Provider>
       </StoreContext.Provider>
     );
   }
   Provider.displayName = name;
 
   return {
-    Provider,
+    Provider: memo(Provider),
     useDocument() {
       const value = useContext(ValueContext);
       if (value === null) throw new Error(`This hook must be used inside ${name}`);
@@ -89,4 +94,13 @@ export function createDocumentProvider<Store extends DocumentStore, Value>({
       return store;
     },
   };
+}
+
+/** Same own fields holding the same values, compared the way React compares props. */
+function sameFields(a: object, b: object): boolean {
+  const fields = Object.entries(a);
+  return (
+    fields.length === Object.keys(b).length &&
+    fields.every(([key, field]) => Object.hasOwn(b, key) && Object.is(field, Reflect.get(b, key)))
+  );
 }

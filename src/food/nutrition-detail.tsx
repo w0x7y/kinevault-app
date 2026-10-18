@@ -19,7 +19,7 @@ import { CustomItemActions } from "./custom-item-actions";
 import { useFoodDrafts } from "./draft-provider";
 import { NutritionFields } from "./form-fields";
 import { nutritionAmountText } from "./number-input.ts";
-import { foodSource } from "./database";
+import { getFoodDatabase } from "./database";
 import { CatalogDraftPage } from "./catalog-draft-page";
 import type { FoodLoggingAttempt, FoodLoggingAttemptSnapshot } from "./logging-attempt.ts";
 
@@ -333,7 +333,7 @@ export function FoodNutritionDetail({
               ? "Custom meal · Nutrition from ingredients and your overrides"
               : target.food.customId
                 ? "Custom food · Nutrition entered by you"
-                : `${foodSource.name} · ${foodSource.dataset}`}
+                : `${getFoodDatabase().source.name} · ${getFoodDatabase().source.dataset}`}
           </AppText>
         )}
       </View>

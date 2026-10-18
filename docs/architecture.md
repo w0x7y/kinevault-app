@@ -70,6 +70,12 @@ stopped lifecycle cannot start another adapter request or publish an abandoned
 request's result. Restarting does not wait for an abandoned network read; device
 mutations remain serialized because they cannot be canceled once started.
 
+Startup reads this device's documents first. If they hold a completed Profile, the
+Account opens at once and the first cloud sync runs in the background; otherwise,
+including an onboarding draft, entry waits for that sync. An edit queued behind a
+cloud replacement keeps the revision it was built on, so its upload becomes a Cloud
+conflict instead of overwriting the downloaded change.
+
 Cloud hydration notifies only the changed tracking key, after that value is
 durable. A failed upload after successful hydration still notifies the changed
 data. An unchanged sync emits no document refresh. Settings does not remount
