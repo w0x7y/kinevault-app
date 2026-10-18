@@ -1,4 +1,4 @@
-import { Redirect, Tabs } from "expo-router";
+import { Tabs } from "expo-router";
 import { BottomTabBar } from "expo-router/js-tabs";
 import { useState } from "react";
 import { View } from "react-native";
@@ -14,7 +14,8 @@ import { useProfile } from "../../profile/provider";
 import { DemoCatalogProvider } from "../../exercise/demo/provider";
 import { useAccount } from "../../account/provider";
 import { AccountTrackingProvider, TrackingRefreshNotices } from "../../account/tracking-provider";
-import { trackingAccess } from "../../account/tracking-access";
+import { routeDecision } from "../../account/entry-policy";
+import { EntryGate } from "../../account/entry-gate";
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
@@ -23,9 +24,8 @@ export default function TabLayout() {
   const { colors, appearance } = useTheme();
   const { state } = useProfile();
   const { user, recovery } = useAccount();
-  const access = trackingAccess({ recovery, signedIn: user !== null, profile: state });
-  if (access.kind === "redirect") return <Redirect href={access.href} />;
-  if (access.kind === "wait") return null;
+  const access = routeDecision("tracking", { recovery, signedIn: user !== null, profile: state });
+  if (access.kind !== "render") return <EntryGate decision={access} />;
   return (
     <AccountTrackingProvider>
       <DemoCatalogProvider>

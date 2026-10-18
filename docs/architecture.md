@@ -29,6 +29,17 @@ loading or failure. A signed-in Account with a damaged Profile sees Profile
 recovery and can log out without deleting its saved data. Tracking still requires
 an authenticated Account and a completed Profile.
 
+The entry policy module (`src/account/entry-policy.ts`) holds that rule. Its
+input is the route class (sign-in and email-link, account, onboarding, tracking,
+other) and the Account, storage and Profile readings; its output is one decision:
+render, loading, wait, redirect, Profile recovery or storage failure. It also says
+whether a reminder tap waits, opens or is dropped, and where a saved Onboarding flow
+exits. The app evaluates the rule in layers because each layer's readings exist only
+below the one above it: AccountDataProvider (session, then storage), the root
+navigator (theme, fonts, Profile) and each route. Those are adapters that render the
+decision through `EntryGate`; `entryDecision` composes the layers, and its unit test
+covers every route and reading combination.
+
 ## Account tracking storage
 
 Account storage owns device namespaces, legacy onboarding import, durable pending

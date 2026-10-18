@@ -21,8 +21,12 @@ import { MotionProvider, useReducedMotion } from "../components/motion";
 import { KineLoading } from "../components/kine-loading";
 import { AccountProvider, useAccount } from "../account/provider";
 import { AccountDataProvider } from "../account/data-provider";
-import { isPublicAccountRoute } from "../account/navigation";
-import { trackingAccess } from "../account/tracking-access";
+import {
+  entryRoute,
+  isPublicAccountRoute,
+  navigatorGate,
+  reminderTapAccess,
+} from "../account/entry-policy";
 import { RefreshNotice } from "../persistence/refresh-notice";
 import { AppErrorBoundary } from "../components/error-boundary";
 import { initializeCrashReporting } from "../components/crash-reporting";
@@ -42,19 +46,16 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const profile = useProfile();
   const { state } = profile;
   const { user, recovery } = useAccount();
-  const segments = useSegments();
-  const authRoute = isPublicAccountRoute(segments);
-  const loaded = ready && fontsReady && (authRoute || state.kind !== "loading");
-  // Reminder taps wait for startup, then open tracking only where the tab
-  // layout would allow it.
-  const tracking = trackingAccess({ recovery, signedIn: user !== null, profile: state });
-  useReminderTapRouting(
-    !loaded || state.kind === "loading"
-      ? "wait"
-      : !authRoute && tracking.kind === "open"
-        ? "open"
-        : "ignore",
-  );
+  const route = entryRoute(useSegments());
+  const readings = {
+    appReady: ready && fontsReady,
+    profile: state,
+    recovery,
+    signedIn: user !== null,
+  };
+  const gate = navigatorGate(route, readings);
+  const loaded = gate?.kind !== "loading";
+  useReminderTapRouting(reminderTapAccess(route, readings));
 
   useEffect(() => {
     if (loaded) void SplashScreen.hideAsync();
@@ -70,8 +71,8 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
     <>
       <StatusBar style={appearance === "dark" ? "light" : "dark"} />
       <View style={{ flex: 1 }}>
-        {!authRoute && <RefreshNotice label="Profile" document={profile} />}
-        {state.kind === "error" && !authRoute ? (
+        {!isPublicAccountRoute(route) && <RefreshNotice label="Profile" document={profile} />}
+        {gate?.kind === "profileRecovery" ? (
           <ProfileRecovery />
         ) : (
           <Stack
