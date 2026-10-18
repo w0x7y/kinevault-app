@@ -4,7 +4,7 @@ import { Icon } from "../components/icon";
 import { AppText } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
-import { elapsedSeconds, type WorkoutSession } from "./model";
+import { elapsedSeconds, formatElapsed, type WorkoutSession } from "./model";
 
 /** Colors of the live workout timer: primary blue in light mode, a deep Kine blue in dark mode. */
 export function useLiveTone() {
@@ -28,8 +28,7 @@ export function useElapsedTime(session: WorkoutSession) {
     tick();
     return () => clearTimeout(timeout);
   }, [session.id, session.startedAt]);
-  const elapsed = elapsedSeconds(session, now);
-  return `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`;
+  return formatElapsed(elapsedSeconds(session, now));
 }
 
 /** The pill's look, shared by the workout page's timer and the app header's button. */

@@ -548,6 +548,20 @@ test("a stopped tab view ignores saved changes and catches up when it starts aga
   assert.deepEqual(f.tab.getSnapshot().plannedCards, []);
 });
 
+test("a timed log's duration opens as readable minutes and an untouched Save keeps its seconds", async () => {
+  const f = await fixture(),
+    { exercises } = f.saved();
+  await f.tab.requestView({ kind: "session", id: "log" });
+  const edit = f.editing.edit("log");
+  await f.store.updateSession({ id: "log", name: "Strength", exercises, durationSeconds: 437 });
+  assert.equal(edit.getSnapshot().fields.minutes, "7.28");
+  assert.equal(await edit.run("cancel"), true);
+  await f.tab.requestView({ kind: "session", id: "log" });
+  assert.equal(f.editing.edit("log").getSnapshot().fields.minutes, "7.28");
+  assert.equal(await f.editing.edit("log").run("save"), true);
+  assert.equal(f.saved().durationSeconds, 437);
+});
+
 test("an untouched edit follows a newer saved log, while an entered name stays", async () => {
   const f = await fixture("planned"),
     { exercises } = f.saved();

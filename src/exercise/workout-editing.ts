@@ -63,6 +63,18 @@ type WorkoutLogControls = {
   /** The page over the tab (a null title shows the workout's name); a compact card stays on the tab. */
   sheet: { title: string | null; testID: string } | null;
 };
+/** A saved log's editable fields. Two decimals of minutes keep every whole second through a save. */
+function savedFields(session: WorkoutSession): Pick<WorkoutEditState, "fields" | "counts"> {
+  const { durationSeconds } = session;
+  return {
+    fields: {
+      name: session.name,
+      exercises: session.exercises,
+      minutes: durationSeconds === null ? "" : String(Number((durationSeconds / 60).toFixed(2))),
+    },
+    counts: Object.fromEntries(session.exercises.map((row) => [row.id, String(row.sets.length)])),
+  };
+}
 /** What a workout log shows in each mode. */
 export const workoutLogControls = {
   compact: {
@@ -230,21 +242,8 @@ export function createWorkoutEditing(
         if (!entry.pending) entries.delete(id);
       } else {
         // Untouched fields follow a newer saved log, e.g. from an account refresh; entered fields never do.
-        const savedFields =
-          entry.revision === 0 && !entry.pending
-            ? {
-                fields: {
-                  name: session.name,
-                  exercises: session.exercises,
-                  minutes:
-                    session.durationSeconds === null ? "" : String(session.durationSeconds / 60),
-                },
-                counts: Object.fromEntries(
-                  session.exercises.map((row) => [row.id, String(row.sets.length)]),
-                ),
-              }
-            : {};
-        entry.state = { ...entry.state, ...savedFields, session };
+        const fields = entry.revision === 0 && !entry.pending ? savedFields(session) : {};
+        entry.state = { ...entry.state, ...fields, session };
       }
     }
     // Editors render again with the newer saved log.
@@ -263,14 +262,7 @@ export function createWorkoutEditing(
         queued: null,
         state: {
           session,
-          fields: {
-            name: session.name,
-            exercises: session.exercises,
-            minutes: session.durationSeconds === null ? "" : String(session.durationSeconds / 60),
-          },
-          counts: Object.fromEntries(
-            session.exercises.map((row) => [row.id, String(row.sets.length)]),
-          ),
+          ...savedFields(session),
           busy: false,
           error: null,
           countError: null,

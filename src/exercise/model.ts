@@ -291,6 +291,10 @@ export function parseExerciseDocument(raw: string | null): ExerciseDocument {
 export function activeWorkout(sessions: readonly WorkoutSession[]): WorkoutSession | null {
   return sessions.find((session) => session.status === "active") ?? null;
 }
+/** Whole seconds as the timer shows them, minutes:seconds. */
+export function formatElapsed(seconds: number): string {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
 export function elapsedSeconds(session: WorkoutSession, now: number): number {
   if (session.status !== "active" || session.startedAt === null)
     return session.status === "completed" ? (session.durationSeconds ?? 0) : 0;

@@ -4,7 +4,13 @@ import { AppText, Overline, Panel } from "../components/ui";
 import { ButtonRow, AppButton, IconButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
 import { spacing } from "../theme/tokens";
-import { durationFromMinutes, setHints, type SessionExercise, type WorkoutSession } from "./model";
+import {
+  durationFromMinutes,
+  formatElapsed,
+  setHints,
+  type SessionExercise,
+  type WorkoutSession,
+} from "./model";
 import { useExercises } from "./provider";
 import type { ExerciseTabView } from "./tab-view";
 import { ExerciseDemoSlot } from "./demo/exercise-demo";
@@ -19,9 +25,7 @@ import { useSheetBack } from "../components/sheet-page";
 function durationCaption(minutes: string) {
   try {
     const seconds = durationFromMinutes(minutes);
-    return seconds === null
-      ? "Duration not set"
-      : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+    return seconds === null ? "Duration not set" : formatElapsed(seconds);
   } catch {
     return "Invalid duration";
   }
