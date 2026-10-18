@@ -55,7 +55,7 @@ evidence from earlier revisions, rather than current status.
   Exercise imports a workout template from a Tracked share link; on the web this
   needs the `tracked-workout` Edge Function. See [workout import](docs/workout-import.md)
   and [privacy storage decisions](docs/privacy.md).
-- Settings account JSON export includes device/cloud copies and local photos. Password-confirmed deletion and local cleanup are implemented; the server endpoint still requires deployment and isolated validation. See [account management](docs/account-management.md).
+- Settings account JSON export includes device/cloud copies and local photos. Account deletion confirms with the password, or a Google sign-in from the last 10 minutes for Google-only accounts, then cleans up this device. The `delete-account` Edge Function allows 5 attempts per account an hour and was deployed on 2026-10-18; the end-to-end check with disposable accounts is still open. See [account management](docs/account-management.md).
 - Offline food database search with 5,431 USDA foods, calories and macros per
   100 g, serving weights, and nutrition previews for a custom gram amount.
 - Tap Home's Water widget to edit manually logged water in milliliters for the selected day.
@@ -93,7 +93,9 @@ evidence from earlier revisions, rather than current status.
 - First-run onboarding with Kine, resumable local answers, and profile editing.
   Welcome and goals precede the age confirmation. Account screens appear after
   saving the final review. Supabase email/password sign-up, login, confirmation, and
-  password recovery are connected. An account is required before entering Home.
+  password recovery are connected, plus Continue with Google. Resend email is capped at
+  three confirmation emails per address an hour, sign-up included. Email links must
+  carry a PKCE code; token-hash links are refused. An account is required before entering Home.
   Native sessions use encrypted storage; passwords never enter tracking documents.
 - Editable calorie estimates for losing, maintaining, or gaining weight.
   Users can skip estimation or set a target manually.
@@ -456,7 +458,8 @@ it with a free Apple ID and installs it over USB. Follow
 ### Android phone install
 
 The manual `Android release build` workflow builds a release `.apk` signed with
-the project's release key on a GitHub runner. Install it with `adb install -r` or by
+the project's release key on a GitHub runner. It reads the signing secrets from the
+`android-release` GitHub Environment. Install it with `adb install -r` or by
 opening it on the phone. Follow [Android installs](docs/android-apk.md), which also
 says where the key lives and why it must not be lost.
 
@@ -564,12 +567,11 @@ in [the onboarding design](docs/superpowers/specs/2026-09-30-kine-onboarding-des
 GitHub Actions runs checks and exports independently. The check job also
 type-checks the Supabase Edge Functions with Deno, runs Expo Doctor and confirms the
 generated iOS entitlements have no push entitlement. The browser job reuses the
-web export and runs alongside the check job on pushes and pull requests.
+web export and runs alongside the check job on pushes and pull requests. Every
+workflow pins its actions to commit SHAs.
 
-The suite has 1160 unit and script tests and 208 browser tests. In the last full
-browser run (17 October 2026), 206 passed and the optional screenshot case was skipped.
-One profile-menu test failed on a change that was then reverted; that file passes
-on its own.
+The suite has 1062 unit and script tests and 171 browser tests. The optional Profile
+screenshot case runs only when `KINE_PROFILE_VISUAL_DIR` is set.
 
 For browser checks, install Chromium once with `npx playwright install chromium`.
 Start the preview with `npm run web -- --port 8081`, then run `npm run test:browser`
@@ -613,7 +615,7 @@ The standalone [branding preview](design/branding.html) shows the exported
 launcher icons and splash screens. It runs independently of the Expo app.
 
 - `src/app/`: routes and navigation layouts.
-- `src/components/ui.tsx`: shared text, panel, screen, and destination link.
+- `src/components/ui.tsx`: shared text, panel, titles, and screen.
 - `src/components/`: the shared controls. Tappable is every pressable; AppButton,
   IconButton and DeleteButton, SegmentedControl, Chip, TextField, InlineMessage,
   LoadFailure, ModalSheet, `popover.tsx`, SheetPage, IconWell, ViewHeader and the
@@ -639,19 +641,22 @@ launcher icons and splash screens. It runs independently of the Expo app.
 - `src/daily/workout.ts`: one interpretation of completed sets for totals and exercise rows.
 - `src/exercise/`: validated local exercise definitions, ordered workout templates,
   queued workout-log persistence, resumable timers, side-aware totals, and tracking forms.
+  `activeWorkout` in `model.ts` is the one lookup of the Active workout.
 - `src/exercise/workout-editing.ts`: retained log fields, count safety, save feedback,
-  and guarded panel replacement; `use-workout-editing.ts` binds the owner to React.
+  and each log mode's controls; `use-workout-editing.ts` binds the owner to React.
 - `src/exercise/workout-template-draft.ts`: template selection/order, raw counts,
   retained definitions, and ready-to-save preparation for both form layouts.
 - `src/exercise/demo/`: KineVault demo catalog parsing, device cache, search, link
   rules, player, and the exercise form section.
-- `src/daily/activity.ts`: selected-day food availability, combined manual/Drink
-  water availability, completed workout totals, and goal progress; unavailable
-  sources stay distinct from zero.
+- `src/daily/activity.ts`: Daily activity reads every source of the selected day (food,
+  Manual water and the Water goal, workouts, Phone steps and Logged steps), each with
+  its own availability and retry, and owns nutrition progress, the Home tile wording
+  and the journal streak; unavailable sources stay distinct from zero.
 - `src/daily/`: daily record types, nutrition summaries, and dashboard widgets.
-- `src/exercise/tab-view.ts`: where each Workout log and panel goes (on the tab or
-  in a sheet). `src/food/tab-view.ts` owns the Food tab's query, page, Logging
-  attempt and Product import flow. Both have unit tests.
+- `src/exercise/tab-view.ts`: the Exercise tab's panel, query and route requests, and
+  where each Workout log and panel goes (on the tab or in a sheet). `src/food/tab-view.ts`
+  owns the Food tab's query, page, Logging attempt, Product import flow and Logged food
+  entry removal. Both have unit tests.
 - `src/persistence/durable-write.ts`: shared read ordering, write exclusion,
   durable publication, and restart recovery for food, catalog, exercise, water, and goal
   records. Each domain retains its own keys, validation, and saved results.
@@ -662,6 +667,10 @@ launcher icons and splash screens. It runs independently of the Expo app.
   each tracking document's provider per account scope.
 - `src/account/`: Supabase Auth adapter, account controller, account storage and
   cloud sync, export/deletion, and Settings account UI.
+- `src/account/entry-policy.ts`: the entry policy, which decides what each route shows
+  for the current Account, storage and Profile; `entry-gate.tsx` renders its decisions.
+- `src/navigation/track-tabs.ts`: the tab list, the hidden Personal journal tab, which
+  screens show the calendar, and typed route requests.
 - `src/account/tracking-documents.ts`: the Account tracking document registry. Every
   synced document is listed once with its storage key, parser and Settings name;
   `tracking-provider.tsx` (`AccountTrackingProvider`) mounts them for the tabs.
@@ -700,8 +709,11 @@ launcher icons and splash screens. It runs independently of the Expo app.
   project; dry run by default. Run it with `npm run catalog:publish`; see
   [Exercise demos](docs/exercise-demos.md).
 - `scripts/validate-demo-catalog-postgres.sh`: SQL checks on a private cluster.
-- `plugins/`: local Expo config plugins for the generated iOS project (local-only
-  notification entitlements, scene life cycle); see [iOS builds with Xcode](docs/ios-xcode.md).
+- `plugins/`: local Expo config plugins for the generated native projects (iOS local-only
+  notification entitlements and scene life cycle, Android Gradle memory for release
+  builds); see [iOS builds with Xcode](docs/ios-xcode.md).
+- `vercel.json`: web export hosting and security headers, including a CSP that limits
+  scripts and connections; `tests/web-headers.test.ts` checks it.
 - `CONTEXT.md`: domain vocabulary for accounts, profile, daily activity, food,
   exercise, water, reminders, and onboarding.
 - `DESIGN.md`: supplied KineVault design reference. For Track's look, the
