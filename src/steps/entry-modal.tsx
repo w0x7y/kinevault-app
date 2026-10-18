@@ -1,16 +1,8 @@
-import { useState } from "react";
 import { View } from "react-native";
-import { shortDayLabel } from "../calendar/dates";
-import { AppButton, ButtonRow } from "../components/button";
+import { AppButton } from "../components/button";
 import { IconWell } from "../components/icon-well";
-import { InlineMessage } from "../components/inline-message";
-import { KineLoading } from "../components/kine-loading";
-import { LoadFailure, RetryButton } from "../components/load-failure";
-import { ModalSheet } from "../components/modal-sheet";
-import { Stepper } from "../components/stepper";
-import { TextField } from "../components/text-field";
 import { AppText } from "../components/ui";
-import { useDocumentEdit } from "../persistence/use-document-edit";
+import { DayAmountSheet } from "../persistence/day-amount-sheet";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { createManualStepsEdit } from "./manual-editing";
@@ -28,77 +20,24 @@ export function StepsEntryModal({
   onDismiss: () => void;
 }) {
   const log = useStepsLogPersistence();
-  const { edit, draft, error, busy, saving, load } = useDocumentEdit(() =>
-    createManualStepsEdit({ log, date }),
-  );
-  const ready = load.kind === "ready";
-  // Closing plays the sheet out; Home unmounts it once it has gone.
-  const [open, setOpen] = useState(true);
-  const close = () => setOpen(false);
-
-  async function save() {
-    if (await edit.save()) close();
-  }
-
   return (
-    <ModalSheet
-      open={open}
+    <DayAmountSheet
+      date={date}
+      onDismiss={onDismiss}
+      createEdit={() => createManualStepsEdit({ log, date })}
       title="Log steps"
-      overline={`For ${shortDayLabel(date)}`}
       description="Steps your phone counts are added automatically. Log any it missed, like a walk without your phone."
-      onDismiss={close}
-      onClosed={onDismiss}
-      dismissDisabled={busy}
       testID="steps-entry"
+      fieldLabel="Logged steps"
+      unit="steps"
+      step={500}
+      noun="steps"
+      loadingLabel="Loading steps..."
+      loadFailure="Couldn't load your logged steps."
+      retryLabel="Retry steps"
     >
       <PhoneSteps phone={phone} />
-      {load.kind === "loading" && <KineLoading compact label="Loading steps..." />}
-      {load.kind === "error" && (
-        <LoadFailure
-          message="Couldn't load your logged steps."
-          retryLabel="Retry steps"
-          onRetry={edit.retryLoad}
-        />
-      )}
-      {/* A read that hangs can be retried before it fails. */}
-      {load.kind === "loading" && <RetryButton label="Retry steps" onRetry={edit.retryLoad} />}
-      <View style={{ gap: spacing.sm }}>
-        <AppText variant="caption" muted style={{ textAlign: "center" }}>
-          Logged steps
-        </AppText>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
-          <Stepper delta={-500} unit="steps" disabled={busy} onPress={() => edit.adjust(-500)} />
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <TextField
-              label="Logged steps"
-              labelHidden
-              kind="integer"
-              size="hero"
-              value={draft}
-              disabled={busy}
-              invalid={Boolean(error)}
-              onChange={(text) => {
-                edit.change(text);
-              }}
-              onSubmit={() => void save()}
-            />
-          </View>
-          <Stepper delta={500} unit="steps" disabled={busy} onPress={() => edit.adjust(500)} />
-        </View>
-      </View>
-      <InlineMessage align="center">{error}</InlineMessage>
-      <ButtonRow>
-        <AppButton fill label="Cancel" disabled={busy} onPress={close} />
-        <AppButton
-          fill
-          tone="primary"
-          label={saving ? "Saving steps..." : "Save steps"}
-          accessibilityLabel="Save steps"
-          disabled={busy || !ready}
-          onPress={() => void save()}
-        />
-      </ButtonRow>
-    </ModalSheet>
+    </DayAmountSheet>
   );
 }
 
