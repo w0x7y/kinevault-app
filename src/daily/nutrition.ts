@@ -1,10 +1,12 @@
 import type { Nutrition } from "../food/catalog.ts";
 import { progressFraction } from "./model.ts";
 
+/** The energy in a gram of each macro. */
+export const kcalPerGram = { carbs: 4, protein: 4, fat: 9 } as const;
 export const macroCategories = [
-  { key: "carbs", label: "Carbs", icon: "wheat-awn", kcalPerGram: 4 },
-  { key: "protein", label: "Protein", icon: "egg", kcalPerGram: 4 },
-  { key: "fat", label: "Fat", icon: "seedling", kcalPerGram: 9 },
+  { key: "carbs", label: "Carbs", icon: "wheat-awn", kcalPerGram: kcalPerGram.carbs },
+  { key: "protein", label: "Protein", icon: "egg", kcalPerGram: kcalPerGram.protein },
+  { key: "fat", label: "Fat", icon: "seedling", kcalPerGram: kcalPerGram.fat },
 ] as const;
 type MacroKey = (typeof macroCategories)[number]["key"];
 type CalorieSegment = { key: MacroKey | "other"; fraction: number };

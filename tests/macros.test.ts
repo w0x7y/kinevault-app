@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { emptyAnswers } from "../src/profile/answers.ts";
 import { calorieState, changeAnswers, validateAnswers } from "../src/profile/calories.ts";
-import { macroTargets } from "../src/profile/macros.ts";
+import { macroCalories, macroTargets } from "../src/profile/macros.ts";
 import { parseProfile } from "../src/profile/model.ts";
 
 const adult = {
@@ -96,4 +96,10 @@ test("teen manual targets support macros without enabling adult estimates", () =
   const teen = { ...emptyAnswers, age: "16", estimateEnabled: false, customCalories: "2400" };
   assert.deepEqual(macroTargets(teen), { carbs: 300, protein: 150, fat: 67 });
   assert.equal(calorieState(teen).estimate, null);
+});
+
+test("macro targets add up at 4, 4 and 9 kcal a gram, and only once all three are set", () => {
+  assert.equal(macroCalories({ carbs: 250, protein: 125, fat: 56 }), 2004);
+  assert.equal(macroCalories({ carbs: 0, protein: 0, fat: 0 }), 0);
+  assert.equal(macroCalories({ carbs: 250, protein: null, fat: 56 }), null);
 });
