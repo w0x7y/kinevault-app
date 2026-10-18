@@ -13,7 +13,9 @@ Deno.serve(
   createTrackedWorkoutHandler({
     async authenticate(token) {
       const { data, error } = await client.auth.getUser(token);
-      return error || !data.user ? null : { id: data.user.id };
+      return error || !data.user
+        ? null
+        : { id: data.user.id, anonymous: data.user.is_anonymous ?? false };
     },
     fetch: (input, init) => fetch(input, init),
   }),

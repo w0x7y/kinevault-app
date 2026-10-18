@@ -92,7 +92,7 @@ secrets and no service-role key: it uses the platform's `SUPABASE_URL` and
 with the Supabase CLI:
 
 ```bash
-supabase functions deploy tracked-workout --project-ref kkywpvkckxniriatelta
+npx supabase functions deploy tracked-workout --project-ref kkywpvkckxniriatelta --use-api
 ```
 
 Until it's deployed, link import on the web says it isn't set up for the web yet
@@ -100,7 +100,8 @@ Until it's deployed, link import on the web says it isn't set up for the web yet
 Android apps keep importing directly from Tracked. After deploying, import a
 share link in the web app while signed in. A request whose bearer token is the
 project's legacy anon key passes the platform's JWT check but has no user, so it
-should get a 401 reply that includes `"service": "tracked-workout"`. A 401
+should get a 401 reply that includes `"service": "tracked-workout"`. An anonymous
+sign-in gets the same reply. A 401
 without that field comes from the platform, before the function runs. See
 [workout import](workout-import.md#web) for the request and reply format.
 
