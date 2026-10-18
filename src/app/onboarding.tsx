@@ -255,10 +255,11 @@ function OnboardingFlow({
               disabled={saving}
             />
           )}
-          {welcome && (
+          {/* A signed-in account without setup already has an account; the sign-in screen would send it straight back. */}
+          {welcome && !user && (
             <AppButton label="I already have an account" onPress={() => router.push("/account")} />
           )}
-          {welcome && (
+          {welcome && !user && (
             <AppText variant="caption" muted style={{ textAlign: "center" }}>
               Your answers are saved to your account after you sign in. You can edit them anytime.
             </AppText>
