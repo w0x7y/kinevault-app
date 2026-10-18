@@ -29,6 +29,26 @@ loading or failure. A signed-in Account with a damaged Profile sees Profile
 recovery and can log out without deleting its saved data. Tracking still requires
 an authenticated Account and a completed Profile.
 
+The entry policy module (`src/account/entry-policy.ts`) holds that rule. Its
+input is the route class (sign-in and email-link, account, onboarding, tracking,
+other) and the Account, storage and Profile readings; its output is one decision:
+render, loading, wait, redirect, Profile recovery or storage failure. It also says
+whether a reminder tap waits, opens or is dropped, and where a saved Onboarding flow
+exits. The app evaluates the rule in layers because each layer's readings exist only
+below the one above it: AccountDataProvider (session, then storage), the root
+navigator (theme, fonts, Profile) and each route. Those are adapters that render the
+decision through `EntryGate`; `entryDecision` composes the layers, and its unit test
+covers every route and reading combination.
+
+The Track tabs module (`src/navigation/track-tabs.ts`) owns the tab list, the hidden
+Personal journal tab after it and the navigator's `initialRoute` Back, so native Back
+returns Home and never selects the journal. It also decides which screens show the
+Selected day and calendar, the originating tab the journal's Back returns to, which
+header popover survives a route change, and the route requests (`workoutMenu`,
+`liveWorkout`, `workoutImport`, `section`): their builders, and the parsers
+`useRouteRequest` applies before a screen sees a value. The tab layout and the app
+header are adapters over it.
+
 ## Account tracking storage
 
 Account storage owns device namespaces, legacy onboarding import, durable pending
