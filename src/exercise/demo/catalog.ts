@@ -1,3 +1,5 @@
+import { catalogIdPattern, catalogSlugPattern } from "../model.ts";
+
 // KineVault exercises mirrored into Track's `catalog_exercises` table by
 // scripts/publish-catalog.mjs. Rows are untrusted network data.
 export type CatalogExercise = {
@@ -7,18 +9,15 @@ export type CatalogExercise = {
   aliases: string[];
   muscleGroup: string;
   equipment: string;
-  status: "published" | "withdrawn";
-  videoPath: string | null;
-  posterPath: string | null;
   credit: string;
-};
+} & (
+  | { status: "published"; videoPath: string; posterPath: string }
+  | { status: "withdrawn"; videoPath: string | null; posterPath: string | null }
+);
 
 /** Columns requested from `catalog_exercises`, in PostgREST `select` syntax. */
 export const catalogColumns =
   "id,slug,name,aliases,muscle_group,equipment,status,video_path,poster_path,credit";
-
-const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const slugPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 function record(value: unknown): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value))
@@ -41,9 +40,9 @@ function objectPath(value: unknown, id: string, extension: "mp4" | "webp"): stri
 export function parseCatalogRow(value: unknown): CatalogExercise {
   const row = record(value);
   const id = text(row.id, 36);
-  if (!idPattern.test(id)) throw new Error("Invalid catalog ID");
+  if (!catalogIdPattern.test(id)) throw new Error("Invalid catalog ID");
   const slug = text(row.slug, 200);
-  if (!slugPattern.test(slug)) throw new Error("Invalid catalog slug");
+  if (!catalogSlugPattern.test(slug)) throw new Error("Invalid catalog slug");
   if (row.status !== "published" && row.status !== "withdrawn")
     throw new Error("Invalid catalog status");
   if (!Array.isArray(row.aliases)) throw new Error("Invalid catalog aliases");
@@ -53,20 +52,18 @@ export function parseCatalogRow(value: unknown): CatalogExercise {
     .slice(0, 50);
   const videoPath = objectPath(row.video_path, id, "mp4");
   const posterPath = objectPath(row.poster_path, id, "webp");
-  if (row.status === "published" && (!videoPath || !posterPath))
-    throw new Error("Published catalog row without media");
-  return {
+  const fields = {
     id,
     slug,
     name: text(row.name, 400, true),
     aliases,
     muscleGroup: text(row.muscle_group, 400),
     equipment: text(row.equipment, 400),
-    status: row.status,
-    videoPath,
-    posterPath,
     credit: text(row.credit, 1000, true),
   };
+  if (row.status === "withdrawn") return { ...fields, status: "withdrawn", videoPath, posterPath };
+  if (!videoPath || !posterPath) throw new Error("Published catalog row without media");
+  return { ...fields, status: "published", videoPath, posterPath };
 }
 
 /** Parses a response page. One invalid row hides only its own demo. */

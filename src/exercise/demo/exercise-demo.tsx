@@ -223,7 +223,7 @@ export function DemoThumbnail({ link }: { link: CatalogLink }) {
   const { state } = useDemoCatalog();
   const config = demoCatalogConfig;
   const entry = state.kind === "ready" ? state.byId.get(link.id) : undefined;
-  if (!config || entry?.status !== "published" || !entry.posterPath) return null;
+  if (!config || entry?.status !== "published") return null;
   return (
     <Image
       testID="exercise-demo-thumbnail"

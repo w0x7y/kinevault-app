@@ -18,7 +18,7 @@ function entry(name: string, extra: Partial<CatalogExercise> = {}): CatalogExerc
     posterPath: `${id}/fedcba9876543210.webp`,
     credit: "Demonstration: KineVault.",
     ...extra,
-  };
+  } as CatalogExercise;
 }
 const curl = entry("Curl");
 const dumbbellCurl = entry("Dumbbell curl");

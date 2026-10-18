@@ -38,8 +38,7 @@ export function demoStatus({
   if (state.kind === "failed")
     return offline ? { kind: "connect" } : { kind: "catalog-unavailable" };
   const entry = state.byId.get(link.id);
-  if (!entry || entry.status !== "published" || !entry.videoPath || !entry.posterPath)
-    return { kind: "unavailable" };
+  if (entry?.status !== "published") return { kind: "unavailable" };
   if (mediaFailed) return { kind: "failed", offline };
   return { kind: "ready", entry, videoPath: entry.videoPath, posterPath: entry.posterPath };
 }

@@ -68,8 +68,9 @@ function seconds(value: unknown): number | null {
   return value;
 }
 
-const catalogIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const catalogSlugPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+/** KineVault catalog IDs and slugs, shared by catalog links and catalog rows. */
+export const catalogIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+export const catalogSlugPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 export function parseCatalogLink(value: unknown): CatalogLink {
   const item = record(value);
   if (typeof item.id !== "string" || !catalogIdPattern.test(item.id))
