@@ -91,7 +91,6 @@ async function setup(
       throw new Error("Confirmed deletion must not call SDK signOut");
     },
     exchangeCodeForSession: result,
-    verifyOtp: result,
   };
   const controller = createAccountController(auth, {
     redirectTo: "https://example.com/callback",

@@ -104,6 +104,14 @@ The hosted project's confirmation template uses `{{ .ConfirmationURL }}` (PKCE),
 every template Track's users receive does too, Track could refuse token-hash links
 outright. Google sign-in already completes only with a PKCE code.
 
+Checked 18 October 2026 (read-only Management API): the confirmation, invite, magic
+link, email change and recovery templates all link through `{{ .ConfirmationURL }}`;
+none uses `{{ .TokenHash }}`. Track now refuses every token-hash link, signed in or
+not, and the Auth port no longer has `verifyOtp`. The friend's site has an
+`/auth/confirm` route for token-hash links; if the shared templates ever switch to
+one that honors `{{ .RedirectTo }}`, Track's confirmation and reset emails stop
+working until Track gets its own templates or project.
+
 ### Google-only accounts can't delete themselves
 
 Found 18 October 2026, after "Continue with Google" was added. The

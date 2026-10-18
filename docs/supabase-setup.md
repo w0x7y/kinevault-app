@@ -192,14 +192,11 @@ Adjust the localhost port to the running Expo server. Expo Go uses
 of the standalone scheme. Add those only for devices and development hosts you
 actually use. Recovery continues to the application's `/auth/reset-password` screen.
 
-Keep the confirmation and reset templates' `{{ .ConfirmationURL }}` link, or use a
-reviewed token-hash template that honors `{{ .RedirectTo }}`. A hardcoded redirect
-to the friend's website would send Track's users to the wrong application. The
-application uses PKCE and also accepts token-hash links from such a template. It
-refuses links that carry session tokens, since PKCE sign-in never sends them, and it
-ignores token-hash links while someone is signed in, because anyone can take one
-from their own account's email. On a device that has never signed in, such a link
-still signs in and imports the guest data; see the open finding in
+Keep the confirmation and reset templates' `{{ .ConfirmationURL }}` link. A
+hardcoded redirect to the friend's website would send Track's users to the wrong
+application. The application uses PKCE and accepts only a PKCE code. It refuses
+token-hash links and links that carry session tokens, because anyone can take one
+from their own account's email; see
 [security remediation](security-remediation.md#token-hash-email-links-on-a-guest-device).
 
 Test confirmation and password reset through links sent to a real inbox. Open each

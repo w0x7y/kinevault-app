@@ -1,6 +1,5 @@
 export type AuthLink =
   | { kind: "code"; code: string; recovery: boolean }
-  | { kind: "token-hash"; tokenHash: string; type: "email" | "recovery"; recovery: boolean }
   | { kind: "error"; message: string }
   | { kind: "invalid" };
 
@@ -63,9 +62,9 @@ export function parseAuthLink(value: string): AuthLink {
     Number(Boolean(accessToken || refreshToken));
   if (formats !== 1) return { kind: "invalid" };
   if (code) return { kind: "code", code, recovery };
-  if (tokenHash && (type === "email" || type === "recovery"))
-    return { kind: "token-hash", tokenHash, type, recovery };
-  // Sign-in uses PKCE, so Auth never sends session tokens in a link. Only someone
-  // else's account could have produced one, so implicit-session links are refused.
+  // Sign-in uses PKCE and every Auth email template links through
+  // {{ .ConfirmationURL }}, which returns a code. Token-hash and session-token
+  // links carry no proof that this device started the flow: anyone can take one
+  // from their own account's email, so they are refused.
   return { kind: "invalid" };
 }

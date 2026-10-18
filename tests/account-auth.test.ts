@@ -92,10 +92,6 @@ function harness(
       submitted++;
       return result;
     },
-    async verifyOtp() {
-      submitted++;
-      return result;
-    },
   };
   const controller = createAccountController(auth, {
     redirectTo: "kinevaulttrack://auth/callback",
@@ -365,7 +361,6 @@ test("Google sign-in stays quiet on cancel and explains provider or browser fail
   assert.equal(await h.controller.signInWithGoogle(), false);
   assert.match(h.controller.getSnapshot().error ?? "", /Google sign-in didn't finish/);
   // A token-hash link handed to the browser session isn't this sign-in's code.
-  h.auth.verifyOtp = async () => assert.fail("only a PKCE code completes Google sign-in");
   h.controller.clearFeedback();
   assert.equal(await h.controller.signInWithGoogle(), false);
   assert.match(h.controller.getSnapshot().error ?? "", /Google sign-in didn't finish/);
@@ -693,28 +688,18 @@ test("reset requests preserve the recovery marker in the redirect", async () => 
   };
   assert.equal(await h.controller.requestPasswordReset(" alex@example.com "), true);
 });
-test("token hashes send the correct credentials and implicit links reach no auth call", async () => {
+test("on a device that never signed in, token-hash and implicit links reach no auth call", async () => {
   const h = harness();
   await ready(h);
-  h.auth.verifyOtp = async (credentials) => {
-    assert.deepEqual(credentials, { token_hash: "email-hash", type: "email" });
-    return { data: { session }, error: null };
-  };
-  assert.equal(
-    await h.controller.completeAuthLink(
-      "kinevaulttrack://auth/callback?token_hash=email-hash&type=email",
-    ),
-    true,
-  );
-  assert.equal(await h.controller.signOut(), true);
-  const before = h.submitted;
-  assert.equal(
-    await h.controller.completeAuthLink(
-      "kinevaulttrack://auth/callback#access_token=other-access&refresh_token=other-refresh",
-    ),
-    false,
-  );
-  assert.equal(h.submitted, before);
+  for (const link of [
+    "kinevaulttrack://auth/callback?token_hash=someone-elses-hash&type=email",
+    "kinevaulttrack://auth/callback?token_hash=someone-elses-hash&type=recovery",
+    "kinevaulttrack://auth/callback#access_token=other-access&refresh_token=other-refresh",
+  ]) {
+    assert.equal(await h.controller.completeAuthLink(link), false);
+    assert.match(h.controller.getSnapshot().error ?? "", /couldn't be verified/);
+  }
+  assert.equal(h.submitted, 0, "a guest device must not sign into the link owner's account");
   assert.equal(h.controller.getSnapshot().user, null);
 });
 test("links without a device-bound PKCE code never replace a signed-in account", async () => {
@@ -727,10 +712,10 @@ test("links without a device-bound PKCE code never replace a signed-in account",
     "https://track.example/auth/callback?token_hash=attacker-hash&type=recovery",
   ]) {
     assert.equal(await h.controller.completeAuthLink(link), false);
-    assert.match(h.controller.getSnapshot().error ?? "", /already logged in/);
-    // The sanitized remount gets the retained refusal, not a new verification error.
+    assert.match(h.controller.getSnapshot().error ?? "", /couldn't be verified/);
+    // The sanitized remount gets the retained refusal.
     assert.equal(await h.controller.completeAuthLink(link.replace(/[?#].*$/, "")), false);
-    assert.match(h.controller.getSnapshot().error ?? "", /already logged in/);
+    assert.match(h.controller.getSnapshot().error ?? "", /couldn't be verified/);
   }
   assert.equal(h.submitted, before, "no credentials from the link reach Auth");
   assert.equal(h.controller.getSnapshot().user?.id, "owner");
