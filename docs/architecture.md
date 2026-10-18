@@ -136,7 +136,11 @@ behind that page (a Logging attempt, a Product import flow). Catalog views
 a day change and follow the new day; other views return to the new day's log and
 reset the Meal destination. Leaving the tab hides the page without discarding it:
 the scanner closes, a pending lookup is interrupted, and saves that finish while
-hidden still route their page. React keeps only scroll and keyboard effects.
+hidden still route their page. It also owns removing a Logged food entry: one open
+confirmation, the removal, and its failure. From confirmation until the write settles, the
+entry's fade included, the removal counts as a write, so other entries, search and resuming
+stay locked. A logged entry's details and Daily macros show only over a loaded food log.
+React keeps only scroll and keyboard effects and the entry's fade.
 
 A Logging attempt is built from the food-log persistence, the Custom food
 persistence and the Meal destination. It derives whether it can submit from them

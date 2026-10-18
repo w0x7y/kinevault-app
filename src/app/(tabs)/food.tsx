@@ -85,7 +85,6 @@ function FoodDay({
   const pageScroll = useRef<ScrollView>(null);
   const resultsTop = useRef(0);
   const log = useFoodLog();
-  const persistence = useFoodLogPersistence();
   const custom = useCustomFoods();
   // A new day starts at the top of its log, and so does each return to the log.
   useEffect(() => {
@@ -138,7 +137,7 @@ function FoodDay({
           tab.catalogSaved(item);
         }}
       />
-    ) : page.kind === "detail" && (page.origin !== "entry" || food.kind === "ready") ? (
+    ) : page.kind === "detail" ? (
       <FoodNutritionDetail
         key={page.key}
         attempt={page.attempt}
@@ -149,7 +148,7 @@ function FoodDay({
         onEditCatalog={tab.editCatalog}
         onDeleteItem={tab.deleteItem}
       />
-    ) : page.kind === "macros" && food.kind === "ready" ? (
+    ) : page.kind === "macros" ? (
       <DailyMacros activity={activity} onBack={tab.back} />
     ) : null;
   const calorieSummary =
@@ -210,8 +209,11 @@ function FoodDay({
           onLayout={(event) => {
             resultsTop.current = event.nativeEvent.layout.y;
           }}
+          removal={view.removal}
           onEdit={tab.editEntry}
-          onRemove={(id) => persistence.remove({ date, id })}
+          onArm={tab.armRemoval}
+          onCancel={tab.cancelRemoval}
+          onConfirm={(leave) => void tab.confirmRemoval(leave)}
         />
       ) : null}
       {/* Every flow opens on one page over the log. Its steps (create, then the saved item)
