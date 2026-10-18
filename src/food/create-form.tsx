@@ -13,7 +13,7 @@ import { Section } from "./food-ui";
 import { SegmentedControl } from "../components/segmented-control";
 
 import { useFoodDrafts } from "./draft-provider";
-import type { FoodDraftSession } from "./catalog-drafts.ts";
+import { catalogWriteState, type FoodDraftSession } from "./catalog-drafts.ts";
 
 export function CreateFoodForm({
   onCancel,
@@ -27,7 +27,8 @@ export function CreateFoodForm({
   const foods = useCustomFoods();
   const drafts = useFoodDrafts();
   const { draft, existing, volumeBased, handle, errors, error } = session;
-  const busy = foods.saving || session.saving;
+  const { saving, locked } = catalogWriteState(foods, session);
+  const busy = foods.saving || saving;
   function changeDraft(next: CustomFoodDraft) {
     drafts.changeFood(handle, next);
   }
@@ -129,8 +130,8 @@ export function CreateFoodForm({
           drafts.discard(handle);
           onCancel();
         }}
-        saveLabel={busy ? "Saving food..." : existing ? "Save food changes" : "Save food"}
-        saveDisabled={busy || foods.state.kind !== "ready"}
+        saveLabel={saving ? "Saving food..." : existing ? "Save food changes" : "Save food"}
+        saveDisabled={locked}
         onSave={() => {
           void save();
         }}
