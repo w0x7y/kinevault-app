@@ -20,7 +20,10 @@ Cleanup protects other accounts, preferences, and unrelated guest data. Failure 
 
 ## Server rollout
 
-No function or schema is deployed by this change. Deploy `supabase/functions/delete-account/index.ts` to the same verified Supabase project as the shared KineVault account. It imports pinned `@supabase/supabase-js@2.117.2` and requires the standard server environment variables `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. Never put the service key into an `EXPO_PUBLIC_*` setting or client bundle.
+No function or schema is deployed by this change. First apply
+`supabase/migrations/20261018120000_account_deletion_attempts.sql`: the function
+allows 5 attempts per account an hour through its `record_account_deletion_attempt`
+RPC, replies 429 over that, and fails closed with 503 without it. Then deploy `supabase/functions/delete-account/index.ts` to the same verified Supabase project as the shared KineVault account. It imports pinned `@supabase/supabase-js@2.117.2` and requires the standard server environment variables `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. Never put the service key into an `EXPO_PUBLIC_*` setting or client bundle.
 
 The checked-in `supabase/config.toml` keeps `verify_jwt = true` for this user-authenticated endpoint; preserve that configuration at deployment. The platform check is followed by the handler's live `getUser` authorization. See [Supabase authorization headers](https://supabase.com/docs/guides/functions/auth-headers). The handler bounds streamed input to 2,048 UTF-8 bytes before parsing, cancels oversized input, and returns a generic error for unreadable input. CI checks the Deno entry separately from Expo TypeScript.
 

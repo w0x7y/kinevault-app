@@ -56,7 +56,7 @@ and docs/ describe behavior and link here instead of repeating status.
 - [ ] Enable Supabase leaked-password protection. Requires a Pro plan; the apply command returned HTTP 402. Billing decision.
 - [ ] Track the Expo SDK 58 upgrade. It removes the query-string dependency, which retires one local patch. Both patches must be re-validated on every SDK bump.
 - [x] Let Google-only accounts delete themselves: without a password, `delete-account` accepts the session's Google sign-in from the last 10 minutes, and Settings offers "Sign in with Google again". See docs/account-management.md.
-- [ ] Deploy `delete-account` (never deployed yet) after adding a per-user rate limit (docs/security-remediation.md), then delete a disposable Google-only and a password account. Required for App Store review.
+- [ ] Apply migration `20261018120000_account_deletion_attempts.sql`, then deploy `delete-account` (never deployed yet) and delete a disposable Google-only and a password account. Required for App Store review.
 - [x] Decide on token-hash email links on a never-signed-in device: every hosted email template uses `{{ .ConfirmationURL }}` (PKCE), so Track refuses token-hash links. See docs/security-remediation.md.
 - [ ] Move the Android signing secrets into a GitHub Environment limited to `main` with a required reviewer. The workflow already uses the `android-release` environment; create it, move the two secrets and delete the repository copies (docs/android-apk.md).
 - [ ] Enable Supabase Auth CAPTCHA (e.g. Turnstile) so sign-up, resend and reset emails can't be spammed through the shared project; the in-app resend cap is only a convenience.

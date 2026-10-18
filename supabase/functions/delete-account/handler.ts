@@ -8,6 +8,8 @@ import {
 type Identity = { id: string; email: string | null };
 export type DeletionPort = {
   authenticate(token: string): Promise<Identity | null>;
+  /** Records an attempt; false once the account reached its hourly limit. */
+  recordAttempt(id: string): Promise<boolean>;
   reauthenticate(
     email: string,
     password: string,
@@ -63,6 +65,8 @@ export function createDeleteAccountHandler(port: DeletionPort) {
     try {
       const owner = await port.authenticate(token);
       if (!owner) return reply(401, { error: "Authentication required" });
+      if (!(await port.recordAttempt(owner.id)))
+        return reply(429, { error: "Too many deletion attempts" });
       if (value.password === undefined) {
         // Accounts created with Google have no password. This session's own
         // sign-in must be a fresh one, so an older stolen session can't delete.

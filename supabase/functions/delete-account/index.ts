@@ -17,6 +17,13 @@ Deno.serve(
       const { data, error } = await admin.auth.getUser(token);
       return error || !data.user ? null : { id: data.user.id, email: data.user.email ?? null };
     },
+    async recordAttempt(id) {
+      const { data, error } = await admin.rpc("record_account_deletion_attempt", {
+        p_user_id: id,
+      });
+      if (error) throw error;
+      return data === true;
+    },
     async reauthenticate(email, password) {
       // Use a per-request client: one request's password session must never
       // replace the credentials of another request or the admin client.

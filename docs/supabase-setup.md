@@ -51,7 +51,7 @@ document keys are accepted. Payloads remain versioned JSON objects understood by
 the existing application parsers. Profile progress-photo documents and image files
 are outside this document sync.
 
-Three later migrations are in `supabase/migrations/`:
+Four later migrations are in `supabase/migrations/`:
 
 - `20261005152713_track_role_assignment_index.sql` indexes the role assignment
   foreign key. It is applied.
@@ -61,6 +61,9 @@ Three later migrations are in `supabase/migrations/`:
 - `20261013120000_exercise_demo_catalog.sql` adds the public `catalog_exercises`
   table and the `exercise-demos` storage bucket. It was applied on 2026-10-13;
   see [exercise demos](exercise-demos.md).
+- `20261018120000_account_deletion_attempts.sql` adds the per-account attempt limit
+  that `delete-account` checks. It is not applied; apply it before deploying the
+  function, which otherwise replies 503 to every deletion.
 
 The migration was applied to the inspected empty project. Verification passed for
 account isolation, anonymous denial, subscription/role write denial, signup defaults,

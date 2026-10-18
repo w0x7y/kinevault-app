@@ -375,6 +375,10 @@ function serverHarness(overrides: Partial<DeletionPort> = {}) {
       actions.push(`authenticate:${token}`);
       return { id: "a", email: "verified@example.com" };
     },
+    async recordAttempt(id) {
+      actions.push(`attempt:${id}`);
+      return true;
+    },
     async reauthenticate(email) {
       actions.push(`reauthenticate:${email}`);
       return { id: "a", accessToken: "fresh-token" };
@@ -404,6 +408,7 @@ test("server derives deletion identity from validated JWT and server password ve
   assert.equal((await h.request({ password: "secret", confirmation: "DELETE" })).status, 200);
   assert.deepEqual(h.actions, [
     "authenticate:caller-token",
+    "attempt:a",
     "reauthenticate:verified@example.com",
     "revoke:fresh-token",
     "delete:a",
@@ -464,15 +469,38 @@ test("without a password, only the caller session's own recent Google sign-in co
     const response = await h.request({ confirmation: "DELETE" }, stale);
     assert.equal(response.status, 403);
     assert.deepEqual(await response.json(), { error: "Recent Google sign-in required" });
-    assert.equal(h.actions.length, 1, h.actions.join());
+    assert.equal(h.actions.length, 2, h.actions.join());
   }
   const h = serverHarness();
   assert.equal((await h.request({ password: "", confirmation: "DELETE" }, fresh)).status, 400);
   assert.equal((await h.request({ confirmation: "DELETE" }, fresh)).status, 200);
   const caller = fresh.slice("Bearer ".length);
-  assert.deepEqual(h.actions, [`authenticate:${caller}`, `revoke:${caller}`, "delete:a"]);
+  assert.deepEqual(h.actions, [
+    `authenticate:${caller}`,
+    "attempt:a",
+    `revoke:${caller}`,
+    "delete:a",
+  ]);
   const unverified = serverHarness({ authenticate: async () => null });
   assert.equal((await unverified.request({ confirmation: "DELETE" }, fresh)).status, 401);
+});
+
+test("an account over its hourly attempt limit gets no password check or deletion", async () => {
+  const limited = serverHarness({ recordAttempt: async () => false });
+  const response = await limited.request({ password: "secret", confirmation: "DELETE" });
+  assert.equal(response.status, 429);
+  assert.deepEqual(await response.json(), { error: "Too many deletion attempts" });
+  assert.deepEqual(limited.actions, ["authenticate:caller-token"]);
+  const unavailable = serverHarness({
+    async recordAttempt() {
+      throw new Error("Database unavailable");
+    },
+  });
+  assert.equal(
+    (await unavailable.request({ password: "secret", confirmation: "DELETE" })).status,
+    503,
+  );
+  assert.deepEqual(unavailable.actions, ["authenticate:caller-token"]);
 });
 
 test("revocation and admin deletion failures cannot return deletion success", async () => {

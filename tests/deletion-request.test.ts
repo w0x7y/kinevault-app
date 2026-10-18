@@ -11,6 +11,10 @@ function handler() {
         calls.push("authenticate");
         return { id: "owner", email: "fixture@example.invalid" };
       },
+      async recordAttempt() {
+        calls.push("attempt");
+        return true;
+      },
       async reauthenticate() {
         calls.push("reauthenticate");
         return { id: "owner", accessToken: "synthetic" };
