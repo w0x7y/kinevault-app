@@ -12,6 +12,9 @@ jobs:
   apk:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # The signing secrets live in this environment, which only runs from main
+    # and waits for a reviewer's approval. See docs/android-apk.md.
+    environment: android-release
     env:
       # Public client values, compiled into the JavaScript bundle. Shared with
       # the iOS unsigned build.

@@ -20,13 +20,15 @@ a build signed with a new key, and uninstalling deletes progress photos (they
 are local only) and any changes that haven't synced. Keep a copy of both files
 off this machine, for example in a password manager.
 
-The workflow reads the key from two repository secrets. GitHub never shows a
-secret again, so they don't count as a backup. To set them again, from
-`Application/`:
+The workflow reads the key from two secrets in the `android-release` GitHub
+Environment. Only runs from `main` can use it, and each run waits until a
+required reviewer approves it under the run's **Review deployments** button.
+GitHub never shows a secret again, so they don't count as a backup. To set them
+again, from `Application/`:
 
 ```sh
-base64 -w0 ~/.config/kinevault-track/android-release.jks | gh secret set ANDROID_KEYSTORE_BASE64
-gh secret set ANDROID_KEYSTORE_PASSWORD   # paste the password at the prompt
+base64 -w0 ~/.config/kinevault-track/android-release.jks | gh secret set ANDROID_KEYSTORE_BASE64 --env android-release
+gh secret set ANDROID_KEYSTORE_PASSWORD --env android-release   # paste the password at the prompt
 ```
 
 It also needs the Supabase variable and secret that the iOS workflow uses; see
@@ -35,7 +37,7 @@ It also needs the Supabase variable and secret that the iOS workflow uses; see
 ## Build
 
 ```sh
-gh workflow run android-release-build.yml
+gh workflow run android-release-build.yml   # runs from main; approve it under Review deployments
 gh run watch   # pick the run
 gh run download --name KineVaultTrack-apk --dir ~/Downloads
 ```

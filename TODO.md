@@ -58,7 +58,7 @@ and docs/ describe behavior and link here instead of repeating status.
 - [x] Let Google-only accounts delete themselves: without a password, `delete-account` accepts the session's Google sign-in from the last 10 minutes, and Settings offers "Sign in with Google again". See docs/account-management.md.
 - [ ] Deploy `delete-account` (never deployed yet) after adding a per-user rate limit (docs/security-remediation.md), then delete a disposable Google-only and a password account. Required for App Store review.
 - [ ] Decide on token-hash email links on a never-signed-in device: if every Track email template uses `{{ .ConfirmationURL }}` (PKCE), refuse token-hash links. Check with the friend's shared project first. See docs/security-remediation.md.
-- [ ] Move the Android signing secrets into a GitHub Environment limited to `main` with a required reviewer.
+- [ ] Move the Android signing secrets into a GitHub Environment limited to `main` with a required reviewer. The workflow already uses the `android-release` environment; create it, move the two secrets and delete the repository copies (docs/android-apk.md).
 - [ ] Enable Supabase Auth CAPTCHA (e.g. Turnstile) so sign-up, resend and reset emails can't be spammed through the shared project; the in-app resend cap is only a convenience.
 - [ ] Before deploying the web app, add `script-src` and `connect-src` to the Content-Security-Policy in `vercel.json` and test it against the export.
 - [ ] Remove the `localhost` callbacks and the `http://localhost:3000` Site URL from the production Auth settings, or move local testing to a separate Supabase project.
