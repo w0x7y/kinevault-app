@@ -306,17 +306,20 @@ function workoutTile(
       /** "Live" while a workout still runs on the day. */
       status: "Live" | "Done";
       completed: CompletedWorkout;
+      /** The card's Total lifted in kg, rounded like the summary. */
+      lifted: string;
       stats: { label: string; value: string }[];
     }
 ) {
   if (kind !== "ready") return { kind, retry, summary: null };
   const minutes = `${Math.round(completed.durationSeconds / 60)} min`;
+  const lifted = Math.round(completed.volume).toLocaleString();
   // The day's training in one line: volume when weights were logged, then duration.
   let summary = "No workouts yet";
   if (completed.sets > 0) {
     summary =
       completed.volume > 0
-        ? `${Math.round(completed.volume).toLocaleString()} kg`
+        ? `${lifted} kg`
         : `${completed.sets} ${completed.sets === 1 ? "set" : "sets"}`;
     if (completed.durationKnown && completed.durationSeconds > 0) summary += ` · ${minutes}`;
   }
@@ -336,6 +339,7 @@ function workoutTile(
     name: completed.name,
     status: activeName === null ? "Done" : "Live",
     completed,
+    lifted,
     stats: [
       { label: "Duration", value: completed.durationKnown ? minutes : "Not recorded" },
       { label: "Sets", value: String(completed.sets) },

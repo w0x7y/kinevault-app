@@ -389,9 +389,16 @@ test("the Workout tile covers every state, with one minutes rule for the title a
       name: "Morning",
       status: "Done",
       completed: undefined,
+      lifted: "200",
       stats: stats("30 min"),
     },
   );
+  // The card's total rounds like the summary line.
+  const fractional = tile([
+    { ...completed, exercises: [{ ...completed.exercises[0], sets: [set("12.5")] }] },
+  ]);
+  assert.equal(fractional.summary, "63 kg · 30 min");
+  assert.equal(fractional.kind === "done" && fractional.lifted, "63");
   const doneWhileLive = tile([completed, running]);
   assert.equal(doneWhileLive.kind === "done" && doneWhileLive.status, "Live");
 
