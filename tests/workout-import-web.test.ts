@@ -151,7 +151,8 @@ test("web import can be cancelled and stops waiting for the function", async () 
 test("web import and the function agree on the envelope", async () => {
   const upstream: string[] = [];
   const handler = createTrackedWorkoutHandler({
-    authenticate: async (token) => (token === "access-token" ? { id: "owner" } : null),
+    authenticate: async (token) =>
+      token === "access-token" ? { id: "owner", anonymous: false } : null,
     async fetch(url) {
       upstream.push(url);
       return url.endsWith(workoutId)

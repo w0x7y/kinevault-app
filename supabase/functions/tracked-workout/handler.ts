@@ -6,7 +6,7 @@ import {
   type RejectedRequest,
 } from "../_shared/request.ts";
 
-type Identity = { id: string };
+type Identity = { id: string; anonymous: boolean };
 export type TrackedWorkoutPort = {
   authenticate(token: string): Promise<Identity | null>;
   fetch(url: string, init: RequestInit): Promise<Response>;
@@ -134,8 +134,10 @@ export function createTrackedWorkoutHandler(port: TrackedWorkoutPort, { timeoutM
     )
       return reply(400, { error: "invalid-request" });
     try {
-      // The platform's JWT check also accepts the public key, so require a real user.
-      if (!(await port.authenticate(token))) return reply(401, { error: "unauthenticated" });
+      // The platform's JWT check also accepts the public key, so require a real user; anyone
+      // can mint an anonymous sign-in when the project allows them.
+      const identity = await port.authenticate(token);
+      if (!identity || identity.anonymous) return reply(401, { error: "unauthenticated" });
     } catch {
       return reply(503, { error: "auth-unavailable" });
     }

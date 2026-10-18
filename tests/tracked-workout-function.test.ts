@@ -20,7 +20,10 @@ function redirect(location: string, status = 307) {
 }
 function harness(
   upstream: (url: string, init: RequestInit) => Promise<Response> = async () => page("0:[]\n"),
-  { user = true, timeoutMs = 1000 }: { user?: boolean | "error"; timeoutMs?: number } = {},
+  {
+    user = true,
+    timeoutMs = 1000,
+  }: { user?: boolean | "anonymous" | "error"; timeoutMs?: number } = {},
 ) {
   const tokens: string[] = [];
   const requests: { url: string; init: RequestInit }[] = [];
@@ -28,7 +31,7 @@ function harness(
     async authenticate(token) {
       tokens.push(token);
       if (user === "error") throw new Error("Auth down");
-      return user ? { id: "owner" } : null;
+      return user ? { id: "owner", anonymous: user === "anonymous" } : null;
     },
     async fetch(url, init) {
       requests.push({ url, init });
@@ -89,6 +92,12 @@ test("relay requires a signed-in user before contacting Tracked", async () => {
   const response = await rejected.call(undefined, { authorization: "Bearer public-anon-key" });
   assert.equal(response.status, 401);
   assert.deepEqual(rejected.tokens, ["public-anon-key"]);
+  // An anonymous sign-in is a token anyone can mint, so it isn't a real user either.
+  const anonymous = harness(undefined, { user: "anonymous" });
+  const refused = await anonymous.call();
+  assert.equal(refused.status, 401);
+  assert.equal((await envelope(refused)).error, "unauthenticated");
+  assert.deepEqual(anonymous.requests, []);
   const down = harness(undefined, { user: "error" });
   const failed = await down.call();
   assert.equal(failed.status, 503);
