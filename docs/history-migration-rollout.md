@@ -12,7 +12,7 @@ Docker is installed without an available daemon/socket. PostgreSQL was downloade
 
 No remote migration, synthetic account creation, function deployment, project/branch creation, or flag activation was performed.
 
-Since then, the unrelated `20261013120000_exercise_demo_catalog` migration was applied to the shared project on 2026-10-13 (see [exercise demos](exercise-demos.md)). The bounded-history migration is still not applied.
+Since then, the unrelated `20261013120000_exercise_demo_catalog` migration was applied to the shared project on 2026-10-13 (see [exercise demos](exercise-demos.md)), and `20261018120000_account_deletion_attempts` on 2026-10-18 (see [account management](account-management.md#server-rollout)). The bounded-history migration is still not applied.
 
 ## Repeat the read-only inspection
 

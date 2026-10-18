@@ -1,7 +1,7 @@
 # Shared KineVault accounts
 
 KineVault Track uses Supabase Auth and account-owned tracking documents in project
-`kkywpvkckxniriatelta`. Users sign in with email and password before entering Track.
+`kkywpvkckxniriatelta`. Users sign in with email and password, or with Google, before entering Track.
 Onboarding answers stay on the device until sign-in. Credentials belong to Supabase Auth, never to the tracking
 documents.
 
@@ -145,8 +145,8 @@ region needs its host added. Images, video, styles and fonts aren't restricted.
 Neither Resend nor Vercel credentials are connected in this workspace. The full
 configuration script below replaces the Gmail SMTP settings with Resend's. Public email
 delivery also requires a verified sender domain that you own. Once those are ready,
-the prepared configuration script appends callbacks while preserving the friend's
-Site URL and existing redirects. Put server credentials in an ignored
+the prepared configuration script appends callbacks and leaves the Site URL and
+existing redirects as they are. Put server credentials in an ignored
 `.env.auth.local`, separate from the client `.env.local`:
 
 ```dotenv
@@ -177,7 +177,7 @@ evaluation. Store SMTP credentials in the Supabase dashboard. See
 [custom SMTP setup](https://supabase.com/docs/guides/auth/auth-smtp).
 
 Add Track's callback URLs to Auth's redirect allowlist. Preserve existing redirects
-and the friend's website Site URL. Add exact production URLs and narrowly scoped
+and the shared Site URL. Add exact production URLs and narrowly scoped
 development URLs rather than replacing the shared project's configuration. A native
 deep link needs the installed application's registered scheme. Expo Go needs its
 own development callback URL and is not a stable production email target. See

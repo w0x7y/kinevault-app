@@ -97,7 +97,7 @@ them.
 
 This is the storage disclosure for the current implementation. The published
 policy still needs the product's actual operator, contact details and retention
-rules. Settings now exports tracking data and local photos; account deletion is implemented but its server endpoint remains undeployed. Confirmed deletion removes the current owner's local records and owned photos on this device; other devices' local copies require cleanup on those devices. See [account management](account-management.md). Release work is tracked in
+rules. Settings now exports tracking data and local photos; account deletion runs through the deployed `delete-account` server endpoint. Confirmed deletion removes the current owner's local records and owned photos on this device; other devices' local copies require cleanup on those devices. See [account management](account-management.md). Release work is tracked in
 [TODO.md](../TODO.md).
 
 ## Error reporting
