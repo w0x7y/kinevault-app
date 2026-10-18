@@ -9,6 +9,7 @@ import {
   type CustomFood,
 } from "../src/food/custom-model.ts";
 import { mealFromDraft } from "../src/food/meal-model.ts";
+import { createFoodSearch } from "../src/food/search-matching.ts";
 
 function savedFood(id: string, name: string, drink = false): CustomFood {
   const result = customFoodFromDraft(
@@ -42,7 +43,7 @@ test("ingredient eligibility precedes paging, fills both pages and reports exclu
   const selection = createFoodSelection({
     savedFoods: [...drinks, ...solids],
     savedMeals: [meal],
-    bundledFoods: [],
+    bundledFoods: () => [],
   });
   const pages = [0, 1].map((page) =>
     selection.search({ purpose: "ingredient", query: "Fixture", page }),
@@ -90,7 +91,7 @@ test("logging preserves all records, ranked pages and meal classification", () =
   const selection = createFoodSelection({
     savedFoods: [...drinks, ...solids],
     savedMeals: [meal],
-    bundledFoods: [bundled],
+    bundledFoods: () => [bundled],
   });
   const existing = createFoodCatalog([...drinks, ...solids, meal, bundled]);
   const pages = [0, 1, 2].map((page) =>
@@ -121,7 +122,7 @@ test("saved identity and kind resolve current reconstructed, edited, added and d
   let selection = createFoodSelection({
     savedFoods: document.foods,
     savedMeals: document.meals,
-    bundledFoods: [],
+    bundledFoods: () => [],
   });
   assert.deepEqual(selection.savedItem(solids[0].customId), {
     kind: "food",
@@ -134,27 +135,35 @@ test("saved identity and kind resolve current reconstructed, edited, added and d
   selection = createFoodSelection({
     savedFoods: [edited, solids[1]],
     savedMeals: [editedMeal],
-    bundledFoods: [],
+    bundledFoods: () => [],
   });
   assert.equal(selection.savedItem(edited.customId)?.food, edited);
   assert.equal(selection.savedItem(meal.customId)?.food, editedMeal);
   assert.equal(selection.savedItem(solids[1].customId)?.food, solids[1]);
   assert.equal(selection.search({ purpose: "ingredient", query: "Edited item" }).total, 0);
-  selection = createFoodSelection({ savedFoods: [solids[1]], savedMeals: [], bundledFoods: [] });
+  selection = createFoodSelection({
+    savedFoods: [solids[1]],
+    savedMeals: [],
+    bundledFoods: () => [],
+  });
   assert.equal(selection.savedItem(edited.customId), undefined);
   assert.equal(selection.savedItem(meal.customId), undefined);
   assert.equal(document.meals[0].ingredients[0].food.name, solids[0].name);
 });
 
 test("stale and invalid pages resolve within the current eligible catalog", () => {
-  const selection = createFoodSelection({ savedFoods: solids, savedMeals: [], bundledFoods: [] });
+  const selection = createFoodSelection({
+    savedFoods: solids,
+    savedMeals: [],
+    bundledFoods: () => [],
+  });
   for (const page of [-1, NaN, Infinity])
     assert.equal(selection.search({ purpose: "ingredient", query: "Fixture", page }).page, 0);
   assert.equal(selection.search({ purpose: "ingredient", query: "Fixture", page: 1.9 }).page, 1);
   const shrunk = createFoodSelection({
     savedFoods: solids.slice(0, 3),
     savedMeals: [],
-    bundledFoods: [],
+    bundledFoods: () => [],
   });
   for (const purpose of ["ingredient", "logging"] as const) {
     const result = shrunk.search({ purpose, query: "Fixture", page: 1 });
@@ -177,7 +186,7 @@ test("selection keeps saved precedence, generic metadata and gram source nutriti
   const selection = createFoodSelection({
     savedFoods: [imported, volume],
     savedMeals: [meal],
-    bundledFoods,
+    bundledFoods: () => bundledFoods,
   });
   const pepsi = selection.search({ purpose: "ingredient", query: "Pepsi zero" });
   assert.equal(pepsi.rows[0].food, imported);
@@ -186,4 +195,45 @@ test("selection keeps saved precedence, generic metadata and gram source nutriti
   const generic = pepsi.rows.find((row) => row.genericMatch && row.food.fdcId === 2710542);
   assert.ok(generic);
   assert.equal(generic.food.per100g, bundledFoods.find((food) => food.fdcId === 2710542)?.per100g);
+});
+
+test("saved foods searched beside the shared bundled index match one combined index", () => {
+  const saved = [
+    savedFood("chicken", "Chicken salad"),
+    savedFood("pepsi", "Pepsi Zero Sugar"),
+    savedFood("cola", "Cola light", true),
+    ...solids.slice(0, 3),
+  ];
+  const queries = [
+    "ch",
+    "chicken",
+    "chicken feet",
+    "pepsi zero",
+    "cola",
+    "drpeper",
+    "rice",
+    "salad",
+  ];
+  for (const [savedFoods, savedMeals] of [
+    [[], []],
+    [saved, [meal]],
+  ] as const) {
+    const combined = createFoodSearch([...savedFoods, ...savedMeals, ...bundledFoods]);
+    const split = createFoodSearch([...savedFoods, ...savedMeals], () => bundledFoods);
+    const selection = createFoodSelection({
+      savedFoods,
+      savedMeals,
+      bundledFoods: () => bundledFoods,
+    });
+    for (const query of queries) {
+      const expected = combined(query);
+      assert.ok(expected.length, query);
+      assert.deepEqual(split(query), expected, query);
+      assert.deepEqual(
+        selection.search({ purpose: "logging", query }).rows.map((row) => row.food),
+        expected.slice(0, 20).map((match) => match.food),
+        query,
+      );
+    }
+  }
 });

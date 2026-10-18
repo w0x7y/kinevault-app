@@ -13,7 +13,7 @@ import { useDayActivity } from "../daily/use-day";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { detailedNutrients } from "./nutrients.ts";
-import { foodDatabase } from "./database";
+import { getFoodDatabase } from "./database";
 
 const nutrientRows = [
   { key: "calories", label: "Calories", unit: "kcal", indented: false },
@@ -38,7 +38,7 @@ export function DailyMacros({ day, onBack }: { day: FoodDay; onBack: () => void 
   if (targets.kind !== "ready")
     return <SheetPage title="Daily macros" closeLabel="Back to food log" onClose={onBack} />;
   const summary = summarizeDay(day);
-  const details = sumDetailedNutrients(day.foods, foodDatabase.getById);
+  const details = sumDetailedNutrients(day.foods, getFoodDatabase().getById);
   const values = { ...summary, ...details };
   // Nutrients without data fold away behind one control instead of a column of placeholders.
   const missing = nutrientRows.filter(({ key }) => values[key] === null);

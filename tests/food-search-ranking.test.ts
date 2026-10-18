@@ -36,7 +36,11 @@ test("a chicken by-product still ranks first when it is what was typed", () => {
 });
 
 test("foods from the user's log lead the logging results, most logged first", () => {
-  const selection = createFoodSelection({ savedFoods: [], savedMeals: [], bundledFoods: bundled });
+  const selection = createFoodSelection({
+    savedFoods: [],
+    savedMeals: [],
+    bundledFoods: () => bundled,
+  });
   const feet = bundled.find((food) => food.name === "Chicken feet")!;
   const kiev = bundled.find((food) => food.name === "Chicken kiev")!;
   const logged = new Map([

@@ -138,6 +138,32 @@ test("cloud data hydrates all stats sources without overwriting existing remote 
   assert.equal(local.values.get(goalKey), goal(2000));
 });
 
+test("a download with no cloud changes rewrites no local documents but still checks deletion", async () => {
+  const local = memory(),
+    cloud = server([
+      { document_key: goalKey, payload: goal(2000), revision: 3 },
+      {
+        document_key: exerciseKey,
+        payload: JSON.stringify({ version: 1, exercises: [], workouts: [], sessions: [] }),
+        revision: 2,
+      },
+    ]);
+  const store = createAccountStorage({ userId: "a", local: local.storage, remote: cloud.remote });
+  await store.start();
+  const writes: string[] = [];
+  const set = local.storage.setItem;
+  local.storage.setItem = async (key, value) => {
+    writes.push(key);
+    await set(key, value);
+  };
+  assert.equal(await store.retry(), true);
+  assert.deepEqual(writes, []);
+  assert.equal(store.getSnapshot().state, "idle");
+  assert.equal(await store.getItem(goalKey), goal(2000));
+  local.values.set("kinevault-track.account.a.deleted.v1", "pending");
+  assert.equal(await store.retry(), false);
+});
+
 test("valid cached legacy profile shapes are normalized before saving and comparing cloud results", async () => {
   const legacy = JSON.parse(profile("Legacy cached user"));
   delete legacy.answers.customCarbs;
@@ -857,4 +883,56 @@ test("consumer reads wait for pending local mutations without joining the mutati
   await pending;
   await reading;
   assert.equal(replacement, "new media metadata");
+});
+
+test("an edit queued behind a background cloud replacement becomes a conflict instead of overwriting it", async () => {
+  const { answers } = parseProfile(null);
+  const complete = JSON.stringify({
+    version: 1,
+    kind: "complete",
+    answers: { ...answers, name: "Saved", age: "30", estimateEnabled: false },
+  });
+  assert.equal(parseProfile(complete).kind, "complete");
+  const synced = (payload: string) =>
+    JSON.stringify({ version: 1, payload, revision: 1, dirty: false, sequence: 0 });
+  const local = memory({
+    [`kinevault-track.account.a.${profileKey}`]: synced(complete),
+    [`kinevault-track.account.a.${goalKey}`]: synced(goal(2000)),
+  });
+  const cloud = server([
+    { document_key: profileKey, payload: complete, revision: 1 },
+    { document_key: goalKey, payload: goal(2600), revision: 2 },
+  ]);
+  const listed = deferred<void>(),
+    list = cloud.remote.list;
+  cloud.remote.list = async () => {
+    await listed.promise;
+    return list();
+  };
+  const store = createAccountStorage({ userId: "a", local: local.storage, remote: cloud.remote });
+  await store.start();
+  // Hold hydration inside its local pass, just before it replaces the goal.
+  const gate = deferred<void>(),
+    entered = deferred<void>(),
+    read = local.storage.getItem;
+  local.storage.getItem = async (key) => {
+    if (key.endsWith(goalKey)) {
+      local.storage.getItem = read;
+      entered.resolve();
+      await gate.promise;
+    }
+    return read(key);
+  };
+  listed.resolve();
+  await entered.promise;
+  // The screen still shows 2000; this edit queues behind the replacement.
+  const editing = store.setItem(goalKey, goal(2100));
+  gate.resolve();
+  await editing;
+  for (let index = 0; index < 10; index++) await flush();
+  assert.deepEqual(store.getSnapshot().conflicts, [goalKey]);
+  assert.equal(cloud.rows.get(goalKey)?.payload, goal(2600));
+  assert.equal(await store.getItem(goalKey), goal(2100));
+  assert.equal(await store.resolveConflict(goalKey, "local"), true);
+  assert.equal(cloud.rows.get(goalKey)?.payload, goal(2100));
 });

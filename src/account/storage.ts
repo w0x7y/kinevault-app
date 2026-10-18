@@ -222,7 +222,9 @@ export function createAccountStorage({
     await local.setItem(scoped(key), JSON.stringify(envelope));
     cache.set(key, envelope);
   }
+  const replacements = new Map<string, number>();
   function changedItem(key: string) {
+    replacements.set(key, (replacements.get(key) ?? 0) + 1);
     for (const listener of [...(itemListeners.get(key) ?? [])]) listener();
   }
   async function hydrate(rows: CloudDocument[], ticket: number) {
@@ -251,6 +253,16 @@ export function createAccountStorage({
           continue;
         }
         conflicts.delete(key);
+        if (
+          envelope &&
+          !envelope.dirty &&
+          envelope.revision === row.revision &&
+          envelope.payload === row.payload
+        ) {
+          // Already current: keep only write()'s deletion check.
+          await checkWritable();
+          continue;
+        }
         await write(key, {
           version: 1,
           payload: row.payload,
@@ -436,21 +448,23 @@ export function createAccountStorage({
       return;
     }
     const value = canonical(key, payload);
+    // An edit queued behind a cloud replacement was built without it. Keep the revision it
+    // was based on, so upload records a conflict instead of overwriting the cloud change.
+    const base = cache.get(key)?.revision ?? 0,
+      seen = replacements.get(key);
     await locally(local, async () => {
       await checkWritable();
       // A validated replacement or reset needs revision metadata, not valid
       // prior answers. Damaged payloads must remain recoverable by replacement.
-      let previous: Envelope | null;
-      try {
-        previous = parseEnvelope(await local.getItem(scoped(key)));
-      } catch (error) {
-        if (!isHistoryKey(key)) throw error;
-        previous = parseEnvelope(await readHistoryEnvelopeMetadata(local, scoped(key)));
-      }
+      const previous = parseEnvelope(
+        isHistoryKey(key)
+          ? await readHistoryEnvelopeMetadata(local, scoped(key))
+          : await local.getItem(scoped(key)),
+      );
       await write(key, {
         version: 1,
         payload: value,
-        revision: previous?.revision ?? 0,
+        revision: replacements.get(key) === seen ? (previous?.revision ?? 0) : base,
         dirty: true,
         sequence: (previous?.sequence ?? 0) + 1,
       });
@@ -699,7 +713,11 @@ export function createAccountStorage({
       if (running) await running;
       if (!current(ticket)) return;
       publish();
-      await sync(true);
+      // A completed Profile opens from this device; cloud changes then refresh mounted
+      // documents in place. Without one, onboarding must not show before the download.
+      const saved = cache.get(profileKey)?.payload;
+      if (saved && JSON.parse(saved)?.kind === "complete") void sync(true);
+      else await sync(true);
     },
     stop() {
       deletion.listeners.delete(deletionChanged);

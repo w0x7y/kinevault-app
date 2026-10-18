@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { ScrollView, View } from "react-native";
 import Animated, { LayoutAnimationConfig } from "react-native-reanimated";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
@@ -98,10 +98,13 @@ function ExerciseBar({
 }) {
   const { colors } = useTheme();
   const { fade } = useLayoutMotion();
-  const [width, setWidth] = useState(0),
-    [contentWidth, setContentWidth] = useState(0),
-    [offset, setOffset] = useState(0);
-  const more = contentWidth - width - offset > 4;
+  // Scrolling reports ~30 times a second; only the fade's flag re-renders the chips.
+  const bar = useRef({ width: 0, contentWidth: 0, offset: 0 });
+  const [more, setMore] = useState(false);
+  const measure = (next: Partial<typeof bar.current>) => {
+    const { width, contentWidth, offset } = Object.assign(bar.current, next);
+    setMore(contentWidth - width - offset > 4);
+  };
   // Chips show short names; the buttons' accessible names keep the full ones.
   const labels = exerciseChipLabels(exercises.map((row) => row.exercise.name));
   return (
@@ -113,9 +116,9 @@ function ExerciseBar({
         horizontal
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={32}
-        onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-        onContentSizeChange={(next) => setContentWidth(next)}
-        onScroll={(event) => setOffset(event.nativeEvent.contentOffset.x)}
+        onLayout={(event) => measure({ width: event.nativeEvent.layout.width })}
+        onContentSizeChange={(contentWidth) => measure({ contentWidth })}
+        onScroll={(event) => measure({ offset: event.nativeEvent.contentOffset.x })}
         style={{ minWidth: 0, flexGrow: 0 }}
         contentContainerStyle={{
           gap: spacing.sm,

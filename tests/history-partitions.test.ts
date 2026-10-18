@@ -157,6 +157,82 @@ test("corrupt or missing fragments reject reads and a valid replacement recovers
   assert.deepEqual(JSON.parse((await restarted.getItem(key))!), JSON.parse(reset));
 });
 
+test("repeated reads and an unchanged rewrite reuse the assembled history", async (t) => {
+  const local = memory(),
+    storage = createPartitionedLocalStorage(local),
+    key = `kinevault-track.account.a.${exerciseKey}`;
+  const payload = exercise([session("one", "2026-09-01"), session("two", "2026-10-01")]);
+  const envelope = (revision: number) =>
+    JSON.stringify({ version: 1, payload, revision, dirty: false, sequence: 1 });
+  await storage.setItem(key, envelope(1));
+  await storage.getItem(key);
+  const refs = JSON.parse(local.values.get(key)!).refs;
+  local.writes.length = 0;
+  const parse = t.mock.method(JSON, "parse");
+  const read = await storage.getItem(key);
+  // Only the root manifest is parsed; the fragments are not assembled again.
+  assert.equal(parse.mock.callCount(), 1);
+  await storage.setItem(key, envelope(2));
+  // The incoming envelope and the previous root; no repartitioning.
+  assert.equal(parse.mock.callCount(), 3);
+  parse.mock.restore();
+  assert.deepEqual(JSON.parse(read!), JSON.parse(envelope(1)));
+  assert.deepEqual(local.writes, [key]);
+  assert.deepEqual(JSON.parse(local.values.get(key)!).refs, refs);
+  assert.deepEqual(JSON.parse((await storage.getItem(key))!), JSON.parse(envelope(2)));
+  // A failed assembly is never cached.
+  local.values.set(refs["2026-10"], JSON.stringify({ version: 3 }));
+  const restarted = createPartitionedLocalStorage({
+    getItem: local.getItem,
+    setItem: local.setItem,
+    removeItem: local.removeItem,
+  });
+  await assert.rejects(restarted.getItem(key));
+  await assert.rejects(restarted.getItem(key));
+});
+
+test("a first read requests every history fragment at once", async () => {
+  const local = memory(),
+    original = exercise([session("one", "2026-09-01"), session("two", "2026-10-01")]);
+  await createPartitionedLocalStorage(local).setItem(exerciseKey, original);
+  const requested: string[] = [];
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const restarted = createPartitionedLocalStorage({
+    async getItem(key: string) {
+      if (key !== exerciseKey) {
+        requested.push(key);
+        await gate;
+      }
+      return local.getItem(key);
+    },
+    setItem: local.setItem,
+    removeItem: local.removeItem,
+  });
+  const reading = restarted.getItem(exerciseKey);
+  for (let index = 0; index < 50; index++) await Promise.resolve();
+  assert.equal(requested.length, 3);
+  release();
+  assert.equal(await reading, original);
+});
+
+test("saving a history document reads only the previous root's metadata", async (t) => {
+  const local = memory(),
+    store = createAccountStorage({ userId: "a", local, remote: null });
+  await store.start();
+  await store.setItem(exerciseKey, exercise([session("one", "2026-09-01")]));
+  const read = t.mock.method(createPartitionedLocalStorage(local), "getItem");
+  const edited = exercise([session("one", "2026-09-01"), session("two", "2026-10-01")]);
+  await store.setItem(exerciseKey, edited);
+  assert.equal(read.mock.callCount(), 0);
+  assert.equal(await store.getItem(exerciseKey), edited);
+  const root = JSON.parse(local.values.get(`kinevault-track.account.a.${exerciseKey}`)!);
+  assert.deepEqual(root.envelope, { version: 1, revision: 0, dirty: true, sequence: 2 });
+  store.stop();
+});
+
 test("food days preserve their insertion order and reject out-of-month or duplicate record corruption", () => {
   const food = JSON.stringify({
     version: 1,

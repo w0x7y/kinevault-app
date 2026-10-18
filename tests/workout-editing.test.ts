@@ -632,3 +632,151 @@ test("planned departure validation observers cannot replace the owned save with 
   assert.equal(parseExerciseDocument(f.raw()).sessions[0]!.status, "planned");
   assert.deepEqual(f.editing.getSnapshot().panel?.content, { kind: "library", date: "2026-10-05" });
 });
+
+function holdWrites(f: Awaited<ReturnType<typeof fixture>>, fail: (write: number) => boolean) {
+  const pending = gate();
+  let writes = 0;
+  f.storage.setItem = async (key, value) => {
+    const write = ++writes;
+    await pending.promise;
+    if (fail(write)) throw new Error("Disk full");
+    await f.write(key, value);
+  };
+  return { release: pending.resolve, writes: () => writes };
+}
+const settle = async () => {
+  for (let i = 0; i < 5; i++) await tick();
+};
+
+test("a burst of field changes writes the first and latest values only", async () => {
+  const f = await fixture("active"),
+    edit = f.editing.edit("log"),
+    held = holdWrites(f, () => false);
+  for (const weightKg of ["1", "10", "102", "102.", "102.5"])
+    edit.change({
+      kind: "set",
+      rowId: "row",
+      setId: "set",
+      build: (set) => ({ ...set, weightKg }),
+    });
+  await tick();
+  assert.equal(held.writes(), 1);
+  held.release();
+  await settle();
+  assert.equal(held.writes(), 2);
+  const set = f.saved().exercises[0]!.sets[0]!;
+  assert.equal(set.kind === "single" && set.weightKg, "102.5");
+  assert.equal(edit.getSnapshot().error, null);
+});
+
+test("Complete or Discard during a change save is never followed by a draft save", async () => {
+  for (const action of ["complete", "discard"] as const) {
+    const f = await fixture("active"),
+      calls: string[] = [];
+    const editing = createWorkoutEditing({
+      ...f.store,
+      updateSession(input) {
+        calls.push("update");
+        return f.store.updateSession(input);
+      },
+      completeSession(input) {
+        calls.push(action);
+        return f.store.completeSession(input);
+      },
+      removeSession(id) {
+        calls.push(action);
+        return f.store.removeSession(id);
+      },
+    });
+    editing.refreshDocument();
+    f.store.subscribe(() => editing.refreshDocument());
+    const edit = editing.edit("log"),
+      held = holdWrites(f, () => false);
+    edit.change({ kind: "name", value: "Typed" });
+    edit.change({ kind: "name", value: "Typed later" });
+    const acting = edit.run(action);
+    await tick();
+    held.release();
+    assert.equal(await acting, true);
+    await settle();
+    // The latest change saves ahead of the action, never after it.
+    assert.deepEqual(calls, ["update", "update", action]);
+    const sessions = parseExerciseDocument(f.raw()).sessions;
+    if (action === "discard") assert.equal(sessions.length, 0);
+    else assert.deepEqual([sessions[0]!.status, sessions[0]!.name], ["completed", "Typed later"]);
+  }
+});
+
+test("a failed first change save shows no error once the latest change saves", async () => {
+  const f = await fixture("active"),
+    edit = f.editing.edit("log"),
+    held = holdWrites(f, (write) => write === 1);
+  edit.change({ kind: "name", value: "First" });
+  edit.change({ kind: "name", value: "Latest" });
+  held.release();
+  await settle();
+  assert.equal(held.writes(), 2);
+  assert.equal(f.saved().name, "Latest");
+  assert.equal(edit.getSnapshot().error, null);
+});
+
+test("a failed latest change save shows the draft error until Retry saves it", async () => {
+  const f = await fixture("active"),
+    edit = f.editing.edit("log"),
+    held = holdWrites(f, (write) => write === 2);
+  edit.change({ kind: "name", value: "First" });
+  edit.change({ kind: "name", value: "Latest" });
+  held.release();
+  await settle();
+  assert.equal(held.writes(), 2);
+  assert.equal(f.saved().name, "First");
+  assert.match(edit.getSnapshot().error!, /Couldn't save your draft/);
+  assert.equal(await edit.run("retry"), true);
+  assert.equal(f.saved().name, "Latest");
+  assert.equal(edit.getSnapshot().error, null);
+});
+
+test("a departure refused for a count problem still saves the change queued behind a running save", async () => {
+  const f = await fixture("planned"),
+    edit = f.editing.edit("log"),
+    held = holdWrites(f, () => false);
+  edit.change({ kind: "name", value: "First" });
+  edit.change({ kind: "set", rowId: "row", setId: "set", build: (set) => ({ ...set, reps: "9" }) });
+  edit.change({ kind: "count", rowId: "row", value: "-" });
+  const leaving = f.editing.requestView({ kind: "library", date: "2026-10-05" });
+  held.release();
+  assert.equal(await leaving, false);
+  await settle();
+  const set = f.saved().exercises[0]!.sets[0]!;
+  assert.equal(set.kind === "single" && set.reps, "9");
+});
+
+test("an edit released while its change saves drops the queued change", async () => {
+  const f = await fixture("active");
+  let visible = f.store.getSnapshot(),
+    updates = 0;
+  const editing = createWorkoutEditing({
+    ...f.store,
+    getSnapshot: () => visible,
+    updateSession(input) {
+      updates++;
+      return f.store.updateSession(input);
+    },
+  });
+  editing.refreshDocument();
+  const edit = editing.edit("log"),
+    held = holdWrites(f, () => false);
+  edit.change({ kind: "name", value: "First" });
+  edit.change({ kind: "name", value: "Latest" });
+  const state = visible.state;
+  assert.equal(state.kind, "ready");
+  if (state.kind === "ready")
+    visible = {
+      ...visible,
+      state: { kind: "ready", document: { ...state.document, sessions: [] } },
+    };
+  editing.refreshDocument();
+  held.release();
+  await settle();
+  assert.equal(updates, 1);
+});

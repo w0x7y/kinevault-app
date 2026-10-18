@@ -1,5 +1,13 @@
-import data from "../../assets/food/usda-fndds.json";
 import { createFoodCatalog } from "./catalog.ts";
 
-export const foodSource = data.source;
-export const foodDatabase = createFoodCatalog(data.foods);
+type BundledCatalog = typeof import("../../assets/food/usda-fndds.json");
+let database: ReturnType<typeof loadFoodDatabase> | undefined;
+
+function loadFoodDatabase() {
+  // A lazy require keeps parsing the 2.6 MB catalog out of app startup. Metro still bundles it.
+  const data = require("../../assets/food/usda-fndds.json") as BundledCatalog;
+  return { ...createFoodCatalog(data.foods), foods: data.foods, source: data.source };
+}
+
+/** The bundled USDA catalog, loaded on first use. */
+export const getFoodDatabase = () => (database ??= loadFoodDatabase());

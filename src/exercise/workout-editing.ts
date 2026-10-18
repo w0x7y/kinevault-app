@@ -58,6 +58,9 @@ type Entry = {
   state: WorkoutEditState;
   revision: number;
   pending: Promise<boolean> | null;
+  /** A change's draft save is running; later changes wait in `queued`, latest only. */
+  saving: boolean;
+  queued: { fields: WorkoutFields; revision: number } | null;
 };
 
 const draftFailure =
@@ -173,6 +176,8 @@ export function createWorkoutEditing(store: Store) {
       entry = {
         revision: 0,
         pending: null,
+        saving: false,
+        queued: null,
         state: {
           session,
           fields: {
@@ -214,7 +219,30 @@ export function createWorkoutEditing(store: Store) {
       publish(entry, { error: !success ? draftFailure : invalidMinutes ? invalidDuration : null });
     return success && !invalidMinutes;
   }
+  /** Takes the queued change unless its edit was released or became completed, which never autosaves. */
+  function takeQueued(id: string, entry: Entry) {
+    const next = entry.queued;
+    entry.queued = null;
+    return next && current(id, entry) && entry.state.session.status !== "completed" ? next : null;
+  }
+  // One change save runs at a time, so a typing burst writes its first and latest values only.
+  function autosave(id: string, entry: Entry, fields: WorkoutFields, revision: number) {
+    if (entry.saving) {
+      entry.queued = { fields, revision };
+      return;
+    }
+    entry.saving = true;
+    void persist(id, entry, fields, revision).finally(() => {
+      entry.saving = false;
+      const next = takeQueued(id, entry);
+      // An operation saves the queued change before its own writes when it takes over (see lock).
+      if (next && !entry.pending) autosave(id, entry, next.fields, next.revision);
+    });
+  }
   function lock(id: string, entry: Entry, work: () => Promise<boolean>) {
+    // Enqueue the latest change's save ahead of this operation's writes, as every change once was.
+    const next = takeQueued(id, entry);
+    if (next) void persist(id, entry, next.fields, next.revision);
     // Install the promise before publishing busy state, so listeners cannot re-enter an unowned operation.
     const pending = Promise.resolve()
       .then(work)
@@ -348,10 +376,10 @@ export function createWorkoutEditing(store: Store) {
       const countError =
         entry.state.session.status === "planned" ? plannedCountError(fields, counts) : null;
       const revision = ++entry.revision;
-      // Commit state and enqueue this captured revision before observers can enter a newer change.
+      // Commit state and enqueue (or queue) this captured revision before observers can enter a newer change.
       entry.state = { ...entry.state, fields, counts, countError };
       if (entry.state.session.status !== "completed" && !resizeBlocked)
-        void persist(id, entry, fields, revision);
+        autosave(id, entry, fields, revision);
       emit();
     }
     async function run(kind: Action): Promise<boolean> {

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { View } from "react-native";
 import Animated from "react-native-reanimated";
 import { useAppear } from "../components/motion";
@@ -17,15 +18,18 @@ export function ProfileStreak({ today }: { today: string }) {
     water = useWaterLog(),
     exercise = useExercises();
   const { colors } = useTheme();
-  const streak =
-    food.state.kind === "ready" && water.state.kind === "ready" && exercise.state.kind === "ready"
-      ? profileStreak({
-          today,
-          food: food.state.document,
-          water: water.state.document,
-          sessions: exercise.state.document.sessions,
-        })
-      : null;
+  const streak = useMemo(
+    () =>
+      food.state.kind === "ready" && water.state.kind === "ready" && exercise.state.kind === "ready"
+        ? profileStreak({
+            today,
+            food: food.state.document,
+            water: water.state.document,
+            sessions: exercise.state.document.sessions,
+          })
+        : null,
+    [today, food.state, water.state, exercise.state],
+  );
   return (
     <Panel testID="profile-streak" accessibilityLabel="Tracking streaks">
       {food.state.kind !== "ready" && (
