@@ -12,7 +12,10 @@ export const fixtureAuthKey = "kinevault-track.auth.v1";
 export const fixtureEmail = "track-fixture@example.com";
 export const fixturePassword = "fixture-password-123";
 
-function sessionFor(userId = fixtureUserId, email = fixtureEmail) {
+/** `providers` and `amr` let a test sign in as a Google-only account. */
+export function sessionFor({ providers = ["email"], amr } = {}) {
+  const userId = fixtureUserId;
+  const email = fixtureEmail;
   const expiresAt = 4102444800;
   const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const token = `${encode({ alg: "HS256", typ: "JWT" })}.${encode({
@@ -22,6 +25,7 @@ function sessionFor(userId = fixtureUserId, email = fixtureEmail) {
     exp: expiresAt,
     iat: 1700000000,
     iss: "https://kkywpvkckxniriatelta.supabase.co/auth/v1",
+    ...(amr ? { amr } : {}),
   })}.browser-fixture-signature`;
   return {
     access_token: token,
@@ -36,7 +40,7 @@ function sessionFor(userId = fixtureUserId, email = fixtureEmail) {
       email,
       email_confirmed_at: "2026-10-01T00:00:00Z",
       created_at: "2026-10-01T00:00:00Z",
-      app_metadata: { provider: "email", providers: ["email"] },
+      app_metadata: { provider: providers[0], providers },
       user_metadata: {},
       identities: [],
       is_anonymous: false,
@@ -47,10 +51,9 @@ function sessionFor(userId = fixtureUserId, email = fixtureEmail) {
 /** Test-only HTTP fixtures. The real SDK still restores and creates sessions. */
 export async function installAccountFixture(
   context,
-  { signedIn = true, signupConfirmation = false } = {},
+  { signedIn = true, signupConfirmation = false, session = sessionFor() } = {},
 ) {
   await context.addInitScript(await browserHistoryCodec());
-  const session = sessionFor();
   const state = {
     session,
     signedIn,

@@ -26,7 +26,10 @@ function deferred<T>() {
   });
   return { promise, resolve };
 }
-function harness(openAuthSession: (url: string) => Promise<string | null> = async () => null) {
+function harness(
+  openAuthSession: (url: string) => Promise<string | null> = async () => null,
+  oauthRedirectOpensCallback?: boolean,
+) {
   let callback: Parameters<AccountAuthPort["onAuthStateChange"]>[0] | undefined;
   let subscriptionActive = false;
   let initial = Promise.resolve({
@@ -97,6 +100,7 @@ function harness(openAuthSession: (url: string) => Promise<string | null> = asyn
   const controller = createAccountController(auth, {
     redirectTo: "kinevaulttrack://auth/callback",
     openAuthSession,
+    oauthRedirectOpensCallback,
   });
   return {
     auth,
@@ -420,6 +424,25 @@ test("Google's redirect may also reach the callback route while the browser is s
   assert.equal(await routeResult, true);
   assert.equal(signedIn, true);
   assert.equal(exchanges, 1);
+});
+
+test("a finished Google sign-in is kept for Android's callback route and cleared on iOS", async () => {
+  const link = "kinevaulttrack://auth/callback?code=google-code";
+  for (const [opensCallback, resumed] of [
+    [undefined, true],
+    [false, false],
+  ] as const) {
+    const h = harness(async () => link, opensCallback);
+    await ready(h);
+    assert.equal(await h.controller.signInWithGoogle(), true);
+    // A callback screen mounting now with the cleaned URL resumes only a retained result.
+    assert.equal(
+      await h.controller.completeAuthLink("kinevaulttrack://auth/callback"),
+      resumed,
+      `oauthRedirectOpensCallback: ${opensCallback}`,
+    );
+    assert.equal(h.controller.getSnapshot().user?.id, "owner");
+  }
 });
 
 test("recovery belongs to the current identity and does not follow an account switch", async () => {

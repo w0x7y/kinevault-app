@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { router } from "expo-router";
 import { mediaFiles } from "../profile/media-files";
 import { readExportPhoto, saveAccountExport } from "./export-file";
+import { deletionProof } from "./management";
 import { createAccountManagementAttempts } from "./management-attempts";
 import { deleteAccountOnServer } from "./management-api";
 import type { AccountContextValue } from "./provider";
@@ -19,6 +20,7 @@ export function useAccountManagementAttempts({
   const currentOffline = useRef(offline);
   currentOffline.current = offline;
   const ownerId = account.user?.id ?? null;
+  const proof = deletionProof(account.user);
   const readAccount = account.getSnapshot;
   const deleteAccount = account.deleteAccount;
   const attempts = useMemo(
@@ -34,11 +36,12 @@ export function useAccountManagementAttempts({
         offline: () => currentOffline.current,
         readPhoto: readExportPhoto,
         deliverExport: saveAccountExport,
+        deletionProof: proof,
         deleteOnServer: deleteAccountOnServer,
         removePhoto: mediaFiles.removePhoto,
         onDeleted: () => router.replace("/account"),
       }),
-    [storage, deleteAccount, readAccount, ownerId],
+    [storage, deleteAccount, readAccount, ownerId, proof],
   );
   useEffect(() => {
     attempts.start();
@@ -49,5 +52,5 @@ export function useAccountManagementAttempts({
     attempts.getSnapshot,
     attempts.getSnapshot,
   );
-  return { ...snapshot, attempts };
+  return { ...snapshot, attempts, proof };
 }

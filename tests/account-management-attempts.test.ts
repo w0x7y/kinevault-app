@@ -38,7 +38,7 @@ function deferred<T>() {
 
 async function setup(
   options: Partial<
-    Pick<Ports, "readPhoto" | "deliverExport" | "deleteOnServer" | "removePhoto">
+    Pick<Ports, "readPhoto" | "deliverExport" | "deleteOnServer" | "removePhoto" | "deletionProof">
   > & {
     failCleanup?: boolean;
     beforeSessionCleared?: () => void;
@@ -117,6 +117,7 @@ async function setup(
       (async (contents) => {
         delivered.push(contents);
       }),
+    deletionProof: options.deletionProof ?? "password",
     deleteOnServer:
       options.deleteOnServer ??
       (async () => {
@@ -337,6 +338,22 @@ test("submission clears the password before observers, freezes data and waits fo
   assert.equal(h.controller.getSnapshot().user, null);
   assert.equal(h.controller.getSnapshot().notice, "Your KineVault account has been deleted.");
   assert.deepEqual([...h.values], [[`${prefix}deleted.v1`, "1"]]);
+});
+
+test("a Google-only account deletes with DELETE alone and asks the server to check its Google sign-in", async () => {
+  const sent: (string | null)[] = [];
+  const h = await setup({
+    deletionProof: "google",
+    deleteOnServer: async (_ownerId, password) => {
+      sent.push(password);
+    },
+  });
+  h.online();
+  h.attempts.openDeletion();
+  h.attempts.setConfirmation("DELETE");
+  assert.equal(await h.attempts.deleteData(), true);
+  assert.deepEqual(sent, [null]);
+  assert.equal(h.controller.getSnapshot().user, null);
 });
 
 test("server rejection preserves confirmation and saved data, requires a fresh password and supports explicit retry", async () => {

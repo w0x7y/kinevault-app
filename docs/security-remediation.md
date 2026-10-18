@@ -81,7 +81,7 @@ script rejects them before making a request.
 ## Open findings, 2026-10-17
 
 A review on 17 October 2026 recorded these. Each was checked against the code;
-none is fixed yet.
+none was fixed then.
 
 ### Token-hash email links on a guest device
 
@@ -110,9 +110,31 @@ Found 18 October 2026, after "Continue with Google" was added. The
 `delete-account` function (`supabase/functions/delete-account/handler.ts`) confirms
 deletion with `signInWithPassword`, and an account created through Google has no
 password, so its deletion always fails. Accounts that also have an email password
-are unaffected. The fix needs a server change and a redeploy: confirm OAuth-only
-accounts by a recent sign-in instead (sign in with Google again, then check the
-session's sign-in time in the function), or by `reauthenticate()`'s emailed code.
+are unaffected.
+
+Fixed in code on 18 October 2026, not deployed yet: without a password, the function
+accepts the caller session's own Google sign-in from the last 10 minutes (the `oauth`
+entry of the access token's `amr` claim). Settings offers "Sign in with Google again"
+for Google-only accounts. `reauthenticate()` wasn't used: its emailed code is only
+checked by a password change, so the function couldn't verify it. See
+[account management](account-management.md).
+
+### Google sign-in to a never-confirmed email account
+
+Checked 18 October 2026 against the Supabase Auth source (`supabase/auth` at
+`ce9a8ee`), not the live project. If someone signs up with another person's email
+and never confirms it, that person's later "Continue with Google" (Google reports a
+verified email) links into the same user, but `RemoveUnconfirmedIdentities`
+(`internal/api/external.go`, `internal/models/user.go`) first clears its password,
+deletes its other identities and replaces its metadata, then confirms the email. The
+squatter's password stops working, so this isn't a takeover. In the reverse order,
+`signUp` for an address that already has a confirmed Google account returns an
+obfuscated success and sets no password.
+
+Two cases stay open: turning on `mailer_autoconfirm` (off on the hosted project)
+makes a squatter's password account confirmed and linkable, and a person who clicks
+a confirmation email they didn't request confirms the squatter's password account
+before Google links to it.
 
 ### Development tunnels are public
 

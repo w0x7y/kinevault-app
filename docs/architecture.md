@@ -29,7 +29,10 @@ on this device (signing up again isn't blocked); Supabase's email rate limits ar
 server guard.
 An identity change invalidates request feedback and recovery from the prior owner.
 Only the active email-link result survives an owner replacement, allowing the
-callback screen to resume after the account-owned subtree changes.
+callback screen to resume after the account-owned subtree changes. On iOS the Google
+browser session keeps its redirect and no callback screen runs, so the controller
+drops a finished Google result itself (`oauthRedirectOpensCallback: false`); Android
+also opens the callback route for that redirect and keeps the result for it.
 `completeAuthLink` is the only entry point: a cleaned callback URL that matches the
 retained link resumes its in-flight or settled result, while a URL that still carries
 a code, token or error is processed as a new link.

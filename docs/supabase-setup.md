@@ -128,6 +128,13 @@ from `Application/`, add the two public Supabase environment variables (and
 actual production origin for the web callback. No production URL has been reserved
 or deployed yet.
 
+`vercel.json` also sets a Content-Security-Policy. `script-src` allows the bundle
+from the same origin plus Expo Router's one inline script by its SHA-256 hash
+(`tests/web-headers.test.ts` fails if an Expo Router upgrade changes that script).
+`connect-src` allows the Supabase project, Open Food Facts and the Sentry ingest host
+`o4512218785120256.ingest.de.sentry.io`; a DSN for another Sentry organization or
+region needs its host added. Images, video, styles and fonts aren't restricted.
+
 Neither Resend nor Vercel credentials are connected in this workspace. Public email
 delivery also requires a verified sender domain that you own. Once those are ready,
 the prepared configuration script appends callbacks while preserving the friend's

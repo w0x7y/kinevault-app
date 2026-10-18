@@ -80,6 +80,10 @@ type AccountControllerOptions = {
   redirectTo: string;
   /** Opens the provider's sign-in page; resolves with the callback URL, or null when the user leaves. */
   openAuthSession: (url: string) => Promise<string | null>;
+  /** False where the browser session keeps the provider's redirect (iOS), so no callback
+   * screen acknowledges the result. Android also opens the callback route, which may
+   * remount and resume it. Defaults to true. */
+  oauthRedirectOpensCallback?: boolean;
 };
 
 export function createAccountController(
@@ -354,7 +358,11 @@ export function createAccountController(
           publish({ error: "Google sign-in didn't finish. Try again." });
           return false;
         }
-        return await controller.completeAuthLink(callback);
+        const result = controller.completeAuthLink(callback);
+        const signedIn = await result;
+        if (options.oauthRedirectOpensCallback === false && callbackContext?.result === result)
+          callbackContext = null;
+        return signedIn;
       } finally {
         googleOpen = false;
       }

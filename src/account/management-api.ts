@@ -1,6 +1,10 @@
 import { getSupabaseClient } from "./client";
 
-export async function deleteAccountOnServer(ownerId: string, password: string): Promise<void> {
+/** A null password asks the function to accept this session's recent Google sign-in instead. */
+export async function deleteAccountOnServer(
+  ownerId: string,
+  password: string | null,
+): Promise<void> {
   const client = getSupabaseClient();
   if (!client) throw new Error("Account services are unavailable.");
   const {
@@ -11,10 +15,12 @@ export async function deleteAccountOnServer(ownerId: string, password: string): 
     throw new Error("The account changed. Start again.");
   const { data, error } = await client.functions.invoke("delete-account", {
     headers: { Authorization: `Bearer ${session.access_token}` },
-    body: { password, confirmation: "DELETE" },
+    body: password === null ? { confirmation: "DELETE" } : { password, confirmation: "DELETE" },
   });
   if (error || !data || data.deleted !== true)
     throw new Error(
-      "Couldn't confirm account deletion. Check your connection and password, then try again. Your local data has been kept.",
+      password === null
+        ? "Couldn't confirm account deletion. Check your connection, sign in with Google again and delete within 10 minutes. Your local data has been kept."
+        : "Couldn't confirm account deletion. Check your connection and password, then try again. Your local data has been kept.",
     );
 }

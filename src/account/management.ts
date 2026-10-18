@@ -1,3 +1,4 @@
+import type { User } from "@supabase/supabase-js";
 import type { AccountStorage } from "./storage.ts";
 import type { StoredPhoto } from "../profile/media-model.ts";
 
@@ -70,6 +71,31 @@ export async function buildAccountExport({
   );
 }
 
+/** Accounts created with Google have no password, so they confirm deletion by signing in with Google again. */
+export function deletionProof(user: User | null): "password" | "google" {
+  const providers = user?.app_metadata.providers ?? [];
+  return providers.includes("google") && !providers.includes("email") ? "google" : "password";
+}
+
+/** The delete-account function accepts this session's Google sign-in for 10 minutes. */
+export function recentGoogleSignIn(accessToken: string | undefined, now = Date.now()): boolean {
+  try {
+    const part = accessToken!.split(".")[1].replaceAll("-", "+").replaceAll("_", "/");
+    const { amr } = JSON.parse(atob(part));
+    return (
+      Array.isArray(amr) &&
+      amr.some(
+        (entry) =>
+          entry?.method === "oauth" &&
+          typeof entry.timestamp === "number" &&
+          now - entry.timestamp * 1000 <= 10 * 60 * 1000,
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function deleteAccountData({
   storage,
   ownerId,
@@ -82,14 +108,19 @@ export async function deleteAccountData({
   storage: AccountStorage;
   ownerId: string;
   isCurrent: () => boolean;
-  password: string;
+  /** Null when a recent Google sign-in confirms deletion instead. */
+  password: string | null;
   confirmation: string;
-  deleteOnServer: (password: string) => Promise<void>;
+  deleteOnServer: (password: string | null) => Promise<void>;
   removePhoto: (photo: StoredPhoto) => Promise<void>;
 }): Promise<string | null> {
   checkOwner(storage, ownerId, isCurrent);
-  if (confirmation !== "DELETE" || !password || password.length > 128)
-    throw new Error("Enter your password and type DELETE to confirm.");
+  if (confirmation !== "DELETE" || password === "" || (password?.length ?? 0) > 128)
+    throw new Error(
+      password === null
+        ? "Type DELETE to confirm."
+        : "Enter your password and type DELETE to confirm.",
+    );
   const frozen = await storage.freezeForDeletion();
   try {
     checkOwner(storage, ownerId, isCurrent);
