@@ -12,7 +12,6 @@ import { InlineMessage } from "../components/inline-message";
 
 export function MealsWidget({
   day,
-  query,
   fresh,
   removal,
   onArm,
@@ -24,7 +23,6 @@ export function MealsWidget({
   error,
 }: {
   day: Pick<FoodDay, "foods">;
-  query: string;
   /** Entries just logged while the log was on screen; they rise into their meal. */
   fresh?: ReadonlySet<string>;
   removal: FoodEntryRemoval | null;
@@ -47,17 +45,8 @@ export function MealsWidget({
     <View testID="daily-food-log" onLayout={onLayout} style={{ gap: spacing.layout }}>
       <InlineMessage>{error}</InlineMessage>
       {meals.map(({ key, label, icon }) => {
-        const allEntries = day.foods.filter((food) => food.meal === key);
-        const entries = allEntries.filter((food) =>
-          food.name.toLowerCase().includes(query.trim().toLowerCase()),
-        );
-        const calories = allEntries.reduce((sum, food) => sum + food.calories, 0);
-        const empty =
-          allEntries.length === 0
-            ? "No food has been logged yet"
-            : !entries.length && query.trim()
-              ? "No matching foods logged."
-              : null;
+        const entries = day.foods.filter((food) => food.meal === key);
+        const calories = entries.reduce((sum, food) => sum + food.calories, 0);
         return (
           <Animated.View key={key} layout={changing.has(key) ? undefined : layout}>
             <Panel testID={`meal-${key}`} style={{ paddingVertical: spacing.layout, gap: 0 }}>
@@ -75,9 +64,9 @@ export function MealsWidget({
                   >
                     {label}
                   </AppText>
-                  {empty && (
+                  {entries.length === 0 && (
                     <AppText variant="caption" muted>
-                      {empty}
+                      No food has been logged yet
                     </AppText>
                   )}
                 </View>

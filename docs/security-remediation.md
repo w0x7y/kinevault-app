@@ -98,6 +98,22 @@ The fix needs a product decision: accept token-hash links only while this
 device has a pending sign-up or reset request, or ask before importing guest
 data into an account reached through an email link.
 
+A review on 18 October 2026 added that the link needn't come from an email: any
+web page, QR code or Android app can open `kinevaulttrack://auth/callback?token_hash=…`.
+The hosted project's confirmation template uses `{{ .ConfirmationURL }}` (PKCE), so if
+every template Track's users receive does too, Track could refuse token-hash links
+outright. Google sign-in already completes only with a PKCE code.
+
+### Google-only accounts can't delete themselves
+
+Found 18 October 2026, after "Continue with Google" was added. The
+`delete-account` function (`supabase/functions/delete-account/handler.ts`) confirms
+deletion with `signInWithPassword`, and an account created through Google has no
+password, so its deletion always fails. Accounts that also have an email password
+are unaffected. The fix needs a server change and a redeploy: confirm OAuth-only
+accounts by a recent sign-in instead (sign in with Google again, then check the
+session's sign-in time in the function), or by `reauthenticate()`'s emailed code.
+
 ### Development tunnels are public
 
 `npm run start:cloudflare` (`scripts/expo-cloudflare.mjs`) publishes Metro

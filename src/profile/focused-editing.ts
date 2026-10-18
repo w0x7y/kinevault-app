@@ -1,5 +1,5 @@
 import { createDocumentEdit, type ParsedDraft } from "../persistence/document-edit.ts";
-import { emptyAnswers, type Answers, type FieldErrors } from "./answers.ts";
+import { emptyAnswers, stepFields, type Answers, type FieldErrors } from "./answers.ts";
 import { changeAnswers, validateAnswers, type AnswerChange } from "./calories.ts";
 import type { createProfilePersistence } from "./persistence.ts";
 import { editedProfileAnswers, type ProfileEditSection } from "./section-editing.ts";
@@ -30,12 +30,20 @@ export function createFocusedProfileEdit(
   };
 }
 
-/** Separates a focused edit's field problems from its save failure message. */
-export function focusedEditFeedback(error: FieldErrors | string | null): {
-  errors: FieldErrors;
-  message: string | null;
-} {
-  return typeof error === "string"
-    ? { errors: {}, message: error }
-    : { errors: error ?? {}, message: null };
+/**
+ * Splits a focused edit's feedback: errors on the section's own fields (its Question shows
+ * them), messages for the fields it doesn't own, and the save failure message.
+ */
+export function focusedEditFeedback(
+  error: FieldErrors | string | null,
+  section: ProfileEditSection,
+): { errors: FieldErrors; others: string[]; message: string | null } {
+  if (typeof error === "string") return { errors: {}, others: [], message: error };
+  const errors: FieldErrors = {};
+  const others: string[] = [];
+  for (const [field, message] of Object.entries(error ?? {}) as [keyof Answers, string][]) {
+    if (stepFields[section].includes(field)) errors[field] = message;
+    else others.push(message);
+  }
+  return { errors, others, message: null };
 }

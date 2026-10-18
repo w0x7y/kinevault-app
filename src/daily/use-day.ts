@@ -18,7 +18,7 @@ export function useDayActivity({
   date,
   phoneSteps = false,
 }: { date?: string; phoneSteps?: boolean } = {}) {
-  const { selectedDay } = useSelectedDay();
+  const { selectedDay, today } = useSelectedDay();
   const day = date ?? selectedDay;
   const { state: profileState } = useProfile();
   const food = useFoodLog();
@@ -31,6 +31,7 @@ export function useDayActivity({
     () =>
       interpretDayActivity({
         date: day,
+        today,
         profile: profileState,
         food: { state: food.state, retryLoad: food.retryLoad },
         water: { state: water.state, retryLoad: water.retryLoad },
@@ -42,6 +43,7 @@ export function useDayActivity({
     // Saving and refresh flags don't change the day; only each source's state and retry do.
     [
       day,
+      today,
       profileState,
       food.state,
       food.retryLoad,

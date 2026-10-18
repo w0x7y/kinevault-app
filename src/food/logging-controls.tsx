@@ -1,4 +1,5 @@
 import { AppButton } from "../components/button";
+import { useSyncExternalStore } from "react";
 import { View } from "react-native";
 import { parseDay } from "../calendar/dates.ts";
 import { AppText, Overline } from "../components/ui";
@@ -8,20 +9,20 @@ import { Chip } from "../components/chip";
 import { meals } from "../daily/model.ts";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
-import type { CatalogKind } from "./meal-model.ts";
-import type { FoodLoggingAttempt, FoodLoggingAttemptSnapshot } from "./logging-attempt.ts";
+import type { FoodLoggingAttempt } from "./logging-attempt.ts";
 
 export function FoodLoggingControls({
   attempt,
-  snapshot: { preparation, failed, submittable, saving, busy },
   onLog,
-  itemKind = "food",
 }: {
   attempt: FoodLoggingAttempt;
-  snapshot: FoodLoggingAttemptSnapshot;
-  itemKind?: CatalogKind;
   onLog: () => void;
 }) {
+  const { preparation, noun, failed, submittable, saving, busy } = useSyncExternalStore(
+    attempt.subscribe,
+    attempt.getSnapshot,
+    attempt.getSnapshot,
+  );
   const { date, meal, operation } = preparation;
   const { colors } = useTheme();
   const day = parseDay(date).toLocaleDateString(undefined, {
@@ -65,7 +66,7 @@ export function FoodLoggingControls({
       )}
       {failed && (
         <InlineMessage>
-          {`${operation === "edit" ? "Couldn't save your changes." : `Couldn't log this ${itemKind}.`} Your amounts and meal are kept. Try again.`}
+          {`${operation === "edit" ? "Couldn't save your changes." : `Couldn't log this ${noun}.`} Your amounts and meal are kept. Try again.`}
         </InlineMessage>
       )}
       <AppButton
@@ -73,12 +74,12 @@ export function FoodLoggingControls({
         label={
           // Only this attempt's own write reads as saving; a food-log refresh doesn't.
           saving
-            ? `Saving ${itemKind}...`
+            ? `Saving ${noun}...`
             : operation === "edit"
               ? "Save changes"
               : preparation.measurement === "volume"
                 ? "Log drink to Drinks"
-                : `Log ${itemKind} to ${meals.find((option) => option.key === meal)?.label}`
+                : `Log ${noun} to ${meals.find((option) => option.key === meal)?.label}`
         }
         disabled={!submittable}
         onPress={onLog}

@@ -19,10 +19,10 @@ export function ProfileName() {
   const [editing, setEditing] = useState(false);
   if (profile.state.kind !== "ready") return null;
   const name = profile.state.document.answers.name;
-  const feedback = focusedEditFeedback(error);
+  const feedback = focusedEditFeedback(error, "name");
   const message = feedback.message
     ? "Couldn't save your name. Try again."
-    : Object.values(feedback.errors)[0];
+    : (feedback.errors.name ?? feedback.others[0]);
   function start() {
     // Each opening starts from the latest saved name, even while another save runs.
     if (edit.cancel()) setEditing(true);

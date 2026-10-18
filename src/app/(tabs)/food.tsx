@@ -151,15 +151,9 @@ function FoodDay({
     ) : page.kind === "macros" ? (
       <DailyMacros activity={activity} onBack={tab.back} />
     ) : null;
-  const calorieSummary =
-    nutrition === null
-      ? null
-      : nutrition.calories.target === null
-        ? `${nutrition.calories.eaten.toLocaleString()} kcal`
-        : `${nutrition.calories.eaten.toLocaleString()} / ${nutrition.calories.target.toLocaleString()} kcal`;
   return (
-    <Screen title="Food" showTitle={false} scrollRef={scrollRef} adjustKeyboardInsets>
-      <ScreenTitle title="Daily food log" trailing={calorieSummary} />
+    <Screen title="Food" scrollRef={scrollRef} adjustKeyboardInsets>
+      <ScreenTitle title="Daily food log" trailing={nutrition?.calories.title} />
       <SearchActions
         kind="food"
         query={view.query}
@@ -173,7 +167,7 @@ function FoodDay({
         macrosDisabled={view.macrosDisabled}
         onViewMacros={tab.macros}
       />
-      <FoodLogStatus />
+      <FoodLogStatus source={activity.sources.food} />
       {(log.state.kind !== "loading" || custom.state.kind !== "loading") && <CustomFoodStatus />}
       {view.resumable &&
         drafts.resumable.map((summary) => (
@@ -203,7 +197,6 @@ function FoodDay({
           key={date}
           day={food.day}
           fresh={fresh}
-          query=""
           saving={view.busy}
           error={log.error}
           onLayout={(event) => {

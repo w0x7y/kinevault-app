@@ -7,7 +7,7 @@ import {
   type ExerciseSet,
   type WorkoutSession,
 } from "../src/exercise/model.ts";
-import { profileStreak, workoutExerciseOptions, workoutGraph } from "../src/profile/activity.ts";
+import { profileStreak, workoutGraph, workoutWeekLabel } from "../src/profile/activity.ts";
 
 function food(days: Record<string, unknown[]> = {}): FoodLogDocument {
   return parseFoodLog(JSON.stringify({ version: 1, days }));
@@ -230,8 +230,11 @@ test("longest streak includes earlier runs", () => {
 });
 
 test("exercise options preserve snapshot identities and tracking while choosing latest historical names", () => {
-  const options = workoutExerciseOptions(
-    [
+  const { options } = workoutGraph({
+    today: "2026-10-04",
+    weeks: 4,
+    metric: "weight",
+    sessions: [
       session({ id: "new", date: "2026-10-03", exerciseName: "Renamed press" }),
       session({
         id: "sides",
@@ -245,8 +248,7 @@ test("exercise options preserve snapshot identities and tracking while choosing 
       session({ id: "planned", exerciseId: "planned", status: "planned" }),
       session({ id: "active", exerciseId: "active", status: "active" }),
     ],
-    "2026-10-04",
-  );
+  });
   assert.deepEqual(options, [
     { key: JSON.stringify(["deleted", "single"]), name: "Deleted definition", tracking: "single" },
     { key: sidesKey, name: "Press", tracking: "sides" },
@@ -254,16 +256,17 @@ test("exercise options preserve snapshot identities and tracking while choosing 
   ]);
 });
 
-test("graph covers every day of each range and preserves empty days as null", () => {
-  for (const [weeks, first, length] of [
-    [4, "2026-09-07", 28],
-    [12, "2026-07-13", 84],
-    [52, "2025-10-06", 364],
-  ] satisfies [4 | 12 | 52, string, number][]) {
+test("graph covers each range in weeks ending today and preserves empty weeks as null", () => {
+  for (const [weeks, first] of [
+    [4, "2026-09-13"],
+    [12, "2026-07-19"],
+    [52, "2025-10-12"],
+  ] satisfies [4 | 12 | 52, string][]) {
     const graph = workoutGraph({ today: "2026-10-04", weeks, metric: "volume", sessions: [] });
-    assert.equal(graph.points.length, length);
-    assert.equal(graph.points[0]?.date, first);
-    assert.deepEqual(graph.points.at(-1), {
+    assert.equal(graph.weeks.length, weeks);
+    assert.equal(graph.weeks[0]?.date, first);
+    assert.equal(graph.latest, graph.weeks.at(-1));
+    assert.deepEqual(graph.latest, {
       date: "2026-10-04",
       total: null,
       left: null,
@@ -272,32 +275,120 @@ test("graph covers every day of each range and preserves empty days as null", ()
       partialDuration: false,
     });
     assert.equal(
-      graph.points.every((point) => point.total === null),
+      graph.weeks.every((week) => week.total === null),
       true,
     );
     assert.equal(graph.unit, "kg x reps");
     assert.equal(graph.tracking, "single");
+    assert.equal(graph.pending, `No volume logged in the last ${weeks} weeks.`);
   }
 });
 
-test("weight requires an existing exercise selection", () => {
+test("exercise weight falls back to the first option when the chosen exercise has no completed sets", () => {
+  const sessions = [
+    session(),
+    session({ id: "squat", exerciseId: "squat", exerciseName: "Squat", sets: [single("50")] }),
+  ];
   for (const exerciseKey of [undefined, JSON.stringify(["missing", "single"])]) {
     const graph = workoutGraph({
       today: "2026-10-04",
       weeks: 4,
       metric: "weight",
       exerciseKey,
-      sessions: [session()],
+      sessions,
     });
-    assert.equal(graph.tracking, "single");
-    assert.equal(
-      graph.points.every((point) => point.total === null && point.workouts === 0),
-      true,
-    );
+    assert.equal(graph.exerciseKey, pressKey);
+    assert.equal(graph.latest.total, 10);
   }
+  const squat = workoutGraph({
+    today: "2026-10-04",
+    weeks: 4,
+    metric: "weight",
+    exerciseKey: JSON.stringify(["squat", "single"]),
+    sessions,
+  });
+  assert.equal(squat.exerciseKey, JSON.stringify(["squat", "single"]));
+  assert.equal(squat.latest.total, 50);
+
+  const none = workoutGraph({
+    today: "2026-10-04",
+    weeks: 4,
+    metric: "weight",
+    exerciseKey: pressKey,
+    sessions: [session({ status: "planned" })],
+  });
+  assert.deepEqual(none.options, []);
+  assert.equal(none.exerciseKey, undefined);
+  assert.equal(none.tracking, "single");
+  assert.equal(
+    none.weeks.every((week) => week.total === null && week.workouts === 0),
+    true,
+  );
+  assert.equal(none.pending, "No exercise weight logged in the last 4 weeks.");
 });
 
-test("daily volume sums real single and side measurements across workouts regardless of exercise selection", () => {
+test("the graph waits for measurements in two different weeks", () => {
+  const graph = (sessions: WorkoutSession[], metric: "volume" | "duration" = "volume") =>
+    workoutGraph({ today: "2026-10-04", weeks: 12, metric, sessions });
+  const trend = "Your trend appears after workouts in two different weeks.";
+  assert.equal(graph([session()]).pending, trend);
+  assert.equal(graph([session(), session({ id: "monday", date: "2026-09-28" })]).pending, trend);
+  assert.equal(graph([session(), session({ id: "sunday", date: "2026-09-27" })]).pending, null);
+  // Workouts without a recorded duration measure nothing.
+  assert.equal(
+    graph([session(), session({ id: "earlier", date: "2026-09-20" })], "duration").pending,
+    "No duration logged in the last 12 weeks.",
+  );
+});
+
+test("a selected week's label names its end date, values and unrecorded durations", () => {
+  const volume = workoutGraph({
+    today: "2026-10-04",
+    weeks: 4,
+    metric: "volume",
+    sessions: [session()],
+  });
+  assert.equal(workoutWeekLabel(volume, volume.latest), "Week ending 2026-10-04: 50 kg x reps");
+  assert.equal(
+    workoutWeekLabel(volume, volume.weeks[0]!),
+    "Week ending 2026-09-13: No measurement recorded",
+  );
+  const weight = workoutGraph({
+    today: "2026-10-04",
+    weeks: 4,
+    metric: "weight",
+    exerciseKey: sidesKey,
+    sessions: [
+      session({ tracking: "sides", sets: [sides("10", "5", "20", "5")] }),
+      session({
+        id: "left",
+        date: "2026-09-27",
+        tracking: "sides",
+        sets: [sides("8", "5", "", "")],
+      }),
+    ],
+  });
+  assert.equal(
+    workoutWeekLabel(weight, weight.latest),
+    "Week ending 2026-10-04: Left 10 kg, Right 20 kg",
+  );
+  assert.equal(
+    workoutWeekLabel(weight, weight.weeks.at(-2)!),
+    "Week ending 2026-09-27: Left 8 kg, Right not logged",
+  );
+  const duration = workoutGraph({
+    today: "2026-10-04",
+    weeks: 4,
+    metric: "duration",
+    sessions: [session({ durationSeconds: 1800 }), session({ id: "unknown" })],
+  });
+  assert.equal(
+    workoutWeekLabel(duration, duration.latest),
+    "Week ending 2026-10-04: 30 min · Some workout durations were not recorded",
+  );
+});
+
+test("volume sums real single and side measurements across workouts regardless of exercise selection", () => {
   const graph = workoutGraph({
     today: "2026-10-04",
     weeks: 4,
@@ -313,7 +404,7 @@ test("daily volume sums real single and side measurements across workouts regard
     ],
   });
   assert.equal(graph.tracking, "single");
-  assert.deepEqual(graph.points.at(-1), {
+  assert.deepEqual(graph.latest, {
     date: "2026-10-04",
     total: 170,
     left: null,
@@ -323,11 +414,38 @@ test("daily volume sums real single and side measurements across workouts regard
   });
 });
 
+test("weekly totals sum recorded volume and duration across days, preserving empty weeks and zero", () => {
+  const sessions = [
+    session({ id: "first", date: "2026-09-01", sets: [single("10", "10")], durationSeconds: 6000 }),
+    session({
+      id: "second",
+      date: "2026-09-04",
+      sets: [single("50", "5")],
+      durationSeconds: 15000,
+    }),
+    session({ id: "zero", date: "2026-09-21", sets: [single("", "12")], durationSeconds: 0 }),
+  ];
+  const graph = (metric: "volume" | "duration") =>
+    workoutGraph({ today: "2026-09-21", weeks: 4, metric, sessions });
+  assert.deepEqual(
+    graph("volume").weeks.map((week) => [week.date, week.total, week.workouts]),
+    [
+      ["2026-08-31", null, 0],
+      ["2026-09-07", 350, 2],
+      ["2026-09-14", null, 0],
+      ["2026-09-21", 0, 1],
+    ],
+  );
+  assert.deepEqual(
+    graph("duration").weeks.map((week) => week.total),
+    [null, 350, null, 0],
+  );
+});
+
 test("bodyweight workouts record zero volume and have no invented positive weight", () => {
   const sessions = [session({ sets: [single("", "12")] })];
   assert.equal(
-    workoutGraph({ today: "2026-10-04", weeks: 4, metric: "volume", sessions }).points.at(-1)
-      ?.total,
+    workoutGraph({ today: "2026-10-04", weeks: 4, metric: "volume", sessions }).latest.total,
     0,
   );
   assert.deepEqual(
@@ -337,7 +455,7 @@ test("bodyweight workouts record zero volume and have no invented positive weigh
       metric: "weight",
       exerciseKey: pressKey,
       sessions,
-    }).points.at(-1),
+    }).latest,
     {
       date: "2026-10-04",
       total: null,
@@ -349,10 +467,10 @@ test("bodyweight workouts record zero volume and have no invented positive weigh
   );
 });
 
-test("selected single weight takes the daily maximum and excludes other identities and tracking", () => {
+test("selected single weight takes the weekly maximum and excludes other identities and tracking", () => {
   const sessions = [
     session({ sets: [single("10", "5"), { ...single("25", "1"), id: "set-2" }] }),
-    session({ id: "another", sets: [single("20", "8")] }),
+    session({ id: "another", date: "2026-10-01", sets: [single("20", "8")] }),
     session({ id: "other", exerciseId: "other", sets: [single("100", "8")] }),
     session({ id: "sides", tracking: "sides", sets: [sides("200", "5", "150", "5")] }),
   ];
@@ -365,7 +483,7 @@ test("selected single weight takes the daily maximum and excludes other identiti
   });
   assert.equal(graph.unit, "kg");
   assert.equal(graph.tracking, "single");
-  assert.deepEqual(graph.points.at(-1), {
+  assert.deepEqual(graph.latest, {
     date: "2026-10-04",
     total: 25,
     left: null,
@@ -375,7 +493,7 @@ test("selected single weight takes the daily maximum and excludes other identiti
   });
 });
 
-test("selected side weight preserves each side and ignores kilograms without repetitions", () => {
+test("selected side weight keeps each side's weekly maximum and ignores kilograms without repetitions", () => {
   const graph = workoutGraph({
     today: "2026-10-04",
     weeks: 4,
@@ -383,26 +501,37 @@ test("selected side weight preserves each side and ignores kilograms without rep
     exerciseKey: sidesKey,
     sessions: [
       session({ tracking: "sides", sets: [sides("12", "4", "999", "0")] }),
-      session({ id: "another", tracking: "sides", sets: [sides("10", "5", "18", "3")] }),
       session({
-        id: "next",
-        date: "2026-10-03",
+        id: "another",
+        date: "2026-10-01",
+        tracking: "sides",
+        sets: [sides("25", "5", "18", "3")],
+      }),
+      session({
+        id: "third",
+        date: "2026-10-02",
+        tracking: "sides",
+        sets: [sides("15", "5", "30", "5")],
+      }),
+      session({
+        id: "earlier",
+        date: "2026-09-27",
         tracking: "sides",
         sets: [sides("", "", "20", "2")],
       }),
     ],
   });
   assert.equal(graph.tracking, "sides");
-  assert.deepEqual(graph.points.at(-1), {
+  assert.deepEqual(graph.latest, {
     date: "2026-10-04",
-    total: 18,
-    left: 12,
-    right: 18,
-    workouts: 2,
+    total: 30,
+    left: 25,
+    right: 30,
+    workouts: 3,
     partialDuration: false,
   });
-  assert.deepEqual(graph.points.at(-2), {
-    date: "2026-10-03",
+  assert.deepEqual(graph.weeks.at(-2), {
+    date: "2026-09-27",
     total: 20,
     left: null,
     right: 20,
@@ -419,19 +548,19 @@ test("duration totals known seconds in minutes and distinguishes unknown, partia
     exerciseKey: sidesKey,
     sessions: [
       session({ durationSeconds: 90 }),
-      session({ id: "unknown" }),
-      session({ id: "missing", date: "2026-10-03" }),
-      session({ id: "zero", date: "2026-10-02", durationSeconds: 0 }),
-      session({ id: "known", date: "2026-10-01", durationSeconds: 120 }),
+      session({ id: "unknown", date: "2026-09-29" }),
+      session({ id: "missing", date: "2026-09-22" }),
+      session({ id: "zero", date: "2026-09-15", durationSeconds: 0 }),
+      session({ id: "known", date: "2026-09-08", durationSeconds: 120 }),
     ],
   });
   assert.equal(graph.unit, "min");
   assert.equal(graph.tracking, "single");
-  assert.deepEqual(graph.points.slice(-4), [
-    { date: "2026-10-01", total: 2, left: null, right: null, workouts: 1, partialDuration: false },
-    { date: "2026-10-02", total: 0, left: null, right: null, workouts: 1, partialDuration: false },
+  assert.deepEqual(graph.weeks, [
+    { date: "2026-09-13", total: 2, left: null, right: null, workouts: 1, partialDuration: false },
+    { date: "2026-09-20", total: 0, left: null, right: null, workouts: 1, partialDuration: false },
     {
-      date: "2026-10-03",
+      date: "2026-09-27",
       total: null,
       left: null,
       right: null,
@@ -442,12 +571,15 @@ test("duration totals known seconds in minutes and distinguishes unknown, partia
   ]);
 });
 
-test("duration sums recorded seconds before converting the daily total to minutes", () => {
+test("duration sums recorded seconds before converting the weekly total to minutes", () => {
   const graph = workoutGraph({
     today: "2026-10-04",
     weeks: 4,
     metric: "duration",
-    sessions: [session({ durationSeconds: 1 }), session({ id: "second", durationSeconds: 5 })],
+    sessions: [
+      session({ durationSeconds: 1 }),
+      session({ id: "second", date: "2026-10-01", durationSeconds: 5 }),
+    ],
   });
-  assert.equal(graph.points.at(-1)?.total, 0.1);
+  assert.equal(graph.latest.total, 0.1);
 });

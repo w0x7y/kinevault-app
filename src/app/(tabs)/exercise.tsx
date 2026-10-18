@@ -7,7 +7,7 @@ import { SheetPage } from "../../components/sheet-page";
 import { AppText, Panel, Screen, ScreenTitle } from "../../components/ui";
 import { useDayActivity } from "../../daily/use-day";
 import { SearchActions } from "../../daily/search-actions";
-import { WorkoutWidget, workoutSummary } from "../../daily/workout-widget";
+import { WorkoutWidget } from "../../daily/workout-widget";
 import { WorkoutImport } from "../../exercise/import/workout-import";
 import { ExerciseForm, WorkoutForm } from "../../exercise/library-forms";
 import { LiveWorkoutCard } from "../../exercise/live-workout-card";
@@ -48,11 +48,8 @@ export default function ExerciseScreen() {
     scrollRef.current?.scrollTo({ y: resultsTop.current, animated: false });
   }
   return (
-    <Screen title="Exercise" showTitle={false} scrollRef={scrollRef} adjustKeyboardInsets>
-      <ScreenTitle
-        title="Daily workout log"
-        trailing={workoutSummary(activity.workout, activity.workoutState)}
-      />
+    <Screen title="Exercise" scrollRef={scrollRef} adjustKeyboardInsets>
+      <ScreenTitle title="Daily workout log" trailing={activity.workout.summary} />
       <SearchActions
         kind="exercise"
         query={view.query}
@@ -77,12 +74,8 @@ export default function ExerciseScreen() {
       {view.showDailyWorkout && (
         <Animated.View entering={view.liveEnded ? fade : undefined}>
           <WorkoutWidget
-            workout={activity.workout}
+            tile={activity.workout}
             detailed
-            showEmptyGuidance
-            activeWorkoutName={activity.activeWorkoutName}
-            sourceState={activity.workoutState}
-            onRetry={activity.sources.workouts.retry}
             onAddWorkout={() => void open({ kind: "library", date: activity.date })}
           />
         </Animated.View>

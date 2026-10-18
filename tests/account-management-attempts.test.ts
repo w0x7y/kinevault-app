@@ -73,6 +73,8 @@ async function setup(
     },
     signInWithPassword: result,
     signUp: result,
+    resend: async () => ({ error: null }),
+    signInWithOAuth: async () => ({ data: { url: null }, error: null }),
     resetPasswordForEmail: async () => ({ error: null }),
     updateUser: async () => ({ error: null }),
     async clearDeletedSession(ownerId, isCurrent) {
@@ -91,7 +93,10 @@ async function setup(
     exchangeCodeForSession: result,
     verifyOtp: result,
   };
-  const controller = createAccountController(auth, { redirectTo: "https://example.com/callback" });
+  const controller = createAccountController(auth, {
+    redirectTo: "https://example.com/callback",
+    openAuthSession: async () => null,
+  });
   controller.start();
   await Promise.resolve();
   assert.equal(controller.getSnapshot().user?.id, "a");

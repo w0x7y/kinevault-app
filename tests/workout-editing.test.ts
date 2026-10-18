@@ -90,12 +90,7 @@ async function fixture(status: WorkoutSession["status"] = "completed") {
   store.start();
   await tick();
   const tab = tabView(store);
-  const sync = () => {
-    const state = store.getSnapshot().state;
-    if (state.kind === "ready") tab.refreshDocument();
-  };
-  sync();
-  store.subscribe(sync);
+  tab.start();
   const saved = () => parseExerciseDocument(raw).sessions[0]!;
   return { tab, editing: tab.edits, store, storage, write, saved, raw: () => raw };
 }
@@ -184,7 +179,6 @@ test("failed active fields survive editor replacement and query/day changes unti
     "Couldn't save your draft. Your fields are still here. Retry draft save before leaving the workout.",
   );
   assert.equal(await f.tab.requestView({ kind: "library", date: "2026-10-05" }), false);
-  f.tab.refreshDocument();
   const remounted = f.editing.edit("log");
   const set = remounted.getSnapshot().fields.exercises[0]!.sets[0]!;
   assert.equal(set.kind === "single" && set.reps, "1e");
@@ -230,6 +224,11 @@ test("planned counts retain invalid text, reject shrink over entered sets, and r
     assert.equal(edit.getSnapshot().fields.exercises[0]!.sets.length, 2);
     assert.equal(await edit.run("start"), false);
     assert.equal(await f.tab.requestView({ kind: "library", date: "2026-10-04" }), false);
+    if (value !== "0")
+      assert.match(
+        edit.getSnapshot().countError ?? "",
+        /^Enter a whole number of sets from 0 to 100 for /,
+      );
   }
   assert.equal(await edit.run("settings"), false);
   edit.change({ kind: "count", rowId: "row", value: "3" });
@@ -539,19 +538,26 @@ test("a newer departure waiting on completion wins over the original panel's suc
   assert.deepEqual(f.tab.getSnapshot().panel?.content, { kind: "library", date: "2026-10-05" });
 });
 
-test("retirement follows the durable document when the React snapshot publication arrives after save", async () => {
-  const f = await fixture();
-  let visible = f.store.getSnapshot();
-  const tab = tabView({ ...f.store, getSnapshot: () => visible });
-  tab.refreshDocument();
-  await tab.requestView({ kind: "session", id: "log" });
-  const edit = tab.edits.edit("log");
-  edit.change({ kind: "name", value: "Durable saved name" });
-  assert.equal(await edit.run("save"), true);
-  tab.edits.edit("log"); // A render may read the previous provider snapshot before publication.
-  visible = f.store.getSnapshot();
-  tab.refreshDocument();
-  assert.equal(tab.edits.edit("log").getSnapshot().fields.name, "Durable saved name");
+test("a stopped tab view ignores saved changes and catches up when it starts again", async () => {
+  const f = await fixture("planned");
+  assert.equal(f.tab.getSnapshot().plannedCards.length, 1);
+  f.tab.stop();
+  assert.deepEqual(await f.store.removeSession("log"), ok(true));
+  assert.equal(f.tab.getSnapshot().plannedCards.length, 1);
+  f.tab.start();
+  assert.deepEqual(f.tab.getSnapshot().plannedCards, []);
+});
+
+test("an untouched edit follows a newer saved log, while an entered name stays", async () => {
+  const f = await fixture("planned"),
+    { exercises } = f.saved();
+  await f.tab.requestView({ kind: "session", id: "log" });
+  const edit = f.editing.edit("log");
+  await f.store.updateSession({ id: "log", name: "Renamed elsewhere", exercises });
+  assert.equal(edit.getSnapshot().fields.name, "Renamed elsewhere");
+  edit.change({ kind: "name", value: "Typed here" });
+  await f.store.updateSession({ id: "log", name: "Renamed again", exercises });
+  assert.equal(edit.getSnapshot().fields.name, "Typed here");
 });
 
 test("completed edits stay separate and deletion releases only the removed workout's local fields", async () => {
@@ -708,8 +714,7 @@ test("Complete or Discard during a change save is never followed by a draft save
         return f.store.removeSession(id);
       },
     });
-    tab.refreshDocument();
-    f.store.subscribe(() => tab.refreshDocument());
+    tab.start();
     const edit = tab.edits.edit("log"),
       held = holdWrites(f, () => false);
     edit.change({ kind: "name", value: "Typed" });
@@ -774,16 +779,22 @@ test("a departure refused for a count problem still saves the change queued behi
 test("an edit released while its change saves drops the queued change", async () => {
   const f = await fixture("active");
   let visible = f.store.getSnapshot(),
-    updates = 0;
+    updates = 0,
+    publish = () => {};
+  // The test publishes the document, so the log can disappear while its change save is held.
   const tab = tabView({
     ...f.store,
     getSnapshot: () => visible,
+    subscribe(listener) {
+      publish = listener;
+      return () => {};
+    },
     updateSession(input) {
       updates++;
       return f.store.updateSession(input);
     },
   });
-  tab.refreshDocument();
+  tab.start();
   const edit = tab.edits.edit("log"),
     held = holdWrites(f, () => false);
   edit.change({ kind: "name", value: "First" });
@@ -795,7 +806,7 @@ test("an edit released while its change saves drops the queued change", async ()
       ...visible,
       state: { kind: "ready", document: { ...state.document, sessions: [] } },
     };
-  tab.refreshDocument();
+  publish();
   held.release();
   await settle();
   assert.equal(updates, 1);
@@ -817,47 +828,75 @@ test("Back on the Active workout's page leaves it running and keeps the edit", a
 
 test("each log mode allows its own controls, and the mode follows the open panel", async () => {
   const controls = (edit: ReturnType<ReturnType<typeof tabView>["edits"]["edit"]>) => {
-    const { mode, back, primary, discard, start, details, returnTo } = edit.getSnapshot();
-    return { mode, back, primary, discard, start, details, returnTo };
+    // Everything but the edit's own state.
+    const { session, fields, counts, busy, error, countError, selectedId, settingsOpen, ...rest } =
+      edit.getSnapshot();
+    return rest;
   };
   const planned = await fixture("planned");
   assert.deepEqual(controls(planned.editing.edit("log")), {
     mode: "compact",
     back: "cancel",
+    backLabel: "Close workout",
     primary: "complete",
+    primaryLabel: "Log completed workout",
     discard: true,
     start: false,
     details: false,
+    retry: true,
+    overline: "Planned",
+    testID: "planned-workout-card",
+    sheet: null,
     returnTo: { kind: "session", id: "log", manual: false },
   });
   await planned.tab.requestView({ kind: "session", id: "log", manual: true });
   assert.deepEqual(controls(planned.editing.edit("log")), {
     mode: "manual",
     back: "cancel",
+    backLabel: "Cancel",
     primary: "complete",
+    primaryLabel: "Log completed workout",
     discard: true,
     start: true,
     details: true,
+    retry: true,
+    overline: "Log a workout",
+    testID: "manual-workout-workspace",
+    sheet: { title: "Log workout", testID: "session-editor" },
     returnTo: { kind: "session", id: "log", manual: true },
   });
   const active = await fixture("active");
   assert.deepEqual(controls(active.editing.edit("log")), {
     mode: "active",
     back: "leave",
+    backLabel: "Back to Exercise",
     primary: "complete",
+    primaryLabel: "End workout",
     discard: true,
     start: false,
     details: false,
+    retry: true,
+    overline: undefined,
+    testID: "active-workout-workspace",
+    // The Active workout's page is titled with its name.
+    sheet: { title: null, testID: "active-workout" },
     returnTo: { kind: "session", id: "log", manual: false },
   });
   const completed = await fixture("completed");
   assert.deepEqual(controls(completed.editing.edit("log")), {
     mode: "completed",
     back: "cancel",
+    backLabel: "Cancel",
     primary: "save",
+    primaryLabel: "Save changes",
     discard: false,
     start: false,
     details: true,
+    // A completed log saves only through Save changes, so it has no draft save to retry.
+    retry: false,
+    overline: "Logged workout",
+    testID: "completed-workout-workspace",
+    sheet: { title: "Logged workout", testID: "session-editor" },
     returnTo: { kind: "session", id: "log", manual: false },
   });
   // An unchanged edit keeps its snapshot, as React's store subscription requires.

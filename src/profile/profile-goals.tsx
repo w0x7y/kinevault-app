@@ -86,7 +86,6 @@ export function TodayNutrition({ today, onPress }: { today: string; onPress: () 
   const activity = useDayActivity({ date: today });
   const { colors } = useTheme();
   const calories = activity.nutrition?.calories;
-  const target = calories?.target ?? null;
   return (
     <Tappable
       label="Today's nutrition"
@@ -121,7 +120,7 @@ export function TodayNutrition({ today, onPress }: { today: string; onPress: () 
           <AppText variant="label" numeric style={{ fontSize: 14 }}>
             {calories ? number(calories.eaten) : "Unavailable"}
             <AppText variant="caption" muted>
-              {` / ${target === null ? unsetTarget.shown : number(target)} kcal`}
+              {` ${calories?.ofTarget ?? `/ ${unsetTarget.shown} kcal`}`}
             </AppText>
           </AppText>
         </View>

@@ -41,12 +41,7 @@ export function ProfileScreen() {
     setEditor((current) => (current?.id === id ? null : current));
   }
   return (
-    <Screen
-      title="Profile"
-      showTitle={false}
-      adjustKeyboardInsets
-      contentContainerStyle={{ gap: 0 }}
-    >
+    <Screen title="Profile" adjustKeyboardInsets contentContainerStyle={{ gap: 0 }}>
       <ProfileIdentity />
       <ProfileControls section={section} select={select} />
       <Animated.View

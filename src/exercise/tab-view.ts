@@ -9,7 +9,12 @@ import {
   type WorkoutTemplate,
 } from "./model.ts";
 import type { createExercisePersistence } from "./persistence.ts";
-import { createWorkoutEditing, workoutLogMode, type WorkoutLogMode } from "./workout-editing.ts";
+import {
+  createWorkoutEditing,
+  workoutLogControls,
+  workoutLogMode,
+  type WorkoutLogMode,
+} from "./workout-editing.ts";
 
 export type WorkoutView =
   | {
@@ -44,7 +49,7 @@ export type ExercisePanels = {
 };
 type Store = Parameters<typeof createWorkoutEditing>[0] &
   Parameters<typeof createLibraryDrafts>[0]["store"] &
-  Pick<ReturnType<typeof createExercisePersistence>, "getSnapshot">;
+  Pick<ReturnType<typeof createExercisePersistence>, "getSnapshot" | "subscribe">;
 
 /** A compact workout card that a panel opened on the tab itself rather than on a sheet. */
 type InlineWorkoutLog = {
@@ -127,7 +132,12 @@ export function exerciseTabView({
   if (open) {
     const mode = opened && workoutLogMode(opened, content);
     if (opened && mode === "compact")
-      inline = { session: opened, mode, panel: open, closeLabel: "Close workout" };
+      inline = {
+        session: opened,
+        mode,
+        panel: open,
+        closeLabel: workoutLogControls.compact.backLabel,
+      };
     else
       sheet = {
         panel: open,
@@ -184,22 +194,16 @@ function sheetPage(
         testID: "workout-import",
         log: null,
       };
-    case "session":
-      if (log?.mode === "active")
-        return {
-          title: log.session.name || "Workout",
-          closeLabel: "Back to Exercise",
-          testID: "active-workout",
-          log,
-        };
-      return log
-        ? {
-            title: log.mode === "completed" ? "Logged workout" : "Log workout",
-            closeLabel: "Cancel",
-            testID: "session-editor",
-            log,
-          }
-        : { title: "Workout", closeLabel: "Close workout", log: null };
+    case "session": {
+      if (!log) return { title: "Workout", closeLabel: "Close workout", log: null };
+      const { sheet, backLabel } = workoutLogControls[log.mode];
+      return {
+        title: sheet.title ?? (log.session.name || "Workout"),
+        closeLabel: backLabel,
+        testID: sheet.testID,
+        log,
+      };
+    }
   }
 }
 
@@ -239,6 +243,7 @@ export function createExerciseTabView({
   let wasLive = false,
     liveEnded = false,
     dailyShown = false;
+  let unfollow: (() => void) | undefined;
   let snapshot = build();
 
   function build(): ExerciseTabSnapshot {
@@ -322,6 +327,11 @@ export function createExerciseTabView({
     const state = store.getSnapshot().state;
     return state.kind === "ready" ? state.document : null;
   }
+  /** Follows a newly published exercise document. */
+  function refresh() {
+    edits.refreshDocument();
+    publish();
+  }
 
   return {
     getSnapshot: () => snapshot,
@@ -347,19 +357,20 @@ export function createExerciseTabView({
       focused = next;
       publish();
     },
-    /** Follows a newly published exercise document. */
-    refreshDocument() {
-      edits.refreshDocument();
-      publish();
-    },
+    /** Follows the exercise document, catching up on anything it published before. */
     start() {
+      if (unfollow) return;
       attached = true;
+      unfollow = store.subscribe(refresh);
+      refresh();
     },
     /** Leaving rejects pending navigation and late panel changes from before. */
     stop() {
       attached = false;
       ++attachment;
       ++request;
+      unfollow?.();
+      unfollow = undefined;
     },
     /** `?workoutMenu=<day>`: Saved workouts for that day. A malformed day does nothing. */
     openWorkoutMenu(date: string) {

@@ -159,12 +159,16 @@ test("validation reports field errors with the raw draft and never writes", asyn
   edit.change({ kind: "fields", patch: { name: "X".repeat(41) } });
   assert.equal(await edit.save(), false);
   assert.equal(edit.getSnapshot().draft.name, "X".repeat(41));
-  const { errors, message } = focusedEditFeedback(edit.getSnapshot().error);
+  const { errors, message } = focusedEditFeedback(edit.getSnapshot().error, "name");
   assert.ok(errors.name);
   assert.equal(message, null);
   assert.deepEqual(calls, ["read"]);
   edit.change({ kind: "fields", patch: { name: "Valid" } });
-  assert.deepEqual(focusedEditFeedback(edit.getSnapshot().error), { errors: {}, message: null });
+  assert.deepEqual(focusedEditFeedback(edit.getSnapshot().error, "name"), {
+    errors: {},
+    others: [],
+    message: null,
+  });
   assert.equal(await edit.save(), true);
 });
 
@@ -182,7 +186,19 @@ test("Save validates the whole current Profile, including unowned fields", async
   const edit = open("name");
   edit.change({ kind: "fields", patch: { name: "Valid" } });
   assert.equal(await edit.save(), false);
-  assert.ok(focusedEditFeedback(edit.getSnapshot().error).errors.height);
+  const height = "Enter height between 100 and 250 cm.";
+  assert.deepEqual(edit.getSnapshot().error, { height });
+  // The name section doesn't own height, so the editor shows it beside the Question.
+  assert.deepEqual(focusedEditFeedback(edit.getSnapshot().error, "name"), {
+    errors: {},
+    others: [height],
+    message: null,
+  });
+  assert.deepEqual(focusedEditFeedback(edit.getSnapshot().error, "body"), {
+    errors: { height },
+    others: [],
+    message: null,
+  });
   assert.deepEqual(calls, []);
 });
 
@@ -209,8 +225,9 @@ test("a failed durable Save reports the Profile message separately from field er
   assert.equal(await edit.save(), false);
   assert.equal(raw().answers.name, "Saved");
   assert.equal(edit.getSnapshot().draft.name, "Retry me");
-  assert.deepEqual(focusedEditFeedback(edit.getSnapshot().error), {
+  assert.deepEqual(focusedEditFeedback(edit.getSnapshot().error, "name"), {
     errors: {},
+    others: [],
     message: "Couldn't save your answers. Try again.",
   });
 });

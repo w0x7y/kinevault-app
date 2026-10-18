@@ -102,6 +102,12 @@ export async function installAccountFixture(
       url = new URL(request.url());
     const body = request.postDataJSON();
     state.requests.push({ path: url.pathname, method: request.method(), body });
+    if (url.pathname === "/auth/v1/authorize") {
+      // Stands in for Google and Supabase: return straight to the app with a PKCE code.
+      const callback = new URL(url.searchParams.get("redirect_to"));
+      callback.searchParams.set("code", "fixture-google-code");
+      return route.fulfill({ status: 302, headers: { location: callback.href } });
+    }
     if (url.pathname === "/auth/v1/token") {
       if (state.loginError)
         return json(route, { code: "invalid_credentials", message: state.loginError }, 400);
@@ -117,6 +123,7 @@ export async function installAccountFixture(
       state.signedIn = true;
       return json(route, state.session);
     }
+    if (url.pathname === "/auth/v1/resend") return json(route, {});
     if (url.pathname === "/auth/v1/recover") {
       return state.recoveryError
         ? json(route, { code: "over_email_send_rate_limit", message: state.recoveryError }, 429)

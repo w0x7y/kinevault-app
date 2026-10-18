@@ -38,9 +38,10 @@ export function AccountScreen({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const scroll = useRef<ScrollView>(null);
-  const confirmationEmail =
-    account.emailDelivery?.kind === "confirmation" ? account.emailDelivery.email : null;
-  const needsEmailConfirmation = mode === "create" && confirmationEmail !== null;
+  const confirmation =
+    account.emailDelivery?.kind === "confirmation" ? account.emailDelivery : null;
+  const announcedConfirmation = useRef(confirmation);
+  const needsEmailConfirmation = mode === "create" && confirmation !== null;
   const title = needsEmailConfirmation
     ? "Check your email"
     : mode === "create"
@@ -91,6 +92,18 @@ export function AccountScreen({
   useEffect(() => {
     if (error) AccessibilityInfo.announceForAccessibility(error);
   }, [error]);
+
+  // Android and the web read the panel's live region when its text changes; iOS needs an
+  // announcement. Each successful resend publishes a new delivery; one before this mount stays quiet.
+  useEffect(() => {
+    if (
+      Platform.OS === "ios" &&
+      confirmation?.resends &&
+      confirmation !== announcedConfirmation.current
+    )
+      AccessibilityInfo.announceForAccessibility("We sent a new verification email.");
+    announcedConfirmation.current = confirmation;
+  }, [confirmation]);
 
   useEffect(() => {
     if (Platform.OS !== "android") return;
@@ -209,10 +222,14 @@ export function AccountScreen({
                       <Icon name="envelope" size={24} color={colors.brand} />
                     </View>
                     <AppText muted style={{ textAlign: "center" }}>
-                      A verification email is on its way to
+                      {!confirmation?.resends
+                        ? "A verification email is on its way to"
+                        : confirmation.resends === 1
+                          ? "We sent a new verification email to"
+                          : "We sent another verification email to"}
                     </AppText>
                     <AppText variant="heading" style={{ textAlign: "center", fontSize: 16 }}>
-                      {confirmationEmail}
+                      {confirmation?.email}
                     </AppText>
                   </View>
                   {[
@@ -247,9 +264,14 @@ export function AccountScreen({
                   tone="primary"
                   disabled={busy}
                   onPress={() => {
-                    setEmail(confirmationEmail ?? "");
+                    setEmail(confirmation?.email ?? "");
                     changeMode("login");
                   }}
+                />
+                <AppButton
+                  label="Resend email"
+                  disabled={busy}
+                  onPress={() => void account.resendConfirmation()}
                 />
                 <AppButton
                   label="Use a different email"
@@ -342,6 +364,14 @@ export function AccountScreen({
                       onPress={() => changeMode("login")}
                     />
                   ) : (
+                    <AppButton
+                      label="Continue with Google"
+                      icon="google"
+                      disabled={busy || !account.configured}
+                      onPress={() => void account.signInWithGoogle()}
+                    />
+                  )}
+                  {mode !== "recover" && (
                     <AppText variant="caption" muted style={{ textAlign: "center" }}>
                       Your goals and workout history are saved to your KineVault account.
                     </AppText>

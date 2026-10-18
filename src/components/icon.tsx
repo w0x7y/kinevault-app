@@ -58,6 +58,7 @@ const outline: Partial<Record<IconName, keyof typeof ionGlyphMap>> = {
   "file-import": "download-outline",
   fire: "flame-outline",
   gear: "settings-outline",
+  google: "logo-google",
   "glass-water": "pint-outline",
   heart: "heart-outline",
   home: "home-outline",

@@ -8,26 +8,13 @@ import {
 } from "react";
 import { AppState, Platform } from "react-native";
 import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
 import { getSupabaseClient, getAccountAuthPort } from "./client";
 import { getAppAccountController, type AccountSnapshot } from "./controller";
 import { useConnectivityStore } from "../connectivity/provider";
 
-type AccountController = ReturnType<typeof getAppAccountController>;
 export type AccountContextValue = AccountSnapshot &
-  Pick<
-    AccountController,
-    | "signIn"
-    | "signUp"
-    | "requestPasswordReset"
-    | "updatePassword"
-    | "signOut"
-    | "deleteAccount"
-    | "clearFeedback"
-    | "completeAuthLink"
-    | "resumeAuthLink"
-    | "acknowledgeAuthLink"
-    | "getSnapshot"
-  >;
+  Omit<ReturnType<typeof getAppAccountController>, "start" | "stop" | "subscribe">;
 const AccountContext = createContext<AccountContextValue | null>(null);
 
 function redirectTo() {
@@ -38,20 +25,27 @@ function redirectTo() {
   return Linking.createURL("auth/callback");
 }
 
+async function openAuthSession(url: string) {
+  // Web follows the provider in this tab and finishes on the callback route.
+  if (Platform.OS === "web") {
+    window.location.assign(url);
+    return null;
+  }
+  const result = await WebBrowser.openAuthSessionAsync(url, redirectTo());
+  return result.type === "success" ? result.url : null;
+}
+
 export function AccountProvider({ children }: PropsWithChildren) {
   const connectivity = useConnectivityStore();
   const [client] = useState(getSupabaseClient);
-  const [controller] = useState(() =>
-    getAppAccountController(getAccountAuthPort(), { redirectTo: redirectTo() }),
+  // The controller's methods are closures, so its actions can be passed on unbound.
+  const [{ start, stop, subscribe, ...actions }] = useState(() =>
+    getAppAccountController(getAccountAuthPort(), { redirectTo: redirectTo(), openAuthSession }),
   );
-  const snapshot = useSyncExternalStore(
-    controller.subscribe,
-    controller.getSnapshot,
-    controller.getSnapshot,
-  );
+  const snapshot = useSyncExternalStore(subscribe, actions.getSnapshot, actions.getSnapshot);
   useEffect(() => {
-    controller.start();
-    if (!client || Platform.OS === "web") return controller.stop;
+    start();
+    if (!client || Platform.OS === "web") return stop;
     let active = true;
     const refresh = (state: string) => {
       if (!active) return;
@@ -67,26 +61,11 @@ export function AccountProvider({ children }: PropsWithChildren) {
       subscription.remove();
       unsubscribe();
       client.auth.stopAutoRefresh();
-      controller.stop();
+      stop();
     };
-  }, [client, controller, connectivity]);
+  }, [client, start, stop, connectivity]);
   return (
-    <AccountContext.Provider
-      value={{
-        ...snapshot,
-        signIn: controller.signIn,
-        signUp: controller.signUp,
-        requestPasswordReset: controller.requestPasswordReset,
-        updatePassword: controller.updatePassword,
-        signOut: controller.signOut,
-        deleteAccount: controller.deleteAccount,
-        clearFeedback: controller.clearFeedback,
-        completeAuthLink: controller.completeAuthLink,
-        resumeAuthLink: controller.resumeAuthLink,
-        acknowledgeAuthLink: controller.acknowledgeAuthLink,
-        getSnapshot: controller.getSnapshot,
-      }}
-    >
+    <AccountContext.Provider value={{ ...snapshot, ...actions }}>
       {children}
     </AccountContext.Provider>
   );

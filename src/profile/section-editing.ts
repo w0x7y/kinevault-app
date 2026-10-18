@@ -1,6 +1,6 @@
-import type { Answers } from "./answers.ts";
+import type { Answers, EditableStep } from "./answers.ts";
 import { calorieState, changeAnswers } from "./calories.ts";
-export type ProfileEditSection = "name" | "age" | "body" | "goal" | "activity" | "calories";
+export type ProfileEditSection = EditableStep;
 
 // A section draft is a patch, never a replacement for the latest saved record.
 export function editedProfileAnswers(

@@ -8,7 +8,7 @@ import { Tappable } from "../components/tappable";
 import { AppText, Overline, Panel } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
-import { unsetTarget, type NutritionProgress } from "./activity";
+import type { NutritionProgress } from "./activity";
 
 /** The day's energy card: total against goal and its detail (Home's ring and macros). */
 export function CalorieWidget({
@@ -18,7 +18,6 @@ export function CalorieWidget({
   calories: NutritionProgress["calories"];
   children?: ReactNode;
 }) {
-  const goal = calories.target;
   return (
     <Panel testID="home-calories" style={{ gap: spacing.card }}>
       <View
@@ -37,12 +36,11 @@ export function CalorieWidget({
           selectable
           style={{ fontFamily: fonts.semibold, fontVariant: ["tabular-nums"] }}
         >
-          {calories.eaten.toLocaleString()} /{" "}
-          {goal === null ? unsetTarget.shown : goal.toLocaleString()} kcal
+          {calories.figure}
         </AppText>
       </View>
       {children}
-      {goal === null && <GoalsLink />}
+      {calories.target === null && <GoalsLink />}
     </Panel>
   );
 }
@@ -94,12 +92,10 @@ export function CalorieRing({
   const stroke = Math.max(8, Math.round(size * 0.075));
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
-  const { remaining, percentage, overFraction } = calories;
-  const over = remaining !== null && remaining < 0;
+  const { balance, percentage, overFraction } = calories;
   // Past the goal the ring stays full and the excess laps it in the danger color.
-  const figure = remaining === null ? calories.eaten : Math.abs(remaining);
-  const caption = remaining === null ? "kcal eaten" : over ? "kcal over" : "kcal left";
-  const digits = figure.toLocaleString().length;
+  const over = balance.caption === "over";
+  const digits = balance.value.length;
   const figureSize = Math.min(size * 0.22, (size - stroke * 2 - 16) / (digits * 0.62));
   const center = size / 2;
   const segments = calories.segments.reduce<
@@ -189,10 +185,10 @@ export function CalorieRing({
             color: over ? colors.danger : colors.foreground,
           }}
         >
-          {figure.toLocaleString()}
+          {balance.value}
         </AppText>
         <AppText variant="caption" muted numberOfLines={1} style={{ fontSize: 12, lineHeight: 16 }}>
-          {caption}
+          {`kcal ${balance.caption}`}
         </AppText>
       </View>
     </View>

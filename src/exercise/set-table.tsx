@@ -6,7 +6,7 @@ import { inputSurface } from "../components/text-field";
 import { AppText, Overline } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
-import type { ExerciseSet } from "./model";
+import type { ExerciseSet, SetHint } from "./model";
 
 const badgeColumn = 36;
 const sideColumn = 44;
@@ -65,19 +65,6 @@ function NumberInput({
   );
 }
 
-/** A blank set shows what was lifted last time, or failing that the set above, as a hint. */
-function hint(
-  sets: ExerciseSet[],
-  previous: ExerciseSet[],
-  index: number,
-  side: "single" | "left" | "right",
-) {
-  const source = previous[index] ?? sets[index - 1];
-  if (!source) return { reps: undefined, weightKg: undefined };
-  const values = source.kind === "single" ? source : source[side === "single" ? "left" : side];
-  return { reps: values.reps || undefined, weightKg: values.weightKg || undefined };
-}
-
 function logged(set: ExerciseSet) {
   return set.kind === "single"
     ? set.reps !== "" || set.weightKg !== ""
@@ -118,13 +105,14 @@ function SetBadge({ number, done }: { number: number; done: boolean }) {
 
 export function ExerciseSetTable({
   sets,
-  previous = [],
+  hints,
   rowLabel,
   busy,
   onChange,
 }: {
   sets: ExerciseSet[];
-  previous?: ExerciseSet[];
+  /** A blank field's hint for each set (see `setHints`). */
+  hints: SetHint[];
   rowLabel: string;
   busy: boolean;
   onChange: (setId: string, build: (set: ExerciseSet) => ExerciseSet) => void;
@@ -149,6 +137,7 @@ export function ExerciseSetTable({
       <LayoutAnimationConfig skipEntering>
         {sets.map((set, index) => {
           const prefix = `${rowLabel} set ${index + 1}`;
+          const hint = hints[index];
           return set.kind === "single" ? (
             <Animated.View key={set.id} entering={rise} style={columns}>
               <SetBadge number={index + 1} done={logged(set)} />
@@ -156,7 +145,7 @@ export function ExerciseSetTable({
               <NumberInput
                 label={`${prefix} reps`}
                 value={set.reps}
-                placeholder={hint(sets, previous, index, "single").reps}
+                placeholder={hint.kind === "single" ? hint.reps : undefined}
                 disabled={busy}
                 onChange={(reps) =>
                   onChange(set.id, (previous) =>
@@ -167,7 +156,7 @@ export function ExerciseSetTable({
               <NumberInput
                 label={`${prefix} weight (kg)`}
                 value={set.weightKg}
-                placeholder={hint(sets, previous, index, "single").weightKg}
+                placeholder={hint.kind === "single" ? hint.weightKg : undefined}
                 disabled={busy}
                 onChange={(weightKg) =>
                   onChange(set.id, (previous) =>
@@ -192,7 +181,7 @@ export function ExerciseSetTable({
                     <NumberInput
                       label={`${prefix} ${side} reps`}
                       value={set[side].reps}
-                      placeholder={hint(sets, previous, index, side).reps}
+                      placeholder={hint.kind === "sides" ? hint[side].reps : undefined}
                       disabled={busy}
                       onChange={(reps) =>
                         onChange(set.id, (previous) =>
@@ -205,7 +194,7 @@ export function ExerciseSetTable({
                     <NumberInput
                       label={`${prefix} ${side} weight (kg)`}
                       value={set[side].weightKg}
-                      placeholder={hint(sets, previous, index, side).weightKg}
+                      placeholder={hint.kind === "sides" ? hint[side].weightKg : undefined}
                       disabled={busy}
                       onChange={(weightKg) =>
                         onChange(set.id, (previous) =>

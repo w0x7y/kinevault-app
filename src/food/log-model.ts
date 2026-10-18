@@ -2,7 +2,7 @@ import { parseDay } from "../calendar/dates.ts";
 import { detailedNutrientsForEntry, type FindFood } from "./entry-nutrients.ts";
 import { meals, type FoodEntry, type Meal } from "../daily/model.ts";
 import { nutritionForGrams, type CatalogFood, type ServingNutrition } from "./catalog.ts";
-import { beverageForFood, nutritionForMl } from "./beverage.ts";
+import { beverageForFood, isDrinkMl, nutritionForMl } from "./beverage.ts";
 import {
   detailedNutrients,
   scaleNutrients,
@@ -30,13 +30,7 @@ export function drinkVolumeForMeal(meal: Meal, drinkMl: unknown): { drinkMl?: nu
     if (drinkMl !== undefined) throw new RangeError("Only Drinks can have a drink amount");
     return {};
   }
-  if (
-    typeof drinkMl !== "number" ||
-    !Number.isSafeInteger(drinkMl) ||
-    drinkMl < 1 ||
-    drinkMl > 10000
-  )
-    throw new RangeError("Invalid drink amount");
+  if (!isDrinkMl(drinkMl)) throw new RangeError("Invalid drink amount");
   return { drinkMl };
 }
 function isRecord(value: unknown): value is Record<string, unknown> {

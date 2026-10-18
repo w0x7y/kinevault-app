@@ -122,6 +122,12 @@ test("Drinks Add logs explicit ml, combines manual water, scales nutrition, remo
     await field(page, "Drink amount (ml)").fill(invalid);
     assert.equal(await button(page, "Log drink to Drinks").isDisabled(), true);
     assert.equal(await detail.getByRole("alert").count(), invalid ? 1 : 0);
+    if (invalid)
+      assert.ok(
+        (await detail.getByRole("alert").innerText()).includes(
+          "Enter a whole drink amount from 1 to 10,000 ml.",
+        ),
+      );
   }
   await field(page, "Drink amount (ml)").fill("250");
   await log(page);

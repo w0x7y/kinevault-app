@@ -6,7 +6,7 @@ import { parseDay } from "../calendar/dates.ts";
 import { AppText, Overline, Panel } from "../components/ui";
 import { macroCategories } from "../daily/nutrition.ts";
 import { sumDetailedNutrients } from "../daily/detailed-nutrition.ts";
-import { unsetTarget, type DayActivity } from "../daily/activity";
+import type { DayActivity } from "../daily/activity";
 import { GoalsLink } from "../daily/calorie-widget";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
@@ -41,7 +41,6 @@ export function DailyMacros({ activity, onBack }: { activity: DayActivity; onBac
   // Nutrients without data fold away behind one control instead of a column of placeholders.
   const missing = nutrientRows.filter(({ key }) => values[key] === null);
   const rows = showMissing ? nutrientRows : nutrientRows.filter(({ key }) => values[key] !== null);
-  const { remaining } = calories;
   return (
     <SheetPage title="Daily macros" closeLabel="Back to food log" onClose={onBack}>
       <View testID="daily-macro-view" style={{ gap: spacing.layout }}>
@@ -57,11 +56,14 @@ export function DailyMacros({ activity, onBack }: { activity: DayActivity; onBac
           <View testID="day-calories" style={{ gap: spacing.md, paddingBottom: spacing.lg }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
               <Overline style={{ flex: 1 }}>Energy</Overline>
-              {remaining !== null && (
-                <Overline style={{ color: remaining < 0 ? colors.danger : colors.mutedForeground }}>
-                  {remaining < 0
-                    ? `${Math.abs(remaining).toLocaleString()} over`
-                    : `${remaining.toLocaleString()} left`}
+              {calories.remaining !== null && (
+                <Overline
+                  style={{
+                    color:
+                      calories.balance.caption === "over" ? colors.danger : colors.mutedForeground,
+                  }}
+                >
+                  {`${calories.balance.value} ${calories.balance.caption}`}
                 </Overline>
               )}
             </View>
@@ -72,11 +74,7 @@ export function DailyMacros({ activity, onBack }: { activity: DayActivity; onBac
                 muted
                 style={{ fontFamily: fonts.semibold, letterSpacing: 0 }}
               >
-                {" "}
-                / {calories.target === null
-                  ? unsetTarget.shown
-                  : calories.target.toLocaleString()}{" "}
-                kcal
+                {` ${calories.ofTarget}`}
               </AppText>
             </AppText>
             <View
@@ -128,7 +126,7 @@ export function DailyMacros({ activity, onBack }: { activity: DayActivity; onBac
                   >
                     {nutrition[key].eaten.toLocaleString()}
                     <AppText variant="caption" muted>
-                      {` / ${nutrition[key].target?.toLocaleString() ?? unsetTarget.shown} g`}
+                      {` ${nutrition[key].ofTarget}`}
                     </AppText>
                   </AppText>
                 </View>

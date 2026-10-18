@@ -13,6 +13,7 @@ import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { macroCategories } from "../daily/nutrition.ts";
 import { FoodLoggingControls } from "./logging-controls";
+import { volumeMessage } from "./logging-preparation";
 import type { CustomMeal } from "./meal-model.ts";
 import type { CustomFood } from "./custom-model.ts";
 import { CustomItemActions } from "./custom-item-actions";
@@ -21,14 +22,11 @@ import { NutritionFields } from "./form-fields";
 import { nutritionAmountText } from "./number-input.ts";
 import { getFoodDatabase } from "./database";
 import { CatalogDraftPage } from "./catalog-draft-page";
-import type { FoodLoggingAttempt, FoodLoggingAttemptSnapshot } from "./logging-attempt.ts";
+import type { FoodLoggingAttempt } from "./logging-attempt.ts";
 
 const decimal = (value: number) => value.toLocaleString(undefined, { maximumFractionDigits: 1 });
 const useAttempt = (attempt: FoodLoggingAttempt) =>
   useSyncExternalStore(attempt.subscribe, attempt.getSnapshot, attempt.getSnapshot);
-function detailNoun({ preparation, item }: FoodLoggingAttemptSnapshot) {
-  return preparation.measurement === "volume" ? "drink" : item?.kind === "meal" ? "meal" : "food";
-}
 
 /** A Logging attempt's page: the preview, its amount and meal, and the saved item's actions. */
 export function FoodNutritionDetail({
@@ -51,16 +49,17 @@ export function FoodNutritionDetail({
 }) {
   const { colors } = useTheme();
   const { deletion } = useFoodDrafts();
-  const snapshot = useAttempt(attempt);
-  const { target, fields, preparation, item, saving, busy } = snapshot;
+  const { target, fields, preparation, item, noun, saving, busy } = useAttempt(attempt);
   const customMeal = item?.kind === "meal" ? item.food : undefined;
   const [servingsExpanded, setServingsExpanded] = useState(false);
-  const noun = detailNoun(snapshot);
   const grams = preparation.measurement === "grams" ? preparation.amount : null;
-  const invalidDrinkAmount =
+  // The drink amount field shows the amount rule itself, so the caption below doesn't repeat it.
+  const drinkAmountError =
     preparation.measurement === "volume" &&
     preparation.status === "invalid" &&
-    preparation.reason === "amount";
+    preparation.reason === "amount"
+      ? volumeMessage
+      : null;
   const portions = target.kind === "add" ? target.food.portions : [];
   const hundredGramPortion = portions.find((portion) => portion.grams === 100);
   const sourcePortions = portions.filter((portion) => portion !== hundredGramPortion);
@@ -172,18 +171,20 @@ export function FoodNutritionDetail({
               <AppText variant="hero" muted accessibilityElementsHidden aria-hidden>
                 —
               </AppText>
-              <AppText
-                variant="caption"
-                accessibilityRole={preparation.measurement === "volume" ? undefined : "alert"}
-                muted={preparation.measurement === "volume"}
-                style={
-                  preparation.measurement === "volume"
-                    ? undefined
-                    : { color: colors.error, fontFamily: fonts.semibold }
-                }
-              >
-                {preparation.message}
-              </AppText>
+              {preparation.message !== drinkAmountError && (
+                <AppText
+                  variant="caption"
+                  accessibilityRole={preparation.measurement === "volume" ? undefined : "alert"}
+                  muted={preparation.measurement === "volume"}
+                  style={
+                    preparation.measurement === "volume"
+                      ? undefined
+                      : { color: colors.error, fontFamily: fonts.semibold }
+                  }
+                >
+                  {preparation.message}
+                </AppText>
+              )}
             </View>
           )}
           {customMeal && target.kind === "add" && (
@@ -236,7 +237,7 @@ export function FoodNutritionDetail({
               value={fields.drinkMl}
               onChange={attempt.setDrinkMl}
               disabled={busy}
-              error={invalidDrinkAmount ? "Enter a whole number from 1 to 10,000 ml." : null}
+              error={drinkAmountError}
             />
           )}
           {preparation.measurement === "volume" && preparation.label.kind === "required" && (
@@ -303,12 +304,7 @@ export function FoodNutritionDetail({
               )}
             </View>
           )}
-          <FoodLoggingControls
-            attempt={attempt}
-            snapshot={snapshot}
-            onLog={onLog}
-            itemKind={customMeal ? "meal" : "food"}
-          />
+          <FoodLoggingControls attempt={attempt} onLog={onLog} />
         </Section>
         {target.kind === "add" && item && (
           <View style={{ gap: spacing.sm, paddingHorizontal: spacing.xs }}>
@@ -352,12 +348,12 @@ export function FoodCatalogEditor({
   onSaved: (item: CustomFood | CustomMeal) => void;
 }) {
   const { session } = useFoodDrafts();
-  const snapshot = useAttempt(attempt);
+  const { noun } = useAttempt(attempt);
   if (!session) return null;
   return (
     <CatalogDraftPage
       session={session}
-      closeLabel={`Back to ${detailNoun(snapshot)} details`}
+      closeLabel={`Back to ${noun} details`}
       onClose={onClose}
       onSaved={onSaved}
     />

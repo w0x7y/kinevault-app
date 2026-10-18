@@ -15,6 +15,15 @@ export type AccountAuthPort = {
     password: string;
     options: { emailRedirectTo: string };
   }) => Promise<SessionResult>;
+  signInWithOAuth: (credentials: {
+    provider: "google";
+    options: { redirectTo: string; skipBrowserRedirect: true };
+  }) => Promise<{ data: { url: string | null }; error: AuthError | null }>;
+  resend: (credentials: {
+    type: "signup";
+    email: string;
+    options: { emailRedirectTo: string };
+  }) => Promise<Result>;
   resetPasswordForEmail: (email: string, options: { redirectTo: string }) => Promise<Result>;
   updateUser: (attributes: { password: string }) => Promise<Result>;
   clearDeletedSession: (
@@ -37,8 +46,14 @@ export type AccountSnapshot = {
   busy: boolean;
   error: string | null;
   notice: string | null;
-  emailDelivery: { kind: "confirmation" | "password-reset"; email: string } | null;
+  emailDelivery:
+    | { kind: "confirmation"; email: string; resends: number }
+    | { kind: "password-reset"; email: string }
+    | null;
 };
+
+const confirmationEmailLimit = 3;
+const confirmationEmailWindow = 60 * 60 * 1000;
 
 function messageFor(error: AuthError): string {
   if (error.code === "invalid_credentials") return "The email or password is incorrect. Try again.";
@@ -56,14 +71,20 @@ function messageFor(error: AuthError): string {
     error.code === "flow_state_not_found"
   )
     return "This email link has expired or already been used. Request a new one.";
-  if (error.code === "bad_code_verifier")
+  if (error.code === "bad_code_verifier" || error.code === "pkce_code_verifier_not_found")
     return "Open this email link on the device where you requested it, or return and log in after confirming your email.";
   return "Couldn't complete your account request. Check your connection and try again.";
 }
 
+type AccountControllerOptions = {
+  redirectTo: string;
+  /** Opens the provider's sign-in page; resolves with the callback URL, or null when the user leaves. */
+  openAuthSession: (url: string) => Promise<string | null>;
+};
+
 export function createAccountController(
   auth: AccountAuthPort | null,
-  options: { redirectTo: string },
+  options: AccountControllerOptions,
 ) {
   let snapshot: AccountSnapshot = {
     loading: Boolean(auth),
@@ -84,10 +105,21 @@ export function createAccountController(
   let recoveryRevision = 0;
   let unsubscribe: (() => void) | undefined;
   let pending = false;
+  let googleOpen = false;
   const completedLinks = new Set<string>();
   const pendingLinks = new Map<string, Promise<boolean>>();
   // Lives above account-owned screen remounts; credentials never leave memory.
   let callbackContext: { target: string; result: Promise<boolean> } | null = null;
+  // shortcut: send times live in memory and reset when the app restarts, so Supabase's
+  // email rate limits stay the server-side guard. Persist them if the cap must survive restarts.
+  const confirmationSends = new Map<string, number[]>();
+  function recentConfirmations(address: string): number[] {
+    const since = Date.now() - confirmationEmailWindow;
+    return (confirmationSends.get(address.toLowerCase()) ?? []).filter((sent) => sent > since);
+  }
+  function recordConfirmation(address: string) {
+    confirmationSends.set(address.toLowerCase(), [...recentConfirmations(address), Date.now()]);
+  }
   function callbackTarget(value: string, requireClean = false): string | null {
     try {
       const url = new URL(value);
@@ -98,6 +130,10 @@ export function createAccountController(
     } catch {
       return null;
     }
+  }
+  function resumeAuthLink(cleanUrl: string): Promise<boolean> | null {
+    const target = callbackTarget(cleanUrl, true);
+    return target && callbackContext?.target === target ? callbackContext.result : null;
   }
   function clearCallbackContext() {
     callbackContext = null;
@@ -152,6 +188,7 @@ export function createAccountController(
       revision: number,
       sameJourney: () => boolean,
     ) => Promise<boolean>,
+    clearDelivery = true,
   ): Promise<boolean> {
     if (!running || pending || snapshot.loading) return false;
     if (!auth) {
@@ -169,7 +206,12 @@ export function createAccountController(
     const current = () => running && id === generation;
     const sameJourney = () =>
       current() && identity === identityRevision && recovery === recoveryRevision;
-    publish({ busy: true, error: null, notice: null, emailDelivery: null });
+    publish({
+      busy: true,
+      error: null,
+      notice: null,
+      ...(clearDelivery ? { emailDelivery: null } : {}),
+    });
     try {
       if (!sameJourney()) return false;
       return await work(auth, current, revision, sameJourney);
@@ -194,7 +236,7 @@ export function createAccountController(
     }
     return true;
   }
-  return {
+  const controller = {
     getSnapshot: () => snapshot,
     subscribe(listener: () => void) {
       listeners.add(listener);
@@ -281,6 +323,42 @@ export function createAccountController(
         return snapshot.user?.id === result.data.session.user.id;
       });
     },
+    async signInWithGoogle(): Promise<boolean> {
+      // A second sign-in would replace the open browser's PKCE verifier.
+      if (googleOpen) return false;
+      googleOpen = true;
+      try {
+        let providerUrl = null as string | null;
+        const started = await run(async (port, _current, _revision, sameJourney) => {
+          const result = await port.signInWithOAuth({
+            provider: "google",
+            options: { redirectTo: options.redirectTo, skipBrowserRedirect: true },
+          });
+          if (!check(result, sameJourney)) return false;
+          providerUrl = result.data.url;
+          return providerUrl !== null;
+        });
+        if (!started || !providerUrl) return false;
+        // The browser runs outside `run`: on Android its redirect also opens the
+        // callback route, which must be free to complete the same link meanwhile.
+        let callback: string | null;
+        try {
+          callback = await options.openAuthSession(providerUrl);
+        } catch {
+          publish({ error: "Couldn't open Google sign-in. Try again." });
+          return false;
+        }
+        if (!callback) return false;
+        // Only a PKCE code completes it; any other link didn't come from this sign-in.
+        if (parseAuthLink(callback).kind !== "code") {
+          publish({ error: "Google sign-in didn't finish. Try again." });
+          return false;
+        }
+        return await controller.completeAuthLink(callback);
+      } finally {
+        googleOpen = false;
+      }
+    },
     async signUp(address: string, secret: string) {
       const normalized = email(address);
       if (!normalized || !password(secret, true)) return false;
@@ -292,16 +370,45 @@ export function createAccountController(
         });
         if (!check(result, current, sameJourney)) return false;
         if (!result.data.session) {
+          recordConfirmation(normalized);
           if (!sameJourney()) return false;
           publish({
             notice: "Check your email to confirm your account, then return here and log in.",
-            emailDelivery: { kind: "confirmation", email: normalized },
+            emailDelivery: { kind: "confirmation", email: normalized, resends: 0 },
           });
           return false;
         }
         if (revision === authRevision) publishSession(result.data.session, false);
         return snapshot.user?.id === result.data.session.user.id;
       });
+    },
+    /** Resend stops once three confirmation emails, sign-up included, went to the address in the past hour. */
+    async resendConfirmation() {
+      const delivery = snapshot.emailDelivery;
+      if (delivery?.kind !== "confirmation") return false;
+      const sent = recentConfirmations(delivery.email);
+      if (sent.length >= confirmationEmailLimit) {
+        const oldest = sent[sent.length - confirmationEmailLimit];
+        const minutes = Math.ceil((oldest + confirmationEmailWindow - Date.now()) / 60_000);
+        publish({
+          error: `You've reached the limit of ${confirmationEmailLimit} verification emails an hour. Try again in ${minutes} ${minutes === 1 ? "minute" : "minutes"}.`,
+          notice: null,
+        });
+        return false;
+      }
+      return run(async (port, _current, _revision, sameJourney) => {
+        const result = await port.resend({
+          type: "signup",
+          email: delivery.email,
+          options: { emailRedirectTo: options.redirectTo },
+        });
+        if (!result.error) recordConfirmation(delivery.email);
+        if (!check(result, sameJourney)) return false;
+        // Each send changes the confirmation text, so screen readers hear every resend.
+        if (snapshot.emailDelivery === delivery)
+          publish({ emailDelivery: { ...delivery, resends: delivery.resends + 1 } });
+        return true;
+      }, false);
     },
     async requestPasswordReset(address: string) {
       const normalized = email(address);
@@ -397,14 +504,13 @@ export function createAccountController(
         return true;
       });
     },
-    resumeAuthLink(cleanUrl: string): Promise<boolean> | null {
-      const target = callbackTarget(cleanUrl, true);
-      return target && callbackContext?.target === target ? callbackContext.result : null;
-    },
     acknowledgeAuthLink() {
       callbackContext = null;
     },
+    /** A cleaned callback URL resumes the link this controller retained for a remounted screen. */
     completeAuthLink(url: string): Promise<boolean> {
+      const retained = resumeAuthLink(url);
+      if (retained) return retained;
       if (completedLinks.has(url)) return Promise.resolve(true);
       const existing = pendingLinks.get(url);
       if (existing) return existing;
@@ -416,7 +522,7 @@ export function createAccountController(
           error:
             parsed.kind === "error"
               ? parsed.message
-              : "This email link couldn't be verified. Request a new one and try again.",
+              : "This sign-in link couldn't be verified. Request a new one and try again.",
           notice: null,
         });
         return Promise.resolve(false);
@@ -461,6 +567,7 @@ export function createAccountController(
       return result;
     },
   };
+  return controller;
 }
 
 const appControllers = new WeakMap<AccountAuthPort, ReturnType<typeof createAccountController>>();
@@ -469,7 +576,7 @@ const appControllers = new WeakMap<AccountAuthPort, ReturnType<typeof createAcco
  * while mounted providers only attach and detach the controller lifecycle. */
 export function getAppAccountController(
   auth: AccountAuthPort | null,
-  options: { redirectTo: string },
+  options: AccountControllerOptions,
 ) {
   if (!auth) return createAccountController(null, options);
   let controller = appControllers.get(auth);

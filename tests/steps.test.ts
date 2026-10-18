@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createManualStepsEdit } from "../src/steps/manual-editing.ts";
-import { parseStepsLog, stepsFromText } from "../src/steps/model.ts";
+import { parseStepsLog } from "../src/steps/model.ts";
 import {
   createStepsLogPersistence,
   stepsLogStorageKey,
@@ -9,72 +9,45 @@ import {
 } from "../src/steps/persistence.ts";
 import { stepDayRange } from "../src/steps/summary.ts";
 
+// The shared day amount log (parsing, replacing, clamped steps) is covered once in
+// day-amount-log.test.ts. These tests pin Logged steps' key, messages and documents.
 const date = "2026-10-01";
 const otherDate = "2026-10-02";
+const days = (entries: Record<string, number>) => JSON.stringify({ version: 1, days: entries });
 const flush = async () => {
   await Promise.resolve();
   await Promise.resolve();
 };
 async function ready(initial: string | null = null) {
   let raw = initial;
-  const calls: string[] = [];
   const storage: StepsLogStorage = {
     async getItem(key) {
       assert.equal(key, stepsLogStorageKey);
-      calls.push("read");
       return raw;
     },
     async setItem(key, value) {
       assert.equal(key, stepsLogStorageKey);
-      calls.push("write");
       raw = value;
     },
   };
   const log = createStepsLogPersistence({ storage });
   log.start();
   await flush();
-  assert.equal(log.getSnapshot().state.kind, "ready");
-  return { log, calls, raw: () => raw };
+  return { log, storage, raw: () => raw };
 }
-const days = (entries: Record<string, number>) => JSON.stringify({ version: 1, days: entries });
 
-test("logged steps round trip, and unsupported or corrupt records fail", () => {
-  const document = { version: 1, days: { [date]: 4200, [otherDate]: 0 } };
-  assert.deepEqual(parseStepsLog(JSON.stringify(document)), document);
+test("saved steps logs load unchanged from the steps log key", async () => {
+  assert.equal(stepsLogStorageKey, "kinevault-track.steps-log.v1");
+  const saved = days({ [date]: 4200, [otherDate]: 0 });
+  assert.deepEqual(parseStepsLog(saved), JSON.parse(saved));
   assert.deepEqual(parseStepsLog(null), { version: 1, days: {} });
-  for (const raw of [
-    "corrupt",
-    "[]",
-    JSON.stringify({ version: 2, days: {} }),
-    JSON.stringify({ version: 1, days: { "2026-02-30": 10 } }),
-    ...[-1, 0.5, "10", null, Number.MAX_SAFE_INTEGER + 1].map((steps) =>
-      days({ [date]: steps as number }),
-    ),
-  ])
-    assert.throws(() => parseStepsLog(raw));
-});
-
-test("step text accepts whole numbers from zero to the safe maximum", () => {
-  for (const [text, steps] of [
-    ["0", 0],
-    [" 1500 ", 1500],
-    [String(Number.MAX_SAFE_INTEGER), Number.MAX_SAFE_INTEGER],
-  ] as const)
-    assert.equal(stepsFromText(text), steps);
-  for (const text of [
-    "",
-    "-1",
-    "1.5",
-    "1e3",
-    "1,000",
-    "10 steps",
-    String(Number.MAX_SAFE_INTEGER + 1),
-  ])
-    assert.equal(stepsFromText(text), null);
+  assert.throws(() => parseStepsLog(days({ [date]: 0.5 })));
+  const { log } = await ready(saved);
+  assert.deepEqual(log.getSnapshot().state, { kind: "ready", document: JSON.parse(saved) });
 });
 
 test("a steps edit fills from its date, steps by 500 without going below zero, and saves only that date", async () => {
-  const { log, calls, raw } = await ready(days({ [date]: 1000, [otherDate]: 300 }));
+  const { log, raw } = await ready(days({ [date]: 1000, [otherDate]: 300 }));
   const edit = createManualStepsEdit({ log, date });
   edit.start();
   assert.equal(edit.getSnapshot().draft, "1000");
@@ -86,10 +59,21 @@ test("a steps edit fills from its date, steps by 500 without going below zero, a
   edit.change("bad");
   assert.equal(await edit.save(), false);
   assert.equal(edit.getSnapshot().error, "Enter a whole number of steps, 0 or more.");
-  assert.deepEqual(calls, ["read"]);
   edit.change("2500");
   assert.equal(await edit.save(), true);
   assert.equal(raw(), days({ [date]: 2500, [otherDate]: 300 }));
+});
+
+test("a failed steps save reports the steps message", async () => {
+  const { log, storage } = await ready(days({ [date]: 250 }));
+  storage.setItem = async () => {
+    throw new Error("disk full");
+  };
+  const edit = createManualStepsEdit({ log, date });
+  edit.start();
+  edit.change("500");
+  assert.equal(await edit.save(), false);
+  assert.equal(edit.getSnapshot().error, "Couldn't save your steps. Try again.");
 });
 
 test("the phone's range runs from local midnight to now, or the whole of a past day; a future day has none", () => {

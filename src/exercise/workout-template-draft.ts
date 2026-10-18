@@ -1,5 +1,10 @@
 import type { SaveWorkoutInput } from "./commands.ts";
-import type { ExerciseDefinition, WorkoutTemplate } from "./model.ts";
+import {
+  parsePlannedSetCount,
+  plannedSetCountMessage,
+  type ExerciseDefinition,
+  type WorkoutTemplate,
+} from "./model.ts";
 
 type TemplateDraftRow = {
   readonly exercise: Readonly<ExerciseDefinition>;
@@ -64,14 +69,10 @@ function draftValue(
     prepare() {
       const counts: [string, number][] = [];
       for (const row of draft.rows) {
-        const value = row.rawCount.trim();
-        if (!/^\d+$/.test(value) || Number(value) > 100) {
-          return {
-            kind: "invalid",
-            message: `Enter a whole number of sets from 0 to 100 for ${row.exercise.name}.`,
-          };
-        }
-        counts.push([row.exercise.id, Number(value)]);
+        const count = parsePlannedSetCount(row.rawCount);
+        if (count === null)
+          return { kind: "invalid", message: plannedSetCountMessage(row.exercise.name) };
+        counts.push([row.exercise.id, count]);
       }
       if (!name.trim() || name.length > 400 || selected.length === 0) {
         return {

@@ -80,6 +80,21 @@ test("adding starts from the food's default amount and the Meal destination", as
   assert.equal(drink.submittable, false);
 });
 
+test("the attempt names what it logs: a food, a saved meal or a drink", async () => {
+  const f = await fixture();
+  assert.equal(f.open({ kind: "add", food: banana }).getSnapshot().noun, "food");
+  const meal = await f.catalog.addMeal({
+    name: "Banana bowl",
+    overrides: {},
+    ingredients: [{ id: "banana", food: banana, amount: "120" }],
+  });
+  assert.ok(meal);
+  assert.equal(f.open({ kind: "add", food: meal }).getSnapshot().noun, "meal");
+  assert.equal(f.open({ kind: "add", food: cola }).getSnapshot().noun, "drink");
+  const logged = entryForFood({ id: "drink", food: cola, measurement: "volume", drinkMl: 330 });
+  assert.equal(f.open({ kind: "edit", entry: logged }).getSnapshot().noun, "drink");
+});
+
 test("editing starts from the logged amount, volume, and meal", async () => {
   const f = await fixture();
   const entry = entryForFood({ id: "logged", food: banana, grams: 37.5, meal: "snacks" });

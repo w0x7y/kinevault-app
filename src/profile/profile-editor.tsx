@@ -19,7 +19,7 @@ export function ProfileEditor({
   const { edit, draft, error, busy, saving } = useDocumentEdit(() =>
     createFocusedProfileEdit(profile, section),
   );
-  const { errors, message: failure } = focusedEditFeedback(error);
+  const { errors, others, message: failure } = focusedEditFeedback(error, section);
   return (
     <EditorSection testID="profile-editor">
       <AppText variant="heading" accessibilityRole="header">
@@ -35,23 +35,9 @@ export function ProfileEditor({
           edit.change(change);
         }}
       />
-      {Object.entries(errors)
-        .filter(
-          ([field]) =>
-            !(
-              {
-                name: ["name"],
-                age: ["age"],
-                body: ["height", "weight", "eligible", "sex"],
-                goal: ["goal"],
-                activity: ["activity"],
-                calories: ["customCalories", "customCarbs", "customProtein", "customFat"],
-              }[section] as string[]
-            ).includes(field),
-        )
-        .map(([field, message]) => (
-          <InlineMessage key={field}>{message}</InlineMessage>
-        ))}
+      {others.map((message) => (
+        <InlineMessage key={message}>{message}</InlineMessage>
+      ))}
       {failure && <InlineMessage>{failure}</InlineMessage>}
       <ButtonRow>
         <AppButton

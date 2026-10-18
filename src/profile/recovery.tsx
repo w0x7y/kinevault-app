@@ -5,11 +5,12 @@ import { AppButton } from "../components/button";
 import { InlineMessage } from "../components/inline-message";
 import { StatusScreen } from "../onboarding/status-screen";
 import { spacing } from "../theme/tokens";
-import { useProfile } from "./provider";
+import { useProfile, useProfilePersistence } from "./provider";
 import { useAccount } from "../account/provider";
 
 export function ProfileRecovery() {
-  const { retryLoad, reset, saving, error } = useProfile();
+  const { retryLoad, saving, error } = useProfile();
+  const { reset } = useProfilePersistence();
   const account = useAccount();
   const { user } = account;
   const [confirmReset, setConfirmReset] = useState(false);

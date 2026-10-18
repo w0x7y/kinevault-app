@@ -84,6 +84,7 @@ test("deletion adapter preserves B in both installed SDK contexts, persisted sto
   const auth = createAccountAuthAdapter(sdkA.auth, f.storage, key);
   const controller = createAccountController(auth, {
     redirectTo: "kinevaulttrack://auth/callback",
+    openAuthSession: async () => null,
   });
   try {
     controller.start();
@@ -115,6 +116,7 @@ test("external B replacement while owner-clear is awaiting storage is compared a
   const auth = createAccountAuthAdapter(sdk.auth, f.storage, key);
   const controller = createAccountController(auth, {
     redirectTo: "kinevaulttrack://auth/callback",
+    openAuthSession: async () => null,
   });
   try {
     controller.start();
@@ -151,6 +153,7 @@ test("cooperative B SDK install queued during native physical clear survives and
     sdkB = f.client(createOwnedSessionStorage(f.backend));
   const controller = createAccountController(createAccountAuthAdapter(sdkA.auth, f.storage, key), {
     redirectTo: "kinevaulttrack://auth/callback",
+    openAuthSession: async () => null,
   });
   try {
     controller.start();
@@ -192,6 +195,7 @@ test("current-owner deletion clears the installed SDK session without a logout r
   const sdk = f.client();
   const controller = createAccountController(createAccountAuthAdapter(sdk.auth, f.storage, key), {
     redirectTo: "kinevaulttrack://auth/callback",
+    openAuthSession: async () => null,
   });
   try {
     controller.start();
@@ -230,6 +234,7 @@ test("production web compare/removal sees a raw external replacement at commit a
   const sdk = f.client(storage);
   const controller = createAccountController(createAccountAuthAdapter(sdk.auth, storage, key), {
     redirectTo: "kinevaulttrack://auth/callback",
+    openAuthSession: async () => null,
   });
   try {
     controller.start();
@@ -330,6 +335,7 @@ test("deleted-owner feedback survives root-provider remount and is cleared when 
   const auth = createAccountAuthAdapter(sdk.auth, f.storage, key);
   const oldProvider = getAppAccountController(auth, {
     redirectTo: "kinevaulttrack://auth/callback",
+    openAuthSession: async () => null,
   });
   try {
     oldProvider.start();
@@ -338,6 +344,7 @@ test("deleted-owner feedback survives root-provider remount and is cleared when 
     oldProvider.stop();
     const remounted = getAppAccountController(auth, {
       redirectTo: "kinevaulttrack://auth/callback",
+      openAuthSession: async () => null,
     });
     remounted.start();
     await tick();

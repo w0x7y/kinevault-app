@@ -217,6 +217,15 @@ export function parseWorkoutSession(value: unknown): WorkoutSession {
   }
   return { id: id(item.id), date, name, status, startedAt, durationSeconds, exercises };
 }
+export const maxPlannedSets = 100;
+/** A typed planned set count: a whole number from 0 to `maxPlannedSets`, or null. */
+export function parsePlannedSetCount(raw: string): number | null {
+  const text = raw.trim();
+  return /^\d+$/.test(text) && Number(text) <= maxPlannedSets ? Number(text) : null;
+}
+export function plannedSetCountMessage(exerciseName: string) {
+  return `Enter a whole number of sets from 0 to ${maxPlannedSets} for ${exerciseName}.`;
+}
 export function parseSetCounts(
   value: unknown,
   exerciseIds: readonly string[],
@@ -230,9 +239,11 @@ export function parseSetCounts(
         typeof count !== "number" ||
         !Number.isSafeInteger(count) ||
         count < 0 ||
-        count > 100
+        count > maxPlannedSets
       )
-        throw new Error("Set counts must be whole numbers from 0 to 100 for selected exercises.");
+        throw new Error(
+          `Set counts must be whole numbers from 0 to ${maxPlannedSets} for selected exercises.`,
+        );
       return [exerciseId, count];
     }),
   );
@@ -287,8 +298,23 @@ export function elapsedSeconds(session: WorkoutSession, now: number): number {
   return Math.max(0, Math.floor((now - session.startedAt) / 1000));
 }
 
+/**
+ * Library exercises whose name, muscle group, equipment or notes contain `search`, which is
+ * already trimmed and lowercased.
+ */
+export function matchingExercises(
+  exercises: readonly ExerciseDefinition[],
+  search: string,
+): ExerciseDefinition[] {
+  return exercises.filter((exercise) =>
+    [exercise.name, exercise.muscleGroup, exercise.equipment, exercise.notes].some((text) =>
+      text.toLocaleLowerCase().includes(search),
+    ),
+  );
+}
+
 /** Sets from the latest other completed workout with this exercise, on or before `session`'s day. */
-export function previousSets(
+function previousSets(
   sessions: readonly WorkoutSession[],
   session: Pick<WorkoutSession, "id" | "date">,
   exerciseId: string,
@@ -302,4 +328,30 @@ export function previousSets(
       latest = { date: other.date, sets: row.sets };
   }
   return latest?.sets ?? [];
+}
+type SideHint = { reps: string | undefined; weightKg: string | undefined };
+/** A set's placeholder values; undefined where there is nothing to show. */
+export type SetHint =
+  ({ kind: "single" } & SideHint) | { kind: "sides"; left: SideHint; right: SideHint };
+/**
+ * The Previous sets hint for each set of `row`: the matching set from the latest other Completed
+ * workout with this exercise on or before `session`'s day, or failing that the set above it.
+ */
+export function setHints(
+  sessions: readonly WorkoutSession[],
+  session: Pick<WorkoutSession, "id" | "date">,
+  row: SessionExercise,
+): SetHint[] {
+  const previous = previousSets(sessions, session, row.exercise.id);
+  return row.sets.map((set, index) => {
+    const source = previous[index] ?? row.sets[index - 1];
+    // A single-load set reads a two-sided source's left side; sides read a single load on both.
+    const side = (name: "left" | "right"): SideHint => {
+      const values = !source ? null : source.kind === "single" ? source : source[name];
+      return { reps: values?.reps || undefined, weightKg: values?.weightKg || undefined };
+    };
+    return set.kind === "single"
+      ? { kind: "single", ...side("left") }
+      : { kind: "sides", left: side("left"), right: side("right") };
+  });
 }

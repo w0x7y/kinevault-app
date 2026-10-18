@@ -713,6 +713,17 @@ test("account onboarding requires login after saving review, preserves Back and 
   assert.deepEqual(await record(page), saved);
 });
 
+test("account onboarding signs in with Google through the PKCE callback", async (t) => {
+  const page = await openAccountAtReview(t);
+  const saved = await record(page);
+  await button(page, "Continue with Google").click();
+  await heading(page, "Calories");
+  assert.deepEqual(await record(page), saved);
+  const token = page.accountFixture.requests.find(({ path }) => path === "/auth/v1/token");
+  assert.equal(token.body.auth_code, "fixture-google-code");
+  assert.ok(token.body.code_verifier);
+});
+
 test("account onboarding lets a damaged local profile sign in without deleting it", async (t) => {
   const page = await open(t, null, { accountSignedIn: false });
   await button(page, "Let's go").waitFor();
@@ -824,6 +835,24 @@ test("account onboarding supports signup confirmation, login failure and passwor
     true,
   );
   assert.equal(await page.getByRole("tab", { name: "Home", exact: true }).count(), 0);
+  // The sign-up email counts toward the cap of three confirmation emails an hour.
+  const resent = () =>
+    page.accountFixture.requests.filter(({ path }) => path === "/auth/v1/resend").length;
+  // Each send changes the panel's live text, so screen readers hear every resend.
+  for (const [sent, text] of [
+    [1, "We sent a new verification email to"],
+    [2, "We sent another verification email to"],
+  ]) {
+    await Promise.all([
+      page.waitForResponse((response) => new URL(response.url()).pathname === "/auth/v1/resend"),
+      button(page, "Resend email").click(),
+    ]);
+    assert.equal(resent(), sent);
+    await confirmation.getByText(text).waitFor();
+  }
+  await button(page, "Resend email").click();
+  await page.getByText("You've reached the limit of 3 verification emails an hour.").waitFor();
+  assert.equal(resent(), 2);
   await button(page, "Back").click();
   await heading(page, "Ready when you are.");
   await button(page, "Finish setup").click();
@@ -984,7 +1013,7 @@ test("account onboarding can cancel password recovery without entering a redirec
 test("account onboarding keeps recovery reachable when cloud sync fails and rejects expired links", async (t) => {
   const page = await openAccountAtReview(t);
   await page.goto(`${baseURL}/auth/callback?error=access_denied&error_code=otp_expired`);
-  await heading(page, "Check your email link");
+  await heading(page, "Check your sign-in link");
   await page.getByRole("alert").filter({ hasText: "expired or already been used" }).waitFor();
   await page.waitForURL((url) => url.search === "");
   assert.equal(new URL(page.url()).search, "");

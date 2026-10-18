@@ -6,7 +6,8 @@ import type { WaterLogDocument } from "../water/model.ts";
 export type WorkoutMetric = "volume" | "duration" | "weight";
 export type WorkoutRange = 4 | 12 | 52;
 export type WorkoutExerciseOption = { key: string; name: string; tracking: "single" | "sides" };
-export type WorkoutGraphPoint = {
+/** One week of the graph, dated by its last day; a week without measurements stays null. */
+export type WorkoutWeek = {
   date: string;
   total: number | null;
   left: number | null;
@@ -15,9 +16,15 @@ export type WorkoutGraphPoint = {
   partialDuration: boolean;
 };
 export type WorkoutGraph = {
-  points: WorkoutGraphPoint[];
+  weeks: WorkoutWeek[];
+  latest: WorkoutWeek;
   unit: "kg x reps" | "min" | "kg";
   tracking: "single" | "sides";
+  options: WorkoutExerciseOption[];
+  /** The chosen exercise, or the first option once the chosen one has no completed sets. */
+  exerciseKey: string | undefined;
+  /** Shown instead of the drawing until two weeks have measurements. */
+  pending: string | null;
 };
 
 function completedSessions(sessions: readonly WorkoutSession[], today: string): WorkoutSession[] {
@@ -76,7 +83,7 @@ function exerciseKey(exercise: WorkoutSession["exercises"][number]["exercise"]):
   return JSON.stringify([exercise.id, exercise.tracking]);
 }
 
-export function workoutExerciseOptions(
+function workoutExerciseOptions(
   sessions: readonly WorkoutSession[],
   today: string,
 ): WorkoutExerciseOption[] {
@@ -112,61 +119,92 @@ export function workoutGraph(input: {
   sessions: readonly WorkoutSession[];
   exerciseKey?: string;
 }): WorkoutGraph {
-  const points: WorkoutGraphPoint[] = Array.from({ length: input.weeks * 7 }, (_, index) => ({
-    date: addDays(input.today, index - input.weeks * 7 + 1),
+  // Weeks end on today, so the latest week is always the current one.
+  const weeks: WorkoutWeek[] = Array.from({ length: input.weeks }, (_, index) => ({
+    date: addDays(input.today, (index - input.weeks + 1) * 7),
     total: null,
     left: null,
     right: null,
     workouts: 0,
     partialDuration: false,
   }));
-  const byDate = new Map(points.map((point) => [point.date, point]));
-  const option =
-    input.metric === "weight"
-      ? workoutExerciseOptions(input.sessions, input.today).find(
-          (option) => option.key === input.exerciseKey,
-        )
-      : undefined;
-  const graph: WorkoutGraph = {
-    points,
-    tracking: option?.tracking ?? "single",
-    unit: input.metric === "volume" ? "kg x reps" : input.metric === "duration" ? "min" : "kg",
-  };
-  if (input.metric === "weight" && option === undefined) return graph;
+  const byDate = new Map(
+    Array.from({ length: input.weeks * 7 }, (_, index) => [
+      addDays(input.today, index - input.weeks * 7 + 1),
+      weeks[Math.floor(index / 7)],
+    ]),
+  );
+  const options = workoutExerciseOptions(input.sessions, input.today);
+  const selected = options.some((option) => option.key === input.exerciseKey)
+    ? input.exerciseKey
+    : options[0]?.key;
+  const option = options.find((option) => option.key === selected);
 
   for (const session of completedSessions(input.sessions, input.today)) {
-    const point = byDate.get(session.date);
-    if (!point) continue;
+    const week = byDate.get(session.date);
+    if (!week) continue;
     const rows = session.exercises.filter(
       (row) =>
         row.sets.length > 0 &&
-        (input.metric !== "weight" || exerciseKey(row.exercise) === input.exerciseKey),
+        (input.metric !== "weight" || exerciseKey(row.exercise) === selected),
     );
     if (rows.length === 0) continue;
-    point.workouts += 1;
+    week.workouts += 1;
     if (input.metric === "duration") {
-      if (session.durationSeconds === null) point.partialDuration = true;
-      else point.total = (point.total ?? 0) + session.durationSeconds;
+      if (session.durationSeconds === null) week.partialDuration = true;
+      else week.total = (week.total ?? 0) + session.durationSeconds;
       continue;
     }
     for (const row of rows) {
       for (const set of row.sets) {
         const measured = setMeasurements(set);
-        if (input.metric === "volume") point.total = (point.total ?? 0) + measured.volume;
+        if (input.metric === "volume") week.total = (week.total ?? 0) + measured.volume;
         else {
-          for (const weight of measured.weights) point.total = positiveMaximum(point.total, weight);
+          for (const weight of measured.weights) week.total = positiveMaximum(week.total, weight);
           if (set.kind === "sides") {
-            point.left = positiveMaximum(point.left, sideWeight(set.left));
-            point.right = positiveMaximum(point.right, sideWeight(set.right));
+            week.left = positiveMaximum(week.left, sideWeight(set.left));
+            week.right = positiveMaximum(week.right, sideWeight(set.right));
           }
         }
       }
     }
   }
   if (input.metric === "duration") {
-    for (const point of points) {
-      if (point.total !== null) point.total /= 60;
+    for (const week of weeks) {
+      if (week.total !== null) week.total /= 60;
     }
   }
-  return graph;
+  const measured = weeks.filter(
+    (week) => week.total !== null || week.left !== null || week.right !== null,
+  ).length;
+  return {
+    weeks,
+    latest: weeks.at(-1)!,
+    unit: input.metric === "volume" ? "kg x reps" : input.metric === "duration" ? "min" : "kg",
+    tracking: input.metric === "weight" ? (option?.tracking ?? "single") : "single",
+    options,
+    exerciseKey: selected,
+    // One week of data would draw a lone dot.
+    pending:
+      measured >= 2
+        ? null
+        : measured === 0
+          ? `No ${input.metric === "weight" ? "exercise weight" : input.metric} logged in the last ${input.weeks} weeks.`
+          : "Your trend appears after workouts in two different weeks.",
+  };
+}
+
+/** The caption for a week the user selects on the graph. */
+export function workoutWeekLabel(graph: WorkoutGraph, week: WorkoutWeek): string {
+  const amount = (value: number) =>
+    `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })} ${graph.unit}`;
+  const side = (name: string, value: number | null) =>
+    `${name} ${value === null ? "not logged" : amount(value)}`;
+  const values =
+    graph.tracking === "sides"
+      ? `${side("Left", week.left)}, ${side("Right", week.right)}`
+      : week.total === null
+        ? "No measurement recorded"
+        : amount(week.total);
+  return `Week ending ${week.date}: ${values}${week.partialDuration ? " · Some workout durations were not recorded" : ""}`;
 }

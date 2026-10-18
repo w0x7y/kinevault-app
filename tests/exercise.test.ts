@@ -3,8 +3,12 @@ import test from "node:test";
 import {
   parseExerciseDocument,
   elapsedSeconds,
+  matchingExercises,
+  parsePlannedSetCount,
+  setHints,
   type ExerciseDefinition,
   type ExerciseDocument,
+  type ExerciseSet,
   type WorkoutSession,
 } from "../src/exercise/model.ts";
 import { seedDevelopmentExamples } from "../src/exercise/commands.ts";
@@ -322,4 +326,136 @@ test("persisted completed records still reject untouched placeholders alongside 
       ]),
     ),
   );
+});
+
+const squat: ExerciseDefinition = { ...exercise, id: "squat", name: "Squat", tracking: "single" };
+const lift = (id: string, reps: string, weightKg: string): ExerciseSet => ({
+  id,
+  kind: "single",
+  reps,
+  weightKg,
+});
+const blank = (id: string) => lift(id, "", "");
+function log(
+  id: string,
+  date: string,
+  sets: ExerciseSet[],
+  status: WorkoutSession["status"] = "completed",
+  definition = squat,
+): WorkoutSession {
+  return {
+    ...session,
+    id,
+    date,
+    status,
+    startedAt: status === "active" ? 1000 : null,
+    exercises: [{ id: `${id}-row`, exercise: definition, sets }],
+  };
+}
+const today = { id: "today", date: "2026-10-04" };
+const hints = (sessions: WorkoutSession[], sets: ExerciseSet[], definition = squat) =>
+  setHints(sessions, today, { id: "row", exercise: definition, sets });
+const hint = (reps?: string, weightKg?: string) => ({ kind: "single", reps, weightKg });
+
+test("Previous sets come from the latest other completed log on or before the log's day", () => {
+  const sessions = [
+    log("older", "2026-10-02", [lift("a", "8", "50")]),
+    log("latest", "2026-10-03", [lift("b", "6", "60"), lift("c", "5", "65")]),
+    log("later", "2026-10-05", [lift("d", "1", "1")]),
+    // The log being edited never hints at itself.
+    log("today", "2026-10-04", [lift("e", "9", "90")]),
+  ];
+  assert.deepEqual(hints(sessions, [blank("x"), blank("y")]), [hint("6", "60"), hint("5", "65")]);
+});
+
+test("Previous sets skip drafts, active logs and logs without sets for the exercise", () => {
+  const sessions = [
+    log("old", "2026-10-01", [lift("a", "8", "50")]),
+    log("draft", "2026-10-03", [lift("b", "6", "60")], "planned"),
+    log("running", "2026-10-03", [lift("c", "6", "60")], "active"),
+    log("empty", "2026-10-03", []),
+    log("other", "2026-10-03", [lift("d", "6", "60")], "completed", { ...squat, id: "bench" }),
+  ];
+  assert.deepEqual(hints(sessions, [blank("x")]), [hint("8", "50")]);
+});
+
+test("same-day completed logs hint from the first in document order", () => {
+  const sessions = [
+    log("first", "2026-10-03", [lift("a", "8", "50")]),
+    log("second", "2026-10-03", [lift("b", "6", "60")]),
+  ];
+  assert.deepEqual(hints(sessions, [blank("x")]), [hint("8", "50")]);
+});
+
+test("a set past the previous sets hints from the set above it; blank values give no hint", () => {
+  const sessions = [log("old", "2026-10-03", [lift("a", "8", "")])];
+  assert.deepEqual(hints(sessions, [blank("x"), lift("y", "7", ""), blank("z")]), [
+    hint("8"),
+    // Falls back to the blank set above.
+    hint(),
+    hint("7"),
+  ]);
+  assert.deepEqual(hints([], [blank("x")]), [hint()]);
+});
+
+test("hints follow a tracking change between single-load and left/right sets", () => {
+  const sided: ExerciseSet = {
+    id: "a",
+    kind: "sides",
+    left: { reps: "8", weightKg: "10" },
+    right: { reps: "6", weightKg: "" },
+  };
+  const sides = { ...squat, tracking: "sides" as const };
+  // A single-load set reads the left side.
+  assert.deepEqual(hints([log("old", "2026-10-03", [sided], "completed", sides)], [blank("x")]), [
+    hint("8", "10"),
+  ]);
+  const blankSides: ExerciseSet = {
+    id: "x",
+    kind: "sides",
+    left: { reps: "", weightKg: "" },
+    right: { reps: "", weightKg: "" },
+  };
+  assert.deepEqual(
+    hints([log("old", "2026-10-03", [sided], "completed", sides)], [blankSides], sides),
+    [
+      {
+        kind: "sides",
+        left: { reps: "8", weightKg: "10" },
+        right: { reps: "6", weightKg: undefined },
+      },
+    ],
+  );
+  // A left/right set reads a single load on both sides.
+  assert.deepEqual(hints([log("old", "2026-10-03", [lift("a", "5", "20")])], [blankSides], sides), [
+    {
+      kind: "sides",
+      left: { reps: "5", weightKg: "20" },
+      right: { reps: "5", weightKg: "20" },
+    },
+  ]);
+});
+
+test("library search matches name, muscle group, equipment or notes in any case", () => {
+  const library: ExerciseDefinition[] = [
+    { ...squat, id: "a", name: "Back Squat", muscleGroup: "Legs", equipment: "Barbell" },
+    { ...squat, id: "b", name: "Curl", muscleGroup: "Arms", equipment: "Dumbbells" },
+    { ...squat, id: "c", name: "Press", muscleGroup: "", equipment: "", notes: "Barbell variant" },
+  ];
+  const ids = (search: string) => matchingExercises(library, search).map((item) => item.id);
+  assert.deepEqual(ids("squat"), ["a"]);
+  assert.deepEqual(ids("arms"), ["b"]);
+  assert.deepEqual(ids("barbell"), ["a", "c"]);
+  assert.deepEqual(ids("bench"), []);
+});
+
+test("planned set counts are whole numbers from 0 to 100", () => {
+  for (const [raw, count] of [
+    ["0", 0],
+    [" 3 ", 3],
+    ["100", 100],
+  ] as const)
+    assert.equal(parsePlannedSetCount(raw), count);
+  for (const raw of ["", "-1", "101", "3.0", "1e2", "abc"])
+    assert.equal(parsePlannedSetCount(raw), null);
 });
