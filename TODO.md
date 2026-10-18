@@ -63,5 +63,5 @@ and docs/ describe behavior and link here instead of repeating status.
 - [ ] Before deploying the web app, add `script-src` and `connect-src` to the Content-Security-Policy in `vercel.json` and test it against the export.
 - [ ] Remove the `localhost` callbacks and the `http://localhost:3000` Site URL from the production Auth settings, or move local testing to a separate Supabase project.
 - [ ] Apply the 10-character password minimum on the server (`password_min_length`); today only the app enforces it.
-- [ ] Pin GitHub Actions to commit SHAs instead of tags.
+- [x] Pin GitHub Actions to commit SHAs instead of tags, with the release tag in a comment. Update the SHA and comment together when bumping an action.
 - [ ] Check how Supabase links a Google sign-in to an existing account whose email was never confirmed (pre-account takeover).
