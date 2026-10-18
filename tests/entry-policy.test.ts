@@ -45,7 +45,8 @@ function* everyReading(): Generator<EntryReadings> {
  * The entry rules as the React tree applied them before the policy module existed,
  * transcribed layer by layer from AccountDataProvider, the root layout, account.tsx,
  * onboarding.tsx and the tab layout. `reminder` is null where the root navigator
- * isn't mounted, so a launching tap stays pending.
+ * isn't mounted, so a launching tap stays pending. One deliberate change since: the
+ * sign-in screen skips the storage wait only while signed out.
  */
 function previousTree(
   route: EntryRoute,
@@ -56,10 +57,12 @@ function previousTree(
   const { profile: state, recovery } = r;
   const user = r.signedIn ? {} : null;
   // AccountDataProvider and ScopedData
+  const storageExempt = segments[0] === "auth" || (segments[0] === "account" && !r.signedIn);
   if (r.accountLoading) return { screen: { kind: "loading" }, reminder: null };
-  if (r.storage === "error" && !authRoute)
+  if (r.storage === "error" && !storageExempt)
     return { screen: { kind: "storageFailure" }, reminder: null };
-  if (r.storage === "loading" && !authRoute) return { screen: { kind: "loading" }, reminder: null };
+  if (r.storage === "loading" && !storageExempt)
+    return { screen: { kind: "loading" }, reminder: null };
   // RootNavigator
   const loaded = r.appReady && (authRoute || state.kind !== "loading");
   const tracking = ((): string => {
@@ -150,6 +153,10 @@ test("readable rows of the entry policy", () => {
     ["auth", { storage: "error", profile: profiles.error }, { kind: "render" }],
     ["account", { storage: "error", signedIn: false }, { kind: "render" }],
     ["account", { storage: "loading", profile: profiles.loading }, { kind: "loading" }],
+    // Signed in, it waits for the account's data instead of acting on an empty local Profile.
+    ["account", { storage: "loading", profile: profiles.draft }, { kind: "loading" }],
+    ["account", { storage: "error" }, { kind: "storageFailure" }],
+    ["account", { storage: "loading", signedIn: false }, { kind: "render" }],
     ["account", { profile: profiles.error }, { kind: "profileRecovery" }],
     ["account", {}, { kind: "redirect", href: "/(tabs)" }],
     ["account", { profile: profiles.draft }, { kind: "redirect", href: "/onboarding" }],

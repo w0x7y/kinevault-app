@@ -72,9 +72,14 @@ export function sessionGate({ accountLoading }: Pick<EntryReadings, "accountLoad
   return accountLoading ? loading : null;
 }
 
-/** The account scope: its saved data must load before guarded routes mount. */
-export function storageGate(route: EntryRoute, { storage }: Pick<EntryReadings, "storage">): Gate {
-  if (isPublicAccountRoute(route) || storage === "ready") return null;
+/** The account scope: its saved data must load before guarded routes mount. A signed-in
+ * sign-in screen waits too: before the download it would read the new account's empty
+ * Profile and send the user into setup ahead of their imported answers. */
+export function storageGate(
+  route: EntryRoute,
+  { storage, signedIn }: Pick<EntryReadings, "storage" | "signedIn">,
+): Gate {
+  if (route === "auth" || (route === "account" && !signedIn) || storage === "ready") return null;
   return storage === "error" ? { kind: "storageFailure" } : loading;
 }
 

@@ -48,7 +48,7 @@ function ScopedData({ userId, children }: PropsWithChildren<{ userId: string | n
   useEffect(() => {
     if (state === "error") void SplashScreen.hideAsync();
   }, [state]);
-  const gate = storageGate(route, { storage: state });
+  const gate = storageGate(route, { storage: state, signedIn: userId !== null });
   if (gate?.kind === "storageFailure")
     return (
       <StatusScreen
