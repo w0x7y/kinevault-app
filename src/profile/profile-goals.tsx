@@ -11,7 +11,7 @@ import { WaterGoalEditor } from "./water-goal-editor";
 import { useDayActivity } from "../daily/use-day";
 import { unsetTarget } from "../daily/activity";
 import { useTheme } from "../theme/provider";
-import { activities, goals } from "./answers";
+import { choiceLabels } from "./answers";
 import { useProfile } from "./provider";
 import { ProfileEditor } from "./profile-editor";
 import type { ProfileEditSection } from "./section-editing";
@@ -151,6 +151,7 @@ export function ProfileGoals({
   const { targets } = activity;
   if (profile.state.kind !== "ready" || targets.kind !== "ready") return null;
   const answers = profile.state.document.answers;
+  const labels = choiceLabels(answers);
   const { nutrition } = activity;
   const target = (value: number | null, unit: string) =>
     value === null ? unsetTarget.shown : `${number(value)} ${unit}`;
@@ -159,11 +160,11 @@ export function ProfileGoals({
   const waterMl = activity.water.total.kind === "ready" ? activity.water.total.ml : null;
   const waterTarget = activity.water.goal.kind === "ready" ? activity.water.goal.ml : null;
   const rows = [
-    ["Weight goal", goals.find((v) => v.value === answers.goal)?.label || "Not set"],
+    ["Weight goal", labels.goal ?? "Not set"],
     ["Current weight", answers.weight ? `${answers.weight} kg` : "Not set"],
     ["Height", answers.height ? `${answers.height} cm` : "Not set"],
     ["Age", `${answers.age} years`],
-    ["Activity", activities.find((v) => v.value === answers.activity)?.label || "Not set"],
+    ["Activity", labels.activity ?? "Not set"],
     ["Calorie target", targets.calories === null ? "Not set" : `${number(targets.calories)} kcal`],
   ];
   const detail = (section: (typeof chooserSections)[number]) =>
@@ -174,8 +175,8 @@ export function ProfileGoals({
         [answers.height && `${answers.height} cm`, answers.weight && `${answers.weight} kg`]
           .filter(Boolean)
           .join(" · ") || "Not set",
-      goal: goals.find((v) => v.value === answers.goal)?.label || "Not set",
-      activity: activities.find((v) => v.value === answers.activity)?.label || "Not set",
+      goal: labels.goal ?? "Not set",
+      activity: labels.activity ?? "Not set",
       calories: targets.calories === null ? "Not set" : `${number(targets.calories)} kcal`,
     })[section];
   return (

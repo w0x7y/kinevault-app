@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { emptyAnswers } from "../src/profile/answers.ts";
+import { choiceLabels, emptyAnswers } from "../src/profile/answers.ts";
 import { estimateCalories, validateAnswers, changeAnswers } from "../src/profile/calories.ts";
 import { parseProfile } from "../src/profile/model.ts";
 
@@ -116,4 +116,12 @@ test("older profiles without a supported age keep their answers for re-checking"
     step: "age",
     answers,
   });
+});
+
+test("the chosen goal and activity read as their labels, unanswered ones as null", () => {
+  assert.deepEqual(choiceLabels({ goal: "lose", activity: "light" }), {
+    goal: "Lose weight",
+    activity: "Lightly active",
+  });
+  assert.deepEqual(choiceLabels(emptyAnswers), { goal: null, activity: null });
 });

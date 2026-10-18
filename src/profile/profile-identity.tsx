@@ -5,7 +5,7 @@ import Svg, { Path } from "react-native-svg";
 import { AppText } from "../components/ui";
 import { DeleteButton } from "../components/delete-button";
 import { InlineMessage } from "../components/inline-message";
-import { activities, goals } from "./answers";
+import { choiceLabels } from "./answers";
 import { useProfile } from "./provider";
 import { useProfileMedia } from "./media-provider";
 import { useMediaEditing } from "./use-media-editing";
@@ -130,12 +130,8 @@ export function ProfileIdentity() {
       </Tappable>
       <ProfileName />
       <AppText variant="caption" muted style={{ textAlign: "center" }}>
-        {[
-          goals.find((goal) => goal.value === answers.goal)?.label,
-          activities.find((activity) => activity.value === answers.activity)?.label,
-        ]
-          .filter(Boolean)
-          .join(" · ") || "Your goals, at your pace"}
+        {Object.values(choiceLabels(answers)).filter(Boolean).join(" · ") ||
+          "Your goals, at your pace"}
       </AppText>
       {media.state.kind !== "ready" && (
         <SourceStatus name="profile media" kind={media.state.kind} retry={media.retryLoad} />
