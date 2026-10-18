@@ -7,7 +7,7 @@ import {
   stepsLogStorageKey,
   type StepsLogStorage,
 } from "../src/steps/persistence.ts";
-import { stepDayRange } from "../src/steps/summary.ts";
+import { phoneStepsStatus, stepDayRange } from "../src/steps/summary.ts";
 
 // The shared day amount log (parsing, replacing, clamped steps) is covered once in
 // day-amount-log.test.ts. These tests pin Logged steps' key, messages and documents.
@@ -83,4 +83,43 @@ test("the phone's range runs from local midnight to now, or the whole of a past 
   const past = stepDayRange("2026-09-30", now)!;
   assert.deepEqual([past.start, past.end], [new Date(2026, 8, 30), new Date(2026, 9, 1)]);
   assert.equal(stepDayRange("2026-10-02", now), null);
+});
+
+test("the steps sheet offers the fix that fits each phone access", () => {
+  const status = (access: Parameters<typeof phoneStepsStatus>[0]["access"], state = "ready") => {
+    const { status, counted, action } = phoneStepsStatus({
+      access,
+      state: state as "loading" | "ready" | "error",
+      steps: 4200,
+    });
+    return [status, counted, action && `${action.label} -> ${action.kind}`];
+  };
+  assert.deepEqual(status("granted"), [`${(4200).toLocaleString()} steps`, true, null]);
+  assert.deepEqual(status("granted", "loading"), ["Loading...", false, null]);
+  assert.deepEqual(status(null, "loading"), ["Loading...", false, null]);
+  assert.deepEqual(status("granted", "error"), [
+    "Couldn't read phone steps.",
+    false,
+    "Retry phone steps -> retry",
+  ]);
+  assert.deepEqual(status("undetermined"), [
+    "Not connected",
+    false,
+    "Connect phone steps -> connect",
+  ]);
+  assert.deepEqual(status("denied"), [
+    "Step access is off.",
+    false,
+    "Open settings -> openSettings",
+  ]);
+  assert.deepEqual(status("install"), [
+    "Install Health Connect to count steps.",
+    false,
+    "Get Health Connect -> openSettings",
+  ]);
+  assert.deepEqual(status("unavailable"), [
+    "Phone step counting isn't available on this device.",
+    false,
+    null,
+  ]);
 });

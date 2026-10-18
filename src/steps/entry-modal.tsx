@@ -15,7 +15,7 @@ import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { createManualStepsEdit } from "./manual-editing";
 import { useStepsLogPersistence } from "./provider";
-import type { PhoneStepsReading } from "./summary";
+import { phoneStepsStatus, type PhoneStepsReading } from "./summary";
 
 // Home keys this modal by date, so each open day gets its own steps edit.
 export function StepsEntryModal({
@@ -105,24 +105,7 @@ export function StepsEntryModal({
 /** What the phone counted for the day, or how to let the app read it. */
 function PhoneSteps({ phone }: { phone: PhoneStepsReading }) {
   const { colors } = useTheme();
-  let status: string,
-    action: { label: string; onPress: () => void | Promise<void> } | null = null;
-  if (phone.access === "granted" && phone.state === "ready")
-    status = `${(phone.steps ?? 0).toLocaleString()} steps`;
-  else if (phone.access === null || phone.access === "granted") {
-    status = phone.state === "error" ? "Couldn't read phone steps." : "Loading...";
-    if (phone.state === "error") action = { label: "Retry phone steps", onPress: phone.retry };
-  } else if (phone.access === "undetermined") {
-    status = "Not connected";
-    action = { label: "Connect phone steps", onPress: phone.connect };
-  } else if (phone.access === "denied") {
-    status = "Step access is off.";
-    action = { label: "Open settings", onPress: phone.openSettings };
-  } else if (phone.access === "install") {
-    status = "Install Health Connect to count steps.";
-    action = { label: "Get Health Connect", onPress: phone.openSettings };
-  } else status = "Phone step counting isn't available on this device.";
-  const counted = phone.access === "granted" && phone.state === "ready";
+  const { status, counted, action } = phoneStepsStatus(phone);
   return (
     <View
       testID="steps-phone"
@@ -149,7 +132,7 @@ function PhoneSteps({ phone }: { phone: PhoneStepsReading }) {
           </AppText>
         </View>
       </View>
-      {action && <AppButton label={action.label} onPress={() => void action.onPress()} />}
+      {action && <AppButton label={action.label} onPress={() => void phone[action.kind]()} />}
     </View>
   );
 }
