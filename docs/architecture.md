@@ -127,8 +127,11 @@ after a Start from the day, keep the edit when its back button leaves it (the
 workout before opening its own page. The app header reads the Active workout from
 the exercise store and opens the page through the `liveWorkout` route request. Workout edits own the selected exercise and the
 planned-set settings disclosure, which reopens when a planned count is invalid, and
-the same log mode drives planned-count validation. Library drafts own Exercise definition, Workout template, Saved
-workouts and Workout import state per panel, so the sheet can unmount when the tab
+the same log mode drives planned-count validation. The edit's snapshot carries that
+mode and the controls it allows: whether Back leaves or cancels, Save or complete,
+Discard, Start and Details; the editor renders them. Library drafts own Exercise
+definition, Workout template (including its selected exercise, builder disclosure and
+search), Saved workouts and Workout import state per panel, so the sheet can unmount when the tab
 loses focus without losing input; their durable success closes the originating
 panel through the same panel seam as Workout edits. The sheet page owns its
 header overrides and scroll positioning: pages claim the back button with

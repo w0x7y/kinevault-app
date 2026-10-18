@@ -89,7 +89,7 @@ export default function ExerciseScreen() {
       )}
       {view.plannedCards.map((session) => (
         <View key={session.id} testID={`planned-workout-${session.id}`}>
-          <SessionEditor tab={tab} session={session} mode="compact" />
+          <SessionEditor tab={tab} session={session} />
         </View>
       ))}
       {view.live && (
@@ -103,7 +103,6 @@ export default function ExerciseScreen() {
           key={inline.panel.token}
           tab={tab}
           session={inline.session}
-          mode={inline.mode}
           closeLabel={inline.closeLabel}
         />
       )}
@@ -162,7 +161,7 @@ export default function ExerciseScreen() {
             )}
             {content?.kind === "session" &&
               (sheet.log ? (
-                <SessionEditor tab={tab} session={sheet.log.session} mode={sheet.log.mode} />
+                <SessionEditor tab={tab} session={sheet.log.session} />
               ) : (
                 <Panel>
                   <AppText>This workout is no longer available.</AppText>

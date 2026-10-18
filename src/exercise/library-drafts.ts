@@ -8,7 +8,15 @@ type ExerciseValues = Omit<ExerciseDefinition, "id">;
 /** The panel's pending save or removal and the feedback of its last failure. */
 type Attempt = { busy: boolean; error: string | null };
 type ExerciseDraftState = Attempt & { values: ExerciseValues };
-type TemplateDraftState = Attempt & { draft: WorkoutTemplateDraft };
+type TemplateDraftState = Attempt & {
+  draft: WorkoutTemplateDraft;
+  /** The exercise on screen. */
+  selectedId: string | undefined;
+  /** Whether the name and exercises builder shows. */
+  settingsOpen: boolean;
+  /** The builder's exercise search. */
+  query: string;
+};
 type SavedWorkoutsState = Attempt;
 type Store = Pick<
   ReturnType<typeof createExercisePersistence>,
@@ -147,7 +155,15 @@ export function createLibraryDrafts({
     template(token: number, workout?: WorkoutTemplate) {
       const entry = entryFor(token, "template", () => ({
         kind: "template",
-        state: { draft: createWorkoutTemplateDraft(workout), busy: false, error: null },
+        state: {
+          draft: createWorkoutTemplateDraft(workout),
+          busy: false,
+          error: null,
+          // A new template opens on its builder; a saved one on its first exercise.
+          selectedId: workout?.exercises[0]?.id,
+          settingsOpen: !workout,
+          query: "",
+        },
       }));
       return {
         getSnapshot: () => entry.state,
@@ -155,6 +171,9 @@ export function createLibraryDrafts({
         change(update: (draft: WorkoutTemplateDraft) => WorkoutTemplateDraft) {
           if (!entry.state.busy) publish(entry, { draft: update(entry.state.draft) });
         },
+        select: (selectedId: string) => publish(entry, { selectedId }),
+        showSettings: (settingsOpen: boolean) => publish(entry, { settingsOpen }),
+        search: (query: string) => publish(entry, { query }),
         async save() {
           if (entry.state.busy) return false;
           const preparation = entry.state.draft.prepare();

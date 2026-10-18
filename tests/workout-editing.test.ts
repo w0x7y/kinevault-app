@@ -781,3 +781,67 @@ test("an edit released while its change saves drops the queued change", async ()
   await settle();
   assert.equal(updates, 1);
 });
+
+test("Back on the Active workout's page leaves it running and keeps the edit", async () => {
+  const f = await fixture("active");
+  await f.tab.requestView({ kind: "session", id: "log" });
+  const edit = f.editing.edit("log");
+  edit.change({ kind: "name", value: "Still running" });
+  const { mode, back } = edit.getSnapshot();
+  assert.equal(mode, "active");
+  assert.equal(await edit.run(back), true);
+  assert.equal(f.tab.getSnapshot().panel, null);
+  assert.equal(f.saved().status, "active");
+  assert.equal(f.saved().name, "Still running");
+  assert.equal(f.editing.edit("log").getSnapshot().fields.name, "Still running");
+});
+
+test("each log mode allows its own controls, and the mode follows the open panel", async () => {
+  const controls = (edit: ReturnType<ReturnType<typeof tabView>["edits"]["edit"]>) => {
+    const { mode, back, primary, discard, start, details, returnTo } = edit.getSnapshot();
+    return { mode, back, primary, discard, start, details, returnTo };
+  };
+  const planned = await fixture("planned");
+  assert.deepEqual(controls(planned.editing.edit("log")), {
+    mode: "compact",
+    back: "cancel",
+    primary: "complete",
+    discard: true,
+    start: false,
+    details: false,
+    returnTo: { kind: "session", id: "log", manual: false },
+  });
+  await planned.tab.requestView({ kind: "session", id: "log", manual: true });
+  assert.deepEqual(controls(planned.editing.edit("log")), {
+    mode: "manual",
+    back: "cancel",
+    primary: "complete",
+    discard: true,
+    start: true,
+    details: true,
+    returnTo: { kind: "session", id: "log", manual: true },
+  });
+  const active = await fixture("active");
+  assert.deepEqual(controls(active.editing.edit("log")), {
+    mode: "active",
+    back: "leave",
+    primary: "complete",
+    discard: true,
+    start: false,
+    details: false,
+    returnTo: { kind: "session", id: "log", manual: false },
+  });
+  const completed = await fixture("completed");
+  assert.deepEqual(controls(completed.editing.edit("log")), {
+    mode: "completed",
+    back: "cancel",
+    primary: "save",
+    discard: false,
+    start: false,
+    details: true,
+    returnTo: { kind: "session", id: "log", manual: false },
+  });
+  // An unchanged edit keeps its snapshot, as React's store subscription requires.
+  const edit = completed.editing.edit("log");
+  assert.equal(edit.getSnapshot(), edit.getSnapshot());
+});

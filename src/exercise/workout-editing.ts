@@ -39,8 +39,27 @@ type Change =
   | { kind: "add-set"; rowId: string }
   | { kind: "set"; rowId: string; setId: string; build: (set: ExerciseSet) => ExerciseSet };
 type Action = "retry" | "settings" | "cancel" | "leave" | "start" | "complete" | "save" | "discard";
+/** The edit with the controls its log mode allows. */
+export type WorkoutEditSnapshot = Readonly<
+  WorkoutEditState & {
+    mode: WorkoutLogMode;
+    /** The back button: leaving the Active workout's page keeps it running; others cancel. */
+    back: Extract<Action, "leave" | "cancel">;
+    /** The main action: Save on a completed log; otherwise End or Log completes it. */
+    primary: Extract<Action, "save" | "complete">;
+    discard: boolean;
+    /** Start from the manual page; a compact card has its own. */
+    start: boolean;
+    /** Name and duration, on the manual and completed pages. */
+    details: boolean;
+    /** Where "Link demo" returns: this workout's page. */
+    returnTo: WorkoutView;
+  }
+>;
 type Entry = {
   state: WorkoutEditState;
+  /** The last snapshot and the state it shows, rebuilt when the state or the mode changes. */
+  view: { state: WorkoutEditState; snapshot: WorkoutEditSnapshot } | null;
   revision: number;
   pending: Promise<boolean> | null;
   /** A change's draft save is running; later changes wait in `queued`, latest only. */
@@ -111,9 +130,30 @@ export function createWorkoutEditing(
   function current(id: string, entry: Entry) {
     return entries.get(id) === entry;
   }
+  function modeOf(entry: Entry) {
+    return workoutLogMode(entry.state.session, panels.panel()?.content);
+  }
+  function view(entry: Entry): WorkoutEditSnapshot {
+    const { state } = entry,
+      mode = modeOf(entry);
+    if (entry.view?.state === state && entry.view.snapshot.mode === mode)
+      return entry.view.snapshot;
+    const snapshot: WorkoutEditSnapshot = {
+      ...state,
+      mode,
+      back: mode === "active" ? "leave" : "cancel",
+      primary: mode === "completed" ? "save" : "complete",
+      discard: mode !== "completed",
+      start: mode === "manual",
+      details: mode === "manual" || mode === "completed",
+      returnTo: { kind: "session", id: state.session.id, manual: mode === "manual" },
+    };
+    entry.view = { state, snapshot };
+    return snapshot;
+  }
   function countsValid(entry: Entry) {
     // Planned set counts belong to the compact card; manual logging edits the sets themselves.
-    if (workoutLogMode(entry.state.session, panels.panel()?.content) !== "compact") return true;
+    if (modeOf(entry) !== "compact") return true;
     const problem = plannedCountError(entry.state.fields, entry.state.counts);
     // A folded settings section opens so its error is never hidden.
     publish(entry, problem ? { countError: problem, settingsOpen: true } : { countError: problem });
@@ -156,6 +196,7 @@ export function createWorkoutEditing(
     let entry = entries.get(id);
     if (!entry) {
       entry = {
+        view: null,
         revision: 0,
         pending: null,
         saving: false,
@@ -428,7 +469,7 @@ export function createWorkoutEditing(
       });
     }
     return {
-      getSnapshot: () => entry.state,
+      getSnapshot: () => view(entry),
       subscribe,
       change,
       run,

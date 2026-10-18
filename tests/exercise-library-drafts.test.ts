@@ -249,3 +249,25 @@ test("the import keeps its step while its page is away and stops once its panel 
   await f.tab.requestView({ kind: "import", source: "tracked" });
   assert.notEqual(f.drafts.workoutImport(f.token(), "tracked"), flow);
 });
+
+test("a template draft keeps its selected exercise, builder and search when its form remounts", async () => {
+  const f = await fixture();
+  await f.tab.requestView({ kind: "workout", workout: template });
+  const draft = f.drafts.template(f.token(), template);
+  assert.equal(draft.getSnapshot().selectedId, "squat");
+  assert.equal(draft.getSnapshot().settingsOpen, false);
+  draft.showSettings(true);
+  draft.search("lun");
+  draft.select("lunge");
+  // Leaving the tab unmounts the sheet; the form that mounts on return reads the same draft.
+  const remounted = f.drafts.template(f.token(), template).getSnapshot();
+  assert.equal(remounted.settingsOpen, true);
+  assert.equal(remounted.query, "lun");
+  assert.equal(remounted.selectedId, "lunge");
+  await f.tab.requestView({ kind: "workout" });
+  const created = f.drafts.template(f.token()).getSnapshot();
+  assert.deepEqual(
+    [created.settingsOpen, created.query, created.selectedId],
+    [true, "", undefined],
+  );
+});
