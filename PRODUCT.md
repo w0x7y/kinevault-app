@@ -22,7 +22,7 @@ Settings are the top-level destinations. English copy and metric measurement uni
 Appearance supports System, Light, and Dark, with a saved preference.
 A local profile and editable, goal-adjusted calorie estimates are included.
 Profile also logs dated body-weight measurements with editing, removal and an accessible trend chart. These measurements do not change the separately configured calorie or macro goals.
-Settings exports account tracking data and local photos as JSON. Password-confirmed account deletion includes owner-scoped device cleanup; its server endpoint requires deployment before live deletion is available. See [account management](docs/account-management.md).
+Settings exports account tracking data and local photos as JSON. Account deletion is confirmed with the password, or with a fresh Google sign-in for an account created with Google, and includes owner-scoped device cleanup; the deployed `delete-account` endpoint allows five attempts per account an hour. See [account management](docs/account-management.md).
 Settings also holds profile editing, the water goal, reminders, appearance and an
 Import workouts shortcut. Reminders are device notifications at a chosen time on
 selected weekdays for a weigh-in, water, a workout, food logging, a progress photo
@@ -56,27 +56,31 @@ saved workout. Empty days show an Add workout card opening the same menu. Exerci
 search, a form, the saved menu, or a workout editor occupies the screen. Storage
 recovery stays visible. Home opens the menu in Exercise for the selected day.
 An empty menu says “No workout found. Create a workout to get started.” The sessions and exercise
-library widgets are removed. Steps displays Not connected until a source exists.
+library widgets are removed. Steps shows the phone's count for the selected day (Core
+Motion on iOS, Health Connect on Android, none on the web) plus steps logged by hand in
+its Log steps sheet. Logged steps stay on the device.
 Workout creation searches available exercises above the ordered list. Selecting
 a saved workout shows a compact card with Start workout, Log completed workout and
 Workout settings. Templates and pre-start Workout settings can set exercise counts from 0 to 100; new
-template exercises default to three. Start expands the card into a horizontally
-scrolling exercise bar above the selected-exercise sets table,
+template exercises default to three. Start opens the workout on its own page: a
+horizontally scrolling exercise bar above the selected-exercise sets table,
 with notes and the exercise's KineVault demo, or a Link demo button.
 Add set and View notes sit on the exercise
 title row. Exercise chips show short names (initials for long names); full names
-stay in accessible labels. The active workout has a blue Live workout header with
-its name and, on the right, the elapsed timer. Date/status text, the separate
-timer panel, Close workout and explanatory footer are removed. Active workouts
-automatically expand on the default Exercise view. End workout leads the bottom
+stay in accessible labels. The active workout's page centers the elapsed timer in its
+top bar; Back to Exercise saves the entered sets and leaves the workout running. While
+it runs, the app header centers the same timer on every tab and opens the page when
+tapped, and the default Exercise view shows a Live workout card (Kine working out and
+Open workout) in place of the day's cards. Date/status text, Close workout and
+explanatory footer are removed. End workout leads the bottom
 actions, with Discard workout below it. Ending saves completion before stopping the timer.
 Template and completed editing use the same bar and selected exercise detail,
 with name/search/order under Exercises or name/duration under Details. Templates show a linked
 demo without a Link demo button, because leaving would discard unsaved changes.
 Completed edits require Save changes. Saved workouts, exercise and workout
-forms, workout import, manual logging and completed workouts open as a page that
-slides up over the tab, with a back button; compact cards and the active workout
-stay on the tab. Blank set fields show the reps and weights of the latest
+forms, workout import, the active workout, manual logging and completed workouts open
+as a page that slides up over the tab, with a back button; compact cards stay on the
+tab. Blank set fields show the reps and weights of the latest
 completed workout with that exercise, or the set above, as hints.
 Exercise selection, search and
 calendar changes preserve entered sets. Set counts cannot remove entered data.
@@ -218,8 +222,11 @@ Motion is brief and respects system reduced-motion preferences.
 Keep interface copy short and conversational; omit repeated introductions.
 
 After the final profile review is saved, users create an account or log in with
-Supabase email/password authentication. An account is required before entering Home.
-Confirmation and recovery email links have dedicated callback screens. Passwords
+Supabase email/password authentication or Continue with Google. An account is required
+before entering Home. The confirmation email can be resent until three have gone to the
+address in an hour, sign-up included. Confirmation and recovery email links have
+dedicated callback screens and complete only with a sign-in code this device requested.
+Passwords
 never enter profile storage. Drafts resume at their saved question; signed-in profile
 editing bypasses the account screen.
 
@@ -227,7 +234,8 @@ Goals, custom exercises, workout templates, full sessions, food and water logs s
 to private account storage. Pending edits survive offline restarts; conflicting
 device edits require choosing a copy. Existing device data is imported once, and
 accounts have isolated local caches. Membership plans/status are server-managed,
-default to Free/active, and have no payment processing. Photos stay on the device.
+default to Free/active, and have no payment processing. Photos and logged steps stay
+on the device.
 
 English and metric are the supported interface formats. See
 [language and units](docs/language-and-units.md) for the recorded decision and

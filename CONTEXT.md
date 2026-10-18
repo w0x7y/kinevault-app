@@ -6,13 +6,21 @@ KineVault workout creation studio.
 ## Language
 
 **Account**: The shared KineVault identity used to enter Track and own its saved
-tracking. Each application keeps its own sign-in session. Signing out hides that
-account's local tracking while retaining unfinished cloud saves for its next login.
+tracking. Each application keeps its own sign-in session. Track signs in with email
+and password or with Google. Signing out hides that account's local tracking while
+retaining unfinished cloud saves for its next login.
 
 **Email verification**: Confirming the email address after creating an Account.
 Until verification or a confirmed sign-in succeeds, onboarding answers remain on
 the device and the user cannot enter tracking. The next step is presented with
-the submitted email address and instructions to verify it and log in.
+the submitted email address and instructions to verify it and log in. Resend sends
+another confirmation, up to three per address in a rolling hour on this device, sign-up
+included. Signing up with an email that already has a confirmed Account sends nothing
+and says to log in instead.
+
+**Email link**: A confirmation or password-recovery link from an Account email. Only a
+link carrying a sign-in code that this device requested completes; token-hash and
+session-token links are refused, since anyone could take one from their own email.
 
 **Membership**: An Account's plan and current status. New Accounts start with an
 active Free membership. Track shows the assigned membership; users cannot change
@@ -30,7 +38,10 @@ own.
 
 **Account management attempt**: An Account’s request to export tracking or
 confirm permanent deletion, with feedback belonging to the Settings view that
-started it. Confirmed deletion belongs to the Account even after that view leaves.
+started it. Deletion is confirmed with the password, or with a Google sign-in from the
+last 10 minutes for an Account created with Google, and is limited to five attempts
+per Account an hour. Confirmed deletion belongs to the Account even after that view
+leaves.
 
 **Cloud conflict**: Different saved tracking changes on two devices that cannot
 be applied without replacing one copy. The user chooses the device or cloud copy
@@ -183,9 +194,9 @@ and equipment fields. Templates and logs show the library definition's current l
 or their saved copy's link when the library exercise was deleted.
 
 **Exercise demo**: A linked exercise's muted KineVault clip, shown as a poster until
-tapped, with its credit. A withdrawn KineVault exercise shows "Demonstration
-unavailable." The demo list is public device data. Track refreshes it once the saved
-copy is 24 hours old or older or empty, uses the saved copy when offline, and keeps it across
+tapped, with its credit; leaving the screen returns it to the poster. A withdrawn
+KineVault exercise shows "Demonstration unavailable." The demo list is public device
+data. Track refreshes it once the saved copy is 24 hours old or older or empty, uses the saved copy when offline, and keeps it across
 sign-out.
 
 **Development exercises**: Squat, Push-up, and Dumbbell curl seeded once in a

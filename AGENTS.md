@@ -20,7 +20,8 @@ reports are records of earlier work. Don't update them to match today's code.
 ## Commands
 
 - `npm run check`: lint, Prettier, TypeScript and unit tests. CI runs it on every push.
-- `npm test`: unit tests only (`node --test` with type stripping, `tests/*.test.ts`).
+- `npm test`: unit and script tests only (`node --test` with type stripping,
+  `tests/*.test.ts` and `scripts/*.test.mjs`).
 - `npm run test:browser`: Playwright tests in `tests/*.browser.mjs`. They need the web
   app at `http://localhost:8081` (`npx expo start --web --port 8081`) or at
   `KINE_PREVIEW_URL`. Contexts default to reduced motion.
@@ -32,9 +33,9 @@ reports are records of earlier work. Don't update them to match today's code.
 
 - Build UI from the shared controls in `src/components` (Tappable, AppButton,
   IconButton, DeleteButton, SegmentedControl, Chip, TextField, InlineMessage,
-  LoadFailure, ModalSheet, popover, SheetPage, IconWell, ViewHeader). Don't add another
-  pressable, field or sheet; extend the shared one. `docs/architecture.md` lists the few
-  places a raw `Pressable` is allowed.
+  LoadFailure, ModalSheet, popover, SheetPage, IconWell, ViewHeader, Stepper). Don't add
+  another pressable, field or sheet; extend the shared one. `docs/architecture.md` lists
+  the few places a raw `Pressable` is allowed.
 - Colors, spacing, radii and fonts come from `src/theme/tokens.ts`.
 - Reanimated on native needs `cubicBezier()` easing objects. A CSS timing string such as
   `"cubic-bezier(...)"` works on web and crashes on a phone. Use the curves in
