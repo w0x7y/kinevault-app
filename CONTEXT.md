@@ -127,8 +127,8 @@ control that returns to the day.
 **Workout edit**: Unfinished changes to a workout log. Planned and active fields
 are saved as drafts; completed changes require explicit Save. Failed saves retain
 the entered fields. Leaving for another panel preserves completed changes, while
-Cancel discards them. The selected exercise row and a compact card's planned-set
-settings belong to the edit, so a remounted editor keeps them.
+Cancel discards them. The selected exercise row, a compact card's planned-set
+settings and an open Details section belong to the edit, so a remounted editor keeps them.
 
 **Workout template draft**: The name, ordered Exercise definitions and planned
 counts being prepared for a reusable workout. A newly selected exercise defaults
