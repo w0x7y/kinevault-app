@@ -27,6 +27,7 @@ import { AppText } from "./ui";
 import { ProfileAvatar } from "../profile/profile-identity";
 import { useExercises } from "../exercise/provider";
 import type { WorkoutSession } from "../exercise/model";
+import { activeWorkout } from "../exercise/model";
 import { TimerPillContent, timerPill, useElapsedTime, useLiveTone } from "../exercise/timer";
 import { ProfileMenu } from "./profile-menu";
 import { PopoverSurface, usePopover } from "./popover";
@@ -243,7 +244,7 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
   const exercises = useExercises();
   const live =
     exercises.state.kind === "ready"
-      ? exercises.state.document.sessions.find((session) => session.status === "active")
+      ? (activeWorkout(exercises.state.document.sessions) ?? undefined)
       : undefined;
   const previousTab = useRef<TabPath>("/");
   useEffect(() => {
