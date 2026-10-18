@@ -40,6 +40,15 @@ navigator (theme, fonts, Profile) and each route. Those are adapters that render
 decision through `EntryGate`; `entryDecision` composes the layers, and its unit test
 covers every route and reading combination.
 
+The Track tabs module (`src/navigation/track-tabs.ts`) owns the tab list, the hidden
+Personal journal tab after it and the navigator's `initialRoute` Back, so native Back
+returns Home and never selects the journal. It also decides which screens show the
+Selected day and calendar, the originating tab the journal's Back returns to, which
+header popover survives a route change, and the route requests (`workoutMenu`,
+`liveWorkout`, `workoutImport`, `section`): their builders, and the parsers
+`useRouteRequest` applies before a screen sees a value. The tab layout and the app
+header are adapters over it.
+
 ## Account tracking storage
 
 Account storage owns device namespaces, legacy onboarding import, durable pending

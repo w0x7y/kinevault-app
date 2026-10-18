@@ -7,7 +7,7 @@ import {
   type PropsWithChildren,
   type Ref,
 } from "react";
-import { usePathname, useRouter, type Href } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import {
   BackHandler,
   Pressable,
@@ -31,6 +31,17 @@ import { TimerPillContent, timerPill, useElapsedTime, useLiveTone } from "../exe
 import { ProfileMenu } from "./profile-menu";
 import { PopoverSurface, usePopover } from "./popover";
 import { Tappable, type TappableState } from "./tappable";
+import {
+  headerPage,
+  isJournal,
+  journalHandlesBack,
+  journalTab,
+  originatingTab,
+  popoverAfterNavigation,
+  routeRequest,
+  type HeaderPopover,
+  type TabPath,
+} from "../navigation/track-tabs";
 
 function fullDate(day: string): string {
   return parseDay(day).toLocaleDateString(undefined, {
@@ -95,9 +106,7 @@ function LiveWorkoutButton({ session }: { session: WorkoutSession }) {
   return (
     <HeaderButton
       label={`Open live workout, elapsed time ${time}`}
-      onPress={() =>
-        router.navigate({ pathname: "/exercise", params: { liveWorkout: session.id } })
-      }
+      onPress={() => router.navigate(routeRequest("liveWorkout", session.id))}
       surfaceHeight={timerPill.height}
       style={[
         timerPill,
@@ -228,22 +237,21 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
   const { colors } = useTheme();
   const { selectedDay, today } = useSelectedDay();
   const path = usePathname();
-  const isSettings = path === "/settings";
-  const isProfile = path === "/profile";
+  const page = headerPage(path);
+  const isProfile = isJournal(path);
   const router = useRouter();
   const exercises = useExercises();
   const live =
     exercises.state.kind === "ready"
       ? exercises.state.document.sessions.find((session) => session.status === "active")
       : undefined;
-  const previousTab = useRef<Href>("/");
+  const previousTab = useRef<TabPath>("/");
   useEffect(() => {
-    if (!isProfile && ["/", "/food", "/exercise", "/settings"].includes(path))
-      previousTab.current = path as Href;
-  }, [path, isProfile]);
+    previousTab.current = originatingTab(previousTab.current, path);
+  }, [path]);
   const returnFromProfile = useCallback(() => router.replace(previousTab.current), [router]);
   const { height: windowHeight } = useWindowDimensions();
-  const [popover, setPopover] = useState<"calendar" | "profile" | null>(null);
+  const [popover, setPopover] = useState<HeaderPopover>(null);
   const expanded = popover === "calendar";
   const [headerHeight, setHeaderHeight] = useState(0);
   const closePopover = useCallback(() => setPopover(null), []);
@@ -266,17 +274,16 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
     container: profileMenu,
   });
   useEffect(() => {
-    setPopover((previous) => (previous === "profile" || isProfile ? null : previous));
-  }, [path, isProfile]);
+    setPopover((previous) => popoverAfterNavigation(previous, path));
+  }, [path]);
   useEffect(() => {
-    // The dropdown dismisses itself before leaving Profile.
-    if (!isProfile || popover) return;
+    if (!journalHandlesBack(path, popover)) return;
     const back = BackHandler.addEventListener("hardwareBackPress", () => {
       returnFromProfile();
       return true;
     });
     return () => back.remove();
-  }, [isProfile, popover, returnFromProfile]);
+  }, [path, popover, returnFromProfile]);
   // A live timer takes the middle of the bar, so the date shortens to leave it room.
   const dateLabel = parseDay(selectedDay).toLocaleDateString(
     undefined,
@@ -327,7 +334,7 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
             <Pressable
               accessible={false}
               tabIndex={-1}
-              disabled={isProfile || isSettings}
+              disabled={page !== null}
               onPress={() =>
                 setPopover((previous) => (previous === "calendar" ? null : "calendar"))
               }
@@ -336,18 +343,14 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
               <AppText
                 variant="heading"
                 accessibilityLabel={
-                  isProfile
-                    ? "Profile"
-                    : isSettings
-                      ? "Settings"
-                      : `${fullDate(selectedDay)}${selectedDay === today ? ", today" : ""}`
+                  page ?? `${fullDate(selectedDay)}${selectedDay === today ? ", today" : ""}`
                 }
                 numberOfLines={1}
-                style={[styles.selectedDate, (isProfile || isSettings) && styles.screenName]}
+                style={[styles.selectedDate, page !== null && styles.screenName]}
               >
-                {isProfile ? "Profile" : isSettings ? "Settings" : dateLabel}
+                {page ?? dateLabel}
               </AppText>
-              {!isProfile && !isSettings && (
+              {page === null && (
                 <HeaderButton
                   ref={calendarChip}
                   label={expanded ? "Collapse calendar" : "Expand calendar"}
@@ -387,7 +390,7 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
           </View>
         </View>
       </SafeAreaView>
-      {!isProfile && !isSettings && expanded && (
+      {page === null && expanded && (
         <SafeAreaView
           edges={["left", "right"]}
           pointerEvents="box-none"
@@ -411,7 +414,7 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
             maxHeight={Math.max(0, windowHeight - headerHeight)}
             onSelect={(entry) => {
               setPopover(null);
-              if (entry === "Profile") router.navigate("/profile");
+              if (entry === "Profile") router.navigate(journalTab.path);
             }}
           />
         </SafeAreaView>
