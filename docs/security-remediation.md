@@ -119,6 +119,23 @@ for Google-only accounts. `reauthenticate()` wasn't used: its emailed code is on
 checked by a password change, so the function couldn't verify it. See
 [account management](account-management.md).
 
+### Google sign-in to a never-confirmed email account
+
+Checked 18 October 2026 against the Supabase Auth source (`supabase/auth` at
+`ce9a8ee`), not the live project. If someone signs up with another person's email
+and never confirms it, that person's later "Continue with Google" (Google reports a
+verified email) links into the same user, but `RemoveUnconfirmedIdentities`
+(`internal/api/external.go`, `internal/models/user.go`) first clears its password,
+deletes its other identities and replaces its metadata, then confirms the email. The
+squatter's password stops working, so this isn't a takeover. In the reverse order,
+`signUp` for an address that already has a confirmed Google account returns an
+obfuscated success and sets no password.
+
+Two cases stay open: turning on `mailer_autoconfirm` (off on the hosted project)
+makes a squatter's password account confirmed and linkable, and a person who clicks
+a confirmation email they didn't request confirms the squatter's password account
+before Google links to it.
+
 ### Development tunnels are public
 
 `npm run start:cloudflare` (`scripts/expo-cloudflare.mjs`) publishes Metro
