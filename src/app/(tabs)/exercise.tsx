@@ -82,7 +82,7 @@ export default function ExerciseScreen() {
             showEmptyGuidance
             activeWorkoutName={activity.activeWorkoutName}
             sourceState={activity.workoutState}
-            onRetry={store.retryLoad}
+            onRetry={activity.sources.workouts.retry}
             onAddWorkout={() => void open({ kind: "library", date: activity.date })}
           />
         </Animated.View>

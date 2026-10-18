@@ -9,6 +9,7 @@ import { progressFraction, summarizeDay, type FoodDay } from "./model.ts";
 import { calorieSegments, macroCategories } from "./nutrition.ts";
 import type { ExerciseSnapshot } from "../exercise/persistence.ts";
 import { summarizeSessions } from "../exercise/summary.ts";
+import { activeWorkout } from "../exercise/model.ts";
 import type { ProfileSnapshot } from "../profile/persistence.ts";
 import { calorieState } from "../profile/calories.ts";
 import { macroTargets } from "../profile/macros.ts";
@@ -106,7 +107,7 @@ export function interpretDayActivity({
       ? exercise.state.document.sessions.filter((session) => session.date === date)
       : [];
   // The Active workout stays on its original date; an unnamed one keeps a generic label.
-  const active = sessions.find((session) => session.status === "active");
+  const active = activeWorkout(sessions) ?? undefined;
   const logged =
     loggedSteps.state.kind === "ready" ? (loggedSteps.state.document.days[date] ?? 0) : null;
   let streak: ReturnType<typeof profileStreak> | null | undefined;

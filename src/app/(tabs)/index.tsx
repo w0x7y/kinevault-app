@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Animated from "react-native-reanimated";
 import { useIsFocused, useRouter } from "expo-router";
+import { routeRequest } from "../../navigation/track-tabs";
 import { View, useWindowDimensions } from "react-native";
 import { AppText, Screen } from "../../components/ui";
 import { Kine } from "../../onboarding/kine";
@@ -91,9 +92,7 @@ export default function HomeScreen() {
           onRetry={activity.sources.workouts.retry}
           showEmptyGuidance
           activeWorkoutName={activity.activeWorkoutName}
-          onAddWorkout={() =>
-            router.push({ pathname: "/exercise", params: { workoutMenu: activity.date } })
-          }
+          onAddWorkout={() => router.push(routeRequest("workoutMenu", activity.date))}
         />
       </Animated.View>
       {stepsEntryDay === activity.date && (
