@@ -1,11 +1,16 @@
 import { addDays, parseDay } from "../calendar/dates.ts";
-import { setMeasurements, type SetSide, type WorkoutSession } from "../exercise/model.ts";
+import type { ExerciseDefinition, WorkoutSession } from "../exercise/model.ts";
+import { setMeasurements, trackingMode } from "../exercise/tracking.ts";
 import type { FoodLogDocument } from "../food/log-model.ts";
 import type { WaterLogDocument } from "../water/model.ts";
 
 export type WorkoutMetric = "volume" | "duration" | "weight";
 export type WorkoutRange = 4 | 12 | 52;
-export type WorkoutExerciseOption = { key: string; name: string; tracking: "single" | "sides" };
+export type WorkoutExerciseOption = {
+  key: string;
+  name: string;
+  tracking: ExerciseDefinition["tracking"];
+};
 /** One week of the graph, dated by its last day; a week without measurements stays null. */
 export type WorkoutWeek = {
   date: string;
@@ -19,7 +24,7 @@ export type WorkoutGraph = {
   weeks: WorkoutWeek[];
   latest: WorkoutWeek;
   unit: "kg x reps" | "min" | "kg";
-  tracking: "single" | "sides";
+  tracking: ExerciseDefinition["tracking"];
   options: WorkoutExerciseOption[];
   /** The chosen exercise, or the first option once the chosen one has no completed sets. */
   exerciseKey: string | undefined;
@@ -93,7 +98,7 @@ function workoutExerciseOptions(
   );
   for (const session of historical) {
     for (const row of session.exercises) {
-      if (row.sets.length === 0) continue;
+      if (row.sets.length === 0 || !trackingMode(row.exercise.tracking).chartable) continue;
       const key = exerciseKey(row.exercise);
       options.set(key, { key, name: row.exercise.name, tracking: row.exercise.tracking });
     }
@@ -105,11 +110,6 @@ function workoutExerciseOptions(
 
 function positiveMaximum(current: number | null, weight: number): number | null {
   return weight > 0 ? Math.max(current ?? 0, weight) : current;
-}
-
-function sideWeight(side: SetSide): number {
-  if (Number(side.reps) <= 0) return 0;
-  return setMeasurements({ id: "side", kind: "single", ...side }).weights[0] ?? 0;
 }
 
 export function workoutGraph(input: {
@@ -162,8 +162,8 @@ export function workoutGraph(input: {
         else {
           for (const weight of measured.weights) week.total = positiveMaximum(week.total, weight);
           if (set.kind === "sides") {
-            week.left = positiveMaximum(week.left, sideWeight(set.left));
-            week.right = positiveMaximum(week.right, sideWeight(set.right));
+            week.left = positiveMaximum(week.left, measured.left ?? 0);
+            week.right = positiveMaximum(week.right, measured.right ?? 0);
           }
         }
       }

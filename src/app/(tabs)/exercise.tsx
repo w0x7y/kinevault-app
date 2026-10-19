@@ -14,7 +14,7 @@ import { LiveWorkoutCard } from "../../exercise/live-workout-card";
 import { ExerciseSearchResults } from "../../exercise/search-results";
 import { SessionEditor } from "../../exercise/session-editor";
 import { ActiveWorkoutTimer } from "../../exercise/timer";
-import { useExerciseTabView } from "../../exercise/use-workout-editing";
+import { useExerciseTabView } from "../../exercise/use-exercise-tab-view";
 import { WorkoutLibrary } from "../../exercise/workout-library";
 import { useRouteRequest } from "../../navigation/use-route-request";
 
@@ -77,9 +77,9 @@ export default function ExerciseScreen() {
           />
         </Animated.View>
       )}
-      {view.plannedCards.map((session) => (
-        <View key={session.id} testID={`planned-workout-${session.id}`}>
-          <SessionEditor edit={tab.edits.edit(session.id)} />
+      {view.plannedCards.map((card) => (
+        <View key={card.session.id} testID={`planned-workout-${card.session.id}`}>
+          <SessionEditor edit={card.edit} />
         </View>
       ))}
       {view.live && (
@@ -88,9 +88,7 @@ export default function ExerciseScreen() {
           onOpen={() => void open({ kind: "session", id: view.live!.id })}
         />
       )}
-      {inline && (
-        <SessionEditor key={inline.panel.token} edit={tab.edits.edit(inline.session.id)} closable />
-      )}
+      {inline && <SessionEditor key={inline.panel.token} edit={inline.edit} closable />}
       {view.showImport && (
         <AppButton
           icon="file-import"
@@ -115,7 +113,7 @@ export default function ExerciseScreen() {
         >
           {/* The sheet stays up while its page changes (the library opening a workout); each new
               page fades in over the last. */}
-          <StepFade step={sheet.panel.token}>
+          <StepFade step={sheet.panel.token} style={{ flexGrow: 1 }}>
             {page?.kind === "exercise" && (
               <ExerciseForm draft={page.draft} exercise={page.exercise} linkDemo={page.linkDemo} />
             )}

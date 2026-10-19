@@ -1,9 +1,7 @@
 import {
   activeWorkout,
-  createEmptySet,
   durationFromMinutes,
   elapsedSeconds,
-  isBlankSet,
   parseExerciseDefinition,
   parseSessionExercise,
   parseSetCounts,
@@ -13,6 +11,7 @@ import {
   type SessionExercise,
   type WorkoutSession,
 } from "./model.ts";
+import { createEmptySet, isBlankSet } from "./tracking.ts";
 import { applyWorkoutImport, type WorkoutImportResult } from "./import/mapping.ts";
 import type { ImportedWorkoutPlan } from "./import/plan.ts";
 

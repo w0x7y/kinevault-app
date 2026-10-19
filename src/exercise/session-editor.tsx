@@ -1,11 +1,12 @@
-import { View } from "react-native";
+import { useEffect, useState } from "react";
+import { Vibration, View } from "react-native";
 import { AppText, Overline, Panel } from "../components/ui";
 import { ButtonRow, AppButton, IconButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
 import { spacing } from "../theme/tokens";
 import type { SessionExercise } from "./model";
 import { ExerciseDemoSlot } from "./demo/exercise-demo";
-import { useWorkoutEdit } from "./use-workout-editing";
+import { useSnapshot } from "./use-exercise-tab-view";
 import type { WorkoutEdit } from "./workout-editing";
 import { InlineMessage } from "../components/inline-message";
 import { TextField } from "../components/text-field";
@@ -32,6 +33,7 @@ export function SessionEditor({
     selected,
     hints,
     notesId,
+    clock,
     durationCaption,
     settingsOpen,
     detailsOpen,
@@ -46,7 +48,19 @@ export function SessionEditor({
     retry,
     overline,
     testID,
-  } = useWorkoutEdit(edit);
+  } = useSnapshot(edit);
+  // While a set clock runs the editor redraws it, and a countdown that runs out logs its time
+  // and buzzes, whichever exercise shows.
+  const [, redraw] = useState(0);
+  useEffect(() => {
+    if (!clock) return;
+    const timer = setInterval(() => {
+      if (edit.tickClock()) Vibration.vibrate();
+      redraw((count) => count + 1);
+    }, 250);
+    return () => clearInterval(timer);
+  }, [clock, edit]);
+  const clockTime = edit.clockTime();
   // In a sheet, its back button is this workout's Cancel. The Active workout keeps running.
   const inSheet = useSheetBack({ onPress: () => void edit.run(back), disabled: busy });
   function renderExercise(row: SessionExercise, index: number) {
@@ -81,11 +95,20 @@ export function SessionEditor({
           />
         </View>
         <ExerciseSetTable
+          tracking={row.exercise.tracking}
           sets={row.sets}
           hints={hints}
           rowLabel={rowLabel}
           busy={busy}
-          onChange={(setId, build) => edit.change({ kind: "set", rowId: row.id, setId, build })}
+          clock={
+            clock?.rowId === row.id && clockTime !== null
+              ? { setId: clock.setId, seconds: clockTime, countdown: clock.target !== null }
+              : null
+          }
+          onChange={(setId, side, field, value) =>
+            edit.change({ kind: "set", rowId: row.id, setId, side, field, value })
+          }
+          onClock={(setId) => edit.toggleClock(row.id, setId)}
         />
         {notesId === row.id && <ExerciseNotes notes={row.exercise.notes} />}
         <ExerciseDemoSlot
@@ -161,7 +184,7 @@ export function SessionEditor({
   );
   // The main action leads; discarding sits under it in red, so it is never the first tap.
   const actions = (
-    <View testID="workout-log-actions" style={{ gap: spacing.sm }}>
+    <View testID="workout-log-actions" style={{ gap: spacing.sm, marginTop: "auto" }}>
       <AppButton
         label={primaryLabel}
         onPress={() => void edit.run(primary)}
@@ -196,7 +219,8 @@ export function SessionEditor({
     </View>
   );
   return (
-    <Panel testID={inSheet ? undefined : "session-editor"}>
+    // On its page the workout fills the sheet, with its actions at the bottom.
+    <Panel testID={inSheet ? undefined : "session-editor"} style={inSheet && { flexGrow: 1 }}>
       {mode === "compact" ? (
         <View testID={testID} style={{ gap: spacing.md }}>
           {closable ? (

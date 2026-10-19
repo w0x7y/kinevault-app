@@ -120,7 +120,9 @@ the friend's broader program features remain future work.
 ## Exercise tracking
 
 Create Exercise saves a reusable account definition with a name, optional muscle
-group, equipment, and notes. Choose single-load or separate left/right tracking.
+group, equipment, and notes. Choose how its sets are tracked: a single weight,
+separate left and right sides, alternating sides (reps per side), or timed (seconds,
+with a stopwatch or countdown).
 Search finds exercises for editing. Results appear only while searching; there
 is no exercise-library widget on the daily screen.
 
@@ -638,12 +640,16 @@ launcher icons and splash screens. It runs independently of the Expo app.
   the shared providers.
 - `src/calendar/selection.ts`: shared Selected day lifecycle with clock and wake adapters.
 - `src/calendar/`: local date arithmetic, centered week grid, and React/platform wiring.
-- `src/daily/workout.ts`: one interpretation of completed sets for totals and exercise rows.
 - `src/exercise/`: validated local exercise definitions, ordered workout templates,
   queued workout-log persistence, resumable timers, side-aware totals, and tracking forms.
   `activeWorkout` in `model.ts` is the one lookup of the Active workout.
+- `src/exercise/tracking.ts`: what each Tracking mode means: names, set columns, empty
+  and blank sets, value entry, hints and measurements.
+- `src/exercise/summary.ts`: the completed workout's totals and exercise rows, one
+  reading of completed sets.
 - `src/exercise/workout-editing.ts`: retained log fields, count safety, save feedback,
-  and each log mode's controls; `use-workout-editing.ts` binds the owner to React.
+  the Set clock and each log mode's controls; `use-exercise-tab-view.ts` binds the
+  owners to React.
 - `src/exercise/workout-template-draft.ts`: template selection/order, raw counts,
   retained definitions, and ready-to-save preparation for both form layouts.
 - `src/exercise/demo/`: KineVault demo catalog parsing, device cache, search, link

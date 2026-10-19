@@ -2392,7 +2392,7 @@ test("completed workout widgets render coherent totals and their exercise rows",
     ["Pull-up", 2, 14, "0–10 kg"],
   ]) {
     for (const label of [
-      `${name}, ${sets} sets`,
+      `${name}, ${sets === 1 ? "1 set" : `${sets} sets`}`,
       `${name}, ${reps} reps`,
       `${name}, weight ${weight}`,
     ])

@@ -214,8 +214,12 @@ export type ExerciseTabPage =
   /** A null edit: the workout is no longer available. */
   | { kind: "session"; edit: WorkoutEdit | null };
 
+/** A Workout log card on the tab with the edit that renders it. */
+export type ExerciseTabCard = { session: WorkoutSession; edit: WorkoutEdit };
 type ExerciseTabSnapshot = Readonly<
-  Omit<ExerciseTabProjection, "sheet"> & {
+  Omit<ExerciseTabProjection, "sheet" | "plannedCards" | "inline"> & {
+    plannedCards: readonly ExerciseTabCard[];
+    inline: (InlineWorkoutLog & ExerciseTabCard) | null;
     sheet: (ExerciseTabSheet & { page: ExerciseTabPage; close: () => void }) | null;
     query: string;
     panel: WorkoutPanel | null;
@@ -238,10 +242,13 @@ export function createExerciseTabView({
   store,
   date,
   importSources,
+  now,
 }: {
   store: Store;
   date: string;
   importSources: readonly WorkoutImportFlowSource[];
+  /** The time set clocks read; the device clock by default. */
+  now?: () => number;
 }) {
   const listeners = new Set<() => void>();
   let panel: WorkoutPanel | null = null;
@@ -269,9 +276,11 @@ export function createExerciseTabView({
     else if (wasLive && !activeWorkout(document?.sessions ?? [])) liveEnded = true;
     wasLive = live;
     dailyShown = view.showDailyWorkout;
-    const { sheet } = view;
+    const { sheet, inline } = view;
     return {
       ...view,
+      plannedCards: view.plannedCards.map((session) => ({ session, edit: edits.edit(session.id) })),
+      inline: inline && { ...inline, edit: edits.edit(inline.session.id) },
       sheet:
         focused && sheet
           ? {
@@ -359,7 +368,7 @@ export function createExerciseTabView({
   };
   // Library drafts subscribe first, so a replaced panel's draft retires before the screen renders.
   const drafts = createLibraryDrafts({ store, panels, importSources });
-  const edits = createWorkoutEditing(store, panels, requestView);
+  const edits = createWorkoutEditing(store, panels, requestView, now);
   let snapshot = build();
 
   /** Opens `content` once the logs it leaves are saved; only the latest request opens. */

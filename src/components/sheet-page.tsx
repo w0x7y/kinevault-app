@@ -315,12 +315,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   side: { minWidth: 44, alignItems: "flex-end" },
+  // Content grows to the sheet's height, so a page can fill it.
   content: {
+    flexGrow: 1,
     width: "100%",
     maxWidth: 768,
     alignSelf: "center",
     paddingHorizontal: spacing.gutter,
     paddingTop: spacing.sm,
   },
-  pages: { gap: spacing.layout },
+  pages: { flexGrow: 1, gap: spacing.layout },
 });

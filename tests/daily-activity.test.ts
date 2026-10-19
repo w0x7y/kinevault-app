@@ -390,9 +390,42 @@ test("the Workout tile covers every state, with one minutes rule for the title a
       status: "Done",
       completed: undefined,
       lifted: "200",
+      exercises: [
+        {
+          id: JSON.stringify(["morning", "row"]),
+          name: "Squat",
+          counts: ["1 set", "5 reps"],
+          amount: "40 kg",
+          amountLabel: "weight 40 kg",
+        },
+      ],
       stats: stats("30 min"),
     },
   );
+  // A timed exercise counts its sets and shows its total time instead of reps and weight.
+  const stretch = { ...definition, id: "stretch", name: "Stretch", tracking: "time" as const };
+  const timed = tile([
+    {
+      ...completed,
+      exercises: [
+        {
+          id: "row",
+          exercise: stretch,
+          sets: [
+            { id: "a", kind: "time" as const, seconds: "45" },
+            { id: "b", kind: "time" as const, seconds: "30" },
+          ],
+        },
+      ],
+    },
+  ]);
+  assert.deepEqual(timed.kind === "done" && timed.exercises[0], {
+    id: JSON.stringify(["morning", "row"]),
+    name: "Stretch",
+    counts: ["2 sets"],
+    amount: "1:15",
+    amountLabel: "time 1:15",
+  });
   // The card's total rounds like the summary line.
   const fractional = tile([
     { ...completed, exercises: [{ ...completed.exercises[0], sets: [set("12.5")] }] },

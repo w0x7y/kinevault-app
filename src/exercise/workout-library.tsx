@@ -11,7 +11,7 @@ import { InlineMessage } from "../components/inline-message";
 import { Hairline } from "./controls";
 import { useSheetBack } from "../components/sheet-page";
 import type { LibraryDrafts } from "./library-drafts";
-import { useLibraryDraft } from "./use-workout-editing";
+import { useSnapshot } from "./use-exercise-tab-view";
 
 export function WorkoutLibrary({
   actions,
@@ -31,7 +31,7 @@ export function WorkoutLibrary({
     store.state.kind === "ready"
       ? store.state.document.sessions.filter((workout) => workout.date === date)
       : [];
-  const { busy, error } = useLibraryDraft(actions);
+  const { busy, error } = useSnapshot(actions);
   // The sheet's back button closes the menu, except while a change is saving.
   useSheetBack({ disabled: busy });
   return (

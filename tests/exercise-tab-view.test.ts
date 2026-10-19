@@ -374,7 +374,7 @@ test("each sheet page carries the owner of its panel", async () => {
   assert.equal(pageOf(tab, "import").flow, tab.drafts.workoutImport(token(), "tracked"));
   await tab.requestView({ kind: "session", id: "draft", manual: true });
   assert.equal(pageOf(tab, "session").edit?.getSnapshot().mode, "manual");
-  assert.equal(pageOf(tab, "session").edit?.getSnapshot().session.id, "draft");
+  assert.equal(pageOf(tab, "session").edit?.getSnapshot(), tab.edits.edit("draft").getSnapshot());
   await tab.requestView({ kind: "session", id: "missing" });
   assert.equal(pageOf(tab, "session").edit, null);
 });

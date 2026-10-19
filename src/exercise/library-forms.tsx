@@ -9,6 +9,7 @@ import { Tappable } from "../components/tappable";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { matchingExercises, type ExerciseDefinition, type WorkoutTemplate } from "./model";
+import { trackingMode, trackingModes } from "./tracking";
 import { useExercises } from "./provider";
 import { InlineMessage } from "../components/inline-message";
 import { TextField } from "../components/text-field";
@@ -18,7 +19,7 @@ import { useSheetBack, useSheetScrollTarget } from "../components/sheet-page";
 import { exerciseRowLabel } from "./short-name";
 import { WorkoutWorkspace } from "./workout-workspace";
 import type { LibraryDrafts } from "./library-drafts";
-import { useLibraryDraft } from "./use-workout-editing";
+import { useSnapshot } from "./use-exercise-tab-view";
 import { ExerciseDemoSlot } from "./demo/exercise-demo";
 import { KineVaultDemoSection } from "./demo/demo-picker";
 import { applyCatalogLink, withoutCatalogLink } from "./demo/demo-link";
@@ -37,7 +38,7 @@ export function ExerciseForm({
   /** Opened from "Link demo": the sheet starts at the KineVault search, which takes focus. */
   linkDemo?: boolean;
 }) {
-  const { values, demo, busy, error } = useLibraryDraft(draft);
+  const { values, demo, busy, error } = useSnapshot(draft);
   // The sheet's back button is this form's Cancel, except while it saves.
   useSheetBack({ disabled: busy });
   const demoSection = useSheetScrollTarget(linkDemo);
@@ -73,20 +74,22 @@ export function ExerciseForm({
         disabled={busy}
         kind="multiline"
       />
-      <SectionLabel>Track repetitions and weight</SectionLabel>
+      <SectionLabel>How to track</SectionLabel>
       <SegmentedControl
-        label="Track repetitions and weight"
-        options={[
-          { value: "single", label: "Single weight" },
-          { value: "sides", label: "Left and right" },
-        ]}
+        label="How to track"
+        options={trackingModes.map((value) => ({
+          value,
+          label: trackingMode(value).name,
+          short: trackingMode(value).short,
+        }))}
         value={values.tracking}
         onChange={(tracking) => draft.change((v) => ({ ...v, tracking }))}
         disabled={busy}
       />
       <AppText variant="caption" muted>
-        Leave weight blank for bodyweight. Changes apply to future workouts; a KineVault demo shows
-        in past workouts too.
+        Leave weight blank for bodyweight. Alternating logs reps per side; Timed logs a stopwatch or
+        countdown time instead of reps and weight. Changes apply to future workouts; a KineVault
+        demo shows in past workouts too.
       </AppText>
       <View ref={demoSection.ref} onLayout={demoSection.onLayout}>
         <KineVaultDemoSection
@@ -130,7 +133,7 @@ export function WorkoutForm({
   const store = useExercises();
   const exercises = store.state.kind === "ready" ? store.state.document.exercises : [];
   const { draft, busy, error, selectedId, settingsOpen, query, limit, notesId } =
-    useLibraryDraft(template);
+    useSnapshot(template);
   const rise = useLayoutMotion().enter();
   const available = matchingExercises(exercises, query).filter(
     (item) => !draft.rows.some((row) => row.exercise.id === item.id),

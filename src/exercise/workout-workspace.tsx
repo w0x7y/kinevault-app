@@ -60,7 +60,7 @@ export function WorkoutWorkspace({
     </View>
   );
   return (
-    <View testID={testID} style={{ gap: spacing.layout + 2, minWidth: 0 }}>
+    <View testID={testID} style={{ flexGrow: 1, gap: spacing.layout + 2, minWidth: 0 }}>
       {heading}
       {toolbar}
       <ExerciseBar exercises={exercises} selectedId={selectedId} onSelect={onSelect} busy={busy} />

@@ -189,72 +189,53 @@ export function WorkoutWidget({
           </View>
         ))}
       </View>
-      {detailed && workout.exercises.length > 0 && (
+      {detailed && tile.exercises.length > 0 && (
         <View style={{ gap: spacing.xs }}>
           <Overline style={{ marginTop: spacing.xs }}>Exercises</Overline>
-          {workout.exercises.map((exercise, index) => {
-            let weight: string;
-            switch (exercise.load.kind) {
-              case "bodyweight":
-                weight = "Bodyweight";
-                break;
-              case "weight":
-                weight = `${exercise.load.weightKg.toLocaleString()} kg`;
-                break;
-              case "range":
-                weight = `${exercise.load.minKg.toLocaleString()}–${exercise.load.maxKg.toLocaleString()} kg`;
-                break;
-              default: {
-                const unreachable: never = exercise.load;
-                return unreachable;
-              }
-            }
-            return (
-              <View
-                key={exercise.id}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: spacing.md,
-                  paddingVertical: spacing.md,
-                  borderTopWidth: index ? 1 : 0,
-                  borderColor: colors.border,
-                }}
-              >
-                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                  <AppText variant="label" style={{ fontSize: 15, lineHeight: 21 }}>
-                    {exercise.name}
-                  </AppText>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 6 }}>
-                    <AppText
-                      variant="caption"
-                      muted
-                      accessibilityLabel={`${exercise.name}, ${exercise.sets} sets`}
-                    >
-                      {exercise.sets === 1 ? "1 set" : `${exercise.sets} sets`}
-                    </AppText>
-                    <AppText variant="caption" muted aria-hidden>
-                      ·
-                    </AppText>
-                    <AppText
-                      variant="caption"
-                      muted
-                      accessibilityLabel={`${exercise.name}, ${exercise.reps} reps`}
-                    >
-                      {exercise.reps === 1 ? "1 rep" : `${exercise.reps} reps`}
-                    </AppText>
-                  </View>
-                </View>
-                <AppText
-                  variant="label"
-                  accessibilityLabel={`${exercise.name}, weight ${weight}`}
-                  style={{ fontFamily: fonts.bold, fontVariant: ["tabular-nums"] }}
-                >
-                  {weight}
+          {tile.exercises.map((exercise, index) => (
+            <View
+              key={exercise.id}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: spacing.md,
+                paddingVertical: spacing.md,
+                borderTopWidth: index ? 1 : 0,
+                borderColor: colors.border,
+              }}
+            >
+              <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <AppText variant="label" style={{ fontSize: 15, lineHeight: 21 }}>
+                  {exercise.name}
                 </AppText>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 6 }}>
+                  {exercise.counts.map((count, position) => (
+                    <View key={position} style={{ flexDirection: "row", columnGap: 6 }}>
+                      {position > 0 && (
+                        <AppText variant="caption" muted aria-hidden>
+                          ·
+                        </AppText>
+                      )}
+                      <AppText
+                        variant="caption"
+                        muted
+                        accessibilityLabel={`${exercise.name}, ${count}`}
+                      >
+                        {count}
+                      </AppText>
+                    </View>
+                  ))}
+                </View>
               </View>
-            );
-          })}
+              <AppText
+                variant="label"
+                accessibilityLabel={`${exercise.name}, ${exercise.amountLabel}`}
+                style={{ fontFamily: fonts.bold, fontVariant: ["tabular-nums"] }}
+              >
+                {exercise.amount}
+              </AppText>
+            </View>
+          ))}
         </View>
       )}
     </Panel>

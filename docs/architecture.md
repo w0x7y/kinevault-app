@@ -192,6 +192,16 @@ creates the edits, so an edit opens its own manual page and its "Link demo" trip
 returns to the workout's page. `parsePlannedSetCount` in the exercise model is the one planned-count
 rule for Workout edits and Workout templates. `setHints` there gives each blank set its
 Previous sets hint, and `matchingExercises` is the one library search rule; it takes the typed query.
+`tracking.ts` owns what each Tracking mode means: its name and tag, the columns its set
+lines hold, its empty set, the blank rule, entering one value (`withSetValue`), the hint
+a set takes from another set in any mode, and the measurements a completed set counts.
+The set table renders a mode's columns and sends the edit field changes, never a set
+of its own. A set's `kind` is its exercise's mode, so the exercise model only checks
+that they match. Workout edits also own the Set clock, reading the time they're given
+(`now`), so the clock survives the table unmounting; the session editor ticks it,
+which logs a countdown that ran out and buzzes. The tab view hands every Workout log it
+shows its edit, compact cards included, and the edit's snapshot leaves out the saved
+log and the selected row ID it keeps inside.
 `short-name.ts` owns both row labels: the accessible "Squat exercise 2" and the chip label. Library drafts own Exercise
 definition (including its KineVault search), Workout template (including its selected
 exercise, builder disclosure, search, result limit and open notes), Saved workouts and
@@ -264,8 +274,11 @@ its own.
 streak comes from the same activity and is counted once per change of its sources.
 
 Completed Workout totals derive from persisted Workout sessions and their valid
-sets. Daily activity and test fixtures use the same Exercise summary interface;
-there is no separate workout interpreter or fixture-only measurement model.
+sets. The Exercise summary (`src/exercise/summary.ts`) owns the completed workout's
+type and reads each set through `setMeasurements`; Daily activity words its exercise
+rows (counts and the weight or time), so the Workout card only lays them out. Daily
+activity and test fixtures use the same Exercise summary interface; there is no
+separate workout interpreter or fixture-only measurement model.
 
 `workoutGraph` (`src/profile/activity.ts`) returns the weeks the Workout graph draws:
 weekly buckets ending today, the exercise options with the resolved selection, the

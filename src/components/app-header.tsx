@@ -384,7 +384,7 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
               label="Profile menu"
               expanded={popover === "profile"}
               onPress={() => setPopover((previous) => (previous === "profile" ? null : "profile"))}
-              style={styles.round}
+              style={styles.avatar}
             >
               <ProfileAvatar />
             </HeaderButton>
@@ -447,17 +447,27 @@ const styles = StyleSheet.create({
     minHeight: 60,
     flexDirection: "row",
     alignItems: "center",
-    paddingLeft: spacing.gutter,
-    paddingRight: spacing.gutter - 6,
+    // Even padding keeps the bar's middle on the screen's middle.
+    paddingHorizontal: spacing.gutter,
     gap: spacing.sm,
     width: "100%",
     maxWidth: 768,
     alignSelf: "center",
   },
-  lead: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  trail: { flex: 1, alignItems: "flex-end" },
+  // Both sides grow from zero, not from their content, so a live timer between them is centered.
+  lead: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  trail: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, alignItems: "flex-end" },
   button: { borderRadius: 14, alignItems: "center", justifyContent: "center" },
   round: { borderRadius: radius.pill, marginLeft: -6 },
+  avatar: { borderRadius: radius.pill, marginRight: -6 },
   titleArea: {
     flex: 1,
     minWidth: 0,

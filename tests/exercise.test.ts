@@ -358,7 +358,7 @@ function log(
 const today = { id: "today", date: "2026-10-04" };
 const hints = (sessions: WorkoutSession[], sets: ExerciseSet[], definition = squat) =>
   setHints(sessions, today, { id: "row", exercise: definition, sets });
-const hint = (reps?: string, weightKg?: string) => ({ kind: "single", reps, weightKg });
+const hint = (reps?: string, weightKg?: string) => [{ side: null, values: { reps, weightKg } }];
 
 test("Previous sets come from the latest other completed log on or before the log's day", () => {
   const sessions = [
@@ -422,20 +422,18 @@ test("hints follow a tracking change between single-load and left/right sets", (
   assert.deepEqual(
     hints([log("old", "2026-10-03", [sided], "completed", sides)], [blankSides], sides),
     [
-      {
-        kind: "sides",
-        left: { reps: "8", weightKg: "10" },
-        right: { reps: "6", weightKg: undefined },
-      },
+      [
+        { side: "left", values: { reps: "8", weightKg: "10" } },
+        { side: "right", values: { reps: "6", weightKg: undefined } },
+      ],
     ],
   );
   // A left/right set reads a single load on both sides.
   assert.deepEqual(hints([log("old", "2026-10-03", [lift("a", "5", "20")])], [blankSides], sides), [
-    {
-      kind: "sides",
-      left: { reps: "5", weightKg: "20" },
-      right: { reps: "5", weightKg: "20" },
-    },
+    [
+      { side: "left", values: { reps: "5", weightKg: "20" } },
+      { side: "right", values: { reps: "5", weightKg: "20" } },
+    ],
   ]);
 });
 
@@ -463,4 +461,63 @@ test("planned set counts are whole numbers from 0 to 100", () => {
     assert.equal(parsePlannedSetCount(raw), count);
   for (const raw of ["", "-1", "101", "3.0", "1e2", "abc"])
     assert.equal(parsePlannedSetCount(raw), null);
+});
+
+test("alternating and timed logs parse, and a set must match its exercise's mode", () => {
+  const alternating = { ...exercise, id: "alt", tracking: "alternating" as const };
+  const timed = { ...exercise, id: "plank", name: "Plank", tracking: "time" as const };
+  const logged = {
+    ...session,
+    exercises: [
+      {
+        id: "alt-row",
+        exercise: alternating,
+        sets: [{ id: "a", kind: "alternating" as const, reps: "10", weightKg: "12" }],
+      },
+      {
+        id: "timed-row",
+        exercise: timed,
+        sets: [
+          { id: "t1", kind: "time" as const, seconds: "45" },
+          { id: "t2", kind: "time" as const, seconds: "30" },
+        ],
+      },
+    ],
+  };
+  const raw = (exercises: unknown[]) =>
+    JSON.stringify({
+      version: 1,
+      exercises: [],
+      workouts: [],
+      sessions: [{ ...logged, exercises }],
+    });
+  assert.deepEqual(parseExerciseDocument(raw(logged.exercises)).sessions[0], logged);
+  const summary = summarizeSessions([logged]);
+  // Ten reps a side is twenty reps and twice the volume.
+  assert.equal(summary.reps, 20);
+  assert.equal(summary.volume, 240);
+  assert.deepEqual(summary.exercises[1]!.load, { kind: "time", seconds: 75 });
+  // Timed sets have no reps, so they don't dilute the average.
+  assert.equal(summary.averageRepsPerSet, 20);
+  const mismatched = (definition: ExerciseDefinition, set: unknown) =>
+    raw([{ id: "row", exercise: definition, sets: [set] }]);
+  assert.throws(
+    () =>
+      parseExerciseDocument(
+        mismatched(alternating, { ...logged.exercises[0]!.sets[0], kind: "single" }),
+      ),
+    /match/,
+  );
+  assert.throws(
+    () =>
+      parseExerciseDocument(
+        mismatched(timed, { id: "s", kind: "single", reps: "1", weightKg: "" }),
+      ),
+    /match/,
+  );
+  for (const seconds of ["0", "1.5", "", "86401"])
+    assert.throws(
+      () => parseExerciseDocument(mismatched(timed, { id: "s", kind: "time", seconds })),
+      /seconds/,
+    );
 });
