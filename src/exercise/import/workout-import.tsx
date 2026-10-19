@@ -131,7 +131,7 @@ export function WorkoutImport({
                 <AppText variant="caption" muted>
                   {[
                     preview.category && capitalizeWords(preview.category),
-                    count(preview.rows.length, "exercise"),
+                    count(preview.exerciseCount, "exercise"),
                     `${preview.newExercises} new to your library`,
                   ]
                     .filter(Boolean)
