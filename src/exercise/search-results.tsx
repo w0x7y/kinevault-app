@@ -7,6 +7,7 @@ import { AppText, Overline, Panel } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { matchingExercises, type ExerciseDefinition } from "./model";
+import { trackingMode } from "./tracking";
 import { DemoThumbnail } from "./demo/exercise-demo";
 import { Hairline } from "./controls";
 
@@ -20,11 +21,7 @@ function ExerciseResult({
   onSelect: () => void;
 }) {
   const { colors } = useTheme();
-  const metadata = [
-    exercise.muscleGroup,
-    exercise.equipment,
-    exercise.tracking === "sides" && "Left and right",
-  ]
+  const metadata = [exercise.muscleGroup, exercise.equipment, trackingMode(exercise.tracking).tag]
     .filter(Boolean)
     .join(" · ");
   return (

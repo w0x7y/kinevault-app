@@ -202,6 +202,55 @@ test("Home keeps workout totals and independent recovery visible when Food stora
   await page.getByTestId("home-workout-empty").waitFor();
 });
 
+test("alternating sets read Reps/side; a timed set's stopwatch keeps running while another exercise shows", async (t) => {
+  const alternating = { ...single, id: "lunge", name: "Lunge", tracking: "alternating" };
+  const stretch = { ...single, id: "stretch", name: "Stretch", tracking: "time" };
+  const active = {
+    id: "active",
+    date,
+    name: "Mobility",
+    status: "active",
+    startedAt: time.getTime() - 60000,
+    durationSeconds: null,
+    exercises: [
+      {
+        id: "lunge-row",
+        exercise: alternating,
+        sets: [{ id: "lunge-set", kind: "alternating", reps: "", weightKg: "" }],
+      },
+      {
+        id: "stretch-row",
+        exercise: stretch,
+        sets: [{ id: "stretch-set", kind: "time", seconds: "" }],
+      },
+    ],
+  };
+  const page = await open(t, {
+    freeze: true,
+    document: { ...empty(), exercises: [alternating, stretch], sessions: [active] },
+  });
+  await button(page, "Open live workout").click();
+  const workout = page.getByTestId("active-workout");
+  await workout.getByText("Reps/side", { exact: true }).waitFor();
+  await field(workout, "Lunge set 1 reps per side").fill("10");
+  await button(workout, "Select exercise Stretch").click();
+  await workout.getByText("Seconds", { exact: true }).waitFor();
+  await button(workout, "Start stopwatch for Stretch set 1").click();
+  await page.clock.runFor(20000);
+  // Showing the lunge unmounts the stretch's row; its clock keeps running in the edit.
+  await button(workout, "Select exercise Lunge").click();
+  await page.clock.runFor(25000);
+  await button(workout, "Select exercise Stretch").click();
+  await workout.getByLabel("Stretch set 1 stopwatch 0:45", { exact: true }).waitFor();
+  await button(workout, "Stop Stretch set 1 clock").click();
+  assert.equal(await field(workout, "Stretch set 1 seconds").inputValue(), "45");
+  const saved = await storedWhen(
+    page,
+    (document) => document.sessions[0].exercises[1].sets[0].seconds === "45",
+  );
+  assert.equal(saved.sessions[0].exercises[0].sets[0].reps, "10");
+});
+
 test("the live timer sits in the header and restores after reload; the tab shows a live card that opens the workout", async (t) => {
   const startedAt = time.getTime() - 90000;
   const active = {
@@ -269,9 +318,9 @@ test("the live timer sits in the header and restores after reload; the tab shows
       await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth),
       false,
     );
-    // The timer is centered in the header.
+    // The timer is centered on the screen, not just between the header's two sides.
     const box = await headerTimer.boundingBox();
-    assert.ok(Math.abs(box.x + box.width / 2 - width / 2) <= 8, `${width}: ${JSON.stringify(box)}`);
+    assert.ok(Math.abs(box.x + box.width / 2 - width / 2) <= 1, `${width}: ${JSON.stringify(box)}`);
   }
   // The header timer opens the workout's page, which centers the timer in its own top bar.
   await headerTimer.click();

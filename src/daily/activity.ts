@@ -8,9 +8,12 @@ import type { PhoneStepsReading } from "../steps/summary.ts";
 import { progressFraction, summarizeDay, type FoodDay } from "./model.ts";
 import { calorieSegments, macroCategories } from "./nutrition.ts";
 import type { ExerciseSnapshot } from "../exercise/persistence.ts";
-import { summarizeSessions } from "../exercise/summary.ts";
-import { activeWorkout } from "../exercise/model.ts";
-import type { CompletedWorkout } from "./workout.ts";
+import {
+  summarizeSessions,
+  type CompletedLoad,
+  type CompletedWorkout,
+} from "../exercise/summary.ts";
+import { activeWorkout, formatElapsed } from "../exercise/model.ts";
 import type { ProfileSnapshot } from "../profile/persistence.ts";
 import { calorieState } from "../profile/calories.ts";
 import { macroTargets } from "../profile/macros.ts";
@@ -348,6 +351,31 @@ function stepsTile(date: string, phone: PhoneStepsReading, logged: number | null
   };
 }
 
+/** A completed exercise on the detailed Workout card: its counts and its weight or time. */
+type WorkoutExerciseRow = {
+  id: string;
+  name: string;
+  counts: string[];
+  amount: string;
+  /** The amount's accessible name, e.g. "weight 40 kg". */
+  amountLabel: string;
+};
+function loadAmount(load: CompletedLoad): Pick<WorkoutExerciseRow, "amount" | "amountLabel"> {
+  const weight = (amount: string) => ({ amount, amountLabel: `weight ${amount}` });
+  switch (load.kind) {
+    case "bodyweight":
+      return weight("Bodyweight");
+    case "weight":
+      return weight(`${load.weightKg.toLocaleString()} kg`);
+    case "range":
+      return weight(`${load.minKg.toLocaleString()}–${load.maxKg.toLocaleString()} kg`);
+    case "time": {
+      const time = formatElapsed(load.seconds);
+      return { amount: time, amountLabel: `time ${time}` };
+    }
+  }
+}
+
 /** The Home and Exercise Workout tile: workouts loading or failed, an empty day, the Active
  * workout before anything is completed, or the day's Completed workout. Minutes round the same
  * way in the Exercise title and on the card. */
@@ -369,6 +397,8 @@ function workoutTile(
       completed: CompletedWorkout;
       /** The card's Total lifted in kg, rounded like the summary. */
       lifted: string;
+      /** The detailed card's exercise rows. */
+      exercises: WorkoutExerciseRow[];
       stats: { label: string; value: string }[];
     }
 ) {
@@ -401,6 +431,18 @@ function workoutTile(
     status: activeName === null ? "Done" : "Live",
     completed,
     lifted,
+    exercises: completed.exercises.map((exercise) => ({
+      id: exercise.id,
+      name: exercise.name,
+      // A timed exercise counts its sets; its time is its amount.
+      counts: [
+        exercise.sets === 1 ? "1 set" : `${exercise.sets} sets`,
+        ...(exercise.load.kind === "time"
+          ? []
+          : [exercise.reps === 1 ? "1 rep" : `${exercise.reps} reps`]),
+      ],
+      ...loadAmount(exercise.load),
+    })),
     stats: [
       { label: "Duration", value: completed.durationKnown ? minutes : "Not recorded" },
       { label: "Sets", value: String(completed.sets) },

@@ -100,7 +100,7 @@ test("completed edits remain local across panels; Cancel releases all retained f
   const edit = f.editing.edit("log");
   edit.change({ kind: "name", value: "Unfinished" });
   edit.change({ kind: "minutes", value: "bad" });
-  edit.change({ kind: "set", rowId: "row", setId: "set", build: (set) => ({ ...set, reps: "-" }) });
+  edit.change({ kind: "set", rowId: "row", setId: "set", side: null, field: "reps", value: "-" });
   await f.tab.requestView({ kind: "library", date: "2026-10-05" });
   await f.tab.requestView({ kind: "session", id: "log" });
   const resumed = f.editing.edit("log");
@@ -115,20 +115,25 @@ test("completed edits remain local across panels; Cancel releases all retained f
 });
 
 test("the selected exercise row outlives the editor until Cancel releases the edit", async () => {
-  const f = await fixture();
+  const log = session("completed");
+  const first = log.exercises[0]!;
+  const f = await fixture("completed", [
+    { ...log, exercises: [first, { ...first, id: "second" }] },
+  ]);
   await f.tab.requestView({ kind: "session", id: "log" });
   const edit = f.editing.edit("log");
-  assert.equal(edit.getSnapshot().selectedId, null);
+  // With none selected, the first row shows.
+  assert.equal(edit.getSnapshot().selected?.id, "row");
   let notified = 0;
   const unsubscribe = edit.subscribe(() => notified++);
-  edit.select("row");
+  edit.select("second");
   unsubscribe();
   assert.ok(notified > 0, "selecting a row notifies the editor that renders it");
   await f.tab.requestView({ kind: "library", date: "2026-10-05" });
   await f.tab.requestView({ kind: "session", id: "log" });
-  assert.equal(f.editing.edit("log").getSnapshot().selectedId, "row");
+  assert.equal(f.editing.edit("log").getSnapshot().selected?.id, "second");
   assert.equal(await f.editing.edit("log").run("cancel"), true);
-  assert.equal(f.editing.edit("log").getSnapshot().selectedId, null);
+  assert.equal(f.editing.edit("log").getSnapshot().selected?.id, "row");
 });
 
 test("an open Details section outlives the editor until Cancel releases the edit", async () => {
@@ -207,12 +212,14 @@ test("the row on screen shows its own Previous sets hints", async () => {
   // hints the set above it.
   assert.equal(edit.getSnapshot().selected?.id, "row");
   assert.deepEqual(edit.getSnapshot().hints, [
-    { kind: "single", reps: undefined, weightKg: undefined },
-    { kind: "single", reps: "8", weightKg: "10" },
+    [{ side: null, values: { reps: undefined, weightKg: undefined } }],
+    [{ side: null, values: { reps: "8", weightKg: "10" } }],
   ]);
   edit.select("curl-row");
   assert.equal(edit.getSnapshot().selected?.id, "curl-row");
-  assert.deepEqual(edit.getSnapshot().hints, [{ kind: "single", reps: "12", weightKg: "15" }]);
+  assert.deepEqual(edit.getSnapshot().hints, [
+    [{ side: null, values: { reps: "12", weightKg: "15" } }],
+  ]);
 });
 
 test("the duration caption reads the entered minutes", async () => {
@@ -269,7 +276,9 @@ test("failed active fields survive editor replacement and query/day changes unti
     kind: "set",
     rowId: "row",
     setId: "set",
-    build: (set) => ({ ...set, reps: "1e" }),
+    side: null,
+    field: "reps",
+    value: "1e",
   });
   await tick();
   assert.equal(
@@ -297,7 +306,9 @@ test("invalid manual duration retains text, saves sets, and blocks departure unt
     kind: "set",
     rowId: "row",
     setId: "set",
-    build: (set) => ({ ...set, reps: "12" }),
+    side: null,
+    field: "reps",
+    value: "12",
   });
   await tick();
   assert.equal(edit.getSnapshot().fields.minutes, "1e");
@@ -365,7 +376,9 @@ test("leaving the Active workout's page saves its fields and keeps the edit for 
     kind: "set",
     rowId: "row",
     setId: "blank",
-    build: (set) => ({ ...set, reps: "6" }),
+    side: null,
+    field: "reps",
+    value: "6",
   });
   assert.equal(await f.editing.edit("log").run("leave"), true);
   assert.equal(f.tab.getSnapshot().panel, null);
@@ -376,7 +389,7 @@ test("leaving the Active workout's page saves its fields and keeps the edit for 
     weightKg: "",
   });
   assert.equal(f.saved().status, "active");
-  assert.equal(f.editing.edit("log").getSnapshot().selectedId, "row");
+  assert.equal(f.editing.edit("log").getSnapshot().selected?.id, "row");
 });
 
 test("the Active workout's page opens while its draft can't save, but nothing else does", async () => {
@@ -389,7 +402,9 @@ test("the Active workout's page opens while its draft can't save, but nothing el
     kind: "set",
     rowId: "row",
     setId: "blank",
-    build: (set) => ({ ...set, reps: "6" }),
+    side: null,
+    field: "reps",
+    value: "6",
   });
   await tick();
   assert.equal(await f.tab.requestView({ kind: "session", id: "log" }), true);
@@ -606,7 +621,7 @@ test("manual logging from an empty legacy row saves new sets and permits cancell
     const edit = f.editing.edit("log");
     edit.change({ kind: "add-set", rowId: "row" });
     const setId = edit.getSnapshot().fields.exercises[0]!.sets[0]!.id;
-    edit.change({ kind: "set", rowId: "row", setId, build: (set) => ({ ...set, reps: "10" }) });
+    edit.change({ kind: "set", rowId: "row", setId, side: null, field: "reps", value: "10" });
     const success =
       action === "navigate"
         ? await f.tab.requestView({ kind: "library", date: "2026-10-05" })
@@ -795,7 +810,9 @@ test("a burst of field changes writes the first and latest values only", async (
       kind: "set",
       rowId: "row",
       setId: "set",
-      build: (set) => ({ ...set, weightKg }),
+      side: null,
+      field: "weightKg",
+      value: weightKg,
     });
   await tick();
   assert.equal(held.writes(), 1);
@@ -878,7 +895,7 @@ test("a departure refused for a count problem still saves the change queued behi
     edit = f.editing.edit("log"),
     held = holdWrites(f, () => false);
   edit.change({ kind: "name", value: "First" });
-  edit.change({ kind: "set", rowId: "row", setId: "set", build: (set) => ({ ...set, reps: "9" }) });
+  edit.change({ kind: "set", rowId: "row", setId: "set", side: null, field: "reps", value: "9" });
   edit.change({ kind: "count", rowId: "row", value: "-" });
   const leaving = f.tab.requestView({ kind: "library", date: "2026-10-05" });
   held.release();
@@ -942,16 +959,15 @@ test("each log mode allows its own controls, and the mode follows the open panel
   const controls = (edit: ReturnType<ReturnType<typeof tabView>["edits"]["edit"]>) => {
     // Everything but the edit's own state.
     const {
-      session,
       fields,
       counts,
       busy,
       error,
       countError,
-      selectedId,
       settingsOpen,
       detailsOpen,
       notesId,
+      clock,
       selected,
       hints,
       durationCaption,
@@ -1047,9 +1063,107 @@ test("a rejected write shows its command's reason", async () => {
     kind: "set",
     rowId: "row",
     setId: "set",
-    build: (set) => ({ ...set, reps: "" }),
+    side: null,
+    field: "reps",
+    value: "",
   });
   assert.equal(await manual.run("complete"), false);
   assert.equal(manual.getSnapshot().error, "Couldn't save. Enter whole repetitions for each set.");
   assert.equal(f.saved().status, "planned");
+});
+
+/** An Active workout with a lift and a timed stretch, whose set clocks read `time.now`. */
+async function timedFixture() {
+  const log = session("active");
+  const stretch = { ...exercise, id: "stretch", name: "Stretch", tracking: "time" as const };
+  const f = await fixture("active", [
+    {
+      ...log,
+      exercises: [
+        ...log.exercises,
+        {
+          id: "stretch-row",
+          exercise: stretch,
+          sets: [
+            { id: "hold", kind: "time", seconds: "30" },
+            { id: "open", kind: "time", seconds: "" },
+          ],
+        },
+      ],
+    },
+  ]);
+  const time = { now: 5_000_000 };
+  const tab = createExerciseTabView({
+    store: f.store,
+    date: "2026-10-04",
+    importSources: [],
+    now: () => time.now,
+  });
+  tab.start();
+  await tab.requestView({ kind: "session", id: "log" });
+  const seconds = (setId: string) => {
+    const set = tab.edits
+      .edit("log")
+      .getSnapshot()
+      .fields.exercises[1]!.sets.find((value) => value.id === setId)!;
+    return set.kind === "time" ? set.seconds : null;
+  };
+  return { ...f, tab, edit: () => tab.edits.edit("log"), time, seconds };
+}
+
+test("a stopwatch keeps running while another exercise shows, and stopping logs its time", async () => {
+  const f = await timedFixture();
+  f.edit().select("stretch-row");
+  f.edit().toggleClock("stretch-row", "open");
+  assert.deepEqual(f.edit().getSnapshot().clock, {
+    rowId: "stretch-row",
+    setId: "open",
+    startedAt: 5_000_000,
+    target: null,
+  });
+  // Showing the lift used to unmount the clock with its row.
+  f.edit().select("row");
+  f.time.now += 42_000;
+  assert.equal(f.edit().clockTime(), 42);
+  assert.equal(f.edit().tickClock(), false, "a stopwatch never runs out");
+  f.edit().toggleClock("stretch-row", "open");
+  assert.equal(f.edit().getSnapshot().clock, null);
+  assert.equal(f.seconds("open"), "42");
+});
+
+test("a countdown that runs out logs its seconds, even after waiting out a busy save", async () => {
+  const f = await timedFixture();
+  f.edit().toggleClock("stretch-row", "hold");
+  assert.equal(f.edit().getSnapshot().clock?.target, 30);
+  f.time.now += 10_000;
+  assert.equal(f.edit().clockTime(), 20, "a countdown shows the time left");
+  assert.equal(f.edit().tickClock(), false);
+  const held = holdWrites(f, () => false);
+  const saving = f.edit().run("retry");
+  assert.equal(f.edit().getSnapshot().busy, true);
+  f.time.now += 25_000;
+  // A busy edit takes no changes, so the clock waits instead of dropping the time.
+  assert.equal(f.edit().tickClock(), false);
+  assert.notEqual(f.edit().getSnapshot().clock, null);
+  held.release();
+  assert.equal(await saving, true);
+  assert.equal(f.edit().tickClock(), true);
+  assert.equal(f.edit().getSnapshot().clock, null);
+  assert.equal(f.seconds("hold"), "30");
+});
+
+test("starting another set's clock logs the running one; ending the workout logs a running clock", async () => {
+  const f = await timedFixture();
+  f.edit().toggleClock("stretch-row", "open");
+  f.time.now += 15_000;
+  f.edit().toggleClock("stretch-row", "hold");
+  assert.equal(f.seconds("open"), "15");
+  assert.equal(f.edit().getSnapshot().clock?.setId, "hold");
+  f.time.now += 12_000;
+  assert.equal(await f.edit().run("complete"), true);
+  const stretch = f.saved().exercises[1]!.sets;
+  assert.deepEqual(
+    stretch.map((set) => (set.kind === "time" ? set.seconds : null)),
+    ["12", "15"],
+  );
 });

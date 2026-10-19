@@ -119,7 +119,27 @@ date later becomes Today; selecting Today resumes daily advancement.
 **Today**: The current date in the device’s local time zone.
 
 **Exercise definition**: A reusable, account-owned exercise with a name, optional
-muscle group, equipment, notes, and single-load or separate left/right tracking.
+muscle group, equipment, notes, and a Tracking mode.
+
+**Tracking mode**: How an Exercise definition's sets are entered: Single weight (reps
+and kilograms), Left and right (a Side set), Alternating (an Alternating set) or Timed
+(a Timed set). Every set has its exercise's mode. Changing the mode applies to future
+workout logs; earlier logs keep the mode they were logged in.
+
+**Alternating set**: One line of reps per side and kilograms, for exercises that
+alternate sides. Its reps and lifted volume count both sides: 10 reps per side at 12 kg
+is 20 reps and 240 kg.
+
+**Timed set**: Whole seconds, from 1 to 86,400, instead of reps and kilograms, for
+stretches and holds. It counts as a set with no reps or volume, and the Workout graph
+has no weight to draw for it.
+
+**Set clock**: A Timed set's running clock in a Workout edit. Started on a blank set it
+is a stopwatch; started on a set with seconds it counts down from them. Stopping logs
+the seconds it ran, and a countdown that runs out logs its seconds. One clock runs at a
+time: starting another logs the first. It keeps running while another exercise shows
+or the workout's page is away, and Save, Log, End and Cancel log it first. It is not
+saved, so closing the app loses it.
 
 **Workout template**: A named, ordered exercise list with optional planned set
 counts per exercise. Reps and weights are entered while logging. New templates

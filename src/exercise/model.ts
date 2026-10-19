@@ -1,4 +1,5 @@
 import { parseDay } from "../calendar/dates.ts";
+import { decimal, setHint, setMeasurements, type SetLine } from "./tracking.ts";
 
 export type CatalogLink = { id: string; slug: string };
 export type ExerciseDefinition = {
@@ -7,14 +8,17 @@ export type ExerciseDefinition = {
   muscleGroup: string;
   equipment: string;
   notes: string;
-  tracking: "single" | "sides";
+  /** The Tracking mode; see `tracking.ts`. */
+  tracking: "single" | "sides" | "alternating" | "time";
   /** The KineVault exercise whose demonstration this exercise shows. */
   catalog?: CatalogLink;
 };
 export type SetSide = { reps: string; weightKg: string };
+/** A set's `kind` is its exercise's Tracking mode. */
 export type ExerciseSet =
-  | { id: string; kind: "single"; reps: string; weightKg: string }
-  | { id: string; kind: "sides"; left: SetSide; right: SetSide };
+  | { id: string; kind: "single" | "alternating"; reps: string; weightKg: string }
+  | { id: string; kind: "sides"; left: SetSide; right: SetSide }
+  | { id: string; kind: "time"; seconds: string };
 export type SessionExercise = { id: string; exercise: ExerciseDefinition; sets: ExerciseSet[] };
 export type WorkoutTemplate = {
   id: string;
@@ -86,7 +90,12 @@ export function parseCatalogLink(value: unknown): CatalogLink {
 
 export function parseExerciseDefinition(value: unknown): ExerciseDefinition {
   const item = record(value);
-  if (item.tracking !== "single" && item.tracking !== "sides")
+  if (
+    item.tracking !== "single" &&
+    item.tracking !== "sides" &&
+    item.tracking !== "alternating" &&
+    item.tracking !== "time"
+  )
     throw new Error("Invalid exercise tracking");
   const definition: ExerciseDefinition = {
     id: id(item.id),
@@ -112,29 +121,13 @@ function side(value: unknown): SetSide {
 }
 function parseSet(value: unknown): ExerciseSet {
   const item = record(value);
-  if (item.kind === "single") return { id: id(item.id), kind: "single", ...side(item) };
+  if (item.kind === "single" || item.kind === "alternating")
+    return { id: id(item.id), kind: item.kind, ...side(item) };
   if (item.kind === "sides")
     return { id: id(item.id), kind: "sides", left: side(item.left), right: side(item.right) };
+  if (item.kind === "time")
+    return { id: id(item.id), kind: "time", seconds: text(item.seconds, 32) };
   throw new Error("Invalid exercise set kind");
-}
-export function createEmptySet(
-  tracking: ExerciseDefinition["tracking"],
-  setId: string,
-): ExerciseSet {
-  return parseSet(
-    tracking === "single"
-      ? { id: setId, kind: tracking, reps: "", weightKg: "" }
-      : {
-          id: setId,
-          kind: tracking,
-          left: { reps: "", weightKg: "" },
-          right: { reps: "", weightKg: "" },
-        },
-  );
-}
-export function isBlankSet(set: ExerciseSet): boolean {
-  const blankSide = (side: SetSide) => !side.reps.trim() && !side.weightKg.trim();
-  return set.kind === "single" ? blankSide(set) : blankSide(set.left) && blankSide(set.right);
 }
 export function parseSessionExercise(value: unknown): SessionExercise {
   const item = record(value);
@@ -145,41 +138,6 @@ export function parseSessionExercise(value: unknown): SessionExercise {
   return { id: id(item.id), exercise, sets };
 }
 
-function decimal(value: string, blank: number | null): number {
-  const input = value.trim();
-  if (input === "" && blank !== null) return blank;
-  if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(input))
-    throw new Error("Enter weights and minutes as numbers of 0 or more.");
-  const amount = Number(input);
-  if (!Number.isFinite(amount) || amount < 0 || amount > 100000)
-    throw new Error("Enter weights and minutes of 100,000 or less.");
-  return amount;
-}
-function measurement(value: SetSide, zeroAllowed: boolean) {
-  if (zeroAllowed && !value.reps.trim() && !value.weightKg.trim()) return { reps: 0, weightKg: 0 };
-  if (!/^\d+$/.test(value.reps.trim())) throw new Error("Enter whole repetitions for each set.");
-  const reps = Number(value.reps.trim());
-  if (!Number.isSafeInteger(reps) || reps < (zeroAllowed ? 0 : 1) || reps > 100000)
-    throw new Error("Enter from 1 to 100,000 repetitions for each set.");
-  return { reps, weightKg: decimal(value.weightKg, 0) };
-}
-export function setMeasurements(set: ExerciseSet): {
-  reps: number;
-  volume: number;
-  weights: number[];
-} {
-  const values =
-    set.kind === "single"
-      ? [measurement(set, false)]
-      : [measurement(set.left, true), measurement(set.right, true)];
-  const reps = values.reduce((sum, value) => sum + value.reps, 0);
-  if (reps === 0) throw new Error("Enter repetitions on at least one side of each set.");
-  return {
-    reps,
-    volume: values.reduce((sum, value) => sum + value.reps * value.weightKg, 0),
-    weights: values.filter((value) => value.reps > 0).map((value) => value.weightKg),
-  };
-}
 export function durationFromMinutes(value: string | undefined): number | null {
   if (value === undefined || value.trim() === "") return null;
   text(value, 32);
@@ -336,10 +294,8 @@ function previousSets(
   }
   return latest?.sets ?? [];
 }
-type SideHint = { reps: string | undefined; weightKg: string | undefined };
-/** A set's placeholder values; undefined where there is nothing to show. */
-export type SetHint =
-  ({ kind: "single" } & SideHint) | { kind: "sides"; left: SideHint; right: SideHint };
+/** A set's placeholder values line by line; undefined where there is nothing to show. */
+export type SetHint = SetLine[];
 /**
  * The Previous sets hint for each set of `row`: the matching set from the latest other Completed
  * workout with this exercise on or before `session`'s day, or failing that the set above it.
@@ -350,15 +306,5 @@ export function setHints(
   row: SessionExercise,
 ): SetHint[] {
   const previous = previousSets(sessions, session, row.exercise.id);
-  return row.sets.map((set, index) => {
-    const source = previous[index] ?? row.sets[index - 1];
-    // A single-load set reads a two-sided source's left side; sides read a single load on both.
-    const side = (name: "left" | "right"): SideHint => {
-      const values = !source ? null : source.kind === "single" ? source : source[name];
-      return { reps: values?.reps || undefined, weightKg: values?.weightKg || undefined };
-    };
-    return set.kind === "single"
-      ? { kind: "single", ...side("left") }
-      : { kind: "sides", left: side("left"), right: side("right") };
-  });
+  return row.sets.map((set, index) => setHint(set, previous[index] ?? row.sets[index - 1]));
 }

@@ -1,19 +1,23 @@
 import {
   activeWorkout,
-  createEmptySet,
   durationFromMinutes,
   formatElapsed,
-  isBlankSet,
   parsePlannedSetCount,
   plannedSetCountMessage,
   setHints,
   type ExerciseDefinition,
   type ExerciseDocument,
-  type ExerciseSet,
   type SessionExercise,
   type SetHint,
   type WorkoutSession,
 } from "./model.ts";
+import {
+  createEmptySet,
+  isBlankSet,
+  withSetValue,
+  type SetField,
+  type SetLine,
+} from "./tracking.ts";
 import { writeFailure, type createExercisePersistence, type ExerciseWrite } from "./persistence.ts";
 import type { ExercisePanels, WorkoutView } from "./tab-view.ts";
 
@@ -23,6 +27,11 @@ import type { ExercisePanels, WorkoutView } from "./tab-view.ts";
  */
 export type WorkoutLogMode = "compact" | "active" | "manual" | "completed";
 export type WorkoutFields = { name: string; exercises: SessionExercise[]; minutes: string };
+/**
+ * A timed set's running clock: a stopwatch from `startedAt`, or with a `target` a countdown from
+ * the seconds the set held when it started.
+ */
+export type SetClock = { rowId: string; setId: string; startedAt: number; target: number | null };
 export type WorkoutEditState = {
   session: WorkoutSession;
   fields: WorkoutFields;
@@ -38,6 +47,8 @@ export type WorkoutEditState = {
   detailsOpen: boolean;
   /** The exercise row whose notes show. */
   notesId: string | null;
+  /** The running set clock; it keeps running while another exercise shows or the page is away. */
+  clock: SetClock | null;
 };
 type Store = Pick<
   ReturnType<typeof createExercisePersistence>,
@@ -48,7 +59,14 @@ type Change =
   | { kind: "minutes"; value: string }
   | { kind: "count"; rowId: string; value: string }
   | { kind: "add-set"; rowId: string }
-  | { kind: "set"; rowId: string; setId: string; build: (set: ExerciseSet) => ExerciseSet };
+  | {
+      kind: "set";
+      rowId: string;
+      setId: string;
+      side: SetLine["side"];
+      field: SetField;
+      value: string;
+    };
 type Action =
   "retry" | "settings" | "cancel" | "leave" | "start" | "manual" | "complete" | "save" | "discard";
 type WorkoutLogControls = {
@@ -142,9 +160,9 @@ export const workoutLogControls = {
     sheet: { title: "Logged workout", testID: "session-editor" },
   },
 } satisfies Record<WorkoutLogMode, WorkoutLogControls>;
-/** The edit with the controls its log mode allows. */
+/** The edit with the controls its log mode allows. The saved log and row ID stay inside. */
 export type WorkoutEditSnapshot = Readonly<
-  WorkoutEditState &
+  Omit<WorkoutEditState, "session" | "selectedId"> &
     WorkoutLogControls & {
       mode: WorkoutLogMode;
       /** The exercise row on screen: the selected one, or the first. */
@@ -209,6 +227,8 @@ export function createWorkoutEditing(
   panels: Pick<ExercisePanels, "panel" | "origin" | "leave">,
   /** The tab's view request, which saves the logs it leaves before opening `content`. */
   requestView: (content: WorkoutView) => Promise<boolean>,
+  /** The time set clocks read. */
+  now: () => number = Date.now,
 ) {
   const entries = new Map<string, Entry>(),
     listeners = new Set<() => void>();
@@ -241,15 +261,16 @@ export function createWorkoutEditing(
       mode = modeOf(entry);
     if (entry.view?.state === state && entry.view.snapshot.mode === mode)
       return entry.view.snapshot;
+    const { session, selectedId, ...shown } = state;
     const { exercises, minutes } = state.fields;
-    const selected = exercises.find((row) => row.id === state.selectedId) ?? exercises[0];
+    const selected = exercises.find((row) => row.id === selectedId) ?? exercises[0];
     // Hints read other logs too; a newer document always replaces the state (see refreshDocument).
     const snapshot: WorkoutEditSnapshot = {
-      ...state,
+      ...shown,
       mode,
       ...workoutLogControls[mode],
       selected,
-      hints: selected ? setHints(document()?.sessions ?? [], state.session, selected) : [],
+      hints: selected ? setHints(document()?.sessions ?? [], session, selected) : [],
       durationCaption: durationCaption(minutes),
     };
     entry.view = { state, snapshot };
@@ -301,6 +322,7 @@ export function createWorkoutEditing(
           settingsOpen: false,
           detailsOpen: false,
           notesId: null,
+          clock: null,
         },
       };
       entries.set(id, entry);
@@ -471,7 +493,11 @@ export function createWorkoutEditing(
                   sets:
                     input.kind === "add-set"
                       ? [...row.sets, createEmptySet(row.exercise.tracking, localId())]
-                      : row.sets.map((set) => (set.id === input.setId ? input.build(set) : set)),
+                      : row.sets.map((set) =>
+                          set.id === input.setId
+                            ? withSetValue(set, input.side, input.field, input.value)
+                            : set,
+                        ),
                 },
           ),
         };
@@ -490,6 +516,8 @@ export function createWorkoutEditing(
       if (!current(id, entry)) return false;
       if (kind === "retry") return flush(id, entry);
       if (kind === "manual") return requestView({ kind: "session", id, manual: true });
+      // A save or cancel logs a running clock first, so its time isn't lost.
+      if (kind === "complete" || kind === "save" || kind === "cancel") settleClock();
       if (kind === "settings") {
         const success = await flush(id, entry);
         // Saved settings fold away; a failure keeps them open beside its feedback.
@@ -565,11 +593,57 @@ export function createWorkoutEditing(
         return success;
       });
     }
+    function clockSeconds(clock: SetClock) {
+      const elapsed = Math.max(0, Math.floor((now() - clock.startedAt) / 1000));
+      return clock.target === null ? elapsed : Math.min(elapsed, clock.target);
+    }
+    /** Stops the running clock and logs the seconds it ran; nothing while the edit is busy. */
+    function settleClock() {
+      const clock = entry.state.clock;
+      if (!clock || !current(id, entry) || entry.state.busy) return;
+      const seconds = clockSeconds(clock);
+      entry.state = { ...entry.state, clock: null };
+      if (seconds > 0)
+        change({ ...clock, kind: "set", side: null, field: "seconds", value: String(seconds) });
+      else emit();
+    }
     return {
       getSnapshot: () => view(entry),
       subscribe,
       change,
       run,
+      /**
+       * Starts a timed set's clock: a countdown from its seconds, or a stopwatch on a blank set.
+       * On the running set it stops and logs the seconds it ran; another running clock stops first.
+       */
+      toggleClock(rowId: string, setId: string) {
+        if (!current(id, entry) || entry.state.busy) return;
+        const running = entry.state.clock;
+        settleClock();
+        if (running?.setId === setId) return;
+        const set = entry.state.fields.exercises
+          .find((row) => row.id === rowId)
+          ?.sets.find((value) => value.id === setId);
+        if (set?.kind !== "time") return;
+        const seconds = set.seconds.trim();
+        const target = /^\d+$/.test(seconds) && Number(seconds) > 0 ? Number(seconds) : null;
+        publish(entry, { clock: { rowId, setId, startedAt: now(), target } });
+      },
+      /** The running clock's seconds: counted up, or left of a countdown. */
+      clockTime() {
+        const clock = entry.state.clock;
+        if (!clock) return null;
+        const seconds = clockSeconds(clock);
+        return clock.target === null ? seconds : clock.target - seconds;
+      },
+      /** Ends a countdown that has run out and logs its seconds; true when one ended. */
+      tickClock() {
+        const clock = entry.state.clock;
+        if (!clock || clock.target === null || entry.state.busy) return false;
+        if (clockSeconds(clock) < clock.target) return false;
+        settleClock();
+        return true;
+      },
       select(rowId: string) {
         if (current(id, entry) && entry.state.selectedId !== rowId)
           publish(entry, { selectedId: rowId });

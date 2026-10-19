@@ -21,6 +21,7 @@ import { SourceStatus } from "./profile-controls";
 import { SegmentedControl } from "../components/segmented-control";
 import { JournalDisclosure, JournalFigure, JournalHeading } from "./journal-ui";
 import { ChartSeriesLayer } from "./chart-reveal";
+import { trackingMode } from "../exercise/tracking";
 export function WorkoutChart({ today }: { today: string }) {
   const exercise = useExercises(),
     { colors, appearance } = useTheme();
@@ -111,7 +112,8 @@ export function WorkoutChart({ today }: { today: string }) {
               label="Choose exercise"
               values={options.map((option) => ({
                 value: option.key,
-                label: `${option.name}${option.tracking === "sides" ? " · Left / Right" : ""}`,
+                // The mode tells apart history logged under different Tracking modes.
+                label: [option.name, trackingMode(option.tracking).tag].filter(Boolean).join(" · "),
               }))}
               value={graph.exerciseKey!}
               onChange={(value) => {

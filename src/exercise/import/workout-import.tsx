@@ -20,6 +20,7 @@ import type { LibraryDrafts } from "../library-drafts";
 import { useExercises } from "../provider";
 import { previewWorkoutImport, type WorkoutImportRow } from "./mapping";
 import { capitalizeWords } from "./tracked-page";
+import { trackingMode } from "../tracking";
 import { workoutImportSources, type WorkoutImportSource } from "./sources";
 
 const count = (value: number, noun: string) => `${value} ${noun}${value === 1 ? "" : "s"}`;
@@ -274,7 +275,7 @@ function ImportRow({ row, first }: { row: WorkoutImportRow; first: boolean }) {
     row.status === "library"
       ? "In your library"
       : row.sidesFromName
-        ? "New · Left and right"
+        ? `New · ${trackingMode("sides").tag}`
         : "New";
   return (
     <View
