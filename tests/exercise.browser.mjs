@@ -321,6 +321,11 @@ test("the live timer sits in the header and restores after reload; the tab shows
     // The timer is centered on the screen, not just between the header's two sides.
     const box = await headerTimer.boundingBox();
     assert.ok(Math.abs(box.x + box.width / 2 - width / 2) <= 1, `${width}: ${JSON.stringify(box)}`);
+    // The calendar chip leads the date, and both stop short of the timer.
+    const chip = await button(page, "Expand calendar").boundingBox();
+    const date = await page.getByLabel("Saturday, October 3, 2026", { exact: true }).boundingBox();
+    assert.ok(chip.x + chip.width <= date.x, `${width}: chip ${chip.x}, date ${date.x}`);
+    assert.ok(date.x + date.width < box.x, `${width}: date ends ${date.x + date.width}`);
   }
   // The header timer opens the workout's page, which centers the timer in its own top bar.
   await headerTimer.click();
