@@ -48,6 +48,12 @@ In the browser, the same steps are Actions > Android release build > Run
 workflow, then the `KineVaultTrack-apk` artifact on the finished run. The
 browser download is a zip with the `.apk` inside.
 
+To label a build, give it a name, such as the date:
+`gh workflow run android-release-build.yml -f name=2026-10-19`. The run is
+called "Android release build 2026-10-19", the artifact
+`KineVaultTrack-2026-10-19` and the file `KineVaultTrack-2026-10-19.apk`. Names
+use letters, digits, dot, dash and underscore, up to 40 characters.
+
 The workflow fails if the `.apk` isn't signed with the release key or if the
 Supabase URL is missing from the JavaScript bundle. It builds for phone CPUs
 only (`armeabi-v7a`, `arm64-v8a`). Artifacts expire after 7 days.
