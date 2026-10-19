@@ -279,7 +279,7 @@ it the same way. It replaces the installed copy and keeps its data.
 
 This build embeds the JavaScript and never talks to Metro. For quick edits,
 keep using Expo Go with `npm start` or `npm run start:lan` on this machine (see
-the README's [iPhone connection](../README.md#iphone-connection) section). Use the xtool build to check what Expo
+the [iPhone connection](troubleshooting.md#iphone-connection) notes). Use the xtool build to check what Expo
 Go can't show: the real native app, the splash screen, notification
 permissions, `kinevaulttrack://` links, and Release performance.
 
