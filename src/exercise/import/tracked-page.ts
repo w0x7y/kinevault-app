@@ -28,6 +28,8 @@ type PageElement = {
   parent: PageElement | null;
   children: (PageElement | string)[];
   meta: { property: string; content: string } | null;
+  /** Links to an exercise page. Table pages show the exercise name this way. */
+  exerciseLink: boolean;
   /** Children holding any characters, so text reads skip empty subtrees. */
   textChildren: (PageElement | string)[];
   /** Whether this subtree holds any non-whitespace text. */
@@ -147,6 +149,7 @@ function buildTree(rows: Map<string, unknown>): PageElement {
     parent: null,
     children: [],
     meta: null,
+    exerciseLink: false,
     textChildren: [],
     visible: false,
   };
@@ -180,7 +183,8 @@ function buildTree(rows: Map<string, unknown>): PageElement {
         const tag = value[1].startsWith("$") ? "" : value[1].toLowerCase();
         if (skippedTags.has(tag)) return;
         const property = own(props, "property"),
-          content = own(props, "content");
+          content = own(props, "content"),
+          href = own(props, "href");
         const element: PageElement = {
           tag,
           key: typeof value[2] === "string" ? value[2] : null,
@@ -190,6 +194,9 @@ function buildTree(rows: Map<string, unknown>): PageElement {
             tag === "meta" && typeof property === "string" && typeof content === "string"
               ? { property, content }
               : null,
+          exerciseLink:
+            typeof href === "string" &&
+            /^(?:https:\/\/app\.tracked\.gg)?\/v\/exercise\//.test(href),
           textChildren: [],
           visible: false,
         };
@@ -273,7 +280,8 @@ type Indexed = {
   parent: Indexed | null;
   label: string | null;
   labels: number;
-  /** First nonblank paragraph and heading in this subtree. */
+  /** First nonblank exercise link, paragraph and heading in this subtree. */
+  link: Indexed | null;
   paragraph: Indexed | null;
   heading: Indexed | null;
 };
@@ -293,10 +301,12 @@ function index(root: PageElement): Indexed[] {
       parent,
       label: labelPattern.test(text) ? text : null,
       labels: 0,
+      link: null,
       paragraph: null,
       heading: null,
     };
     all.push(entry);
+    if (element.exerciseLink && element.visible) entry.link = entry;
     if (element.tag === "p" && element.visible) entry.paragraph = entry;
     if (element.tag === "h1" && element.visible) entry.heading = entry;
     entry.labels = entry.label ? 1 : 0;
@@ -304,6 +314,7 @@ function index(root: PageElement): Indexed[] {
       if (typeof child === "string") continue;
       const nested = visit(child, entry);
       entry.labels += nested.labels;
+      entry.link ??= nested.link;
       entry.paragraph ??= nested.paragraph;
       entry.heading ??= nested.heading;
     }
@@ -335,15 +346,36 @@ export function parseTrackedWorkoutPage(payload: string, workoutId: string): Imp
   const all = index(buildTree(readFlightRows(payload)));
   const labels = all.filter((entry) => entry.label !== null);
   if (labels.length > trackedExerciseLimit * 4) throw oversizedPage();
+  const cellsOf = (row: PageElement) =>
+    row.children.filter((child): child is PageElement => typeof child !== "string");
+  const reads = (child: PageElement | string, text: RegExp) =>
+    typeof child !== "string" &&
+    child.children.length === 1 &&
+    typeof child.children[0] === "string" &&
+    text.test(child.children[0]);
+  // Table pages give each exercise a row; the header row names the cells by position. It
+  // holds Sets beside Exercise, so a workout or exercise named "Sets" isn't taken for it.
+  const header = all.find(
+    ({ element }) =>
+      element.children.length <= chipLimit &&
+      element.children.some((child) => reads(child, /^\s*sets\s*$/i)) &&
+      element.children.some((child) => reads(child, /^\s*exercise\s*$/i)),
+  );
+  const columns = header
+    ? cellsOf(header.element).map((cell) => cleanText(cell, chipTextLimit))
+    : null;
   const exercises: (ImportedExercise & { position: number; entry: Indexed })[] = [];
   const seen = new Set<string>();
   for (const [position, entry] of labels.entries()) {
     const label = entry.label!;
-    // The smallest ancestor holding a named paragraph is this exercise's content.
+    // The smallest ancestor holding an exercise link or a named paragraph is this exercise's
+    // content. Table pages link the name and put muscle groups in the paragraph.
     let scope = entry.parent;
-    for (let level = 0; scope && level < 8 && !scope.paragraph; level++) scope = scope.parent;
-    if (!scope?.paragraph || scope.labels !== 1) continue;
-    const name = capitalizeWords(cleanText(scope.paragraph.element, nameLimit));
+    for (let level = 0; scope && level < 8 && !(scope.link ?? scope.paragraph); level++)
+      scope = scope.parent;
+    const title = scope?.link ?? scope?.paragraph;
+    if (!scope || !title || scope.labels !== 1) continue;
+    const name = capitalizeWords(cleanText(title.element, nameLimit));
     // A name that reads blank within its budget can't be saved, so it counts as no name.
     if (!name) continue;
     let holder: Indexed | null = entry.parent;
@@ -355,13 +387,23 @@ export function parseTrackedWorkoutPage(payload: string, workoutId: string): Imp
     seen.add(identity);
     // Scopes hold one label each, so they don't overlap and the scans stay linear overall.
     const chips: string[] = [];
-    for (let at = scope.index + 1, read = 0; at < scope.end && read < chipLimit * 2; at++) {
-      const element = all[at]!.element;
-      if (element.tag !== "span" || !element.visible) continue;
-      read++;
-      const text = cleanText(element, chipTextLimit);
-      if (text && text !== label && text !== name && chips.length < chipLimit) chips.push(text);
-    }
+    const cells = columns && entry.parent ? cellsOf(entry.parent.element) : [];
+    if (columns && cells.length === columns.length) {
+      // A table cell becomes a chip such as `Sets 4`. The # and Exercise columns hold the
+      // label and name, and a dash marks an empty cell.
+      for (const [at, cell] of cells.entries()) {
+        const value = cleanText(cell, chipTextLimit);
+        if (!/^(?:#|exercise)?$/i.test(columns[at]!) && !/^[—–-]?$/.test(value))
+          chips.push(clean(`${columns[at]} ${value}`, chipTextLimit));
+      }
+    } else
+      for (let at = scope.index + 1, read = 0; at < scope.end && read < chipLimit * 2; at++) {
+        const element = all[at]!.element;
+        if (element.tag !== "span" || !element.visible) continue;
+        read++;
+        const text = cleanText(element, chipTextLimit);
+        if (text && text !== label && text !== name && chips.length < chipLimit) chips.push(text);
+      }
     exercises.push({ sourceId, label, name, position, entry, ...readChips(chips) });
     if (exercises.length > trackedExerciseLimit)
       throw new WorkoutImportError(

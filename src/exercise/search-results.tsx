@@ -72,7 +72,7 @@ export function ExerciseSearchResults({
   onNavigate,
 }: {
   query: string;
-  exercises: ExerciseDefinition[];
+  exercises: readonly ExerciseDefinition[];
   onSelect: (exercise: ExerciseDefinition) => void;
   onLayout: ViewProps["onLayout"];
   onNavigate: () => void;

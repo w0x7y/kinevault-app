@@ -1,6 +1,6 @@
 import { parseDay } from "../calendar/dates.ts";
 import type { WorkoutImportFlowSource } from "./import/import-flow.ts";
-import { createLibraryDrafts } from "./library-drafts.ts";
+import { createLibraryDrafts, type LibraryDrafts } from "./library-drafts.ts";
 import {
   activeWorkout,
   type ExerciseDefinition,
@@ -13,6 +13,7 @@ import {
   createWorkoutEditing,
   workoutLogControls,
   workoutLogMode,
+  type WorkoutEdit,
   type WorkoutLogMode,
 } from "./workout-editing.ts";
 
@@ -199,12 +200,31 @@ function sheetPage(
   }
 }
 
+/** The sheet's page with the owner that renders it. */
+export type ExerciseTabPage =
+  | {
+      kind: "exercise";
+      draft: ReturnType<LibraryDrafts["exercise"]>;
+      exercise?: ExerciseDefinition;
+      linkDemo: boolean;
+    }
+  | { kind: "workout"; draft: ReturnType<LibraryDrafts["template"]>; workout?: WorkoutTemplate }
+  | { kind: "library"; actions: ReturnType<LibraryDrafts["savedWorkouts"]>; date: string }
+  | { kind: "import"; flow: ReturnType<LibraryDrafts["workoutImport"]> }
+  /** A null edit: the workout is no longer available. */
+  | { kind: "session"; edit: WorkoutEdit | null };
+
 type ExerciseTabSnapshot = Readonly<
-  ExerciseTabProjection & {
+  Omit<ExerciseTabProjection, "sheet"> & {
+    sheet: (ExerciseTabSheet & { page: ExerciseTabPage; close: () => void }) | null;
     query: string;
     panel: WorkoutPanel | null;
     /** The live workout just ended: the day's card fades in where the live card was. */
     liveEnded: boolean;
+    /** Whether the exercise document is loaded; panels open only over it. */
+    loaded: boolean;
+    /** The library's Exercise definitions, which search reads. */
+    exercises: readonly ExerciseDefinition[];
   }
 >;
 
@@ -236,7 +256,6 @@ export function createExerciseTabView({
     liveEnded = false,
     dailyShown = false;
   let unfollow: (() => void) | undefined;
-  let snapshot = build();
 
   function build(): ExerciseTabSnapshot {
     const state = store.getSnapshot().state;
@@ -250,13 +269,50 @@ export function createExerciseTabView({
     else if (wasLive && !activeWorkout(document?.sessions ?? [])) liveEnded = true;
     wasLive = live;
     dailyShown = view.showDailyWorkout;
+    const { sheet } = view;
     return {
       ...view,
-      sheet: focused ? view.sheet : null,
+      sheet:
+        focused && sheet
+          ? {
+              ...sheet,
+              page: page(sheet.panel, sheet.log),
+              close: () => panels.closeView(sheet.panel.token),
+            }
+          : null,
       query,
       panel,
       liveEnded: liveEnded && view.showDailyWorkout,
+      loaded: document !== null,
+      exercises: document?.exercises ?? [],
     };
+  }
+  function page({ content, token }: WorkoutPanel, log: ExerciseTabSheet["log"]): ExerciseTabPage {
+    switch (content.kind) {
+      case "exercise":
+        return {
+          kind: "exercise",
+          draft: drafts.exercise(token, content.exercise, content.linkDemo),
+          exercise: content.exercise,
+          linkDemo: content.linkDemo ?? false,
+        };
+      case "workout":
+        return {
+          kind: "workout",
+          draft: drafts.template(token, content.workout),
+          workout: content.workout,
+        };
+      case "library":
+        return {
+          kind: "library",
+          actions: drafts.savedWorkouts(token, content.date),
+          date: content.date,
+        };
+      case "import":
+        return { kind: "import", flow: drafts.workoutImport(token, content.source) };
+      case "session":
+        return { kind: "session", edit: log && edits.edit(log.session.id) };
+    }
   }
   function publish() {
     snapshot = build();
@@ -303,7 +359,8 @@ export function createExerciseTabView({
   };
   // Library drafts subscribe first, so a replaced panel's draft retires before the screen renders.
   const drafts = createLibraryDrafts({ store, panels, importSources });
-  const edits = createWorkoutEditing(store, panels);
+  const edits = createWorkoutEditing(store, panels, requestView);
+  let snapshot = build();
 
   /** Opens `content` once the logs it leaves are saved; only the latest request opens. */
   async function requestView(content: WorkoutView) {
@@ -334,6 +391,8 @@ export function createExerciseTabView({
     drafts,
     requestView,
     closeView: panels.closeView,
+    /** Saved workouts for the Selected day. */
+    openLibrary: () => requestView({ kind: "library", date: day }),
     search(text: string) {
       query = text;
       publish();

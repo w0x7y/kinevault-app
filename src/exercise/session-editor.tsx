@@ -1,20 +1,12 @@
-import { useState } from "react";
 import { View } from "react-native";
 import { AppText, Overline, Panel } from "../components/ui";
 import { ButtonRow, AppButton, IconButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
 import { spacing } from "../theme/tokens";
-import {
-  durationFromMinutes,
-  formatElapsed,
-  setHints,
-  type SessionExercise,
-  type WorkoutSession,
-} from "./model";
-import { useExercises } from "./provider";
-import type { ExerciseTabView } from "./tab-view";
+import type { SessionExercise } from "./model";
 import { ExerciseDemoSlot } from "./demo/exercise-demo";
 import { useWorkoutEdit } from "./use-workout-editing";
+import type { WorkoutEdit } from "./workout-editing";
 import { InlineMessage } from "../components/inline-message";
 import { TextField } from "../components/text-field";
 import { ExerciseNotes, SectionLabel } from "./controls";
@@ -23,33 +15,24 @@ import { exerciseRowLabel } from "./short-name";
 import { WorkoutWorkspace } from "./workout-workspace";
 import { useSheetBack } from "../components/sheet-page";
 
-function durationCaption(minutes: string) {
-  try {
-    const seconds = durationFromMinutes(minutes);
-    return seconds === null ? "Duration not set" : formatElapsed(seconds);
-  } catch {
-    return "Invalid duration";
-  }
-}
-
 export function SessionEditor({
-  session,
-  tab,
+  edit,
   closable = false,
 }: {
-  session: WorkoutSession;
-  tab: ExerciseTabView;
+  edit: WorkoutEdit;
   /** Whether a compact card shows its close control: a panel opened the card on its own. */
   closable?: boolean;
 }) {
   const {
-    edit,
     fields: draft,
     counts,
     busy,
     error,
     countError: settingsError,
-    selectedId,
+    selected,
+    hints,
+    notesId,
+    durationCaption,
     settingsOpen,
     detailsOpen,
     mode,
@@ -63,11 +46,7 @@ export function SessionEditor({
     retry,
     overline,
     testID,
-    returnTo,
-  } = useWorkoutEdit(tab.edits, session.id);
-  const store = useExercises();
-  const sessions = store.state.kind === "ready" ? store.state.document.sessions : [];
-  const [notesId, setNotesId] = useState<string | null>(null);
+  } = useWorkoutEdit(edit);
   // In a sheet, its back button is this workout's Cancel. The Active workout keeps running.
   const inSheet = useSheetBack({ onPress: () => void edit.run(back), disabled: busy });
   function renderExercise(row: SessionExercise, index: number) {
@@ -98,12 +77,12 @@ export function SessionEditor({
             label={`View notes for ${rowLabel}`}
             expanded={notesId === row.id}
             disabled={busy}
-            onPress={() => setNotesId((previous) => (previous === row.id ? null : row.id))}
+            onPress={() => edit.showNotes(notesId === row.id ? null : row.id)}
           />
         </View>
         <ExerciseSetTable
           sets={row.sets}
-          hints={setHints(sessions, session, row)}
+          hints={hints}
           rowLabel={rowLabel}
           busy={busy}
           onChange={(setId, build) => edit.change({ kind: "set", rowId: row.id, setId, build })}
@@ -113,19 +92,11 @@ export function SessionEditor({
           exercise={row.exercise}
           label={rowLabel}
           disabled={busy}
-          onLinkDemo={(definition) =>
-            void tab.requestView({
-              kind: "exercise",
-              exercise: definition,
-              linkDemo: true,
-              returnTo,
-            })
-          }
+          onLinkDemo={(definition) => void edit.linkDemo(definition)}
         />
       </View>
     );
   }
-  const selected = draft.exercises.find((row) => row.id === selectedId) ?? draft.exercises[0];
   const feedback = (
     <>
       <InlineMessage>{error}</InlineMessage>
@@ -161,7 +132,7 @@ export function SessionEditor({
           accessibilityLabel="Workout duration"
           style={{ fontVariant: ["tabular-nums"] }}
         >
-          {durationCaption(draft.minutes)}
+          {durationCaption}
         </AppText>
       </View>
       {start && (
@@ -254,9 +225,7 @@ export function SessionEditor({
             <AppButton
               label={primaryLabel}
               fill
-              onPress={() =>
-                void tab.requestView({ kind: "session", id: session.id, manual: true })
-              }
+              onPress={() => void edit.run(primary)}
               disabled={busy}
             />
           </ButtonRow>

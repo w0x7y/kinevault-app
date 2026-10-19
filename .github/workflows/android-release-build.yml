@@ -2,8 +2,15 @@ name: Android release build
 
 # Manual only: Actions > Android release build > Run workflow. Builds a signed
 # release .apk to install directly on Android phones. See docs/android-apk.md.
+# The optional name, such as the build date, labels the run, the artifact and the .apk.
+run-name: Android release build ${{ inputs.name }}
 on:
   workflow_dispatch:
+    inputs:
+      name:
+        description: "Build name, such as today's date (2026-10-19). Letters, digits, dot, dash and underscore."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -30,8 +37,13 @@ jobs:
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          BUILD_NAME: ${{ inputs.name }}
         run: |
           missing=0
+          if [[ -n "$BUILD_NAME" && ! "$BUILD_NAME" =~ ^[A-Za-z0-9._-]{1,40}$ ]]; then
+            echo "::error::The build name may use only letters, digits, dot, dash and underscore (up to 40)."
+            missing=1
+          fi
           for name in EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD; do
             if [ -z "${!name}" ]; then
               echo "::error::$name is not set. See docs/android-apk.md."
@@ -69,6 +81,7 @@ jobs:
       - name: Check and rename the .apk
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          BUILD_NAME: ${{ inputs.name }}
         run: |
           apk=android/app/build/outputs/apk/release/app-release.apk
           apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
@@ -86,12 +99,12 @@ jobs:
             exit 1
           fi
           mkdir -p out
-          mv "$apk" out/KineVaultTrack.apk
-          ls -l out/KineVaultTrack.apk
+          mv "$apk" "out/KineVaultTrack${BUILD_NAME:+-$BUILD_NAME}.apk"
+          ls -l out/*.apk
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: KineVaultTrack-apk
-          path: out/KineVaultTrack.apk
+          name: KineVaultTrack-${{ inputs.name || 'apk' }}
+          path: out/*.apk
           if-no-files-found: error
           # An .apk is already a zip file.
           compression-level: 0

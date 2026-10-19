@@ -38,6 +38,13 @@ const missing = readFileSync(
   new URL("./fixtures/tracked-missing.rsc.txt", import.meta.url),
   "utf8",
 );
+// The same workout captured on 2026-10-19, after Tracked moved exercises into a table. Each
+// name is a link to its exercise page, the paragraph lists muscle groups and Sets is a bare
+// number cell. Scrubbed the same way as the page above.
+const tablePage = readFileSync(
+  new URL("./fixtures/tracked-workout-table.rsc.txt", import.meta.url),
+  "utf8",
+);
 const workoutId = "01a11c30-850b-765b-841b-cae702065684";
 const link = { url: `https://app.tracked.gg/v/workout/${workoutId}`, workoutId };
 const empty: ExerciseDocument = { version: 1, exercises: [], workouts: [], sessions: [] };
@@ -162,6 +169,20 @@ test("parses every exercise, label and prescription chip from a shared Tracked w
   assert.equal(new Set(plan.exercises.map((exercise) => exercise.sourceId)).size, 20);
   // The sharer is not part of the plan.
   assert.doesNotMatch(JSON.stringify(plan), /shared by|sharer|avatar/i);
+});
+
+test("reads names and set counts from Tracked's table layout, not muscle groups", () => {
+  const plan = parseTrackedWorkoutPage(tablePage, workoutId);
+  assert.equal(plan.name, "FB");
+  assert.deepEqual(plan.exercises, parseTrackedWorkoutPage(page, workoutId).exercises);
+  // Muscle groups are distinct from names, so no exercise is combined with another.
+  assert.equal(previewWorkoutImport(empty, plan).exerciseCount, 20);
+  // A workout named "Sets" isn't mistaken for the table's Sets column.
+  const named = tablePage.replace(/("h1",null,\{[^}]*"children":)"FB"/, '$1"Sets"');
+  assert.notEqual(named, tablePage);
+  const renamed = parseTrackedWorkoutPage(named, workoutId);
+  assert.equal(renamed.name, "Sets");
+  assert.deepEqual(renamed.exercises, plan.exercises);
 });
 
 test("reads the same workout from the HTML page's embedded payload", () => {

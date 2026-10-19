@@ -6,7 +6,7 @@ import { inputSurface } from "../components/text-field";
 import { AppText, Overline } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
-import type { ExerciseSet, SetHint } from "./model";
+import { isBlankSet, type ExerciseSet, type SetHint } from "./model";
 
 const badgeColumn = 36;
 const sideColumn = 44;
@@ -63,12 +63,6 @@ function NumberInput({
       ]}
     />
   );
-}
-
-function logged(set: ExerciseSet) {
-  return set.kind === "single"
-    ? set.reps !== "" || set.weightKg !== ""
-    : [set.left, set.right].some((side) => side.reps !== "" || side.weightKg !== "");
 }
 
 /** The set number; it fills in ink once the set has values. */
@@ -140,7 +134,7 @@ export function ExerciseSetTable({
           const hint = hints[index];
           return set.kind === "single" ? (
             <Animated.View key={set.id} entering={rise} style={columns}>
-              <SetBadge number={index + 1} done={logged(set)} />
+              <SetBadge number={index + 1} done={!isBlankSet(set)} />
               {sided && <View style={{ width: sideColumn }} />}
               <NumberInput
                 label={`${prefix} reps`}
@@ -171,7 +165,7 @@ export function ExerciseSetTable({
               entering={rise}
               style={[columns, { alignItems: "stretch" }]}
             >
-              <SetBadge number={index + 1} done={logged(set)} />
+              <SetBadge number={index + 1} done={!isBlankSet(set)} />
               <View style={{ flex: 1, minWidth: 0, gap: spacing.xs + 2 }}>
                 {(["left", "right"] as const).map((side) => (
                   <View key={side} style={columns}>

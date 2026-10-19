@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useLayoutEffect,
-  useReducer,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AppState, Keyboard, type ScrollView } from "react-native";
 import { useIsFocused } from "expo-router";
 import { Screen, ScreenTitle } from "../../components/ui";
@@ -17,12 +10,11 @@ import { SearchActions } from "../../daily/search-actions";
 import { MealsWidget } from "../../daily/meals-widget";
 import { FoodSearchResults } from "../../food/search-results";
 import { FoodLogStatus } from "../../food/log-status";
-import { useFoodLog, useFoodLogPersistence } from "../../food/log-provider";
+import { useFoodLogPersistence } from "../../food/log-provider";
 import { FoodCatalogEditor, FoodNutritionDetail } from "../../food/nutrition-detail";
 import { DailyMacros } from "../../food/daily-macros";
-import type { FoodEntry } from "../../daily/model";
 import type { CustomFood } from "../../food/custom-model";
-import { useCustomFoodPersistence, useCustomFoods } from "../../food/custom-provider";
+import { useCustomFoodPersistence } from "../../food/custom-provider";
 import { CustomFoodStatus } from "../../food/custom-status";
 import type { CustomMeal } from "../../food/meal-model.ts";
 import { FoodProductImport } from "../../food/product-import";
@@ -84,8 +76,6 @@ function FoodDay({
   const scrollRef = useRef<ScrollView>(null);
   const pageScroll = useRef<ScrollView>(null);
   const resultsTop = useRef(0);
-  const log = useFoodLog();
-  const custom = useCustomFoods();
   // A new day starts at the top of its log, and so does each return to the log.
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -104,11 +94,6 @@ function FoodDay({
     Keyboard.dismiss();
     tab.created(item);
   }
-  const showingLog = !view.query.trim() && food.kind === "ready";
-  const fresh = useFreshEntries(food.kind === "ready" ? food.day : null, date, {
-    focused,
-    showingLog,
-  });
   const body =
     page.kind === "resume" || page.kind === "create" ? (
       drafts.session && (
@@ -168,7 +153,7 @@ function FoodDay({
         onViewMacros={tab.macros}
       />
       <FoodLogStatus source={activity.sources.food} />
-      {(log.state.kind !== "loading" || custom.state.kind !== "loading") && <CustomFoodStatus />}
+      {view.customFoodStatus && <CustomFoodStatus />}
       {view.resumable &&
         drafts.resumable.map((summary) => (
           <ResumeDraft
@@ -196,9 +181,9 @@ function FoodDay({
           // A new day starts its own list, so its cards appear in place rather than gliding.
           key={date}
           day={food.day}
-          fresh={fresh}
+          fresh={view.fresh}
           saving={view.busy}
-          error={log.error}
+          error={view.logError}
           onLayout={(event) => {
             resultsTop.current = event.nativeEvent.layout.y;
           }}
@@ -226,32 +211,4 @@ function FoodDay({
       )}
     </Screen>
   );
-}
-
-/**
- * Entries logged while the food log is on screen (or on its way back, after a search), so only
- * those rise into their meal. Entries already there when the tab opens or the day changes, or
- * added while the tab was away, are simply there.
- */
-function useFreshEntries(
-  day: { foods: FoodEntry[] } | null,
-  date: string,
-  { focused, showingLog }: { focused: boolean; showingLog: boolean },
-): ReadonlySet<string> {
-  const seen = useRef<{ date: string; ids: Set<string> } | null>(null);
-  const [, settle] = useReducer((count: number) => count + 1, 0);
-  const fresh = new Set<string>();
-  const known = seen.current?.date === date ? seen.current.ids : null;
-  if (day && known && focused && showingLog)
-    for (const entry of day.foods) if (!known.has(entry.id)) fresh.add(entry.id);
-  useEffect(() => {
-    if (!day) return;
-    if (seen.current?.date !== date)
-      seen.current = { date, ids: new Set(day.foods.map((entry) => entry.id)) };
-    // While a search covers the log, a food logged from it stays new until the log shows it.
-    else if (showingLog || !focused) for (const entry of day.foods) seen.current.ids.add(entry.id);
-    // Once shown, a new entry's meal card rejoins the glide of later reflows.
-    if (fresh.size) settle();
-  });
-  return fresh;
 }

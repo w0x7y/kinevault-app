@@ -36,7 +36,7 @@ type Source<State> = { state: State; retryLoad: () => void };
 export type DaySource = { kind: "loading" | "error" | "ready"; retry: () => void };
 
 /** A missing calorie or macro target: a dash on screen, a word for assistive technology. */
-export const unsetTarget = { shown: "—", spoken: "unset" } as const;
+const unsetTarget = { shown: "—", spoken: "unset" } as const;
 
 const source = ({ state, retryLoad }: Source<{ kind: DaySource["kind"] }>): DaySource => ({
   kind: state.kind,
@@ -127,13 +127,25 @@ export function interpretDayActivity({
               : { calories: null, carbs: null, protein: null, fat: null },
           )
         : null,
+    /** What the journal shows in place of `nutrition` while the food log isn't loaded. */
+    unavailableNutrition: unavailableNutrition(
+      targets.kind === "ready"
+        ? targets
+        : { calories: null, carbs: null, protein: null, fat: null },
+    ),
     workout: workoutTile(
       source(exercise),
       summarizeSessions(sessions),
       active && (active.name || "Active workout"),
       date === today,
     ),
-    water: { total, goal: waterGoal, progress, tile: waterTile(total, waterGoal, progress) },
+    water: {
+      total,
+      goal: waterGoal,
+      progress,
+      ...waterFigure(total, waterGoal),
+      tile: waterTile(total, waterGoal, progress),
+    },
     steps: { phone: phoneSteps, tile: stepsTile(date, phoneSteps, logged) },
     /** Each saved source on its own, so a screen can show and retry the one that failed. */
     sources: {
@@ -170,18 +182,24 @@ type Nutrition = ReturnType<typeof summarizeDay>;
 /** Eaten against target, rounded and written the way every screen shows it. */
 function nutrientProgress(value: number, target: number | null, eaten: number, unit: string) {
   const fraction = progressFraction(value, target);
-  const ofTarget = `/ ${target === null ? unsetTarget.shown : target.toLocaleString()} ${unit}`;
+  const ofTarget = ofTargetText(target, unit);
   return {
     eaten,
     target,
     fraction,
     percentage: Math.round(fraction * 100),
+    /** The eaten figure: "1,380". */
+    value: eaten.toLocaleString(),
     /** What follows the eaten figure: "/ 2,760 kcal", or "/ — kcal" while unset. */
     ofTarget,
     /** Eaten against target: "1,380 / 2,760 kcal". */
     figure: `${eaten.toLocaleString()} ${ofTarget}`,
   };
 }
+const ofTargetText = (target: number | null, unit: string) =>
+  `/ ${target === null ? unsetTarget.shown : target.toLocaleString()} ${unit}`;
+const spokenTarget = (target: number | null, unit: string) =>
+  target === null ? unsetTarget.spoken : `${target} ${unit}`;
 
 /** The day's calories and macros against their targets. Calories are whole kcal and macros
  * grams to one decimal, on screen and in accessibility labels alike. */
@@ -202,7 +220,7 @@ function nutritionProgress(summary: Nutrition, targets: Record<keyof Nutrition, 
         key,
         {
           ...progress,
-          label: `${label}, ${progress.eaten} grams consumed, target ${target === null ? unsetTarget.spoken : `${target} grams`}`,
+          label: `${label}, ${progress.eaten} grams consumed, target ${spokenTarget(target, "grams")}`,
         },
       ];
     }),
@@ -230,12 +248,55 @@ function nutritionProgress(summary: Nutrition, targets: Record<keyof Nutrition, 
       overFraction: remaining !== null && remaining < 0 ? progressFraction(-remaining, goal) : 0,
       /** The eaten share split by each macro's energy. */
       segments: calorieSegments(summary, goal),
-      label: `${calories.eaten} kilocalories consumed, calorie goal ${goal === null ? unsetTarget.spoken : `${goal} kilocalories`}`,
+      label: `${calories.eaten} kilocalories consumed, calorie goal ${spokenTarget(goal, "kilocalories")}`,
     },
     ...macros,
   };
 }
 export type NutritionProgress = ReturnType<typeof nutritionProgress>;
+
+/** Each target against an unavailable eaten figure: spelled out for calories, a dash for
+ * the macro rows. */
+function unavailableNutrition(targets: Record<keyof Nutrition, number | null>) {
+  const nutrient = (value: string, target: number | null, unit: string, label: string) => ({
+    value,
+    ofTarget: ofTargetText(target, unit),
+    fraction: 0,
+    label,
+  });
+  return {
+    calories: nutrient(
+      "Unavailable",
+      targets.calories,
+      "kcal",
+      `Calories consumed unavailable, calorie goal ${spokenTarget(targets.calories, "kilocalories")}`,
+    ),
+    ...(Object.fromEntries(
+      macroCategories.map(({ key, label }) => [
+        key,
+        nutrient(
+          "—",
+          targets[key],
+          "g",
+          `${label}, consumed unavailable, target ${spokenTarget(targets[key], "grams")}`,
+        ),
+      ]),
+    ) as Record<(typeof macroCategories)[number]["key"], ReturnType<typeof nutrient>>),
+  };
+}
+
+/** The day's water total against the Water goal in ml, a dash for either while unavailable. */
+function waterFigure(total: WaterTotal, goal: WaterGoal) {
+  const totalMl = total.kind === "ready" ? total.ml : null;
+  const goalMl = goal.kind === "ready" ? goal.ml : null;
+  return {
+    /** The total: "2,500", or "—". */
+    value: totalMl === null ? "—" : totalMl.toLocaleString(),
+    /** What follows the total: "/ 1,500 ml", or "/ — ml". */
+    ofTarget: ofTargetText(goalMl, "ml"),
+    label: `${totalMl === null ? "Water consumed unavailable" : `${totalMl} milliliters consumed`}, water goal ${goalMl === null ? "unavailable" : `${goalMl} milliliters`}`,
+  };
+}
 
 /** The Home Water tile: the day's total against the Water goal, and what is missing. */
 function waterTile(total: WaterTotal, goal: WaterGoal, progress: number | null) {

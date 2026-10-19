@@ -104,6 +104,59 @@ export function demoPlayback(state: DemoPlayback, event: DemoPlaybackEvent): Dem
   }
 }
 
+/**
+ * The exercise form's KineVault search: its query, whether a linked demo is being changed, and
+ * the control that takes focus next, since each press replaces the control that was pressed.
+ */
+export type DemoPicker = { query: string; changing: boolean; focus: "search" | "change" | null };
+
+export type DemoPickerEvent =
+  "change" | "keep" | "unlink" | "linked" | "focused" | { query: string };
+
+/** "Link demo" opens the form with its search focused. */
+export function initialDemoPicker(focusSearch: boolean): DemoPicker {
+  return { query: "", changing: false, focus: focusSearch ? "search" : null };
+}
+
+export function demoPicker(state: DemoPicker, event: DemoPickerEvent): DemoPicker {
+  if (typeof event === "object") return { ...state, query: event.query };
+  switch (event) {
+    // Change and Unlink give way to the search.
+    case "change":
+      return { ...state, changing: true, focus: "search" };
+    case "unlink":
+      return { ...state, changing: false, focus: "search" };
+    // Keeping the demo or choosing a result gives way to the linked demo and its Change button.
+    case "keep":
+      return { ...state, changing: false, focus: "change" };
+    case "linked":
+      return { query: "", changing: false, focus: "change" };
+    case "focused":
+      return state.focus === null ? state : { ...state, focus: null };
+  }
+}
+
+/** The KineVault search's status line. */
+export function demoSearchStatus({
+  failed,
+  offline,
+  query,
+  results,
+}: {
+  failed: boolean;
+  offline: boolean;
+  query: string;
+  results: readonly CatalogExercise[];
+}) {
+  if (failed)
+    return offline
+      ? "Connect to search KineVault demos."
+      : "KineVault demos aren't available right now. Try again later.";
+  if (!query.trim()) return "";
+  if (!results.length) return "No KineVault exercises found. Try another name.";
+  return `${results.length} KineVault ${results.length === 1 ? "exercise" : "exercises"} found.`;
+}
+
 export type ExerciseFields = Omit<ExerciseDefinition, "id">;
 
 /** Links a KineVault exercise and fills only the fields the user left blank. */

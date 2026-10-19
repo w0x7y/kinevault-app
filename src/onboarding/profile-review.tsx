@@ -5,7 +5,7 @@ import { Icon, type IconName } from "../components/icon";
 import { IconWell } from "../components/icon-well";
 import { Tappable } from "../components/tappable";
 import { AppText, Panel } from "../components/ui";
-import { choiceLabels, type Answers, type EditableStep } from "../profile/answers";
+import { answerSummary, type Answers, type EditableStep } from "../profile/answers";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 
@@ -21,45 +21,27 @@ export function ProfileReview({
   const mode = calorieState(answers);
   const { target, source } = mode;
   const macros = macroTargets(answers);
+  const summary = answerSummary(answers, target);
   const rows: { label: string; value: string; step: EditableStep; icon: IconName }[] = [
-    { label: "Name", value: answers.name.trim() || "Not added", step: "name", icon: "user" },
-    {
-      label: "Goal",
-      value: choiceLabels(answers).goal ?? "Not set",
-      step: "goal",
-      icon: "flag",
-    },
-    {
-      label: "Age",
-      value: answers.age ? `${answers.age} years` : "Not added",
-      step: "age",
-      icon: "hourglass",
-    },
+    { label: "Name", value: summary.name, step: "name", icon: "user" },
+    { label: "Goal", value: summary.goal, step: "goal", icon: "flag" },
+    { label: "Age", value: summary.age, step: "age", icon: "hourglass" },
     {
       label: "Body details",
       value:
-        [
-          answers.height && `${answers.height}\u00a0cm`,
-          answers.weight && `${answers.weight}\u00a0kg`,
-          answers.sex && mode.kind === "estimate" && `${answers.sex} formula`,
-        ]
-          .filter(Boolean)
-          .join(" · ") || "Not added",
+        answers.sex && mode.kind === "estimate"
+          ? `${summary.body} · ${answers.sex} formula`
+          : summary.body,
       step: "body",
       icon: "person",
     },
-    {
-      label: "Activity",
-      value: choiceLabels(answers).activity ?? "Not set",
-      step: "activity",
-      icon: "person-running",
-    },
+    { label: "Activity", value: summary.activity, step: "activity", icon: "person-running" },
     {
       label: "Daily calories",
       value:
         target === null
-          ? "Not set"
-          : `${target.toLocaleString("en-US")} kcal · ${source === "custom" ? "custom" : "estimated"}`,
+          ? summary.calories
+          : `${summary.calories} · ${source === "custom" ? "custom" : "estimated"}`,
       step: "calories",
       icon: "fire",
     },

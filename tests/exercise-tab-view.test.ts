@@ -3,7 +3,7 @@ import test from "node:test";
 import type { ExerciseDocument, WorkoutSession } from "../src/exercise/model.ts";
 import { createExercisePersistence, exerciseStorageKey } from "../src/exercise/persistence.ts";
 import { createExerciseTabView, exerciseTabView } from "../src/exercise/tab-view.ts";
-import type { WorkoutPanel, WorkoutView } from "../src/exercise/tab-view.ts";
+import type { ExerciseTabPage, WorkoutPanel, WorkoutView } from "../src/exercise/tab-view.ts";
 
 const day = "2026-10-04";
 function session(
@@ -339,4 +339,60 @@ test("away from the tab the sheet hides and its panel and query wait for the ret
   tab.setFocused(true);
   assert.equal(tab.getSnapshot().sheet?.panel, open);
   assert.equal(tab.getSnapshot().query, "Squat");
+});
+
+/** The sheet's page, which must be of `kind`. */
+function pageOf<Kind extends ExerciseTabPage["kind"]>(
+  tab: Awaited<ReturnType<typeof owner>>,
+  kind: Kind,
+): Extract<ExerciseTabPage, { kind: Kind }> {
+  const page = tab.getSnapshot().sheet?.page;
+  assert.equal(page?.kind, kind);
+  return page as Extract<ExerciseTabPage, { kind: Kind }>;
+}
+
+test("each sheet page carries the owner of its panel", async () => {
+  const tab = await owner(session("draft", "planned"));
+  assert.equal(tab.getSnapshot().loaded, true);
+  const token = () => tab.getSnapshot().panel!.token;
+  await tab.requestView({ kind: "exercise" });
+  const exercise = pageOf(tab, "exercise");
+  exercise.draft.change((values) => ({ ...values, name: "Squat" }));
+  assert.equal(tab.drafts.exercise(token()).getSnapshot().values.name, "Squat");
+  assert.equal(exercise.linkDemo, false);
+  await tab.requestView({ kind: "workout" });
+  pageOf(tab, "workout").draft.search("legs");
+  assert.equal(tab.drafts.template(token()).getSnapshot().query, "legs");
+  await tab.requestView({ kind: "library", date: "2026-10-03" });
+  const library = pageOf(tab, "library");
+  assert.equal(library.date, "2026-10-03");
+  assert.equal(
+    library.actions.getSnapshot(),
+    tab.drafts.savedWorkouts(token(), "2026-10-03").getSnapshot(),
+  );
+  await tab.requestView({ kind: "import", source: "tracked" });
+  assert.equal(pageOf(tab, "import").flow, tab.drafts.workoutImport(token(), "tracked"));
+  await tab.requestView({ kind: "session", id: "draft", manual: true });
+  assert.equal(pageOf(tab, "session").edit?.getSnapshot().mode, "manual");
+  assert.equal(pageOf(tab, "session").edit?.getSnapshot().session.id, "draft");
+  await tab.requestView({ kind: "session", id: "missing" });
+  assert.equal(pageOf(tab, "session").edit, null);
+});
+
+test("Saved workouts opens on the Selected day", async () => {
+  const tab = await owner();
+  tab.setDay("2026-10-05");
+  assert.equal(await tab.openLibrary(), true);
+  assert.deepEqual(tab.getSnapshot().panel?.content, { kind: "library", date: "2026-10-05" });
+});
+
+test("a sheet's close leaves its own panel, never a newer one", async () => {
+  const tab = await owner();
+  await tab.requestView({ kind: "library", date: day });
+  const { close } = tab.getSnapshot().sheet!;
+  await tab.requestView({ kind: "exercise" });
+  close();
+  assert.equal(tab.getSnapshot().panel?.content.kind, "exercise");
+  tab.getSnapshot().sheet!.close();
+  assert.equal(tab.getSnapshot().panel, null);
 });

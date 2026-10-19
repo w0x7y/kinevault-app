@@ -31,6 +31,19 @@ On the page:
 - Prescription chips are `span`s such as `Sets 1`, `Reps 1-3`, `RIR 0-1`,
   `Rest 30 sec` and `Rest 3 min`. Some exercises have none.
 
+By 2026-10-19 Tracked had moved the exercises into a table, and both layouts
+are supported:
+
+- Each exercise is a table row keyed by its UUID. The first cell is the
+  position label.
+- The exercise name is a link to `/v/exercise/<uuid>`. The `p` under it lists
+  muscle groups, such as "Biceps · Elbow Flexors".
+- The header row names the columns: `#`, `Exercise`, `Sets`, `Reps`, `RIR`,
+  `Tempo`, `Rest` and `TUT / set`. Each value is its own cell, and `—` marks
+  an empty one.
+- The category is now a badge before the `h1`, next to a "Workout" badge. It
+  isn't read, so the preview shows no category for these pages.
+
 ## Parser
 
 `src/exercise/import/tracked-page.ts` is a pure module with no platform imports.
@@ -41,11 +54,18 @@ not-found and loading screens that the layout also ships. Nothing depends on
 Tailwind class names. Instead the parser looks for:
 
 - position labels matching `^\d{1,3}[A-Z]$`;
-- the smallest ancestor of a label that holds a named `p` (the exercise);
+- the smallest ancestor of a label that holds an exercise link or a named `p`
+  (the exercise). The link's text is the name when there is one, else the `p`'s;
 - the nearest UUID-keyed ancestor that holds only that label (the exercise ID);
-- `span` chips inside the exercise. `Sets`, `Reps`, `RIR` and `Rest` get fields.
-  Any other chip, a repeated chip, or a `Sets` value that isn't a whole number
-  from 0 to 100 (such as `Sets 3-4`) is kept as text in `otherChips`;
+- on table pages, the header row is the first element with a cell reading
+  exactly `Sets` beside one reading exactly `Exercise`, so a workout named
+  "Sets" isn't mistaken for it. When a label's row has as many cells as the header, each cell becomes a chip
+  named by its column, such as `Sets 4` or `Tempo 3-1-1`. The `#` and
+  `Exercise` columns and `—` cells are skipped;
+- otherwise, `span` chips inside the exercise;
+- `Sets`, `Reps`, `RIR` and `Rest` chips get fields. Any other chip, a repeated
+  chip, or a `Sets` value that isn't a whole number from 0 to 100 (such as
+  `Sets 3-4`) is kept as text in `otherChips`;
 - the nearest `h1` above the first exercise. `og:title` is the fallback name.
 
 Exercises are ordered by label (group number, then letter). Names get the page's
@@ -78,7 +98,10 @@ with `Object.hasOwn`, and nothing is evaluated.
 - `RSC: 1` keeps returning the flight payload, and exercise content stays
   server-rendered as elements rather than client-component props.
 - Position labels keep the `<number><letter>` format and stay leaf elements.
-- The exercise name stays the first `p` in the exercise block, and chips stay `span`s.
+- The exercise name stays a link to `/v/exercise/<uuid>` (table pages) or the
+  first `p` in the exercise block (older pages).
+- Table rows keep one cell per header column, and the header keeps cells that
+  read exactly `Sets` and `Exercise`. Older pages keep their chips as `span`s.
 - Superset letters (B, C…) weren't in the captured sample. They're handled
   through the label pattern and ordering.
 
@@ -241,5 +264,7 @@ transport, including the not-deployed and missing-workout replies, and runs it a
 function's handler. `tests/fixtures/tracked-workout.rsc.txt` is
 the real 2026-10-12 response for the example link above. The sharer's username
 and avatar URL are replaced and SVG path data is shortened. Rows, keys and
-nesting are unchanged. `tests/fixtures/tracked-missing.rsc.txt` is Tracked's
-response for an unknown ID.
+nesting are unchanged. `tests/fixtures/tracked-workout-table.rsc.txt` is the
+same link's table layout from 2026-10-19, scrubbed the same way. The test checks
+that it parses to the same exercises as the older page.
+`tests/fixtures/tracked-missing.rsc.txt` is Tracked's response for an unknown ID.

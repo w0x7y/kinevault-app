@@ -6,11 +6,16 @@ import type { DemoCatalogState } from "../src/exercise/demo/catalog-store.ts";
 import {
   applyCatalogLink,
   demoNotice,
+  demoPicker,
   demoPlayback,
+  demoSearchStatus,
   demoStatus,
+  initialDemoPicker,
   initialDemoPlayback,
   resolveDemoLink,
   withoutCatalogLink,
+  type DemoPicker,
+  type DemoPickerEvent,
   type DemoPlayback,
   type DemoPlaybackEvent,
 } from "../src/exercise/demo/demo-link.ts";
@@ -155,4 +160,41 @@ test("linking fills only blank fields; unlinking removes the link", () => {
   const unlinked = withoutCatalogLink(linked);
   assert.equal("catalog" in unlinked, false);
   assert.equal(unlinked.name, "Overhead press");
+});
+
+const pick = (start: DemoPicker, ...events: DemoPickerEvent[]) => events.reduce(demoPicker, start);
+
+test("Change, Keep and Unlink move focus to the control that replaces the pressed one", () => {
+  assert.deepEqual(initialDemoPicker(true), { query: "", changing: false, focus: "search" });
+  const linked = initialDemoPicker(false);
+  assert.deepEqual(pick(linked, "change"), { query: "", changing: true, focus: "search" });
+  assert.deepEqual(pick(linked, "change", { query: "press" }, "focused", "keep"), {
+    query: "press",
+    changing: false,
+    focus: "change",
+  });
+  assert.deepEqual(pick(linked, "unlink"), { query: "", changing: false, focus: "search" });
+  // Choosing a result clears the search for the next Change.
+  assert.deepEqual(pick(linked, "change", { query: "press" }, "linked"), {
+    query: "",
+    changing: false,
+    focus: "change",
+  });
+  // Once focus lands, the target clears, so a remounted form doesn't take focus again.
+  assert.equal(pick(linked, "change", "focused").focus, null);
+  assert.equal(pick(linked, "focused"), linked);
+});
+
+test("the KineVault search status names failures and counts results", () => {
+  const status = (input: Partial<Parameters<typeof demoSearchStatus>[0]>) =>
+    demoSearchStatus({ failed: false, offline: false, query: "", results: [], ...input });
+  assert.equal(status({ failed: true, offline: true }), "Connect to search KineVault demos.");
+  assert.equal(
+    status({ failed: true, query: "press" }),
+    "KineVault demos aren't available right now. Try again later.",
+  );
+  assert.equal(status({ query: "  ", results: [entry] }), "");
+  assert.equal(status({ query: "zz" }), "No KineVault exercises found. Try another name.");
+  assert.equal(status({ query: "press", results: [entry] }), "1 KineVault exercise found.");
+  assert.equal(status({ query: "press", results: [entry, entry] }), "2 KineVault exercises found.");
 });

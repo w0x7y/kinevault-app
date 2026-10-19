@@ -575,6 +575,50 @@ test("accessibility labels read the rounded figures the screen shows", () => {
   const carbs = Math.round(activity.food.summary.carbs * 10) / 10;
   assert.equal(nutrition.carbs.eaten, carbs);
   assert.equal(nutrition.carbs.label, `Carbs, ${carbs} grams consumed, target unset`);
+  assert.equal(nutrition.carbs.value, carbs.toLocaleString());
+  // The journal's Water row: 500 ml logged and none from Drinks, against the default goal.
+  assert.deepEqual(
+    { value: activity.water.value, ofTarget: activity.water.ofTarget, label: activity.water.label },
+    {
+      value: "500",
+      ofTarget: `/ ${(1500).toLocaleString()} ml`,
+      label: "500 milliliters consumed, water goal 1500 milliliters",
+    },
+  );
+
+  // While the food log or water isn't loaded the journal still reads each target.
+  const loading = interpretDayActivity({
+    ...sources,
+    food: source({ kind: "loading" }),
+    goal: source({ kind: "error" }),
+  });
+  assert.deepEqual(loading.unavailableNutrition.calories, {
+    value: "Unavailable",
+    ofTarget: `/ ${(2760).toLocaleString()} kcal`,
+    fraction: 0,
+    label: "Calories consumed unavailable, calorie goal 2760 kilocalories",
+  });
+  assert.deepEqual(loading.unavailableNutrition.carbs, {
+    value: "—",
+    ofTarget: "/ 345 g",
+    fraction: 0,
+    label: "Carbs, consumed unavailable, target 345 grams",
+  });
+  assert.deepEqual(
+    { value: loading.water.value, ofTarget: loading.water.ofTarget, label: loading.water.label },
+    {
+      value: "—",
+      ofTarget: "/ — ml",
+      label: "Water consumed unavailable, water goal unavailable",
+    },
+  );
+  const unset = interpretDayActivity({
+    ...sources,
+    food: source({ kind: "loading" }),
+    profile: { kind: "loading" },
+  });
+  assert.equal(unset.unavailableNutrition.fat.ofTarget, "/ — g");
+  assert.equal(unset.unavailableNutrition.fat.label, "Fat, consumed unavailable, target unset");
 });
 
 test("nutrition progress counts what is left, how far over and each macro's share once", () => {
@@ -608,6 +652,7 @@ test("nutrition progress counts what is left, how far over and each macro's shar
       overFraction: 0,
       segments: undefined,
       label: undefined,
+      value: (1380).toLocaleString(),
       ofTarget: `/ ${(2760).toLocaleString()} kcal`,
       figure: `${(1380).toLocaleString()} / ${(2760).toLocaleString()} kcal`,
       title: `${(1380).toLocaleString()} / ${(2760).toLocaleString()} kcal`,

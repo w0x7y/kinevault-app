@@ -3,7 +3,7 @@ import { useLayoutEffect, useState, useSyncExternalStore } from "react";
 import { workoutImportSources } from "./import/sources";
 import { useExercisePersistence } from "./provider";
 import { createExerciseTabView } from "./tab-view";
-import type { WorkoutEditing } from "./workout-editing";
+import type { WorkoutEdit } from "./workout-editing";
 
 /** The Exercise tab view for the Selected day, with its Workout edits and Library drafts. */
 export function useExerciseTabView(date: string) {
@@ -22,10 +22,8 @@ export function useExerciseTabView(date: string) {
   return { tab, view };
 }
 
-export function useWorkoutEdit(editing: WorkoutEditing, id: string) {
-  const edit = editing.edit(id);
-  const state = useSyncExternalStore(edit.subscribe, edit.getSnapshot, edit.getSnapshot);
-  return { edit, ...state };
+export function useWorkoutEdit(edit: WorkoutEdit) {
+  return useSyncExternalStore(edit.subscribe, edit.getSnapshot, edit.getSnapshot);
 }
 
 /** Renders a library draft handle's current state. */

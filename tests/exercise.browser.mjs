@@ -1578,3 +1578,38 @@ test("Workout settings stay on the day, and a card opened on its own closes back
   assert.equal(await page.getByTestId("planned-workout-card").count(), 3);
   assert.equal(await button(page, "Close workout").count(), 0);
 });
+
+test("a set holding only spaces keeps the blank set badge", async (t) => {
+  const blankSet = (id) => ({ id, kind: "single", reps: "", weightKg: "" });
+  const page = await open(t, {
+    document: {
+      ...empty(),
+      exercises: [single],
+      sessions: [
+        {
+          id: "draft",
+          date,
+          name: "Legs",
+          status: "planned",
+          startedAt: null,
+          durationSeconds: null,
+          exercises: [{ id: "row", exercise: single, sets: [blankSet("one"), blankSet("two")] }],
+        },
+      ],
+    },
+  });
+  await button(page.getByTestId("planned-workout-card"), "Log completed workout").click();
+  const details = page.getByTestId("exercise-details");
+  const badge = (number) =>
+    details
+      .getByText(String(number), { exact: true })
+      .evaluate((node) => getComputedStyle(node.parentElement).backgroundColor);
+  const blank = await badge(1);
+  await field(details, "Squat set 1 reps").fill(" ");
+  await field(details, "Squat set 2 reps").fill("5");
+  // Set 2 fills in once the editor renders both entries.
+  for (let tries = 0; tries < 50 && (await badge(2)) === blank; tries++)
+    await page.waitForTimeout(100);
+  assert.notEqual(await badge(2), blank);
+  assert.equal(await badge(1), blank, "a space is not a logged value");
+});

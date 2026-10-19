@@ -380,9 +380,9 @@ test("historical Home date survives Profile/back; calendar streak week and four 
   await page.getByText("Week ending 2026-10-04: 30 min", { exact: true }).waitFor();
   await button(page, "Today's nutrition").click();
   await page.getByLabel("Today & targets · 2026-10-04", { exact: true }).waitFor();
-  await expectGoal(page, "calories", "240 / 2,000 kcal");
-  await expectGoal(page, "carbs", "30 / 0 g");
-  await expectGoal(page, "water", "2,500 / 1,500 ml");
+  await expectGoal(page, "calories", "240 kilocalories consumed, calorie goal 2000 kilocalories");
+  await expectGoal(page, "carbs", "Carbs, 30 grams consumed, target 0 grams");
+  await expectGoal(page, "water", "2500 milliliters consumed, water goal 1500 milliliters");
   await button(page, "Back from Profile").click();
   await page.waitForURL(baseURL + "/");
   await page.getByLabel("Saturday, October 3, 2026").waitFor();
@@ -521,7 +521,7 @@ test("Profile water goal has focused cancel, validation, failed draft retry and 
     await page.getByRole("textbox", { name: "Daily water goal (ml)", exact: true }).count(),
     0,
   );
-  await expectGoal(page, "water", "2,500 / 1,500 ml");
+  await expectGoal(page, "water", "2500 milliliters consumed, water goal 1500 milliliters");
   await button(page, "Edit water goal").click();
   await page.getByRole("textbox", { name: "Daily water goal (ml)", exact: true }).fill("0");
   await button(page, "Save water goal").click();
@@ -535,14 +535,14 @@ test("Profile water goal has focused cancel, validation, failed draft retry and 
     "2000",
   );
   await button(page, "Save water goal").click();
-  await expectGoal(page, "water", "2,500 / 2,000 ml");
+  await expectGoal(page, "water", "2500 milliliters consumed, water goal 2000 milliliters");
   assert.equal(
     await page.getByRole("textbox", { name: "Daily water goal (ml)", exact: true }).count(),
     0,
   );
   await page.reload();
   await button(page, "Goals").click();
-  await expectGoal(page, "water", "2,500 / 2,000 ml");
+  await expectGoal(page, "water", "2500 milliliters consumed, water goal 2000 milliliters");
 });
 test("each source recovers independently while usable sections remain available", async (t) => {
   for (const [name, key, section] of [
@@ -1086,7 +1086,8 @@ test("section controls stay responsive during pending water and profile saves", 
     });
     await draft.fill(replacement === "name" ? "Replacement after navigation" : "2345");
     await page.evaluate(() => window.__releaseEditorWrite());
-    if (section === "water") await expectGoal(page, "water", "2,500 / 2,000 ml");
+    if (section === "water")
+      await expectGoal(page, "water", "2500 milliliters consumed, water goal 2000 milliliters");
     else await page.getByRole("heading", { name: "Pending name", exact: true }).waitFor();
     assert.equal(
       await draft.inputValue(),
