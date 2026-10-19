@@ -255,6 +255,7 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
   const [popover, setPopover] = useState<HeaderPopover>(null);
   const expanded = popover === "calendar";
   const [headerHeight, setHeaderHeight] = useState(0);
+  const [timerWidth, setTimerWidth] = useState(0);
   const closePopover = useCallback(() => setPopover(null), []);
   const calendarChip = useRef<View>(null),
     calendarCard = useRef<View>(null),
@@ -320,8 +321,13 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
         }}
       >
         <View style={styles.bar}>
-          {/* With a live timer the two sides share the width equally, so the timer is centered. */}
-          <View style={styles.lead}>
+          {/* With a live timer, the date stops short of the timer's edge. */}
+          <View
+            style={[
+              styles.lead,
+              live && { maxWidth: "50%", paddingRight: timerWidth / 2 + spacing.sm },
+            ]}
+          >
             {isProfile && (
               <HeaderButton
                 label="Back from Profile"
@@ -341,16 +347,6 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
               }
               style={styles.titleArea}
             >
-              <AppText
-                variant="heading"
-                accessibilityLabel={
-                  page ?? `${fullDate(selectedDay)}${selectedDay === today ? ", today" : ""}`
-                }
-                numberOfLines={1}
-                style={[styles.selectedDate, page !== null && styles.screenName]}
-              >
-                {page ?? dateLabel}
-              </AppText>
               {page === null && (
                 <HeaderButton
                   ref={calendarChip}
@@ -375,20 +371,35 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
                   )}
                 </HeaderButton>
               )}
+              <AppText
+                variant="heading"
+                accessibilityLabel={
+                  page ?? `${fullDate(selectedDay)}${selectedDay === today ? ", today" : ""}`
+                }
+                numberOfLines={1}
+                style={[styles.selectedDate, page !== null && styles.screenName]}
+              >
+                {page ?? dateLabel}
+              </AppText>
             </Pressable>
           </View>
-          {live && <LiveWorkoutButton session={live} />}
-          <View style={live && styles.trail}>
-            <HeaderButton
-              ref={profileButton}
-              label="Profile menu"
-              expanded={popover === "profile"}
-              onPress={() => setPopover((previous) => (previous === "profile" ? null : "profile"))}
-              style={styles.avatar}
-            >
-              <ProfileAvatar />
-            </HeaderButton>
-          </View>
+          {live && (
+            // Laid over the bar, so the timer is on the screen's center whatever sits beside it.
+            <View pointerEvents="box-none" style={styles.middle}>
+              <View onLayout={({ nativeEvent }) => setTimerWidth(nativeEvent.layout.width)}>
+                <LiveWorkoutButton session={live} />
+              </View>
+            </View>
+          )}
+          <HeaderButton
+            ref={profileButton}
+            label="Profile menu"
+            expanded={popover === "profile"}
+            onPress={() => setPopover((previous) => (previous === "profile" ? null : "profile"))}
+            style={styles.avatar}
+          >
+            <ProfileAvatar />
+          </HeaderButton>
         </View>
       </SafeAreaView>
       {page === null && expanded && (
@@ -447,24 +458,24 @@ const styles = StyleSheet.create({
     minHeight: 60,
     flexDirection: "row",
     alignItems: "center",
-    // Even padding keeps the bar's middle on the screen's middle.
+    justifyContent: "space-between",
     paddingHorizontal: spacing.gutter,
     gap: spacing.sm,
     width: "100%",
     maxWidth: 768,
     alignSelf: "center",
   },
-  // Both sides grow from zero, not from their content, so a live timer between them is centered.
-  lead: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 0,
-    minWidth: 0,
-    flexDirection: "row",
+  lead: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  // The bar's padding is even, so its middle is the screen's middle.
+  middle: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     alignItems: "center",
-    gap: spacing.sm,
+    justifyContent: "center",
   },
-  trail: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, alignItems: "flex-end" },
   button: { borderRadius: 14, alignItems: "center", justifyContent: "center" },
   round: { borderRadius: radius.pill, marginLeft: -6 },
   avatar: { borderRadius: radius.pill, marginRight: -6 },
