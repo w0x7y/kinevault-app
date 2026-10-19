@@ -459,3 +459,91 @@ test("a logged entry's details and Daily macros show only over a loaded food log
   await flush();
   assert.equal(f.tab.getSnapshot().sheet, true);
 });
+
+const settled = () => new Promise((resolve) => setTimeout(resolve));
+const freshIds = (f: Awaited<ReturnType<typeof fixture>>) => [...f.tab.getSnapshot().fresh];
+
+test("an entry logged while the log shows is fresh until it has been shown once", async () => {
+  const f = await fixture();
+  await f.log.add({ date, food: banana, grams: 50, meal: "lunch" });
+  assert.deepEqual(
+    freshIds(f),
+    f.entries().map((entry) => entry.id),
+  );
+  await settled();
+  assert.deepEqual(freshIds(f), [], "a shown entry rejoins normal reflow");
+});
+
+test("an entry logged from a covering search stays fresh until the log shows it", async () => {
+  const f = await fixture();
+  f.tab.search("banana");
+  f.tab.select(banana);
+  assert.equal(await f.tab.submit(), true);
+  assert.deepEqual(f.page(), { kind: "log" });
+  assert.deepEqual(
+    freshIds(f),
+    f.entries().map((entry) => entry.id),
+  );
+  await settled();
+
+  f.tab.search("banana");
+  await f.log.add({ date, food: banana, grams: 20, meal: "snacks" });
+  await settled();
+  assert.deepEqual(freshIds(f), [], "nothing rises behind the results");
+  f.tab.search("");
+  assert.deepEqual(freshIds(f), [f.entries()[1].id]);
+});
+
+test("entries logged while away, or there on first load or after a day change, aren't fresh", async () => {
+  const f = await fixture();
+  f.tab.setPresence({ focused: false, foreground: true });
+  await f.log.add({ date, food: banana, grams: 50, meal: "lunch" });
+  f.tab.setPresence({ focused: true, foreground: true });
+  assert.equal(f.tab.getSnapshot().fresh.size, 0);
+  f.tab.search("banana");
+  f.tab.setPresence({ focused: false, foreground: true });
+  await f.log.add({ date, food: banana, grams: 20, meal: "snacks" });
+  f.tab.setPresence({ focused: true, foreground: true });
+  f.tab.search("");
+  assert.equal(f.tab.getSnapshot().fresh.size, 0, "away, even behind the results");
+
+  await f.log.add({ date: nextDay, food: banana, grams: 80, meal: "dinner" });
+  f.tab.setDay(nextDay);
+  assert.equal(f.tab.getSnapshot().fresh.size, 0);
+
+  const tab = createFoodTabView({
+    date,
+    drafts: f.drafts,
+    log: f.log,
+    catalog: f.catalog,
+    lookup: { lookupProduct: async () => null },
+  });
+  tab.start();
+  tab.setPresence({ focused: true, foreground: true });
+  assert.equal(tab.getSnapshot().fresh.size, 0, "entries there on first load");
+  tab.stop();
+});
+
+test("the Custom food status waits for either document, and the log's write failure shows", async () => {
+  const f = await fixture();
+  assert.equal(f.tab.getSnapshot().customFoodStatus, true);
+  const logReads = f.logStorage.holdReads();
+  const catalogReads = f.catalogStorage.holdReads();
+  f.log.stop();
+  f.catalog.stop();
+  f.log.start();
+  f.catalog.start();
+  assert.equal(f.tab.getSnapshot().customFoodStatus, false);
+  logReads.open();
+  await flush();
+  assert.equal(f.tab.getSnapshot().customFoodStatus, true);
+  catalogReads.open();
+  await flush();
+
+  const write = f.logStorage.holdWrite();
+  const adding = f.log.add({ date, food: banana, grams: 50, meal: "lunch" });
+  await flush();
+  write.open(true);
+  assert.equal(await adding, false);
+  assert.equal(f.tab.getSnapshot().logError, "Couldn't save your food log. Try again.");
+});

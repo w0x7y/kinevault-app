@@ -272,6 +272,35 @@ test("a template draft keeps its selected exercise, builder and search when its 
   );
 });
 
+test("a template draft keeps its result limit and open notes; a new search shows the first page", async () => {
+  const f = await fixture();
+  await f.tab.requestView({ kind: "workout", workout: template });
+  const draft = f.drafts.template(f.token(), template);
+  assert.equal(draft.getSnapshot().limit, 20);
+  draft.showMore();
+  draft.showNotes("squat");
+  const remounted = f.drafts.template(f.token(), template).getSnapshot();
+  assert.equal(remounted.limit, 40);
+  assert.equal(remounted.notesId, "squat");
+  draft.search("s");
+  assert.equal(draft.getSnapshot().limit, 20);
+});
+
+test("an exercise draft keeps its KineVault search and Change mode when its form remounts", async () => {
+  const f = await fixture();
+  await f.tab.requestView({ kind: "exercise", exercise: squat, linkDemo: true });
+  const draft = f.drafts.exercise(f.token(), squat, true);
+  assert.deepEqual(draft.getSnapshot().demo, { query: "", changing: false, focus: "search" });
+  draft.pickDemo("focused");
+  draft.pickDemo("change");
+  draft.pickDemo({ query: "press" });
+  assert.deepEqual(f.drafts.exercise(f.token(), squat, true).getSnapshot().demo, {
+    query: "press",
+    changing: true,
+    focus: "search",
+  });
+});
+
 test("a rejected library write shows its command's reason and keeps the panel", async () => {
   const f = await fixture();
   await f.tab.requestView({ kind: "exercise" });

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { choiceLabels, emptyAnswers } from "../src/profile/answers.ts";
+import { answerSummary, choiceLabels, emptyAnswers } from "../src/profile/answers.ts";
 import { estimateCalories, validateAnswers, changeAnswers } from "../src/profile/calories.ts";
 import { parseProfile } from "../src/profile/model.ts";
 
@@ -124,4 +124,37 @@ test("the chosen goal and activity read as their labels, unanswered ones as null
     activity: "Lightly active",
   });
   assert.deepEqual(choiceLabels(emptyAnswers), { goal: null, activity: null });
+});
+
+test("an unanswered summary reads Not set and each figure keeps its unit on its line", () => {
+  assert.deepEqual(answerSummary(emptyAnswers, null), {
+    name: "Not set",
+    goal: "Not set",
+    age: "Not set",
+    height: "Not set",
+    weight: "Not set",
+    body: "Not set",
+    activity: "Not set",
+    calories: "Not set",
+  });
+  const answers = {
+    ...emptyAnswers,
+    name: " Kim ",
+    goal: "gain" as const,
+    activity: "very" as const,
+    age: "30",
+    height: "180",
+    weight: "80.5",
+  };
+  assert.deepEqual(answerSummary(answers, 2760), {
+    name: "Kim",
+    goal: "Gain weight",
+    age: "30\u00a0years",
+    height: "180\u00a0cm",
+    weight: "80.5\u00a0kg",
+    body: "180\u00a0cm · 80.5\u00a0kg",
+    activity: "Very active",
+    calories: `${(2760).toLocaleString()}\u00a0kcal`,
+  });
+  assert.equal(answerSummary({ ...emptyAnswers, weight: "80" }, null).body, "80\u00a0kg");
 });

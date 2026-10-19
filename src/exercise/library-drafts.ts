@@ -1,3 +1,9 @@
+import {
+  demoPicker,
+  initialDemoPicker,
+  type DemoPicker,
+  type DemoPickerEvent,
+} from "./demo/demo-link.ts";
 import { createWorkoutImportFlow, type WorkoutImportFlowSource } from "./import/import-flow.ts";
 import type { ExerciseDefinition, WorkoutTemplate } from "./model.ts";
 import { writeFailure, type createExercisePersistence, type ExerciseWrite } from "./persistence.ts";
@@ -7,7 +13,7 @@ import { createWorkoutTemplateDraft, type WorkoutTemplateDraft } from "./workout
 type ExerciseValues = Omit<ExerciseDefinition, "id">;
 /** The panel's pending save or removal and the feedback of its last failure. */
 type Attempt = { busy: boolean; error: string | null };
-type ExerciseDraftState = Attempt & { values: ExerciseValues };
+type ExerciseDraftState = Attempt & { values: ExerciseValues; demo: DemoPicker };
 type TemplateDraftState = Attempt & {
   draft: WorkoutTemplateDraft;
   /** The exercise on screen. */
@@ -16,7 +22,12 @@ type TemplateDraftState = Attempt & {
   settingsOpen: boolean;
   /** The builder's exercise search. */
   query: string;
+  /** How many search results show; a new search starts over. */
+  limit: number;
+  /** The exercise whose notes show. */
+  notesId: string | null;
 };
+const resultPage = 20;
 type SavedWorkoutsState = Attempt;
 type Store = Pick<
   ReturnType<typeof createExercisePersistence>,
@@ -119,14 +130,18 @@ export function createLibraryDrafts({
     return true;
   }
   return {
-    /** Creating or editing an Exercise definition; success leaves for the panel's return view. */
-    exercise(token: number, exercise?: ExerciseDefinition) {
+    /**
+     * Creating or editing an Exercise definition; success leaves for the panel's return view.
+     * `linkDemo` (from "Link demo") focuses the KineVault search.
+     */
+    exercise(token: number, exercise?: ExerciseDefinition, linkDemo = false) {
       const entry = entryFor(token, "exercise", () => ({
         kind: "exercise",
         state: {
           values: exercise
             ? { ...exercise }
             : { name: "", muscleGroup: "", equipment: "", notes: "", tracking: "single" },
+          demo: initialDemoPicker(linkDemo),
           busy: false,
           error: null,
         },
@@ -137,6 +152,8 @@ export function createLibraryDrafts({
         change(update: (values: ExerciseValues) => ExerciseValues) {
           if (!entry.state.busy) publish(entry, { values: update(entry.state.values) });
         },
+        pickDemo: (event: DemoPickerEvent) =>
+          publish(entry, { demo: demoPicker(entry.state.demo, event) }),
         save: () =>
           attempt(
             entry,
@@ -167,6 +184,8 @@ export function createLibraryDrafts({
           selectedId: workout?.exercises[0]?.id,
           settingsOpen: !workout,
           query: "",
+          limit: resultPage,
+          notesId: null,
         },
       }));
       return {
@@ -177,7 +196,9 @@ export function createLibraryDrafts({
         },
         select: (selectedId: string) => publish(entry, { selectedId }),
         showSettings: (settingsOpen: boolean) => publish(entry, { settingsOpen }),
-        search: (query: string) => publish(entry, { query }),
+        search: (query: string) => publish(entry, { query, limit: resultPage }),
+        showMore: () => publish(entry, { limit: entry.state.limit + resultPage }),
+        showNotes: (notesId: string | null) => publish(entry, { notesId }),
         async save() {
           if (entry.state.busy) return false;
           const preparation = entry.state.draft.prepare();

@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { createFoodSelection } from "../src/food/catalog-selection.ts";
-import { createFoodCatalog, foodKey, type CatalogFood } from "../src/food/catalog.ts";
+import { createFoodCatalog, type CatalogFood } from "../src/food/catalog.ts";
 import { commonFoodNames } from "../src/food/common-foods.ts";
+import { entryForFood } from "../src/food/log-model.ts";
 
 const bundled = JSON.parse(
   readFileSync(new URL("../assets/food/usda-fndds.json", import.meta.url), "utf8"),
@@ -35,7 +36,7 @@ test("a chicken by-product still ranks first when it is what was typed", () => {
   assert.equal(names("chicken feet", 1)[0], "Chicken feet");
 });
 
-test("foods from the user's log lead the logging results, most logged first", () => {
+test("foods logged on any day lead the logging results, most logged first", () => {
   const selection = createFoodSelection({
     savedFoods: [],
     savedMeals: [],
@@ -43,11 +44,18 @@ test("foods from the user's log lead the logging results, most logged first", ()
   });
   const feet = bundled.find((food) => food.name === "Chicken feet")!;
   const kiev = bundled.find((food) => food.name === "Chicken kiev")!;
-  const logged = new Map([
-    [foodKey(kiev), 1],
-    [foodKey(feet), 3],
-  ]);
-  const rows = selection.search({ purpose: "logging", query: "chicken", logged }).rows;
+  let id = 0;
+  const entry = (food: CatalogFood) =>
+    entryForFood({ id: `entry-${++id}`, food, grams: 100, meal: "dinner" });
+  const log = {
+    version: 1 as const,
+    days: {
+      "2026-10-01": [entry(feet), entry(kiev)],
+      "2026-10-02": [entry(feet)],
+      "2026-10-03": [entry(feet)],
+    },
+  };
+  const rows = selection.search({ purpose: "logging", query: "chicken", log }).rows;
   assert.deepEqual(
     rows.slice(0, 3).map((row) => row.food.name),
     ["Chicken feet", "Chicken kiev", "Chicken breast, grilled without sauce, skin not eaten"],

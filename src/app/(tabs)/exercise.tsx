@@ -11,7 +11,6 @@ import { WorkoutWidget } from "../../daily/workout-widget";
 import { WorkoutImport } from "../../exercise/import/workout-import";
 import { ExerciseForm, WorkoutForm } from "../../exercise/library-forms";
 import { LiveWorkoutCard } from "../../exercise/live-workout-card";
-import { useExercises } from "../../exercise/provider";
 import { ExerciseSearchResults } from "../../exercise/search-results";
 import { SessionEditor } from "../../exercise/session-editor";
 import { ActiveWorkoutTimer } from "../../exercise/timer";
@@ -20,30 +19,28 @@ import { WorkoutLibrary } from "../../exercise/workout-library";
 import { useRouteRequest } from "../../navigation/use-route-request";
 
 export default function ExerciseScreen() {
-  const activity = useDayActivity(),
-    store = useExercises();
+  const activity = useDayActivity();
   const { tab, view } = useExerciseTabView(activity.date);
-  const { drafts } = tab;
   const open = tab.requestView;
   const scrollRef = useRef<ScrollView>(null),
     resultsTop = useRef(0);
-  const document = store.state.kind === "ready" ? store.state.document : null;
-  useRouteRequest("workoutMenu", { ready: document !== null }, (date) => {
+  const ready = { ready: view.loaded };
+  useRouteRequest("workoutMenu", ready, (date) => {
     void tab.openWorkoutMenu(date);
   });
   // `/exercise?workoutImport=tracked` opens the import sheet, e.g. from a Settings shortcut.
-  useRouteRequest("workoutImport", { ready: document !== null }, (source) => {
+  useRouteRequest("workoutImport", ready, (source) => {
     void tab.openImport(source);
   });
   // `/exercise?liveWorkout=<id>` opens the Active workout's page, e.g. from the header timer.
-  useRouteRequest("liveWorkout", { ready: document !== null }, (id) => {
+  useRouteRequest("liveWorkout", ready, (id) => {
     void tab.openLiveWorkout(id);
   });
   const { inline, sheet } = view;
   // Ending (or discarding) the live workout swaps its card for the day's card, which fades in
   // where the live card was.
   const { fade } = useLayoutMotion();
-  const content = sheet?.panel.content;
+  const page = sheet?.page;
   function scrollToResults() {
     scrollRef.current?.scrollTo({ y: resultsTop.current, animated: false });
   }
@@ -54,16 +51,16 @@ export default function ExerciseScreen() {
         kind="exercise"
         query={view.query}
         onQueryChange={tab.search}
-        disabled={!document}
+        disabled={!view.loaded}
         onCreateExercise={() => void open({ kind: "exercise" })}
         onCreateWorkout={() => void open({ kind: "workout" })}
-        onSavedWorkouts={() => void open({ kind: "library", date: activity.date })}
+        onSavedWorkouts={() => void tab.openLibrary()}
       />
-      {document && view.search && (
+      {view.search && (
         <ExerciseSearchResults
           key={view.search}
           query={view.query}
-          exercises={document.exercises}
+          exercises={view.exercises}
           onLayout={(event) => {
             resultsTop.current = event.nativeEvent.layout.y;
           }}
@@ -76,13 +73,13 @@ export default function ExerciseScreen() {
           <WorkoutWidget
             tile={activity.workout}
             detailed
-            onAddWorkout={() => void open({ kind: "library", date: activity.date })}
+            onAddWorkout={() => void tab.openLibrary()}
           />
         </Animated.View>
       )}
       {view.plannedCards.map((session) => (
         <View key={session.id} testID={`planned-workout-${session.id}`}>
-          <SessionEditor tab={tab} session={session} />
+          <SessionEditor edit={tab.edits.edit(session.id)} />
         </View>
       ))}
       {view.live && (
@@ -92,7 +89,7 @@ export default function ExerciseScreen() {
         />
       )}
       {inline && (
-        <SessionEditor key={inline.panel.token} tab={tab} session={inline.session} closable />
+        <SessionEditor key={inline.panel.token} edit={tab.edits.edit(inline.session.id)} closable />
       )}
       {view.showImport && (
         <AppButton
@@ -114,42 +111,33 @@ export default function ExerciseScreen() {
             ) : undefined
           }
           page={sheet.panel.token}
-          onClose={() => tab.closeView(sheet.panel.token)}
+          onClose={sheet.close}
         >
           {/* The sheet stays up while its page changes (the library opening a workout); each new
               page fades in over the last. */}
           <StepFade step={sheet.panel.token}>
-            {content?.kind === "exercise" && (
-              <ExerciseForm
-                draft={drafts.exercise(sheet.panel.token, content.exercise)}
-                exercise={content.exercise}
-                linkDemo={content.linkDemo}
-              />
+            {page?.kind === "exercise" && (
+              <ExerciseForm draft={page.draft} exercise={page.exercise} linkDemo={page.linkDemo} />
             )}
-            {content?.kind === "workout" && (
-              <WorkoutForm
-                draft={drafts.template(sheet.panel.token, content.workout)}
-                workout={content.workout}
-              />
-            )}
-            {content?.kind === "library" && (
+            {page?.kind === "workout" && <WorkoutForm draft={page.draft} workout={page.workout} />}
+            {page?.kind === "library" && (
               <WorkoutLibrary
-                actions={drafts.savedWorkouts(sheet.panel.token, content.date)}
-                date={content.date}
+                actions={page.actions}
+                date={page.date}
                 onEdit={(workout) => void open({ kind: "workout", workout })}
                 onOpen={(id) => void open({ kind: "session", id })}
               />
             )}
-            {content?.kind === "import" && (
+            {page?.kind === "import" && (
               <WorkoutImport
-                flow={drafts.workoutImport(sheet.panel.token, content.source)}
-                onClose={() => tab.closeView(sheet.panel.token)}
-                onOpenLibrary={() => void open({ kind: "library", date: activity.date })}
+                flow={page.flow}
+                onClose={sheet.close}
+                onOpenLibrary={() => void tab.openLibrary()}
               />
             )}
-            {content?.kind === "session" &&
-              (sheet.log ? (
-                <SessionEditor tab={tab} session={sheet.log.session} />
+            {page?.kind === "session" &&
+              (page.edit ? (
+                <SessionEditor edit={page.edit} />
               ) : (
                 <Panel>
                   <AppText>This workout is no longer available.</AppText>

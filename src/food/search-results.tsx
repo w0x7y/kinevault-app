@@ -10,9 +10,6 @@ import { useCustomFoods } from "./custom-provider";
 import { useFoodLog } from "./log-provider";
 import { FoodResult, GenericNotice } from "./food-result";
 
-// The results remount for every query, so count per food log snapshot rather than per mount.
-const loggedCounts = new WeakMap<object, Map<string, number>>();
-
 export function FoodSearchResults({
   query,
   onLayout,
@@ -28,21 +25,11 @@ export function FoodSearchResults({
   const { selection } = useCustomFoods();
   const { colors } = useTheme();
   const log = useFoodLog();
-  const days = log.state.kind === "ready" ? log.state.document.days : null;
-  const logged = useMemo(() => {
-    const cached = days && loggedCounts.get(days);
-    if (cached) return cached;
-    const counts = new Map<string, number>();
-    for (const entries of Object.values(days ?? {}))
-      for (const entry of entries)
-        counts.set(foodKey(entry), (counts.get(foodKey(entry)) ?? 0) + 1);
-    if (days) loggedCounts.set(days, counts);
-    return counts;
-  }, [days]);
+  const saved = log.state.kind === "ready" ? log.state.document : undefined;
   const [page, setPage] = useState(0);
   const result = useMemo(
-    () => selection.search({ purpose: "logging", query, page, logged }),
-    [selection, query, page, logged],
+    () => selection.search({ purpose: "logging", query, page, log: saved }),
+    [selection, query, page, saved],
   );
   const hasGenericMatches = result.rows.some((row) => row.genericMatch);
   if (page !== result.page) setPage(result.page);

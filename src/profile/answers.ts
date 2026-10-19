@@ -77,6 +77,23 @@ export function choiceLabels({ goal, activity }: Pick<Answers, "goal" | "activit
     activity: activities.find(({ value }) => value === activity)?.label ?? null,
   };
 }
+/** Each answer as the Goals rows, the section chooser and the review write it, given the
+ * daily calorie target. A no-break space keeps a figure with its unit when a line wraps. */
+export function answerSummary(answers: Answers, calories: number | null) {
+  const { goal, activity } = choiceLabels(answers);
+  const height = answers.height && `${answers.height}\u00a0cm`;
+  const weight = answers.weight && `${answers.weight}\u00a0kg`;
+  return {
+    name: answers.name.trim() || "Not set",
+    goal: goal ?? "Not set",
+    age: answers.age ? `${answers.age}\u00a0years` : "Not set",
+    height: height || "Not set",
+    weight: weight || "Not set",
+    body: [height, weight].filter(Boolean).join(" · ") || "Not set",
+    activity: activity ?? "Not set",
+    calories: calories === null ? "Not set" : `${calories.toLocaleString()}\u00a0kcal`,
+  };
+}
 export const emptyAnswers: Answers = {
   name: "",
   goal: null,

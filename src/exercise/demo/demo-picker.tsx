@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Platform, View } from "react-native";
 import { AppButton, ButtonRow } from "../../components/button";
 import { AppText } from "../../components/ui";
@@ -12,6 +12,7 @@ import { SectionLabel } from "../controls";
 import type { CatalogLink } from "../model";
 import type { CatalogExercise } from "./catalog";
 import { createDemoCatalogSearch } from "./catalog-search";
+import { demoSearchStatus, type DemoPicker, type DemoPickerEvent } from "./demo-link";
 import { DemoThumbnail, ExerciseDemo } from "./exercise-demo";
 import { useDemoCatalog } from "./provider";
 import { RetryButton } from "../../components/load-failure";
@@ -59,38 +60,23 @@ function DemoResult({
   );
 }
 
-function searchStatus({
-  failed,
-  offline,
-  searching,
-  results,
-}: {
-  failed: boolean;
-  offline: boolean;
-  searching: boolean;
-  results: readonly CatalogExercise[];
-}) {
-  if (failed)
-    return offline
-      ? "Connect to search KineVault demos."
-      : "KineVault demos aren't available right now. Try again later.";
-  if (!searching) return "";
-  if (!results.length) return "No KineVault exercises found. Try another name.";
-  return `${results.length} KineVault ${results.length === 1 ? "exercise" : "exercises"} found.`;
-}
-
-/** The exercise form's KineVault demo: search and link, or preview and unlink. */
+/**
+ * The exercise form's KineVault demo: search and link, or preview and unlink. Its search and
+ * mode (`picker`) belong to the exercise's Library draft, so they survive leaving the tab.
+ */
 export function KineVaultDemoSection({
   link,
   exerciseName,
-  focusSearch = false,
+  picker: { query, changing, focus },
+  onPick,
   disabled,
   onLink,
   onUnlink,
 }: {
   link: CatalogLink | undefined;
   exerciseName: string;
-  focusSearch?: boolean;
+  picker: DemoPicker;
+  onPick: (event: DemoPickerEvent) => void;
   disabled: boolean;
   onLink: (entry: CatalogExercise) => void;
   onUnlink: () => void;
@@ -99,15 +85,7 @@ export function KineVaultDemoSection({
   const catalog = useDemoCatalog();
   const offline = useConnectivity() === "offline";
   const { refreshIfStale } = catalog;
-  const [changing, setChanging] = useState(false);
-  const [query, setQuery] = useState("");
-  // Change and Unlink replace the button that was pressed with the search, so
-  // the search takes focus rather than leaving it nowhere.
-  const [focusOnMount, setFocusOnMount] = useState(focusSearch);
-  // Keeping the current demo or choosing a result swaps the pressed control for the linked
-  // view, so Change takes focus there.
   const changeButton = useRef<View>(null);
-  const focusChange = useRef(false);
   useEffect(() => {
     void refreshIfStale();
   }, [refreshIfStale]);
@@ -117,14 +95,16 @@ export function KineVaultDemoSection({
   const linked =
     link && catalog.state.kind === "ready" ? catalog.state.byId.get(link.id) : undefined;
   const failed = catalog.state.kind === "failed";
-  const statusText = searchStatus({ failed, offline, searching: query.trim() !== "", results });
+  const statusText = demoSearchStatus({ failed, offline, query, results });
   const label = exerciseName.trim() || "this exercise";
   const showLinked = link !== undefined && !changing;
+  // The search takes focus as it mounts (autoFocus); Change once the linked demo shows.
   useEffect(() => {
-    if (!showLinked || !focusChange.current) return;
-    focusChange.current = false;
-    if (Platform.OS === "web") changeButton.current?.focus();
-  }, [showLinked]);
+    if (focus === "change" && showLinked) {
+      if (Platform.OS === "web") changeButton.current?.focus();
+      onPick("focused");
+    } else if (focus === "search" && !showLinked && !failed) onPick("focused");
+  }, [focus, showLinked, failed, onPick]);
   return (
     <View testID="kinevault-demo" style={{ gap: spacing.layout }}>
       <SectionLabel>KineVault demo</SectionLabel>
@@ -145,10 +125,7 @@ export function KineVaultDemoSection({
               accessibilityLabel="Change KineVault demo"
               fill
               disabled={disabled}
-              onPress={() => {
-                setFocusOnMount(true);
-                setChanging(true);
-              }}
+              onPress={() => onPick("change")}
             />
             <AppButton
               icon="xmark"
@@ -157,7 +134,7 @@ export function KineVaultDemoSection({
               fill
               disabled={disabled}
               onPress={() => {
-                setFocusOnMount(true);
+                onPick("unlink");
                 onUnlink();
               }}
             />
@@ -170,9 +147,9 @@ export function KineVaultDemoSection({
               labelTone="muted"
               label="Find in KineVault"
               value={query}
-              onChange={setQuery}
+              onChange={(value) => onPick({ query: value })}
               disabled={disabled || catalog.state.kind === "loading"}
-              autoFocus={focusOnMount}
+              autoFocus={focus === "search"}
             />
           )}
           <StatusLine text={statusText} />
@@ -189,10 +166,8 @@ export function KineVaultDemoSection({
                 entry={entry}
                 disabled={disabled}
                 onPress={() => {
-                  focusChange.current = true;
                   onLink(entry);
-                  setChanging(false);
-                  setQuery("");
+                  onPick("linked");
                 }}
               />
             ))
@@ -204,10 +179,7 @@ export function KineVaultDemoSection({
           icon="chevron-left"
           label="Keep current demo"
           disabled={disabled}
-          onPress={() => {
-            focusChange.current = true;
-            setChanging(false);
-          }}
+          onPress={() => onPick("keep")}
         />
       )}
     </View>

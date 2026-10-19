@@ -166,7 +166,12 @@ Workout edits and Library drafts reach the panel through its panel seam; before 
 panel changes, the view asks Workout edits to save the logs it leaves and stays put
 if one can't save. Its snapshot decides where every Workout log and panel goes: compact
 cards stay on the tab, and every other panel, the Active workout's page included, is
-a sheet with its title, back name and test ID. On the default view the Active
+a sheet with its title, back name and test ID. The sheet carries its page with the
+owner attached (the exercise or Workout template draft, the Saved workouts actions, the
+import flow or the Workout edit) and a `close` bound to its own panel, so the route only
+switches on the page kind. The snapshot also says whether the document is loaded and
+lists the library's exercises for search, and `openLibrary` opens Saved workouts on the
+Selected day. On the default view the Active
 workout is a Live workout card that opens its page; when that workout ends, the
 snapshot marks the day's card that replaces it to fade in. Workout edits open that page
 after a Start from the day, keep the edit when its back button leaves it (the
@@ -174,18 +179,23 @@ after a Start from the day, keep the edit when its back button leaves it (the
 workout before opening its own page. `activeWorkout` in the exercise model is the one
 lookup of the Active workout. The app header reads the Active workout from
 the exercise store and opens the page through the `liveWorkout` route request. Workout edits own the selected exercise, the Details
-disclosure and the planned-set settings disclosure, which reopens when a planned count is
-invalid, and
+disclosure, the open notes and the planned-set settings disclosure, which reopens when a
+planned count is invalid, and
 the same log mode drives planned-count validation. The edit's snapshot carries that
 mode and the controls it allows from one table, `workoutLogControls`: whether Back
-leaves or cancels and its name, Save or complete and its label, Discard, Start,
+leaves or cancels and its name, the main action (Save, complete, or on a compact card
+`manual`, which opens the manual page) and its label, Discard, Start,
 Details, Retry, the overline and the sheet's title and test ID; the compact card, the
-editor and the sheet render them. `parsePlannedSetCount` in the exercise model is the one planned-count
+editor and the sheet render them. The snapshot also resolves the row on screen, its
+Previous sets hints and the duration caption. The tab passes its view request in when it
+creates the edits, so an edit opens its own manual page and its "Link demo" trip, which
+returns to the workout's page. `parsePlannedSetCount` in the exercise model is the one planned-count
 rule for Workout edits and Workout templates. `setHints` there gives each blank set its
 Previous sets hint, and `matchingExercises` is the one library search rule; it takes the typed query.
 `short-name.ts` owns both row labels: the accessible "Squat exercise 2" and the chip label. Library drafts own Exercise
-definition, Workout template (including its selected exercise, builder disclosure and
-search), Saved workouts and Workout import state per panel, so the sheet can unmount when the tab
+definition (including its KineVault search), Workout template (including its selected
+exercise, builder disclosure, search, result limit and open notes), Saved workouts and
+Workout import state per panel, so the sheet can unmount when the tab
 loses focus without losing input; their durable success closes the originating
 panel through the same panel seam as Workout edits. Exercise persistence returns
 each write's outcome: saved with its value, rejected with its command's reason, or
@@ -203,7 +213,10 @@ clip readings into one status, and maps that status to its notice and the Retry 
 (`demoNotice`: the catalog or the clip). It also holds the player's attempt state as a
 reducer (`demoPlayback`): poster, starting and playing; a start timeout fails only a
 clip that never started, and losing focus returns it to the poster. `exercise-demo.tsx`
-keeps the expo-video adapter, focus and timers.
+keeps the expo-video adapter, focus and timers. The exercise form's KineVault search is a
+second reducer (`demoPicker`): the query, whether a linked demo is being changed, and the
+control that takes focus after Change, Keep, Unlink or a chosen result; `demoSearchStatus`
+words its status line. The exercise draft holds that state; `demo-picker.tsx` renders it.
 
 The Food tab view owns the Food tab's query, its page over the log and the owners
 behind that page (a Logging attempt, a Product import flow). Catalog views
@@ -215,7 +228,16 @@ hidden still route their page. It also owns removing a Logged food entry: one op
 confirmation, the removal, and its failure. From confirmation until the write settles, the
 entry's fade included, the removal counts as a write, so other entries, search and resuming
 stay locked. A logged entry's details and Daily macros show only over a loaded food log.
-React keeps only scroll and keyboard effects and the entry's fade.
+It keeps the known entry ids per Selected day and publishes the fresh ones, which rise into
+their meal: entries logged while the food log shows, or from a search covering it once the
+log shows again. Entries found on first load or after a day change, or logged while the tab
+was away, aren't fresh. Fresh entries settle after the render that shows them, so their
+meal card rejoins later reflows. It also publishes whether the Custom food status shows and
+the food log's write error. The route keeps the AppState adapter that feeds the view's
+presence, scroll and keyboard effects, and the entry's fade.
+
+Catalog selection's logging search takes the food log document and ranks foods logged on
+any day first, counting once per document. Search results render its rows and pager.
 
 A Logging attempt is built from the food-log persistence, the Custom food
 persistence and the Meal destination. It derives whether it can submit from them
@@ -234,7 +256,10 @@ percentage and each macro's share of the calorie ring, rounded to whole kcal and
 one decimal) and writes the figures the screens show ("eaten / target unit", the Food
 title and the ring's left, over or eaten caption), so the Home ring and macros, the Food
 title, Daily macros and the journal only draw it. A missing calorie or macro target shows as "—" and is read as "unset", and
-"Set your goals" is one link that pages close before following.
+"Set your goals" is one link that pages close before following. While the food log isn't
+loaded, `unavailableNutrition` gives the journal each target against an unavailable figure,
+and the water total carries the journal's figure and label too, so it builds no figures of
+its own.
 `useDayActivity` is its React adapter; only Home asks it to read Phone steps. The journal's
 streak comes from the same activity and is counted once per change of its sources.
 
@@ -283,7 +308,9 @@ domain keeps its own storage key, parser and messages.
 `stepFields` in `src/profile/answers.ts` is the one map of which Answers fields each step
 owns. The Onboarding flow uses it to decide which errors block Continue; focused Profile
 edits use it to split errors between the section's Question and the editor's inline
-messages.
+messages. `answerSummary` beside it writes each answer as one line ("Not set" while
+unanswered) for the journal's Details & goals rows, its section chooser and the Onboarding
+review.
 
 Manual water, Logged steps, Water goal and focused Profile edits share the
 document-edit module.

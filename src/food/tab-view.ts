@@ -74,7 +74,17 @@ type FoodTabSnapshot = Readonly<{
   createDisabled: boolean;
   /** Daily macros also needs the loaded food log. */
   macrosDisabled: boolean;
+  /** Entries logged while the food log shows, or while a search covering it was open; they
+   * rise into their meal once. Entries found on first load or after a day change, or logged
+   * while the tab was away, are simply there. */
+  fresh: ReadonlySet<string>;
+  /** The Custom food status waits until the food log or Custom foods has left loading. */
+  customFoodStatus: boolean;
+  /** The food log's last write failure. */
+  logError: string | null;
 }>;
+
+const noEntries: ReadonlySet<string> = new Set();
 
 /** Catalog views belong to reusable foods, not the Selected day, so they survive a day change. */
 function catalogView(page: FoodTabPage) {
@@ -117,8 +127,39 @@ export function createFoodTabView({
   let running = false;
   let detach: (() => void) | undefined;
   let detachFlow: (() => void) | undefined;
+  let known: { date: string; ids: Set<string> } | null = null;
+  let fresh = noEntries;
+  let settle: ReturnType<typeof setTimeout> | undefined;
+  noteEntries();
   let snapshot = build();
 
+  /** Compares the Selected day's entries with those already known for it. Fresh entries stay
+   * fresh until they settle, so repeated food-log changes before a render don't drop them. */
+  function noteEntries() {
+    const saved = log.getSnapshot().state;
+    const showingLog = !query.trim();
+    if (saved.kind !== "ready" || !focused || !showingLog) fresh = noEntries;
+    if (saved.kind !== "ready") return;
+    const entries = saved.document.days[day] ?? [];
+    if (known?.date !== day) {
+      known = { date: day, ids: new Set(entries.map((entry) => entry.id)) };
+      fresh = noEntries;
+      return;
+    }
+    const { ids } = known;
+    const added = focused && showingLog ? entries.filter((entry) => !ids.has(entry.id)) : [];
+    // While a search covers the log, a food logged from it stays new until the log shows it.
+    if (showingLog || !focused) for (const entry of entries) ids.add(entry.id);
+    if (!added.length) return;
+    fresh = new Set([...fresh, ...added.map((entry) => entry.id)]);
+    // Once shown, a new entry's meal card rejoins the glide of later reflows.
+    settle ??= setTimeout(() => {
+      settle = undefined;
+      if (!fresh.size) return;
+      fresh = noEntries;
+      publish();
+    });
+  }
   function build(): FoodTabSnapshot {
     const saved = log.getSnapshot();
     const custom = catalog.getSnapshot();
@@ -139,19 +180,27 @@ export function createFoodTabView({
       busy,
       createDisabled: busy || custom.state.kind !== "ready",
       macrosDisabled: busy || saved.state.kind !== "ready",
+      fresh,
+      customFoodStatus: saved.state.kind !== "loading" || custom.state.kind !== "loading",
+      logError: saved.error,
     };
   }
   function publish() {
+    noteEntries();
     snapshot = build();
     for (const listener of listeners) listener();
   }
   function follow() {
+    noteEntries();
     const next = build();
     if (
       next.busy === snapshot.busy &&
       next.sheet === snapshot.sheet &&
       next.createDisabled === snapshot.createDisabled &&
-      next.macrosDisabled === snapshot.macrosDisabled
+      next.macrosDisabled === snapshot.macrosDisabled &&
+      next.fresh === snapshot.fresh &&
+      next.customFoodStatus === snapshot.customFoodStatus &&
+      next.logError === snapshot.logError
     )
       return;
     snapshot = next;
@@ -235,6 +284,8 @@ export function createFoodTabView({
       running = false;
       detach?.();
       detach = undefined;
+      clearTimeout(settle);
+      settle = undefined;
       if (page.kind === "detail") page.attempt.close();
       if (page.kind === "import") page.flow.stop();
     },

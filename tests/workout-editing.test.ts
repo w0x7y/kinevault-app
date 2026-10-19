@@ -63,13 +63,12 @@ function session(status: WorkoutSession["status"]): WorkoutSession {
 function tabView(store: Parameters<typeof createExerciseTabView>[0]["store"]) {
   return createExerciseTabView({ store, date: "2026-10-04", importSources: [] });
 }
-async function fixture(status: WorkoutSession["status"] = "completed") {
-  const document: ExerciseDocument = {
-    version: 1,
-    exercises: [exercise],
-    workouts: [],
-    sessions: [session(status)],
-  };
+/** A store and tab view over the "log" session, first, and any other logs. */
+async function fixture(
+  status: WorkoutSession["status"] = "completed",
+  sessions = [session(status)],
+) {
+  const document: ExerciseDocument = { version: 1, exercises: [exercise], workouts: [], sessions };
   let raw = JSON.stringify(document);
   const storage = {
     async getItem(key: string) {
@@ -141,6 +140,94 @@ test("an open Details section outlives the editor until Cancel releases the edit
   assert.equal(f.editing.edit("log").getSnapshot().detailsOpen, true);
   assert.equal(await f.editing.edit("log").run("cancel"), true);
   assert.equal(f.editing.edit("log").getSnapshot().detailsOpen, false);
+});
+
+test("open notes outlive a Link demo trip until Cancel releases the edit", async () => {
+  const f = await fixture("planned");
+  await f.tab.requestView({ kind: "session", id: "log", manual: true });
+  const edit = f.editing.edit("log");
+  edit.showNotes("row");
+  assert.equal(await edit.linkDemo(exercise), true);
+  const trip = f.tab.getSnapshot().panel!;
+  assert.deepEqual(trip.content, {
+    kind: "exercise",
+    exercise,
+    linkDemo: true,
+    returnTo: { kind: "session", id: "log", manual: true },
+  });
+  f.tab.closeView(trip.token);
+  assert.deepEqual(f.tab.getSnapshot().panel?.content, {
+    kind: "session",
+    id: "log",
+    manual: true,
+  });
+  assert.equal(f.editing.edit("log").getSnapshot().notesId, "row");
+  assert.equal(await f.editing.edit("log").run("cancel"), true);
+  assert.equal(f.editing.edit("log").getSnapshot().notesId, null);
+});
+
+test("a compact card's Log completed workout opens its manual page", async () => {
+  const f = await fixture("planned");
+  const card = f.editing.edit("log");
+  const { primary, primaryLabel } = card.getSnapshot();
+  assert.equal(primaryLabel, "Log completed workout");
+  assert.equal(await card.run(primary), true);
+  assert.deepEqual(f.tab.getSnapshot().panel?.content, {
+    kind: "session",
+    id: "log",
+    manual: true,
+  });
+  assert.equal(f.editing.edit("log").getSnapshot().mode, "manual");
+  assert.equal(f.saved().status, "planned");
+});
+
+test("the row on screen shows its own Previous sets hints", async () => {
+  const curl = { ...exercise, id: "curl", name: "Curl" };
+  const log = session("planned");
+  log.exercises.push({
+    id: "curl-row",
+    exercise: curl,
+    sets: [{ id: "curl-set", kind: "single", reps: "", weightKg: "" }],
+  });
+  const earlier: WorkoutSession = {
+    ...session("completed"),
+    id: "earlier",
+    date: "2026-10-03",
+    exercises: [
+      {
+        id: "earlier-row",
+        exercise: curl,
+        sets: [{ id: "earlier-set", kind: "single", reps: "12", weightKg: "15" }],
+      },
+    ],
+  };
+  const f = await fixture("planned", [log, earlier]);
+  const edit = f.editing.edit("log");
+  // The first row shows until another is selected. Squat has no earlier log, so its blank set
+  // hints the set above it.
+  assert.equal(edit.getSnapshot().selected?.id, "row");
+  assert.deepEqual(edit.getSnapshot().hints, [
+    { kind: "single", reps: undefined, weightKg: undefined },
+    { kind: "single", reps: "8", weightKg: "10" },
+  ]);
+  edit.select("curl-row");
+  assert.equal(edit.getSnapshot().selected?.id, "curl-row");
+  assert.deepEqual(edit.getSnapshot().hints, [{ kind: "single", reps: "12", weightKg: "15" }]);
+});
+
+test("the duration caption reads the entered minutes", async () => {
+  const f = await fixture();
+  await f.tab.requestView({ kind: "session", id: "log" });
+  const edit = f.editing.edit("log");
+  assert.equal(edit.getSnapshot().durationCaption, "2:00");
+  for (const [minutes, caption] of [
+    ["1.5", "1:30"],
+    ["", "Duration not set"],
+    ["bad", "Invalid duration"],
+  ]) {
+    edit.change({ kind: "minutes", value: minutes! });
+    assert.equal(edit.getSnapshot().durationCaption, caption);
+  }
 });
 
 test("a compact card's settings stay open until they save, beside any count problem", async () => {
@@ -864,6 +951,10 @@ test("each log mode allows its own controls, and the mode follows the open panel
       selectedId,
       settingsOpen,
       detailsOpen,
+      notesId,
+      selected,
+      hints,
+      durationCaption,
       ...rest
     } = edit.getSnapshot();
     return rest;
@@ -873,7 +964,8 @@ test("each log mode allows its own controls, and the mode follows the open panel
     mode: "compact",
     back: "cancel",
     backLabel: "Close workout",
-    primary: "complete",
+    // Log opens the manual page.
+    primary: "manual",
     primaryLabel: "Log completed workout",
     discard: false,
     start: true,
@@ -882,7 +974,6 @@ test("each log mode allows its own controls, and the mode follows the open panel
     overline: "Planned",
     testID: "planned-workout-card",
     sheet: null,
-    returnTo: { kind: "session", id: "log", manual: false },
   });
   await planned.tab.requestView({ kind: "session", id: "log", manual: true });
   assert.deepEqual(controls(planned.editing.edit("log")), {
@@ -898,7 +989,6 @@ test("each log mode allows its own controls, and the mode follows the open panel
     overline: "Log a workout",
     testID: "manual-workout-workspace",
     sheet: { title: "Log workout", testID: "session-editor" },
-    returnTo: { kind: "session", id: "log", manual: true },
   });
   const active = await fixture("active");
   assert.deepEqual(controls(active.editing.edit("log")), {
@@ -915,7 +1005,6 @@ test("each log mode allows its own controls, and the mode follows the open panel
     testID: "active-workout-workspace",
     // The Active workout's page is titled with its name.
     sheet: { title: null, testID: "active-workout" },
-    returnTo: { kind: "session", id: "log", manual: false },
   });
   const completed = await fixture("completed");
   assert.deepEqual(controls(completed.editing.edit("log")), {
@@ -932,7 +1021,6 @@ test("each log mode allows its own controls, and the mode follows the open panel
     overline: "Logged workout",
     testID: "completed-workout-workspace",
     sheet: { title: "Logged workout", testID: "session-editor" },
-    returnTo: { kind: "session", id: "log", manual: false },
   });
   // An unchanged edit keeps its snapshot, as React's store subscription requires.
   const edit = completed.editing.edit("log");

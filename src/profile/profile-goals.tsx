@@ -9,9 +9,8 @@ import { AppText, Panel } from "../components/ui";
 import { cardShadow, fonts, radius, spacing } from "../theme/tokens";
 import { WaterGoalEditor } from "./water-goal-editor";
 import { useDayActivity } from "../daily/use-day";
-import { unsetTarget } from "../daily/activity";
 import { useTheme } from "../theme/provider";
-import { choiceLabels } from "./answers";
+import { answerSummary } from "./answers";
 import { useProfile } from "./provider";
 import { ProfileEditor } from "./profile-editor";
 import type { ProfileEditSection } from "./section-editing";
@@ -22,7 +21,6 @@ export type ProfileEditorInstance = {
   id: number;
   section: ProfileEditSection | "water";
 };
-const number = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 1 });
 function ProgressBar({ fraction, color }: { fraction: number; color: string }) {
   const { colors } = useTheme();
   return (
@@ -43,14 +41,14 @@ function GoalRow({
   icon,
   name,
   value,
-  target,
+  ofTarget,
   bar,
   trailing,
 }: {
   icon: ReactNode;
   name: string;
   value: string;
-  target: string;
+  ofTarget: string;
   bar: ReactNode;
   trailing?: ReactNode;
 }) {
@@ -72,7 +70,7 @@ function GoalRow({
           <AppText variant="label" numeric style={{ fontSize: 14 }}>
             {value}
             <AppText variant="caption" muted>
-              {` / ${target}`}
+              {` ${ofTarget}`}
             </AppText>
           </AppText>
         </View>
@@ -85,7 +83,7 @@ function GoalRow({
 export function TodayNutrition({ today, onPress }: { today: string; onPress: () => void }) {
   const activity = useDayActivity({ date: today });
   const { colors } = useTheme();
-  const calories = activity.nutrition?.calories;
+  const { calories } = activity.nutrition ?? activity.unavailableNutrition;
   return (
     <Tappable
       label="Today's nutrition"
@@ -118,13 +116,13 @@ export function TodayNutrition({ today, onPress }: { today: string; onPress: () 
             Today’s nutrition
           </AppText>
           <AppText variant="label" numeric style={{ fontSize: 14 }}>
-            {calories ? number(calories.eaten) : "Unavailable"}
+            {calories.value}
             <AppText variant="caption" muted>
-              {` ${calories?.ofTarget ?? `/ ${unsetTarget.shown} kcal`}`}
+              {` ${calories.ofTarget}`}
             </AppText>
           </AppText>
         </View>
-        <ProgressBar fraction={calories?.fraction ?? 0} color={colors.primary} />
+        <ProgressBar fraction={calories.fraction} color={colors.primary} />
       </View>
       <Icon name="chevron-right" size={16} color={colors.mutedForeground} />
     </Tappable>
@@ -150,35 +148,16 @@ export function ProfileGoals({
   const chosen = useRef<(typeof chooserSections)[number] | null>(null);
   const { targets } = activity;
   if (profile.state.kind !== "ready" || targets.kind !== "ready") return null;
-  const answers = profile.state.document.answers;
-  const labels = choiceLabels(answers);
-  const { nutrition } = activity;
-  const target = (value: number | null, unit: string) =>
-    value === null ? unsetTarget.shown : `${number(value)} ${unit}`;
-  const spokenTarget = (value: number | null) =>
-    value === null ? unsetTarget.spoken : number(value);
-  const waterMl = activity.water.total.kind === "ready" ? activity.water.total.ml : null;
-  const waterTarget = activity.water.goal.kind === "ready" ? activity.water.goal.ml : null;
+  const summary = answerSummary(profile.state.document.answers, targets.calories);
+  const nutrition = activity.nutrition ?? activity.unavailableNutrition;
   const rows = [
-    ["Weight goal", labels.goal ?? "Not set"],
-    ["Current weight", answers.weight ? `${answers.weight} kg` : "Not set"],
-    ["Height", answers.height ? `${answers.height} cm` : "Not set"],
-    ["Age", `${answers.age} years`],
-    ["Activity", labels.activity ?? "Not set"],
-    ["Calorie target", targets.calories === null ? "Not set" : `${number(targets.calories)} kcal`],
+    ["Weight goal", summary.goal],
+    ["Current weight", summary.weight],
+    ["Height", summary.height],
+    ["Age", summary.age],
+    ["Activity", summary.activity],
+    ["Calorie target", summary.calories],
   ];
-  const detail = (section: (typeof chooserSections)[number]) =>
-    ({
-      name: answers.name.trim() || "Not set",
-      age: answers.age ? `${answers.age} years` : "Not set",
-      body:
-        [answers.height && `${answers.height} cm`, answers.weight && `${answers.weight} kg`]
-          .filter(Boolean)
-          .join(" · ") || "Not set",
-      goal: labels.goal ?? "Not set",
-      activity: labels.activity ?? "Not set",
-      calories: targets.calories === null ? "Not set" : `${number(targets.calories)} kcal`,
-    })[section];
   return (
     <View style={{ gap: spacing.layout }}>
       <Panel accessibilityLabel={`Today & targets · ${today}`}>
@@ -196,20 +175,17 @@ export function ProfileGoals({
         )}
         <View
           testID="profile-goal-calories"
-          accessibilityLabel={`${nutrition ? number(nutrition.calories.eaten) : "Unavailable"} / ${spokenTarget(targets.calories)} kcal`}
+          accessibilityLabel={nutrition.calories.label}
           style={{ gap: spacing.sm, marginBottom: spacing.xs }}
         >
-          <JournalFigure
-            value={nutrition ? number(nutrition.calories.eaten) : "Unavailable"}
-            unit={`/ ${target(targets.calories, "kcal")}`}
-          />
-          <ProgressBar fraction={nutrition?.calories.fraction ?? 0} color={colors.primary} />
+          <JournalFigure value={nutrition.calories.value} unit={nutrition.calories.ofTarget} />
+          <ProgressBar fraction={nutrition.calories.fraction} color={colors.primary} />
         </View>
         {(["carbs", "protein", "fat"] as const).map((field) => (
           <View
             key={field}
             testID={`profile-goal-${field}`}
-            accessibilityLabel={`${nutrition ? number(nutrition[field].eaten) : "Unavailable"} / ${spokenTarget(targets[field])} g`}
+            accessibilityLabel={nutrition[field].label}
           >
             <GoalRow
               icon={
@@ -218,17 +194,15 @@ export function ProfileGoals({
                 />
               }
               name={field[0].toUpperCase() + field.slice(1)}
-              value={nutrition ? number(nutrition[field].eaten) : "—"}
-              target={target(targets[field], "g")}
-              bar={
-                <ProgressBar fraction={nutrition?.[field].fraction ?? 0} color={colors[field]} />
-              }
+              value={nutrition[field].value}
+              ofTarget={nutrition[field].ofTarget}
+              bar={<ProgressBar fraction={nutrition[field].fraction} color={colors[field]} />}
             />
           </View>
         ))}
         <View
           testID="profile-goal-water"
-          accessibilityLabel={`${waterMl === null ? "Unavailable" : number(waterMl)} / ${waterTarget === null ? "Unavailable" : number(waterTarget)} ml`}
+          accessibilityLabel={activity.water.label}
           style={{
             borderTopWidth: StyleSheet.hairlineWidth,
             borderColor: colors.border,
@@ -248,8 +222,8 @@ export function ProfileGoals({
             <GoalRow
               icon={<Icon name="droplet" size={18} color={colors.water} />}
               name="Water"
-              value={waterMl === null ? "—" : number(waterMl)}
-              target={target(waterTarget, "ml")}
+              value={activity.water.value}
+              ofTarget={activity.water.ofTarget}
               bar={<ProgressBar fraction={activity.water.progress ?? 0} color={colors.water} />}
               trailing={<Icon name="chevron-right" size={16} color={colors.mutedForeground} />}
             />
@@ -328,7 +302,7 @@ export function ProfileGoals({
             <ChooserRow
               key={section}
               section={section}
-              detail={detail(section)}
+              detail={summary[section]}
               first={index === 0}
               onPress={() => {
                 chosen.current = section;

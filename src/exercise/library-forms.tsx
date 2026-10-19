@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { View } from "react-native";
 import Animated, { LayoutAnimationConfig } from "react-native-reanimated";
 import { useLayoutMotion } from "../components/motion";
@@ -38,7 +37,7 @@ export function ExerciseForm({
   /** Opened from "Link demo": the sheet starts at the KineVault search, which takes focus. */
   linkDemo?: boolean;
 }) {
-  const { values, busy, error } = useLibraryDraft(draft);
+  const { values, demo, busy, error } = useLibraryDraft(draft);
   // The sheet's back button is this form's Cancel, except while it saves.
   useSheetBack({ disabled: busy });
   const demoSection = useSheetScrollTarget(linkDemo);
@@ -93,7 +92,8 @@ export function ExerciseForm({
         <KineVaultDemoSection
           link={values.catalog}
           exerciseName={values.name}
-          focusSearch={linkDemo}
+          picker={demo}
+          onPick={draft.pickDemo}
           disabled={busy}
           onLink={(entry) => draft.change((current) => applyCatalogLink(current, entry))}
           onUnlink={() => draft.change(withoutCatalogLink)}
@@ -129,9 +129,8 @@ export function WorkoutForm({
 }) {
   const store = useExercises();
   const exercises = store.state.kind === "ready" ? store.state.document.exercises : [];
-  const { draft, busy, error, selectedId, settingsOpen, query } = useLibraryDraft(template);
-  const [limit, setLimit] = useState(20);
-  const [notesId, setNotesId] = useState<string | null>(null);
+  const { draft, busy, error, selectedId, settingsOpen, query, limit, notesId } =
+    useLibraryDraft(template);
   const rise = useLayoutMotion().enter();
   const available = matchingExercises(exercises, query).filter(
     (item) => !draft.rows.some((row) => row.exercise.id === item.id),
@@ -152,10 +151,7 @@ export function WorkoutForm({
         labelTone="muted"
         label="Search workout exercises"
         value={query}
-        onChange={(value) => {
-          template.search(value);
-          setLimit(20);
-        }}
+        onChange={template.search}
         disabled={busy}
       />
       {exercises.length === 0 ? (
@@ -193,7 +189,7 @@ export function WorkoutForm({
           size="compact"
           fill
           label="Show more exercises"
-          onPress={() => setLimit((value) => value + 20)}
+          onPress={template.showMore}
           disabled={busy}
         />
       )}
@@ -321,9 +317,7 @@ export function WorkoutForm({
                 icon="note-sticky"
                 expanded={notesId === selectedExercise.id}
                 onPress={() =>
-                  setNotesId((previous) =>
-                    previous === selectedExercise.id ? null : selectedExercise.id,
-                  )
+                  template.showNotes(notesId === selectedExercise.id ? null : selectedExercise.id)
                 }
                 disabled={busy}
               />

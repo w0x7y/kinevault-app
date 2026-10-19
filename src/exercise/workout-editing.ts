@@ -2,12 +2,16 @@ import {
   activeWorkout,
   createEmptySet,
   durationFromMinutes,
+  formatElapsed,
   isBlankSet,
   parsePlannedSetCount,
   plannedSetCountMessage,
+  setHints,
+  type ExerciseDefinition,
   type ExerciseDocument,
   type ExerciseSet,
   type SessionExercise,
+  type SetHint,
   type WorkoutSession,
 } from "./model.ts";
 import { writeFailure, type createExercisePersistence, type ExerciseWrite } from "./persistence.ts";
@@ -32,6 +36,8 @@ export type WorkoutEditState = {
   settingsOpen: boolean;
   /** Whether a manual or completed page shows its name and duration fields. */
   detailsOpen: boolean;
+  /** The exercise row whose notes show. */
+  notesId: string | null;
 };
 type Store = Pick<
   ReturnType<typeof createExercisePersistence>,
@@ -43,7 +49,8 @@ type Change =
   | { kind: "count"; rowId: string; value: string }
   | { kind: "add-set"; rowId: string }
   | { kind: "set"; rowId: string; setId: string; build: (set: ExerciseSet) => ExerciseSet };
-type Action = "retry" | "settings" | "cancel" | "leave" | "start" | "complete" | "save" | "discard";
+type Action =
+  "retry" | "settings" | "cancel" | "leave" | "start" | "manual" | "complete" | "save" | "discard";
 type WorkoutLogControls = {
   /** The back button: leaving the Active workout's page keeps it running; others cancel. */
   back: Extract<Action, "leave" | "cancel">;
@@ -51,9 +58,9 @@ type WorkoutLogControls = {
   backLabel: string;
   /**
    * The main action: Save on a completed log; otherwise End or Log completes it. A compact card's
-   * Log opens the manual page, which completes it.
+   * Log opens the manual page (`manual`), which completes it.
    */
-  primary: Extract<Action, "save" | "complete">;
+  primary: Extract<Action, "save" | "complete" | "manual">;
   primaryLabel: string;
   discard: boolean;
   /** Start from the compact card or the manual page. */
@@ -85,7 +92,7 @@ export const workoutLogControls = {
   compact: {
     back: "cancel",
     backLabel: "Close workout",
-    primary: "complete",
+    primary: "manual",
     primaryLabel: "Log completed workout",
     discard: false,
     start: true,
@@ -140,8 +147,12 @@ export type WorkoutEditSnapshot = Readonly<
   WorkoutEditState &
     WorkoutLogControls & {
       mode: WorkoutLogMode;
-      /** Where "Link demo" returns: this workout's page. */
-      returnTo: WorkoutView;
+      /** The exercise row on screen: the selected one, or the first. */
+      selected: SessionExercise | undefined;
+      /** The selected row's Previous sets hints, one per set. */
+      hints: SetHint[];
+      /** The entered duration as the page shows it. */
+      durationCaption: string;
     }
 >;
 type Entry = {
@@ -157,6 +168,14 @@ type Entry = {
 
 const invalidDuration =
   "Enter a nonnegative duration in minutes or leave it blank before leaving the workout. Your sets have been saved.";
+function durationCaption(minutes: string) {
+  try {
+    const seconds = durationFromMinutes(minutes);
+    return seconds === null ? "Duration not set" : formatElapsed(seconds);
+  } catch {
+    return "Invalid duration";
+  }
+}
 function localId() {
   return `set-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
@@ -188,6 +207,8 @@ function plannedCountError(fields: WorkoutFields, counts: Record<string, string>
 export function createWorkoutEditing(
   store: Store,
   panels: Pick<ExercisePanels, "panel" | "origin" | "leave">,
+  /** The tab's view request, which saves the logs it leaves before opening `content`. */
+  requestView: (content: WorkoutView) => Promise<boolean>,
 ) {
   const entries = new Map<string, Entry>(),
     listeners = new Set<() => void>();
@@ -220,11 +241,16 @@ export function createWorkoutEditing(
       mode = modeOf(entry);
     if (entry.view?.state === state && entry.view.snapshot.mode === mode)
       return entry.view.snapshot;
+    const { exercises, minutes } = state.fields;
+    const selected = exercises.find((row) => row.id === state.selectedId) ?? exercises[0];
+    // Hints read other logs too; a newer document always replaces the state (see refreshDocument).
     const snapshot: WorkoutEditSnapshot = {
       ...state,
       mode,
       ...workoutLogControls[mode],
-      returnTo: { kind: "session", id: state.session.id, manual: mode === "manual" },
+      selected,
+      hints: selected ? setHints(document()?.sessions ?? [], state.session, selected) : [],
+      durationCaption: durationCaption(minutes),
     };
     entry.view = { state, snapshot };
     return snapshot;
@@ -274,6 +300,7 @@ export function createWorkoutEditing(
           selectedId: null,
           settingsOpen: false,
           detailsOpen: false,
+          notesId: null,
         },
       };
       entries.set(id, entry);
@@ -462,6 +489,7 @@ export function createWorkoutEditing(
       const origin = panels.origin();
       if (!current(id, entry)) return false;
       if (kind === "retry") return flush(id, entry);
+      if (kind === "manual") return requestView({ kind: "session", id, manual: true });
       if (kind === "settings") {
         const success = await flush(id, entry);
         // Saved settings fold away; a failure keeps them open beside its feedback.
@@ -553,6 +581,20 @@ export function createWorkoutEditing(
       showDetails(open: boolean) {
         if (current(id, entry) && entry.state.detailsOpen !== open)
           publish(entry, { detailsOpen: open });
+      },
+      /** Shows a row's notes, or none. */
+      showNotes(rowId: string | null) {
+        if (current(id, entry) && entry.state.notesId !== rowId) publish(entry, { notesId: rowId });
+      },
+      /** Opens the exercise's form at its KineVault search; its Save or Cancel returns here. */
+      linkDemo(exercise: ExerciseDefinition) {
+        if (!current(id, entry)) return Promise.resolve(false);
+        return requestView({
+          kind: "exercise",
+          exercise,
+          linkDemo: true,
+          returnTo: { kind: "session", id, manual: modeOf(entry) === "manual" },
+        });
       },
     };
   }

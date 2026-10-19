@@ -1,11 +1,24 @@
 import { foodKey, foodPageSize, type CatalogFood } from "./catalog.ts";
 import type { CustomFood } from "./custom-model.ts";
+import type { FoodLogDocument } from "./log-model.ts";
 import type { CustomMeal, CatalogKind } from "./meal-model.ts";
 import { createFoodSearch } from "./search-matching.ts";
 
 export type SavedCatalogItem =
   { kind: "food"; food: CustomFood } | { kind: "meal"; food: CustomMeal };
 export type FoodSelectionRow = { food: CatalogFood; kind: CatalogKind; genericMatch: boolean };
+
+// Results remount for every query and selections follow the catalog, so count once per food log.
+const loggedCounts = new WeakMap<FoodLogDocument, Map<string, number>>();
+function countLogged(log: FoodLogDocument) {
+  const cached = loggedCounts.get(log);
+  if (cached) return cached;
+  const counts = new Map<string, number>();
+  for (const entries of Object.values(log.days))
+    for (const entry of entries) counts.set(foodKey(entry), (counts.get(foodKey(entry)) ?? 0) + 1);
+  loggedCounts.set(log, counts);
+  return counts;
+}
 
 /** One current catalog snapshot for logging and ingredient selection.
  * Match within each purpose's existing scope, then filter eligibility before paging.
@@ -34,15 +47,16 @@ export function createFoodSelection({
       purpose,
       query,
       page = 0,
-      logged,
+      log,
     }: {
       purpose: "logging" | "ingredient";
       query: string;
       page?: number;
-      /** How often each food key appears in the user's log; logged foods lead the results. */
-      logged?: ReadonlyMap<string, number>;
+      /** The user's food log: foods logged on any day lead the results, most logged first. */
+      log?: FoodLogDocument;
     }) {
       const matched = matches[purpose](query);
+      const logged = log && countLogged(log);
       const ranked = logged?.size
         ? matched
             .map((match, index) => ({ match, index, count: logged.get(foodKey(match.food)) ?? 0 }))
