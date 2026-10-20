@@ -190,19 +190,25 @@ editor and the sheet render them. The snapshot also resolves the row on screen, 
 Previous sets hints and the duration caption. The tab passes its view request in when it
 creates the edits, so an edit opens its own manual page and its "Link demo" trip, which
 returns to the workout's page. `parsePlannedSetCount` in the exercise model is the one planned-count
-rule for Workout edits and Workout templates. `setHints` there gives each blank set its
+rule for Workout edits and Workout templates. `resizeSets` there is the one rule for
+changing a row's set count (cut from the end, add empty sets), for planned counts and for
+adding a saved workout to a day; `minutesText` writes a duration as the minutes text the commands
+read back (`durationMinutes` on update and complete). `setHints` gives each blank set its
 Previous sets hint, and `matchingExercises` is the one library search rule; it takes the typed query.
 `tracking.ts` owns what each Tracking mode means: its name and tag, the columns its set
 lines hold, its empty set, the blank rule, entering one value (`withSetValue`), the hint
-a set takes from another set in any mode, and the measurements a completed set counts.
-The set table renders a mode's columns and sends the edit field changes, never a set
-of its own. A set's `kind` is its exercise's mode, so the exercise model only checks
+a set takes from another set in any mode, the measurements a completed set counts, and
+which seconds a Timed set's clock counts down from (`timedSeconds`).
+The set table renders a mode's columns and sends the edit field changes and set
+removals, never a set of its own; removing a set changes this log only, and Workout
+templates keep their planned counts. A set's `kind` is its exercise's mode, so the exercise model only checks
 that they match. Workout edits also own the Set clock, reading the time they're given
 (`now`), so the clock survives the table unmounting; the session editor ticks it,
 which logs a countdown that ran out and buzzes. The tab view hands every Workout log it
 shows its edit, compact cards included, and the edit's snapshot leaves out the saved
 log and the selected row ID it keeps inside.
-`short-name.ts` owns both row labels: the accessible "Squat exercise 2" and the chip label. Library drafts own Exercise
+`short-name.ts` owns both row labels: the accessible "Squat exercise 2" and the chip label
+(at most three characters; the bar shows the row's number above it). Library drafts own Exercise
 definition (including its KineVault search), Workout template (including its selected
 exercise, builder disclosure, search, result limit and open notes), Saved workouts and
 Workout import state per panel, so the sheet can unmount when the tab
@@ -211,7 +217,8 @@ panel through the same panel seam as Workout edits. Exercise persistence returns
 each write's outcome: saved with its value, rejected with its command's reason, or
 unavailable when storage failed, a refresh blocked it or the document isn't loaded.
 Workout edits and Library drafts show that reason after their own lead ("Couldn't
-start.") and offer a retry only when nothing was written. The sheet page owns its
+start.") and offer a retry only when nothing was written. A Workout template draft checks
+only its planned counts; the save command's reason covers a missing name or exercise. The sheet page owns its
 header overrides and scroll positioning: pages claim the back button with
 `useSheetBack`, request a scroll target with `useSheetScrollTarget`, and a new
 `page` starts at the top. A page can replace its centered title with `center`, as
@@ -254,6 +261,13 @@ persistence and the Meal destination. It derives whether it can submit from them
 and follows the live saved item; only its own pending write reads as saving, and
 a save started during a food-log refresh waits for the refresh, then writes the
 preparation that is current at that point, since the day or food may have changed.
+It also owns how a solid food's amount is entered: by Weight, or by Servings when an added
+gram food has portions (`setAmountBy`, `setServings`, `choosePortion`). Its snapshot's
+`amount` carries the mode, the serving chips with the chosen one and the "each = total"
+caption; counting servings only computes grams, and the entry still saves grams.
+`isFoodGrams` in `src/food/catalog.ts` is the one solid-amount rule (more than 0, up to
+10,000 g) for typed amounts, Logged food, Custom food servings and Custom meal ingredients
+and totals, as `isDrinkMl` is for drinks.
 
 Daily activity (`src/daily/activity.ts`) reads one day from every saved source: the
 food log, Manual water and the Water goal, workouts, and Phone steps plus Logged steps.
@@ -321,9 +335,11 @@ domain keeps its own storage key, parser and messages.
 `stepFields` in `src/profile/answers.ts` is the one map of which Answers fields each step
 owns. The Onboarding flow uses it to decide which errors block Continue; focused Profile
 edits use it to split errors between the section's Question and the editor's inline
-messages. `answerSummary` beside it writes each answer as one line ("Not set" while
+messages, and to save only the section's fields (Body also applies the estimate policy). `answerSummary` beside it writes each answer as one line ("Not set" while
 unanswered) for the journal's Details & goals rows, its section chooser and the Onboarding
-review.
+review. `isCalorieTarget` in `src/profile/calories.ts` is the one calorie-target range
+(whole kcal from 1,200 to 10,000) for the estimate, a custom target and the macro targets.
+Answers require age 18 or older, so there is no separate under-18 calorie path.
 
 Manual water, Logged steps, Water goal and focused Profile edits share the
 document-edit module.
@@ -375,9 +391,18 @@ group label, the options (value, label, optional short label and icon), the valu
 and onChange, and pick what assistive technology hears: pressed-state buttons, a
 radio group or tabs. The control owns the sunken track, the raised fill that
 slides to the chosen option and its reduced-motion fallback, short labels on
-narrow tracks and each segment's Tappable behavior. Pill choices (meal and serving
+narrow tracks and each segment's Tappable behavior. The floating tab bar reuses its
+`Indicator` for the one highlight that slides between tabs (`FloatingTabBar` in
+`src/app/(tabs)/_layout.tsx`); the active route's icon measures itself into the bar
+through the `TabHighlight` context, there is no highlight while Profile shows, and under
+reduced motion or before measuring each icon draws its own fill. Pill choices (meal and serving
 pills, reminder days and kinds, a workout's exercise chips) are Chips: a button,
-radio or checkbox whose fill eases in when chosen.
+radio or checkbox whose fill eases in when chosen, with an optional `caption` line above
+the label and a `minWidth` that keeps a row of short labels one size.
+
+`Screen` (`src/components/ui.tsx`) is a tab's scrolling page. It scrolls back to the top
+when you switch to another tab, but not when a page opens over the tabs, and hands its
+ScrollView to callers through `scrollRef`.
 
 Every text field is a TextField. It owns the label and accessible name, the
 sunken surface with its focused and invalid looks, the keyboard and autofill for

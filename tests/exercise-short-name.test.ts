@@ -1,50 +1,41 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  exerciseChipLabels,
-  exerciseRowLabel,
-  shortExerciseName,
-} from "../src/exercise/short-name.ts";
+import { exerciseRowLabel, shortExerciseName } from "../src/exercise/short-name.ts";
 
-test("long exercise names become the initials of their words", () => {
+test("names of several words become at most three initials", () => {
   assert.equal(shortExerciseName("Shoulder Press Machine (Wide Grip/Top Half)"), "SPM");
   assert.equal(shortExerciseName("dumbbell shoulder press"), "DSP");
-  assert.equal(shortExerciseName("Single-leg Romanian deadlift"), "SLRD");
+  assert.equal(shortExerciseName("Single-leg Romanian deadlift"), "SLR");
   assert.equal(shortExerciseName("Barbell curls"), "BC");
+  assert.equal(shortExerciseName("Unilateral Seated Machine Fly Dead Stop"), "USM");
 });
 
-test("single words and names that fit stay as they are", () => {
-  assert.equal(shortExerciseName("Barbell curl"), "Barbell curl");
-  assert.equal(shortExerciseName("Hyperextensions"), "Hyperextensions");
+test("a single word keeps its first three letters", () => {
+  assert.equal(shortExerciseName("Squat"), "SQU");
+  assert.equal(shortExerciseName("Hyperextensions"), "HYP");
+  assert.equal(shortExerciseName("Row"), "ROW");
 });
 
 test("parenthetical parts are ignored before deciding", () => {
-  assert.equal(shortExerciseName("Leg press (Machine)"), "Leg press");
-  assert.equal(shortExerciseName("  Row   (cable, seated)  "), "Row");
-  assert.equal(shortExerciseName("Lat pulldown (wide"), "Lat pulldown");
-  assert.equal(shortExerciseName("Chest Fly (Pec Deck) Machine Low"), "CFML");
+  assert.equal(shortExerciseName("Leg press (Machine)"), "LP");
+  assert.equal(shortExerciseName("  Row   (cable, seated)  "), "ROW");
+  assert.equal(shortExerciseName("Lat pulldown (wide"), "LP");
+  assert.equal(shortExerciseName("Chest Fly (Pec Deck) Machine Low"), "CFM");
 });
 
 test("initials keep letters and digits only", () => {
-  assert.equal(shortExerciseName("21s & Barbell Curl Drop Set"), "2BCDS");
-  assert.equal(shortExerciseName("Ángel's Weighted Pull-Up"), "ÁWPU");
+  assert.equal(shortExerciseName("21s & Barbell Curl Drop Set"), "2BC");
+  assert.equal(shortExerciseName("Ángel's Weighted Pull-Up"), "ÁWP");
 });
 
-test("a name that is only a parenthetical keeps its full text", () => {
-  assert.equal(shortExerciseName("(Warm-up)"), "(Warm-up)");
+test("labels count whole characters and skip a single word's punctuation", () => {
+  assert.equal(shortExerciseName("'Curl'"), "CUR");
+  assert.equal(shortExerciseName("ßquat"), "SSQ");
+  assert.equal(shortExerciseName("💪💪💪💪"), "💪💪💪");
 });
 
-test("colliding chip labels add the row's position", () => {
-  assert.deepEqual(
-    exerciseChipLabels([
-      "Shoulder Press Machine (Wide Grip/Top Half)",
-      "Squat",
-      "Shoulder Press Machine (Narrow Grip)",
-    ]),
-    ["SPM 1", "Squat", "SPM 3"],
-  );
-  assert.deepEqual(exerciseChipLabels(["Squat", "Squat"]), ["Squat 1", "Squat 2"]);
-  assert.deepEqual(exerciseChipLabels(["Squat", "Curl"]), ["Squat", "Curl"]);
+test("a name that is only a parenthetical uses its inner words", () => {
+  assert.equal(shortExerciseName("(Warm-up)"), "WU");
 });
 
 test("a repeated exercise's accessible name adds its position", () => {

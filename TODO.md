@@ -7,6 +7,7 @@ and docs/ describe behavior and link here instead of repeating status.
 
 - [x] Integrate drink logging with water tracking.
 - [x] Verify barcode scanning and drink/water logging on physical iOS and Android devices.
+- [x] Log a solid food by Weight or by Servings (a count of the chosen serving, saved as grams).
 
 ## Steps
 
@@ -26,7 +27,10 @@ and docs/ describe behavior and link here instead of repeating status.
 - [x] Verify a full workout on a physical iPhone: Start, set entry, exercise scrolling, keyboard, background/reopen, End, and completed editing.
 - [x] Open the live workout as a full page with its timer centered in the top bar, show the timer in the app header while it runs, and show Kine working out on the Exercise tab in place of the day's cards.
 - [ ] Check the live workout page on a physical iPhone and Android phone: the page sheet and back gesture, the header timer at narrow widths, and Link demo returning to the page.
-- [ ] Add timed exercises and cardio with duration/distance in a future phase.
+- [x] Add Alternating (reps per side) and Timed (whole seconds, with a countdown or stopwatch) tracking modes.
+- [x] Remove a set from a live workout (this workout only, never its template) and record optional RIR beside reps and weight.
+- [ ] Update every installed build before marking an exercise Alternating or Timed or entering RIR: older builds stop loading workouts that hold the new modes, and drop RIR when they re-save a workout.
+- [ ] Add cardio with duration/distance in a future phase.
 
 ## Profile & integrations
 

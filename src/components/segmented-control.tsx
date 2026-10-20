@@ -24,7 +24,7 @@ export type SegmentOption<Value> = {
 };
 
 /** Where a segment's raised fill sits inside the track. */
-type Frame = { x: number; y: number; width: number; height: number };
+export type Frame = { x: number; y: number; width: number; height: number };
 
 /** The visible height of a `small` segment, centered in its 44 pt hit area. */
 const smallHeight = 36;
@@ -183,9 +183,10 @@ export function SegmentedControl<Value extends string | number>({
 
 /**
  * The chosen segment's raised fill. It is absolutely positioned and childless, so its frame can
- * animate without re-laying-out the labels; it renders as the track's first child.
+ * animate without re-laying-out the labels; it renders as the track's first child. The tab bar's
+ * highlight slides the same way.
  */
-function Indicator({ frame, style }: { frame: Frame; style: StyleProp<ViewStyle> }) {
+export function Indicator({ frame, style }: { frame: Frame; style: StyleProp<ViewStyle> }) {
   const x = useSharedValue(frame.x);
   const y = useSharedValue(frame.y);
   const width = useSharedValue(frame.width);

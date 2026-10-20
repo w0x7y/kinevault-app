@@ -66,8 +66,11 @@ template exercises default to three. Start opens the workout on its own page: a
 horizontally scrolling exercise bar above the selected-exercise sets table,
 with notes and the exercise's KineVault demo, or a Link demo button.
 Add set and View notes sit on the exercise
-title row. Exercise chips show short names (initials for long names); full names
-stay in accessible labels. The active workout's page centers the elapsed timer in its
+title row. Each set has an optional RIR (reps in reserve, 0–10; one per side for
+left/right exercises, none for timed ones) and a remove control that asks first and
+changes only this workout, never its saved template. Exercise chips are all one size and show the exercise's number above a short name of
+up to three letters (initials, or a single word's first letters); full names stay in
+accessible labels. The active workout's page centers the elapsed timer in its
 top bar; Back to Exercise saves the entered sets and leaves the workout running. While
 it runs, the app header centers the same timer on every tab and opens the page when
 tapped, and the default Exercise view shows a Live workout card (Kine working out and
@@ -80,11 +83,11 @@ demo without a Link demo button, because leaving would discard unsaved changes.
 Completed edits require Save changes. Saved workouts, exercise and workout
 forms, workout import, the active workout, manual logging and completed workouts open
 as a page that slides up over the tab, with a back button; compact cards stay on the
-tab. Blank set fields show the reps and weights of the latest
+tab. Blank set fields show the reps, weights and RIR of the latest
 completed workout with that exercise, or the set above, as hints.
 Exercise selection, search and
 calendar changes preserve entered sets. Set counts cannot remove entered data.
-Workout logging has no remove-set or remove-exercise buttons. Entirely blank
+Workout logging has no remove-exercise buttons; removing a set asks first. Entirely blank
 sets and unlogged exercises do not contribute to completion totals; partially
 entered sets must be valid. Delete, remove and discard actions
 are red and confirm by changing their own label to "Are you sure?" before a
@@ -101,7 +104,8 @@ letters replaces the log with matching catalog foods and meals, with foods the
 user has logged ranked first. Food details, logged-entry edits, creation, resumed
 drafts, Daily macros, barcode scan and import review open as a page over the log. Solid serving presets precede nutrition and destination
 choices for the selected date. Long solid lists show 100 g and two source servings
-first. Drink details show only Drink amount (ml), nutrition per that volume, and
+first. A solid food with servings can be logged by Weight or by Servings: a number of
+the chosen serving, saved as its grams. Drink details show only Drink amount (ml), nutrition per that volume, and
 Log drink to Drinks. Selecting a result dismisses the native keyboard.
 Catalog saves never add intake.
 Food search uses an offline USDA FNDDS catalog of 5,431 foods, with calorie and
@@ -132,7 +136,8 @@ Detailed nutrient overrides are amounts for the whole meal. Clearing an individu
 field restores its ingredient total, and the detailed reset clears all such overrides.
 Meals persist locally, appear in meal search with a custom-item icon, and can be
 logged as one entry for a complete meal or a gram portion. Saving shows an inline
-Saved to your foods/meals message on its serving screen. Switching Food/Meal or calendar dates preserves open
+Saved to your foods/meals message on its serving screen. While an ingredient amount is
+blank or 0 g, the meal preview totals the other ingredients. Switching Food/Meal or calendar dates preserves open
 creation drafts.
 Scan barcode supports EAN/UPC product scanning
 and manual barcode entry with on-demand camera permission. QR codes are excluded.
@@ -151,10 +156,11 @@ the edit or delete view for retry. Existing log entries and ingredients in saved
 meals retain their snapshots when a catalog item changes or is deleted.
 Custom macro grams are independent of the calorie target. Zero is a valid
 override; clearing a field returns that macro to its calculated target.
-The app is for ages 16 and up. Automatic estimates are adult-only; users aged
-16–17 can enter a target agreed with a qualified health professional or leave it unset.
+The app is for ages 18 and up.
 Exercise has a local library with name, optional muscle group, equipment, notes,
-and single-load or independent left/right tracking. Reusable workouts save only
+and a tracking mode: Single weight, Left and right, Alternating (reps per side) or
+Timed (whole seconds per set, with a countdown for 1 to 86,400 seconds or a
+stopwatch on a blank set). Reusable workouts save only
 a name, ordered exercise list, and optional planned set counts. Workout drafts
 require a nonblank name before starting an explicit workout timer,
 restored from a saved timestamp after reopening. Valid entered sets become completed
@@ -169,7 +175,7 @@ KineVault demos come from published KineVault exercises (see docs/exercise-demos
 In the exercise form, the Find in KineVault search links a published exercise and
 fills only blank name, muscle group and equipment fields. Change opens the search
 again, and Unlink removes the link. Demos show a poster until tapped.
-Timed holds, cardio, coaching notes and the broader KineVault program integration remain future work.
+Cardio, coaching notes and the broader KineVault program integration remain future work.
 
 The agreed strength/bodyweight Exercise v1 is implemented. The user confirmed
 physical-iPhone verification, including keyboard, exercise scrolling,
@@ -208,7 +214,9 @@ accessible touch targets. Screens use 20px outer margins, 18px card padding and
 14px gaps between cards.
 The top bar shows the selected date with a calendar chip on the left and a
 saved avatar or initials on the right; Settings and Profile show their name instead
-of the date. The tabs sit in a floating rounded bar over the page.
+of the date. The tabs sit in a floating rounded bar over the page. Screens switch
+instantly; one highlight slides to the chosen tab (none while Profile shows), and the
+tab you leave scrolls back to the top.
 Its calendar has seven columns and five rows, with the current week centered.
 Home, Food, and Exercise share the selected day; Settings and Profile have no calendar.
 Dates follow the device's local time zone. Selecting Today resumes automatic
@@ -226,8 +234,9 @@ before entering Home. The confirmation email can be resent until three have gone
 address in an hour, sign-up included. Confirmation and recovery email links have
 dedicated callback screens and complete only with a sign-in code this device requested.
 Passwords
-never enter profile storage. Drafts resume at their saved question; signed-in profile
-editing bypasses the account screen.
+never enter profile storage. Drafts resume at their saved question, and signed-in profile
+editing bypasses the account screen. A saved profile with an age under 18 reopens at
+the age question; Set up later there keeps its other answers.
 
 Goals, custom exercises, workout templates, full sessions, food and water logs sync
 to private account storage. Pending edits survive offline restarts; conflicting

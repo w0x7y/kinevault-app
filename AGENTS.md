@@ -14,8 +14,9 @@ from here.
   current look. The redesign notes win where the two disagree.
 - [TODO.md](TODO.md): open work and release blockers.
 
-Files under `docs/superpowers/`, `docs/research/` and the dated `docs/final-check*.md`
-reports are records of earlier work. Don't update them to match today's code.
+Files under `docs/superpowers/`, `docs/research/`, the dated `docs/final-check*.md`
+reports and `docs/button-layout-review-2026-10-09.md` are records of earlier work.
+Don't update them to match today's code.
 
 ## Commands
 
@@ -24,9 +25,14 @@ reports are records of earlier work. Don't update them to match today's code.
   `tests/*.test.ts` and `scripts/*.test.mjs`).
 - `npm run test:browser`: Playwright tests in `tests/*.browser.mjs`. They need the web
   app at `http://localhost:8081` (`npx expo start --web --port 8081`) or at
-  `KINE_PREVIEW_URL`. Contexts default to reduced motion.
+  `KINE_PREVIEW_URL`. Contexts default to reduced motion. A running dev server can keep
+  serving a stale bundle after edits; restart it with
+  `npx expo start --web --port 8081 --clear` before a browser run.
 - `npm run start:cloudflare`: Expo Go over a Cloudflare tunnel. Anyone with the URL can
   load the bundle and its source maps, so stop it when you're done.
+- Android release `.apk`: the manual `Android release build` workflow, optionally named
+  (`gh workflow run android-release-build.yml -f name=2026-10-20`). See
+  [docs/android-apk.md](docs/android-apk.md).
 - Node 24 (`.nvmrc`).
 
 ## Code conventions
@@ -42,7 +48,9 @@ reports are records of earlier work. Don't update them to match today's code.
   `src/components/motion.tsx`.
 - Every account-synced document is registered in `src/account/tracking-documents.ts`
   with its storage key and parser. A storage key is written in one place only; changing
-  one orphans saved user data.
+  one orphans saved user data. Older app builds reject values they don't know (a new
+  tracking mode) and drop fields they don't know (RIR) when they re-save, so record a
+  new document field or value as a rollout step in TODO.md.
 - Data providers come from `createDocumentProvider` (`src/persistence/document-provider.tsx`).
   Screen logic for Food and Exercise lives in `src/food/tab-view.ts` and
   `src/exercise/tab-view.ts`, which have unit tests.

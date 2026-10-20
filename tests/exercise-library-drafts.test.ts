@@ -215,7 +215,12 @@ test("an invalid template draft explains itself without a write; a valid one sav
   assert.equal(await draft.save(), false);
   assert.match(draft.getSnapshot().error!, /whole number of sets/);
   assert.equal(f.saved().workouts.length, 1);
-  draft.change((value) => value.rename("Upper day").setCount("squat", "4"));
+  // The name and exercise rules belong to the save command, which says which one failed.
+  draft.change((value) => value.setCount("squat", "4"));
+  assert.equal(await draft.save(), false);
+  assert.equal(draft.getSnapshot().error, "Couldn't save. Enter a workout name.");
+  assert.equal(f.saved().workouts.length, 1);
+  draft.change((value) => value.rename("Upper day"));
   assert.equal(await draft.save(), true);
   assert.equal(f.tab.getSnapshot().panel, null);
   const saved = f.saved().workouts.find((workout) => workout.name === "Upper day");

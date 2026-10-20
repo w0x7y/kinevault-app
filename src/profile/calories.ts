@@ -7,9 +7,9 @@ import {
   type FieldErrors,
 } from "./answers.ts";
 
-function isTeen(answers: Pick<Answers, "age">): boolean {
-  const age = numericValue(answers.age);
-  return age !== null && age >= 16 && age < 18 && Number.isInteger(age);
+/** A daily calorie target the app accepts, estimated or custom: whole kcal from 1,200 to 10,000. */
+export function isCalorieTarget(value: number | null): value is number {
+  return value !== null && Number.isInteger(value) && value >= 1200 && value <= 10000;
 }
 
 export function estimateCalories(answers: Answers) {
@@ -40,7 +40,7 @@ export function estimateCalories(answers: Answers) {
   // A transparent product default, not a personalized prescription or pace prediction.
   const adjustment = answers.goal === "lose" ? -250 : answers.goal === "gain" ? 250 : 0;
   const target = maintenance + adjustment;
-  if (target < 1200 || target > 10000) return null;
+  if (!isCalorieTarget(target)) return null;
   return { resting, maintenance, adjustment, target };
 }
 
@@ -51,7 +51,7 @@ export function validateAnswers(answers: Answers): FieldErrors {
   const metrics = [
     {
       key: "age",
-      min: 16,
+      min: 18,
       max: 100,
       label: "age",
       unit: "years",
@@ -80,7 +80,7 @@ export function validateAnswers(answers: Answers): FieldErrors {
   }
   if (answers.customCalories.trim()) {
     const target = numericValue(answers.customCalories);
-    if (target === null || !Number.isInteger(target) || target < 1200 || target > 10000)
+    if (!isCalorieTarget(target))
       errors.customCalories = "Enter a whole number between 1,200 and 10,000 kcal.";
   }
   for (const { field, label, max } of macroInputs) {
@@ -97,7 +97,7 @@ export function validateAnswers(answers: Answers): FieldErrors {
 type Estimate = NonNullable<ReturnType<typeof estimateCalories>>;
 type CalorieState =
   | {
-      kind: "teen" | "manual";
+      kind: "manual";
       estimate: null;
       target: number | null;
       source: "custom" | null;
@@ -119,22 +119,11 @@ export type AnswerChange =
 
 // Inputs keep their transient strings; policy owns related changes and target meaning.
 export function changeAnswers(answers: Answers, change: AnswerChange): Answers {
-  let next: Answers;
   switch (change.kind) {
     case "fields":
-      next = { ...answers, ...change.patch };
-      if (change.patch.age !== undefined && isTeen(next) && answers.estimateEnabled)
-        return {
-          ...next,
-          estimateEnabled: false,
-          eligible: false,
-          sex: null,
-          customCalories: "",
-        };
-      return next;
+      return { ...answers, ...change.patch };
     case "estimate":
-      if (change.enabled && !isTeen(answers))
-        return { ...answers, estimateEnabled: true, eligible: true };
+      if (change.enabled) return { ...answers, estimateEnabled: true, eligible: true };
       return { ...answers, estimateEnabled: false, eligible: false, sex: null };
     case "use-estimate":
       return { ...answers, customCalories: "" };
@@ -148,9 +137,9 @@ export function changeAnswers(answers: Answers, change: AnswerChange): Answers {
 export function calorieState(answers: Answers): CalorieState {
   const overridden = answers.customCalories.trim() !== "";
   const custom = overridden ? numericValue(answers.customCalories) : null;
-  if (isTeen(answers) || !answers.estimateEnabled)
+  if (!answers.estimateEnabled)
     return {
-      kind: isTeen(answers) ? "teen" : "manual",
+      kind: "manual",
       estimate: null,
       target: custom,
       source: overridden ? "custom" : null,

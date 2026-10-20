@@ -74,13 +74,6 @@ function draftValue(
           return { kind: "invalid", message: plannedSetCountMessage(row.exercise.name) };
         counts.push([row.exercise.id, count]);
       }
-      if (!name.trim() || name.length > 400 || selected.length === 0) {
-        return {
-          kind: "invalid",
-          message:
-            "Couldn't save. Enter a workout name, choose at least one exercise, and try again.",
-        };
-      }
       return {
         kind: "ready",
         input: {

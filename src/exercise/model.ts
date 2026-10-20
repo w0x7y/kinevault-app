@@ -1,5 +1,12 @@
 import { parseDay } from "../calendar/dates.ts";
-import { decimal, setHint, setMeasurements, type SetLine } from "./tracking.ts";
+import {
+  createEmptySet,
+  decimal,
+  setHint,
+  setMeasurements,
+  type SetLine,
+  type TrackingMode,
+} from "./tracking.ts";
 
 export type CatalogLink = { id: string; slug: string };
 export type ExerciseDefinition = {
@@ -13,10 +20,11 @@ export type ExerciseDefinition = {
   /** The KineVault exercise whose demonstration this exercise shows. */
   catalog?: CatalogLink;
 };
-export type SetSide = { reps: string; weightKg: string };
+/** `rir`, reps in reserve, is optional; sets saved before it have none. */
+export type SetSide = { reps: string; weightKg: string; rir?: string };
 /** A set's `kind` is its exercise's Tracking mode. */
 export type ExerciseSet =
-  | { id: string; kind: "single" | "alternating"; reps: string; weightKg: string }
+  | ({ id: string; kind: "single" | "alternating" } & SetSide)
   | { id: string; kind: "sides"; left: SetSide; right: SetSide }
   | { id: string; kind: "time"; seconds: string };
 export type SessionExercise = { id: string; exercise: ExerciseDefinition; sets: ExerciseSet[] };
@@ -117,7 +125,11 @@ export function parseExerciseDefinition(value: unknown): ExerciseDefinition {
 }
 function side(value: unknown): SetSide {
   const item = record(value);
-  return { reps: text(item.reps, 32), weightKg: text(item.weightKg, 32) };
+  return {
+    reps: text(item.reps, 32),
+    weightKg: text(item.weightKg, 32),
+    ...(item.rir === undefined ? {} : { rir: text(item.rir, 32) }),
+  };
 }
 function parseSet(value: unknown): ExerciseSet {
   const item = record(value);
@@ -143,6 +155,10 @@ export function durationFromMinutes(value: string | undefined): number | null {
   text(value, 32);
   const minutes = decimal(value, null);
   return seconds(Math.round(minutes * 60));
+}
+/** Minutes text for a duration. Two decimals keep every whole second through `durationFromMinutes`. */
+export function minutesText(durationSeconds: number | null): string {
+  return durationSeconds === null ? "" : String(Number((durationSeconds / 60).toFixed(2)));
 }
 export function parseWorkoutSession(value: unknown): WorkoutSession {
   const item = record(value);
@@ -181,6 +197,20 @@ export const maxPlannedSets = 100;
 export function parsePlannedSetCount(raw: string): number | null {
   const text = raw.trim();
   return /^\d+$/.test(text) && Number(text) <= maxPlannedSets ? Number(text) : null;
+}
+/** A row's sets resized to `count`: extra sets cut off the end, missing ones added empty. */
+export function resizeSets(
+  sets: readonly ExerciseSet[],
+  tracking: TrackingMode,
+  count: number,
+  newId: () => string,
+): ExerciseSet[] {
+  return [
+    ...sets.slice(0, count),
+    ...Array.from({ length: Math.max(0, count - sets.length) }, () =>
+      createEmptySet(tracking, newId()),
+    ),
+  ];
 }
 export function plannedSetCountMessage(exerciseName: string) {
   return `Enter a whole number of sets from 0 to ${maxPlannedSets} for ${exerciseName}.`;

@@ -220,14 +220,14 @@ test("finish failure keeps review and retry trims the name before exiting", asyn
   assert.equal(saved.at(-1)?.kind, "complete");
 });
 
-test("skip requires age 16 and completes with other answers unset", async () => {
+test("skip requires age 18 and a new setup completes with other answers unset", async () => {
   const saved: ProfileDocument[] = [];
   const { flow, destinations } = setup(
     {
       version: 1,
       kind: "draft",
       step: "age",
-      answers: { ...adult, age: "15" },
+      answers: { ...emptyAnswers, goal: "lose", age: "17" },
     },
     async (document) => {
       saved.push(document);
@@ -237,16 +237,29 @@ test("skip requires age 16 and completes with other answers unset", async () => 
   await flow.act({ kind: "skip" });
   assert.ok(flow.getSnapshot().errors.age);
   assert.equal(saved.length, 0);
-  flow.update({ kind: "fields", patch: { age: "16" } });
+  flow.update({ kind: "fields", patch: { age: "18" } });
   await flow.act({ kind: "skip" });
   assert.deepEqual(saved, [
     {
       version: 1,
       kind: "complete",
-      answers: { ...emptyAnswers, age: "16", estimateEnabled: false },
+      answers: { ...emptyAnswers, age: "18", estimateEnabled: false },
     },
   ]);
   assert.deepEqual(destinations, ["today"]);
+});
+
+test("a saved profile reopened at its age keeps its answers when set up later", async () => {
+  const saved: ProfileDocument[] = [];
+  // A profile completed at 17, before the age rule became 18, reopens at the age question.
+  const answers = { ...adult, customCalories: "2300", customProtein: "150", age: "17" };
+  const { flow } = setup({ version: 1, kind: "draft", step: "age", answers }, async (document) => {
+    saved.push(document);
+    return true;
+  });
+  flow.update({ kind: "fields", patch: { age: "18" } });
+  await flow.act({ kind: "skip" });
+  assert.deepEqual(saved, [{ version: 1, kind: "complete", answers: { ...answers, age: "18" } }]);
 });
 
 test("step validation shows local errors and review validates all answers", async () => {

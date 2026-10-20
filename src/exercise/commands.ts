@@ -6,12 +6,13 @@ import {
   parseSessionExercise,
   parseSetCounts,
   parseWorkoutSession,
+  resizeSets,
   type ExerciseDefinition,
   type ExerciseDocument,
   type SessionExercise,
   type WorkoutSession,
 } from "./model.ts";
-import { createEmptySet, isBlankSet } from "./tracking.ts";
+import { isBlankSet } from "./tracking.ts";
 import { applyWorkoutImport, type WorkoutImportResult } from "./import/mapping.ts";
 import type { ImportedWorkoutPlan } from "./import/plan.ts";
 
@@ -23,18 +24,17 @@ export type SaveWorkoutInput = {
   setCounts?: Record<string, number>;
 };
 export type PlanWorkoutInput = { date: string; workoutId: string };
+/**
+ * `durationMinutes` is typed minutes text. Blank is unknown; on update, missing keeps the saved
+ * duration. An active session ignores it: its timer owns the duration.
+ */
 export type UpdateSessionInput = {
-  id: string;
-  name: string;
-  exercises: SessionExercise[];
-  durationSeconds?: number | null;
-};
-export type CompleteSessionInput = {
   id: string;
   name: string;
   exercises: SessionExercise[];
   durationMinutes?: string;
 };
+export type CompleteSessionInput = UpdateSessionInput;
 export type ExerciseChange<Value> = { document: ExerciseDocument; value: Value };
 
 const developmentExamples: ExerciseDefinition[] = [
@@ -202,7 +202,7 @@ export function createExerciseCommands({
         return {
           id: createId(),
           exercise,
-          sets: Array.from({ length: count }, () => createEmptySet(exercise.tracking, createId())),
+          sets: resizeSets([], exercise.tracking, count, createId),
         };
       });
       const session = parseWorkoutSession({
@@ -227,9 +227,9 @@ export function createExerciseCommands({
         exercises:
           session.status === "completed" ? loggedExercises(input.exercises) : input.exercises,
         durationSeconds:
-          session.status === "active" || input.durationSeconds === undefined
+          session.status === "active" || input.durationMinutes === undefined
             ? session.durationSeconds
-            : input.durationSeconds,
+            : durationFromMinutes(input.durationMinutes),
       });
     },
     startSession(document: ExerciseDocument, id: string): ExerciseChange<true> {

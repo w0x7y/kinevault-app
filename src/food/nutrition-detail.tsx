@@ -8,6 +8,7 @@ import { AppText, Overline } from "../components/ui";
 import { Section } from "./food-ui";
 import { ViewHeader } from "../components/view-header";
 import { Chip } from "../components/chip";
+import { SegmentedControl } from "../components/segmented-control";
 import { ProductAttribution } from "./product-attribution";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
@@ -19,7 +20,6 @@ import type { CustomFood } from "./custom-model.ts";
 import { CustomItemActions } from "./custom-item-actions";
 import { useFoodDrafts } from "./draft-provider";
 import { NutritionFields } from "./form-fields";
-import { nutritionAmountText } from "./number-input.ts";
 import { getFoodDatabase } from "./database";
 import { CatalogDraftPage } from "./catalog-draft-page";
 import type { FoodLoggingAttempt } from "./logging-attempt.ts";
@@ -49,7 +49,7 @@ export function FoodNutritionDetail({
 }) {
   const { colors } = useTheme();
   const { deletion } = useFoodDrafts();
-  const { target, fields, preparation, item, noun, saving, busy } = useAttempt(attempt);
+  const { target, fields, preparation, amount, item, noun, saving, busy } = useAttempt(attempt);
   const customMeal = item?.kind === "meal" ? item.food : undefined;
   const [servingsExpanded, setServingsExpanded] = useState(false);
   const grams = preparation.measurement === "grams" ? preparation.amount : null;
@@ -60,10 +60,9 @@ export function FoodNutritionDetail({
     preparation.reason === "amount"
       ? volumeMessage
       : null;
-  const portions = target.kind === "add" ? target.food.portions : [];
-  const hundredGramPortion = portions.find((portion) => portion.grams === 100);
-  const sourcePortions = portions.filter((portion) => portion !== hundredGramPortion);
+  const [hundredGrams, ...sourcePortions] = amount.portions;
   const visiblePortions = servingsExpanded ? sourcePortions : sourcePortions.slice(0, 2);
+  const counting = amount.by === "servings";
   const ingredientsScale = customMeal
     ? (grams ?? customMeal.portions[0].grams) / customMeal.portions[0].grams
     : 1;
@@ -255,7 +254,35 @@ export function FoodNutritionDetail({
               />
             </View>
           )}
-          {preparation.measurement === "grams" && (
+          {amount.servingsAvailable && (
+            <SegmentedControl
+              label="Amount by"
+              semantics="radio"
+              options={[
+                { value: "grams", label: "Weight" },
+                { value: "servings", label: "Servings" },
+              ]}
+              value={amount.by}
+              disabled={busy}
+              onChange={attempt.setAmountBy}
+            />
+          )}
+          {counting && (
+            <TextField
+              label="Servings"
+              accessibilityLabel="Number of servings"
+              hint="Changes the nutrition preview for this many servings"
+              description={amount.caption}
+              kind="decimal"
+              size="figure"
+              maxLength={16}
+              value={fields.servings}
+              onChange={attempt.setServings}
+              disabled={busy}
+              invalid={grams === null}
+            />
+          )}
+          {preparation.measurement === "grams" && !counting && (
             <TextField
               label="Amount"
               accessibilityLabel="Amount (g)"
@@ -270,25 +297,25 @@ export function FoodNutritionDetail({
               invalid={grams === null}
             />
           )}
-          {target.kind === "add" && preparation.measurement === "grams" && (
+          {hundredGrams && (
             <View style={{ gap: spacing.sm }}>
               <Overline accessibilityRole="header">Serving sizes</Overline>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                 <Chip
-                  label={hundredGramPortion ? hundredGramPortion.label : "100 g"}
-                  detail={hundredGramPortion ? ", 100 g" : undefined}
-                  selected={grams === 100}
+                  label={hundredGrams.label}
+                  detail={hundredGrams.label === "100 g" ? undefined : ", 100 g"}
+                  selected={hundredGrams.chosen}
                   disabled={busy}
-                  onPress={() => attempt.setGrams("100")}
+                  onPress={() => attempt.choosePortion(hundredGrams)}
                 />
                 {visiblePortions.map((portion) => (
                   <Chip
                     key={`${portion.label}-${portion.grams}`}
                     label={portion.label}
                     detail={`, ${decimal(portion.grams)} g`}
-                    selected={grams === portion.grams}
+                    selected={portion.chosen}
                     disabled={busy}
-                    onPress={() => attempt.setGrams(nutritionAmountText(portion.grams))}
+                    onPress={() => attempt.choosePortion(portion)}
                   />
                 ))}
               </View>

@@ -17,7 +17,6 @@ export function CaloriesQuestion({ answers, update, errors, disabled }: Question
   const [showMath, setShowMath] = useState(false);
   const mode = calorieState(answers);
   const { estimate, target, source } = mode;
-  const teen = mode.kind === "teen";
   const macros = macroTargets(answers);
   const customMacros = macroInputs.some(({ field }) => answers[field].trim());
   const macroTotal = macroCalories(macros);
@@ -38,11 +37,7 @@ export function CaloriesQuestion({ answers, update, errors, disabled }: Question
             {target === null ? (
               <>
                 <AppText variant="title">Your call</AppText>
-                <AppText muted>
-                  {teen
-                    ? "Leave this blank, or use a target agreed with a health professional."
-                    : "Add a target below, or leave it for later."}
-                </AppText>
+                <AppText muted>Add a target below, or leave it for later.</AppText>
               </>
             ) : (
               <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>

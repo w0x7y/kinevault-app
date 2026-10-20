@@ -134,23 +134,18 @@ test("external Profile replacement preserves a focused draft and Save merges int
   assert.equal(raw().answers.weight, "82");
 });
 
-test("draft changes own calorie policy and focused age Save preserves newer macros", async () => {
+test("focused age Save preserves newer macros", async () => {
   const { profile, open, raw } = await ready();
   const edit = open("age");
-  edit.change({ kind: "fields", patch: { age: "17" } });
-  assert.equal(edit.getSnapshot().draft.estimateEnabled, false);
-  assert.equal(edit.getSnapshot().draft.sex, null);
+  edit.change({ kind: "fields", patch: { age: "40" } });
   await profile.save({
     ...complete,
     answers: { ...complete.answers, customProtein: "0", customCalories: "2500" },
   });
   assert.equal(await edit.save(), true);
-  assert.equal(raw().answers.age, "17");
+  assert.equal(raw().answers.age, "40");
   assert.equal(raw().answers.customProtein, "0");
-  assert.equal(raw().answers.customCalories, "");
-  assert.equal(raw().answers.estimateEnabled, false);
-  assert.equal(raw().answers.eligible, false);
-  assert.equal(raw().answers.sex, null);
+  assert.equal(raw().answers.customCalories, "2500");
 });
 
 test("validation reports field errors with the raw draft and never writes", async () => {

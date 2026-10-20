@@ -53,6 +53,9 @@ the route during a save cannot trigger late navigation or feedback on return.
 
 **Profile**: The user's saved name, age, body details, activity, weight goal,
 and calorie and macro choices. A draft profile includes the last saved setup step.
+Age is a whole number from 18 to 100. A completed Profile without a qualifying age,
+such as one saved at 16 or 17 under the old rule, reopens setup at the age question
+and keeps its other answers.
 
 **Profile edit**: Changes to a completed profile that become permanent only
 when the user saves them. Each edit retains its own fields after failure, merges
@@ -96,15 +99,13 @@ confirmation to delete it. Failed saves retain entered values for retry; leaving
 the journal discards the edit without undoing a completed measurement save.
 
 **Calorie mode**: Whether the profile uses the standard adult estimate or a
-manual target. Ages 16–17 always follow the teen manual path.
+manual target.
 
 **Estimated target**: Approximate daily calories calculated from eligible adult
 body details, activity, and a lose, maintain, or gain weight goal.
 
 **Custom target**: Daily calories entered by the user. It remains fixed when
 other profile details change, until the user chooses the estimate again.
-Switching an estimate-enabled profile into the age 16–17 manual path clears
-the prior calorie target; an existing manual target survives age edits.
 
 **Macro target**: Daily grams of carbs, protein, or fat. Each target can follow
 the calorie target or be set independently by the user. Calculated targets use
@@ -135,14 +136,15 @@ stretches and holds. It counts as a set with no reps or volume, and the Workout 
 has no weight to draw for it.
 
 **Set clock**: A Timed set's running clock in a Workout edit. Started on a blank set it
-is a stopwatch; started on a set with seconds it counts down from them. Stopping logs
+is a stopwatch; started on a set with 1 to 86,400 whole seconds it counts down from
+them (any other entry also runs a stopwatch). Stopping logs
 the seconds it ran, and a countdown that runs out logs its seconds. One clock runs at a
 time: starting another logs the first. It keeps running while another exercise shows
 or the workout's page is away, and Save, Log, End and Cancel log it first. It is not
 saved, so closing the app loses it.
 
 **Workout template**: A named, ordered exercise list with optional planned set
-counts per exercise. Reps and weights are entered while logging. New templates
+counts per exercise. Reps, weights and optional RIR are entered while logging. New templates
 default to three sets per exercise; legacy templates retain their existing data.
 
 **Workout log**: A record created from a saved workout on the Selected day.
@@ -158,14 +160,16 @@ control that returns to the day.
 **Workout edit**: Unfinished changes to a workout log. Planned and active fields
 are saved as drafts; completed changes require explicit Save. Failed saves retain
 the entered fields. Leaving for another panel preserves completed changes, while
-Cancel discards them. The selected exercise row, a compact card's planned-set
+Cancel discards them. Removing a set, after a confirmation, changes only that log,
+never its Workout template. The selected exercise row, a compact card's planned-set
 settings, open notes and an open Details section belong to the edit, so a remounted editor
 keeps them.
 
 **Workout template draft**: The name, ordered Exercise definitions and planned
 counts being prepared for a reusable workout. A newly selected exercise defaults
-to three sets; removing and re-adding it retains its entered count. Saving a
-template draft does not change existing workout logs.
+to three sets; removing and re-adding it retains its entered count. The draft
+checks only planned counts; the save command gives the reason for a blank or too-long
+name or a missing exercise. Saving a template draft does not change existing workout logs.
 
 **Library draft**: Unfinished input in an Exercise library panel: an Exercise
 definition edit, a Workout template draft, Saved workouts actions or a Workout
@@ -203,7 +207,7 @@ and duration under Details.
 
 **Previous sets**: The sets of the latest Completed workout, on or before the
 log's date, that includes the same Exercise definition. A blank set field shows
-the matching previous set's reps and kilograms as a hint, or failing that the set
+the matching previous set's value (reps, kilograms, RIR or seconds) as a hint, or failing that the set
 above it. Hints are never saved as entered values.
 
 **Exercise snapshot**: The exercise definition retained in a template or log.
@@ -228,8 +232,12 @@ exercise library untouched.
 **Side set**: One set with independently entered left/right reps and kilograms.
 It contributes one set and the sum of both sides' reps and lifted volume.
 
+**RIR**: Reps in reserve, an optional whole number from 0 to 10 entered beside a set's
+reps and weight (one per side for a Side set; Timed sets have none). It needs the set's
+reps and doesn't count toward volume or totals.
+
 **Recorded duration**: Elapsed seconds measured by a workout timer, or optional
-minutes entered for a manually completed workout. Missing duration is unknown.
+minutes typed for a workout that isn't running. Blank or missing duration is unknown.
 
 **Profile recovery**: Returning to a usable Profile after loading fails, by
 retrying the saved data or confirming a fresh start.
@@ -293,7 +301,9 @@ with explicit volume measurement and a nutrition snapshot. No gram mass is infer
 
 **Logging attempt**: The Selected day, add/edit target, entered amounts and label
 values, and chosen Meal prepared together for preview and saving. Preparation
-selects grams or volume and supplies required-label guidance. Incomplete or invalid
+selects grams or volume and supplies required-label guidance. Adding a gram-measured
+food with a serving size can count Servings instead of Weight: the count times the
+chosen serving, saved as grams. Incomplete or invalid
 input cannot be submitted. Ready input uses exactly the nutrition shown, preserving
 logged snapshots and the shared legacy detailed-nutrient source fallback. Drink
 preparation fixes the destination to Drinks; hydration changes only after the
@@ -332,6 +342,7 @@ Pages keep their state while the tab is away.
 **Custom meal**: A reusable collection of foods and their amounts. Its calories
 and macros begin as ingredient totals and can be overridden for the whole meal.
 Detailed nutrients use optional whole-meal overrides; clearing a value restores calculation.
+The preview sums the ingredients with valid amounts and skips one still being typed.
 
 **Meal nutrition override**: A calorie or macro value entered for a Custom meal.
 It stays fixed when ingredient amounts change until calculated nutrition is restored.

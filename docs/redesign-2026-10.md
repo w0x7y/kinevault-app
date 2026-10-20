@@ -287,9 +287,12 @@ Changes requested after the first review, replacing parts of sections 2–3:
   stay on the tab; the live workout became a page in section 8.
 - **Live workout:** the timer has no "elapsed" label (section 8 moved it
   from the header's right to the center of the page's top bar). Exercise
-  chips show short names
-  (`src/exercise/short-name.ts`: initials for long names, ignoring any
-  parenthetical; full names stay in accessible labels).
+  chips are one size and show the exercise's number above a short name
+  (`src/exercise/short-name.ts`: up to three initials, or a single word's
+  first three letters, ignoring any parenthetical; full names stay in
+  accessible labels). The set table stacks each set's number over its
+  remove control in every mode, and the weighted modes add an optional RIR
+  column; the armed "Are you sure?" pill overlays the row.
 - **Buttons:** destructive actions are red text on a soft red fill
   (`colors.dangerSoft`), never bare text; other text-only actions became
   quiet filled or compact pill buttons.
@@ -317,7 +320,9 @@ curves). Press feedback belongs to `Tappable`, the segment fill to
   macro bars and the water cup fill up, cards rise in once on first load,
   and the water sheet slides up over a fading backdrop and slides back down.
 - **Chrome:** the calendar and profile menu scale in from their trigger,
-  and presses ease to 0.97 over 120ms. Tab switches are instant.
+  and presses ease to 0.97 over 120ms. Tab switches are instant; the nav
+  bar's icon highlight slides to the chosen tab over 180ms like a segmented
+  control's fill, and a tab you leave scrolls back to the top.
 - **Food:** a newly logged food rises into its meal; a removed one fades out
   and the cards below glide up. Other entries stay disabled until the fade
   ends. Segmented controls slide their selection.

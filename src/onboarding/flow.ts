@@ -150,8 +150,12 @@ export function createOnboardingFlow(initial: ProfileDocument, effects: Effects)
             return;
           case "skip":
             if (!snapshot.showSkip || relevantErrors("skip")) return;
+            // A saved profile reopened at its age (it predates the age rule) keeps its answers;
+            // a new setup saves only the age.
             await complete(
-              { ...emptyAnswers, age: snapshot.answers.age, estimateEnabled: false },
+              Object.keys(validateAnswers(snapshot.answers)).length === 0
+                ? snapshot.answers
+                : { ...emptyAnswers, age: snapshot.answers.age, estimateEnabled: false },
               ticket,
             );
             return;

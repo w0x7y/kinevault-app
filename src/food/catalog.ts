@@ -3,6 +3,7 @@ import type { BeverageMetadata } from "./beverage.ts";
 import type { FoodImportSource } from "./import-metadata.ts";
 import { createFoodSearch } from "./search-matching.ts";
 import { foodKey, type FoodIdentity } from "./food-identity.ts";
+import { parseNutritionAmount } from "./number-input.ts";
 export { foodKey, type FoodIdentity } from "./food-identity.ts";
 
 export type Nutrition = { calories: number; carbs: number; protein: number; fat: number };
@@ -66,9 +67,11 @@ export function nutritionForGrams(food: CatalogFood, grams: number): ServingNutr
   };
 }
 
+/** A solid food amount: more than 0 and up to 10,000 g, in logs, servings and meals alike. */
+export function isFoodGrams(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 10000;
+}
 export function parseFoodGrams(input: string): number | null {
-  const text = input.trim();
-  if (!/^(?:\d+(?:[.,]\d*)?|[.,]\d+)$/.test(text)) return null;
-  const grams = Number(text.replace(",", "."));
-  return Number.isFinite(grams) && grams > 0 && grams <= 10000 ? grams : null;
+  const grams = parseNutritionAmount(input);
+  return isFoodGrams(grams) ? grams : null;
 }

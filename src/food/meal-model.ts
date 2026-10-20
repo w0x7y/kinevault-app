@@ -1,4 +1,5 @@
 import {
+  isFoodGrams,
   nutritionForGrams,
   parseFoodGrams,
   type CatalogFood,
@@ -78,8 +79,7 @@ export function calculateMeal(ingredients: readonly MealIngredient[]): MealCalcu
   };
   for (const { key } of detailedNutrients) nutrition.details[key] = 0;
   for (const ingredient of ingredients) {
-    if (!Number.isFinite(ingredient.grams) || ingredient.grams <= 0 || ingredient.grams > 10000)
-      throw new RangeError("Invalid ingredient weight");
+    if (!isFoodGrams(ingredient.grams)) throw new RangeError("Invalid ingredient weight");
     grams += ingredient.grams;
     const values = nutritionForGrams(ingredient.food, ingredient.grams);
     for (const key of ["calories", "carbs", "protein", "fat"] as const)
@@ -90,18 +90,18 @@ export function calculateMeal(ingredients: readonly MealIngredient[]): MealCalcu
       nutrition.details[key] = previous === null || amount === null ? null : previous + amount;
     }
   }
-  if (grams > 10000 || !Number.isFinite(grams))
-    throw new RangeError("A meal must weigh up to 10,000 g");
+  if (!isFoodGrams(grams)) throw new RangeError("A meal must weigh up to 10,000 g");
   return { grams, nutrition };
 }
 
 export function previewMeal(ingredients: readonly MealIngredientDraft[]): MealCalculation | null {
+  // An amount still being typed (empty or 0 g) leaves the rest of the preview intact.
   const parsed: MealIngredient[] = [];
   for (const ingredient of ingredients) {
     const grams = parseFoodGrams(ingredient.amount);
-    if (grams === null) return null;
-    parsed.push({ id: ingredient.id, food: ingredient.food, grams });
+    if (grams !== null) parsed.push({ id: ingredient.id, food: ingredient.food, grams });
   }
+  if (!parsed.length) return null;
   try {
     return calculateMeal(parsed);
   } catch {
@@ -131,9 +131,14 @@ export function mealFromDraft(
   }
   if (Object.keys(amounts).length) errors.amounts = amounts;
   if (!draft.ingredients.length) errors.ingredients = "Add at least one food to your meal.";
-  const calculation = previewMeal(draft.ingredients);
-  if (draft.ingredients.length && !calculation && !errors.amounts)
-    errors.ingredients = "Keep the total meal weight up to 10,000 g.";
+  // Only valid amounts are summed; the total itself then has to stay within one food's limit.
+  let calculation: MealCalculation | null = null;
+  if (ingredients.length && !errors.amounts)
+    try {
+      calculation = calculateMeal(ingredients);
+    } catch {
+      errors.ingredients = "Keep the total meal weight up to 10,000 g.";
+    }
   const overrides: Partial<Nutrition> = {};
   for (const key of ["calories", "carbs", "protein", "fat"] as const) {
     const input = draft.overrides[key];
@@ -218,9 +223,7 @@ export function parseCustomMeal(value: unknown): CustomMeal {
       !ingredient.id.trim() ||
       ingredient.id.length > 100 ||
       ids.has(ingredient.id) ||
-      !Number.isFinite(ingredient.grams) ||
-      ingredient.grams <= 0 ||
-      ingredient.grams > 10000
+      !isFoodGrams(ingredient.grams)
     )
       throw new Error("Invalid meal ingredient");
     ids.add(ingredient.id);

@@ -107,6 +107,24 @@ function entered(f: ReturnType<typeof fixture>, sessionId: string, reps = "8"): 
     }));
 }
 
+test("a workout template needs a name of up to 400 characters and at least one exercise", async () => {
+  const f = await ready();
+  const { exerciseId } = await planned(f);
+  for (const [input, reason] of [
+    [{ name: " ", exerciseIds: [exerciseId] }, "Enter a workout name."],
+    [
+      { name: "x".repeat(401), exerciseIds: [exerciseId] },
+      "Use a name of 400 characters or fewer.",
+    ],
+    [{ name: "Leg day", exerciseIds: [] }, "Select at least one exercise."],
+  ] as const)
+    assert.deepEqual(
+      await f.store.saveWorkout({ ...input, exerciseIds: [...input.exerciseIds] }),
+      rejected(reason),
+    );
+  assert.ok(await value(f.store.saveWorkout({ name: "x".repeat(400), exerciseIds: [exerciseId] })));
+});
+
 test("library and templates preserve history and resolve live definitions before retained snapshots", async () => {
   const f = await ready();
   const { exerciseId, sessionId } = await planned(f);
@@ -345,7 +363,7 @@ test("manual completion distinguishes unknown duration and supports validated co
       id: sessionId,
       name: "Updated",
       exercises: entered(f, sessionId, "10"),
-      durationSeconds: 150,
+      durationMinutes: "2.5",
     }),
     ok(true),
   );
@@ -513,7 +531,7 @@ test("input capture works without a browser-only clone API and never converts in
   try {
     globalThis.structuredClone = undefined as never;
     const f = await ready();
-    const { sessionId } = await planned(f);
+    const { sessionId, exerciseId } = await planned(f);
     assert.deepEqual(
       await f.store.updateSession({
         id: sessionId,
@@ -531,15 +549,14 @@ test("input capture works without a browser-only clone API and never converts in
       ok(true),
     );
     const raw = f.raw();
-    for (const durationSeconds of [NaN, Infinity, -1]) {
+    for (const count of [NaN, Infinity, -1]) {
       assert.deepEqual(
-        await f.store.updateSession({
-          id: sessionId,
+        await f.store.saveWorkout({
           name: "Invalid",
-          exercises: entered(f, sessionId),
-          durationSeconds,
+          exerciseIds: [exerciseId],
+          setCounts: { [exerciseId]: count },
         }),
-        rejected("Invalid workout duration."),
+        rejected("Set counts must be whole numbers from 0 to 100 for selected exercises."),
       );
     }
     assert.equal(f.raw(), raw);

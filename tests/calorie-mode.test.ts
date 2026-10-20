@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { emptyAnswers, type Answers } from "../src/profile/answers.ts";
-import { changeAnswers, calorieState } from "../src/profile/calories.ts";
+import { changeAnswers, calorieState, isCalorieTarget } from "../src/profile/calories.ts";
 const adult: Answers = {
   ...emptyAnswers,
   age: "30",
@@ -27,26 +27,6 @@ test("opting out resets formula fields and preserves a manual override", () => {
     target: 2400,
     source: "custom",
   });
-});
-test("partial teen age edits preserve manual targets but clear adult estimates", () => {
-  let manual = {
-    ...adult,
-    estimateEnabled: false,
-    age: "16",
-    customCalories: "2300",
-  };
-  let estimated = { ...adult, customCalories: "2400" };
-  for (const age of ["", "1", "17"]) {
-    manual = changeAnswers(manual, { kind: "fields", patch: { age } });
-    estimated = changeAnswers(estimated, { kind: "fields", patch: { age } });
-  }
-  assert.equal(calorieState(manual).target, 2300);
-  assert.equal(calorieState(manual).kind, "teen");
-  assert.equal(estimated.customCalories, "");
-  assert.equal(calorieState(estimated).target, null);
-  const blocked = changeAnswers(estimated, { kind: "estimate", enabled: true });
-  assert.equal(blocked.estimateEnabled, false);
-  assert.equal(blocked.eligible, false);
 });
 test("a custom target remains fixed until use-estimate is selected", () => {
   let answers = changeAnswers(
@@ -76,4 +56,9 @@ test("an invalid nonempty override remains custom so the estimate reset stays av
   assert.equal(state.source, "custom");
   assert.equal(state.target, null);
   assert.equal(state.estimate?.target, 2760);
+});
+
+test("a calorie target is whole kcal from 1,200 to 10,000", () => {
+  for (const value of [1200, 2500, 10000]) assert.equal(isCalorieTarget(value), true);
+  for (const value of [null, 1199, 10001, 2000.5, NaN]) assert.equal(isCalorieTarget(value), false);
 });

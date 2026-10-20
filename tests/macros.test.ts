@@ -92,10 +92,10 @@ test("version 1 profiles without macro fields keep their old target and gain def
   );
 });
 
-test("teen manual targets support macros without enabling adult estimates", () => {
-  const teen = { ...emptyAnswers, age: "16", estimateEnabled: false, customCalories: "2400" };
-  assert.deepEqual(macroTargets(teen), { carbs: 300, protein: 150, fat: 67 });
-  assert.equal(calorieState(teen).estimate, null);
+test("manual targets support macros without an estimate", () => {
+  const manual = { ...emptyAnswers, age: "30", estimateEnabled: false, customCalories: "2400" };
+  assert.deepEqual(macroTargets(manual), { carbs: 300, protein: 150, fat: 67 });
+  assert.equal(calorieState(manual).estimate, null);
 });
 
 test("macro targets add up at 4, 4 and 9 kcal a gram, and only once all three are set", () => {

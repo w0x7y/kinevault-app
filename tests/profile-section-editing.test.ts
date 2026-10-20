@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { emptyAnswers } from "../src/profile/answers.ts";
-import { changeAnswers, calorieState } from "../src/profile/calories.ts";
+import { changeAnswers } from "../src/profile/calories.ts";
 import { editedProfileAnswers } from "../src/profile/section-editing.ts";
 const saved = {
   ...emptyAnswers,
@@ -29,6 +29,7 @@ test("each focused section owns only its fields", () => {
     customFat: "50",
   };
   for (const [section, fields] of [
+    ["name", ["name"]],
     ["age", ["age"]],
     ["goal", ["goal"]],
     ["activity", ["activity"]],
@@ -39,13 +40,6 @@ test("each focused section owns only its fields", () => {
     assert.deepEqual(editedProfileAnswers(saved, draft, section), expected);
   }
 });
-test("adult age change never silently re-enables the estimator", () => {
-  const teen = changeAnswers(saved, { kind: "fields", patch: { age: "17" } });
-  const next = editedProfileAnswers(teen, { ...saved, age: "18" }, "age");
-  assert.equal(next.estimateEnabled, false);
-  assert.equal(next.sex, null);
-  assert.equal(calorieState(next).kind, "manual");
-});
 test("body save uses estimator policy without overwriting latest targets and age", () => {
   const current = { ...saved, age: "31", customCalories: "2300" };
   const draft = changeAnswers(saved, { kind: "estimate", enabled: false });
@@ -55,13 +49,5 @@ test("body save uses estimator policy without overwriting latest targets and age
   assert.equal(next.height, "177");
   assert.equal(next.estimateEnabled, false);
   assert.equal(next.eligible, false);
-  assert.equal(next.sex, null);
-});
-test("stale body estimator cannot re-enable estimation after a concurrent teen age save", () => {
-  const teen = changeAnswers(saved, { kind: "fields", patch: { age: "17" } });
-  const next = editedProfileAnswers(teen, { ...saved, weight: "75" }, "body");
-  assert.equal(next.weight, "75");
-  assert.equal(next.age, "17");
-  assert.equal(next.estimateEnabled, false);
   assert.equal(next.sex, null);
 });

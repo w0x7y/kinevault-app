@@ -9,40 +9,32 @@ import type { QuestionProps } from "./types";
 
 export function BodyQuestion({ answers, update, errors, disabled }: QuestionProps) {
   const mode = calorieState(answers);
-  const teen = mode.kind === "teen";
   const estimate = mode.kind === "estimate";
   return (
     <View style={{ gap: spacing.layout }}>
-      {teen ? (
-        <AppText muted>
-          You're still growing. We don't estimate calorie targets for under-18s. You can add a
-          target agreed with a qualified health professional, or leave it blank.
-        </AppText>
-      ) : (
-        <View
-          accessibilityRole="radiogroup"
-          accessibilityLabel="Calorie estimate"
-          style={{ gap: spacing.md }}
-        >
-          <Choice
-            label="Use the standard estimate"
-            description="I'm 18+, not pregnant or breastfeeding, and not following a prescribed nutrition plan."
-            selected={mode.kind === "estimate" && answers.eligible}
-            onPress={() => update({ kind: "estimate", enabled: true })}
-            disabled={disabled}
-            invalid={Boolean(errors.eligible)}
-          />
-          <Choice
-            label="Skip the estimate"
-            description="I'll enter a target myself, or leave it for later."
-            selected={mode.kind === "manual"}
-            onPress={() => update({ kind: "estimate", enabled: false })}
-            disabled={disabled}
-            invalid={Boolean(errors.eligible)}
-          />
-          {errors.eligible && <InlineMessage>{errors.eligible}</InlineMessage>}
-        </View>
-      )}
+      <View
+        accessibilityRole="radiogroup"
+        accessibilityLabel="Calorie estimate"
+        style={{ gap: spacing.md }}
+      >
+        <Choice
+          label="Use the standard estimate"
+          description="I'm 18+, not pregnant or breastfeeding, and not following a prescribed nutrition plan."
+          selected={mode.kind === "estimate" && answers.eligible}
+          onPress={() => update({ kind: "estimate", enabled: true })}
+          disabled={disabled}
+          invalid={Boolean(errors.eligible)}
+        />
+        <Choice
+          label="Skip the estimate"
+          description="I'll enter a target myself, or leave it for later."
+          selected={mode.kind === "manual"}
+          onPress={() => update({ kind: "estimate", enabled: false })}
+          disabled={disabled}
+          invalid={Boolean(errors.eligible)}
+        />
+        {errors.eligible && <InlineMessage>{errors.eligible}</InlineMessage>}
+      </View>
       {estimate && (
         <>
           <View style={{ gap: spacing.sm, marginTop: spacing.xs }}>

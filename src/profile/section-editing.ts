@@ -1,5 +1,5 @@
-import type { Answers, EditableStep } from "./answers.ts";
-import { calorieState, changeAnswers } from "./calories.ts";
+import { stepFields, type Answers, type EditableStep } from "./answers.ts";
+import { calorieState, changeAnswers, type AnswerChange } from "./calories.ts";
 export type ProfileEditSection = EditableStep;
 
 // A section draft is a patch, never a replacement for the latest saved record.
@@ -8,50 +8,24 @@ export function editedProfileAnswers(
   draft: Answers,
   section: ProfileEditSection,
 ): Answers {
-  switch (section) {
-    case "name":
-      return changeAnswers(current, {
-        kind: "fields",
-        patch: { name: draft.name },
-      });
-    case "age":
-      return changeAnswers(current, {
-        kind: "fields",
-        patch: { age: draft.age },
-      });
-    case "goal":
-      return changeAnswers(current, {
-        kind: "fields",
-        patch: { goal: draft.goal },
-      });
-    case "activity":
-      return changeAnswers(current, {
-        kind: "fields",
-        patch: { activity: draft.activity },
-      });
-    case "calories":
-      return changeAnswers(current, {
-        kind: "fields",
-        patch: {
-          customCalories: draft.customCalories,
-          customCarbs: draft.customCarbs,
-          customProtein: draft.customProtein,
-          customFat: draft.customFat,
-        },
-      });
-    case "body": {
-      const policy = changeAnswers(current, {
-        kind: "estimate",
-        enabled: draft.estimateEnabled,
-      });
-      return changeAnswers(policy, {
-        kind: "fields",
-        patch: {
-          height: draft.height,
-          weight: draft.weight,
-          sex: calorieState(policy).kind === "estimate" ? draft.sex : null,
-        },
-      });
-    }
+  if (section === "body") {
+    // Body also chooses the estimate, whose policy decides whether the formula's sex is kept.
+    const policy = changeAnswers(current, {
+      kind: "estimate",
+      enabled: draft.estimateEnabled,
+    });
+    return changeAnswers(policy, {
+      kind: "fields",
+      patch: {
+        height: draft.height,
+        weight: draft.weight,
+        sex: calorieState(policy).kind === "estimate" ? draft.sex : null,
+      },
+    });
   }
+  const patch = Object.fromEntries(stepFields[section].map((field) => [field, draft[field]]));
+  return changeAnswers(current, {
+    kind: "fields",
+    patch: patch as Extract<AnswerChange, { kind: "fields" }>["patch"],
+  });
 }

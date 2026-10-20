@@ -109,6 +109,7 @@ export function SessionEditor({
             edit.change({ kind: "set", rowId: row.id, setId, side, field, value })
           }
           onClock={(setId) => edit.toggleClock(row.id, setId)}
+          onRemove={(setId) => edit.change({ kind: "remove-set", rowId: row.id, setId })}
         />
         {notesId === row.id && <ExerciseNotes notes={row.exercise.notes} />}
         <ExerciseDemoSlot

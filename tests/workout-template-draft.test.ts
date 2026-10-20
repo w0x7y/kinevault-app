@@ -189,18 +189,6 @@ test("retained definitions survive source removal or mutation without library lo
   assert.equal(added.rows[1]!.exercise.notes, "");
 });
 
-test("readiness requires a valid name and at least one selected exercise", () => {
-  assert.equal(createWorkoutTemplateDraft().prepare().kind, "invalid");
-  assert.equal(createWorkoutTemplateDraft().rename("Strength").prepare().kind, "invalid");
-  for (const name of ["", "   ", "x".repeat(401)]) {
-    assert.equal(createWorkoutTemplateDraft().add(squat).rename(name).prepare().kind, "invalid");
-  }
-  assert.equal(
-    createWorkoutTemplateDraft().add(squat).rename("x".repeat(400)).prepare().kind,
-    "ready",
-  );
-});
-
 test("preparation captures only current selection and stays detached from later edits", () => {
   const draft = createWorkoutTemplateDraft(legacy).remove("curl").setCount("squat", "5");
   const preparation = draft.prepare();

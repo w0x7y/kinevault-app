@@ -68,6 +68,11 @@ adb install -r ~/Downloads/KineVaultTrack.apk
 
 `-r` replaces an installed copy and keeps its data.
 
+Update every phone signed in to the same account, iPhones included, before you
+use a new workout feature. Builds from before 2026-10-19 can't load an exercise
+document that holds Alternating or Timed exercises, and builds without RIR drop
+the RIR values whenever they save the exercise document.
+
 Home's Steps reads the phone's step count from Health Connect. Android 14 and
 newer have it built in and start counting once the app may read steps; on
 Android 8–13, install Health Connect from Google Play first. The app offers the

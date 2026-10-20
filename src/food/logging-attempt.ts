@@ -7,8 +7,11 @@ import type { FoodSaveTarget } from "./log-model.ts";
 import type { createFoodLogPersistence } from "./log-persistence.ts";
 import {
   prepareFoodLogging,
+  resolveServing,
+  servingChoices,
   type FoodLoggingFields,
   type FoodLoggingPreparation,
+  type Serving,
 } from "./logging-preparation.ts";
 import { nutritionAmountText } from "./number-input.ts";
 
@@ -23,6 +26,16 @@ export type FoodLoggingAttemptSnapshot = Readonly<{
   target: FoodSaveTarget;
   fields: Readonly<FoodLoggingFields>;
   preparation: FoodLoggingPreparation;
+  amount: Readonly<{
+    /** Weight, or a count of servings while counting is available. */
+    by: "grams" | "servings";
+    /** Adding a gram-measured food with at least one portion can count servings. */
+    servingsAvailable: boolean;
+    /** Serving size chips, the 100 g one first; empty unless adding a gram-measured food. */
+    portions: readonly (Serving & { chosen: boolean })[];
+    /** By servings, what one is and the total, e.g. "1 medium (118 g) each = 236 g". */
+    caption: string;
+  }>;
   /** The saved Custom food or meal behind the target: the current one, or as opened once deleted. */
   item: SavedCatalogItem | undefined;
   /** What the page calls the item it logs. */
@@ -39,6 +52,8 @@ export type FoodLoggingAttemptSnapshot = Readonly<{
 export function defaultAmount(food: CatalogFood): string {
   return nutritionAmountText(food.customId ? (food.portions[0]?.grams ?? 100) : 100);
 }
+
+const decimal = (value: number) => value.toLocaleString(undefined, { maximumFractionDigits: 1 });
 
 function savedItem(catalog: Catalog, customId: string | undefined): SavedCatalogItem | undefined {
   const state = catalog.getSnapshot().state;
@@ -78,6 +93,9 @@ export function createFoodLoggingAttempt({
       original.kind === "edit"
         ? nutritionAmountText(original.entry.grams ?? 100)
         : defaultAmount(opened?.food ?? original.food),
+    amountBy: "grams",
+    servings: "1",
+    serving: undefined,
     drinkMl:
       original.kind === "edit" && original.entry.drinkMl !== undefined
         ? String(original.entry.drinkMl)
@@ -111,12 +129,34 @@ export function createFoodLoggingAttempt({
       findFood: log.findFood,
       catalogItem: sources.item?.food,
     });
+    const grams = preparation.measurement === "grams" ? preparation.amount : null;
+    const portions =
+      target.kind === "add" && preparation.measurement === "grams" ? target.food.portions : [];
+    const serving = resolveServing(portions, fields.serving);
+    const by = serving && fields.amountBy === "servings" ? "servings" : "grams";
+    const each =
+      serving && serving.label !== `${decimal(serving.grams)} g`
+        ? `${serving.label} (${decimal(serving.grams)} g)`
+        : serving?.label;
     const submittable =
       active && !saving && sources.ready && !sources.catalogBusy && preparation.status === "ready";
     return {
       target,
       fields,
       preparation,
+      amount: {
+        by,
+        servingsAvailable: serving !== undefined,
+        portions:
+          target.kind === "add" && preparation.measurement === "grams"
+            ? servingChoices(portions).map((portion) => ({
+                ...portion,
+                chosen: by === "servings" ? portion === serving : portion.grams === grams,
+              }))
+            : [],
+        caption:
+          by === "servings" ? `${each} each${grams === null ? "" : ` = ${decimal(grams)} g`}` : "",
+      },
       item,
       noun:
         preparation.measurement === "volume" ? "drink" : item?.kind === "meal" ? "meal" : "food",
@@ -196,10 +236,24 @@ export function createFoodLoggingAttempt({
      * The edited item itself arrives with other live catalog changes.
      */
     catalogSaved(item: CatalogFood) {
-      change({ grams: defaultAmount(item) });
+      change({ grams: defaultAmount(item), servings: "1", serving: undefined });
     },
     setGrams(grams: string) {
       change({ grams });
+    },
+    /** Leaving servings keeps their total as the weight. */
+    setAmountBy(amountBy: FoodLoggingFields["amountBy"]) {
+      const { amount, preparation } = snapshot;
+      const total = amount.by === "servings" ? preparation.amount : null;
+      change({ amountBy, grams: total === null ? fields.grams : nutritionAmountText(total) });
+    },
+    setServings(servings: string) {
+      change({ servings });
+    },
+    /** By weight a chip sets the grams; by servings it picks the serving counted. */
+    choosePortion({ label, grams }: Serving) {
+      if (snapshot.amount.by === "servings") change({ serving: { label, grams } });
+      else change({ grams: nutritionAmountText(grams) });
     },
     setDrinkMl(drinkMl: string) {
       change({ drinkMl });

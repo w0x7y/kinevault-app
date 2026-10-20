@@ -273,7 +273,9 @@ local data stays.
 ### New app versions
 
 Push the changes, run the workflow again, download the new `.ipa`, and install
-it the same way. It replaces the installed copy and keeps its data.
+it the same way. It replaces the installed copy and keeps its data. Update every
+device on the account before using a new workout feature; older builds can drop
+or fail to load the new data (see [Install on Android phones](android-apk.md#install)).
 
 ### Day-to-day JavaScript work
 
