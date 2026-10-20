@@ -2,6 +2,7 @@ import { useState } from "react";
 import { TextInput, View } from "react-native";
 import Animated, { LayoutAnimationConfig } from "react-native-reanimated";
 import { IconButton } from "../components/button";
+import { DeleteButton } from "../components/delete-button";
 import { useLayoutMotion, useStateTransition } from "../components/motion";
 import { inputSurface } from "../components/text-field";
 import { AppText, Overline } from "../components/ui";
@@ -11,6 +12,7 @@ import { formatElapsed, type ExerciseSet, type SetHint } from "./model";
 import {
   isBlankSet,
   setLines,
+  timedSeconds,
   trackingMode,
   type SetField,
   type SetLine,
@@ -19,6 +21,8 @@ import {
 
 const badgeColumn = 36;
 const sideColumn = 44;
+/** A set's number with its remove control under it, leaving the inputs the row's width. */
+const stackedColumn = 44;
 
 function NumberInput({
   label,
@@ -79,7 +83,7 @@ function SetBadge({ number, done }: { number: number; done: boolean }) {
   const { colors } = useTheme();
   const transition = useStateTransition(["backgroundColor"]);
   return (
-    <View style={{ width: badgeColumn, justifyContent: "center" }}>
+    <View style={{ width: badgeColumn, minHeight: 48, justifyContent: "center" }}>
       <Animated.View
         style={{
           width: 28,
@@ -137,7 +141,8 @@ function ClockFace({ clock, label }: { clock: ShownClock; label: string }) {
 
 /**
  * The sets of one exercise in its Tracking mode's columns. A timed set's button starts its clock:
- * a countdown from the entered seconds, or a stopwatch on a blank set.
+ * a countdown from the entered seconds, or a stopwatch on a blank set. Each set has a remove
+ * control that asks before it removes.
  */
 export function ExerciseSetTable({
   tracking,
@@ -148,6 +153,7 @@ export function ExerciseSetTable({
   clock,
   onChange,
   onClock,
+  onRemove,
 }: {
   tracking: TrackingMode;
   sets: ExerciseSet[];
@@ -158,6 +164,7 @@ export function ExerciseSetTable({
   clock: ShownClock | null;
   onChange: (setId: string, side: SetLine["side"], field: SetField, value: string) => void;
   onClock: (setId: string) => void;
+  onRemove: (setId: string) => void;
 }) {
   const mode = trackingMode(tracking);
   const rise = useLayoutMotion().enter();
@@ -166,7 +173,7 @@ export function ExerciseSetTable({
   return (
     <View style={{ gap: spacing.sm }}>
       <View style={columns}>
-        <Overline style={{ width: badgeColumn }}>Set</Overline>
+        <Overline style={{ width: stackedColumn }}>Set</Overline>
         {mode.sided && <View style={{ width: sideColumn }} />}
         {mode.columns.map((column) => (
           <Overline key={column.field} style={cell}>
@@ -185,14 +192,33 @@ export function ExerciseSetTable({
         {sets.map((set, index) => {
           const prefix = `${rowLabel} set ${index + 1}`;
           const running = clock?.setId === set.id ? clock : null;
-          const entered = set.kind === "time" && Number(set.seconds.trim()) > 0;
+          const countdown = timedSeconds(set);
+          const badge = <SetBadge number={index + 1} done={!isBlankSet(set)} />;
+          const remove = (
+            <DeleteButton
+              appearance="icon"
+              label={`Remove set ${index + 1} from ${rowLabel}`}
+              confirmAccessibilityLabel={`Confirm remove set ${index + 1} from ${rowLabel}`}
+              onDelete={() => onRemove(set.id)}
+              disabled={busy}
+            />
+          );
           return (
             <Animated.View
               key={set.id}
               entering={rise}
               style={[columns, { alignItems: "stretch" }]}
             >
-              <SetBadge number={index + 1} done={!isBlankSet(set)} />
+              {/* The armed "Are you sure?" pill is wider than the column; it overlays the row. */}
+              <View
+                style={{ width: stackedColumn, alignItems: "center", gap: spacing.xs, zIndex: 1 }}
+              >
+                {badge}
+                {/* Wide enough for the armed pill on one line; the empty part passes touches on. */}
+                <View style={{ width: 140, alignSelf: "flex-start", pointerEvents: "box-none" }}>
+                  <View style={{ alignSelf: "flex-start" }}>{remove}</View>
+                </View>
+              </View>
               <View style={{ flex: 1, minWidth: 0, gap: spacing.xs + 2 }}>
                 {setLines(set).map((line, lineIndex) => {
                   const label = line.side ? `${prefix} ${line.side}` : prefix;
@@ -220,12 +246,12 @@ export function ExerciseSetTable({
                       {mode.clock && (
                         <IconButton
                           appearance="secondary"
-                          icon={running ? "stop" : entered ? "play" : "stopwatch"}
+                          icon={running ? "stop" : countdown !== null ? "play" : "stopwatch"}
                           label={
                             running
                               ? `Stop ${prefix} clock`
-                              : entered
-                                ? `Start ${formatElapsed(Number(set.seconds.trim()))} timer for ${prefix}`
+                              : countdown !== null
+                                ? `Start ${formatElapsed(countdown)} timer for ${prefix}`
                                 : `Start stopwatch for ${prefix}`
                           }
                           disabled={busy}

@@ -215,3 +215,35 @@ test("outside click, keyboard focus leaving, and route changes close the dropdow
   await page.keyboard.press("Escape");
   await menu(page).waitFor({ state: "detached" });
 });
+
+test("a tab opens at the top after another tab, but keeps its place under a pushed page", async (t) => {
+  const page = await open(t, { width: 390, height: 560 });
+  // The visible screen's scroller; a hidden tab's is display: none.
+  const scrolled = (top) =>
+    page.evaluate((top) => {
+      const scroller = [...document.querySelectorAll("div")].find(
+        (node) =>
+          node.offsetParent !== null &&
+          /auto|scroll/.test(getComputedStyle(node).overflowY) &&
+          node.scrollHeight > node.clientHeight + 100,
+      );
+      if (top !== undefined) scroller.scrollTop = top;
+      return scroller.scrollTop;
+    }, top);
+  const tab = (name) => page.getByRole("tab", { name, exact: true }).click();
+  await tab("Settings");
+  await page.getByText("Edit profile", { exact: true }).waitFor();
+  assert.ok((await scrolled(200)) > 0);
+  await tab("Home");
+  await page.getByTestId("home-steps").waitFor();
+  await tab("Settings");
+  await page.getByText("Edit profile", { exact: true }).waitFor();
+  assert.equal(await scrolled(), 0);
+  // Edit profile slides over the tabs; going back doesn't jump Settings to the top.
+  assert.ok((await scrolled(200)) > 0);
+  await page.getByText("Edit profile", { exact: true }).click();
+  await page.waitForURL(/onboarding/);
+  await page.goBack();
+  await page.getByText("Edit profile", { exact: true }).waitFor();
+  assert.ok((await scrolled()) > 0);
+});

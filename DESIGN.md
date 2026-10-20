@@ -8,7 +8,7 @@ Design reference for KineVault Track, the Expo app in `Application/`, and its
 separate [KineVault studio](https://github.com/arielhagay10-ui/KineVault).
 The supplied studio reference below describes its working source on
 **30 September 2026**; its measurements assume a 16px root font size.
-The Application summary records the implementation on **18 October 2026**.
+The Application summary records the implementation on **20 October 2026**.
 Preserve scalable text in both products.
 
 Outside the Application summary and explicitly labeled companion notes,
@@ -52,7 +52,7 @@ reference patterns, not implemented companion features.
   32pt small pills inside a 44pt hit area; IconButton is a round 48pt icon action.
   [Chip](src/components/chip.tsx) and [SegmentedControl](src/components/segmented-control.tsx)
   cover choices: sunken when idle, with a primary fill or a raised segment that slides to
-  the chosen option.
+  the chosen option. A chip can carry a small caption line above its label.
 - Screens use a 20pt gutter, 18pt card padding and 14pt gaps between cards. Local
   label/caption gaps remain 4–8pt. Content is centered at a maximum 768pt, including
   screen padding; touch targets are at least 44pt.
@@ -68,8 +68,8 @@ reference patterns, not implemented companion features.
   calendar chip drops its chevron. The floating tab bar (`src/app/(tabs)/_layout.tsx`,
   tabs listed in `src/navigation/track-tabs.ts`) is a
   rounded, elevated bar inset 16pt from the screen edges and at most 560pt wide, with
-  the four labeled tabs, outline icons, a soft blue pill behind the active icon, and
-  primary active and muted inactive colors. Screens pad their end by its measured height.
+  the four labeled tabs, outline icons, a soft blue pill behind the active icon that
+  slides between tabs (none while Profile shows), and primary active and muted inactive colors. Screens pad their end by its measured height.
 - Small modal tasks use [ModalSheet](src/components/modal-sheet.tsx): a bottom sheet on
   phones and a centered dialog on windows 600pt and wider. Flows that leave the day view
   (food details, create and edit forms, barcode scan, imports, saved workouts, the live
@@ -153,6 +153,9 @@ reference patterns, not implemented companion features.
   entries separated by hairlines. Logged name filters never replace catalog results.
   Empty meals say "No food has been logged yet". Solid details place gram amount
   and serving choices before nutrition, with four meal destinations and a dated Log action.
+  When you add a food that has servings, a Weight / Servings switch appears; by Servings
+  the field takes a count, the serving chips pick which serving it counts, and a caption
+  shows "each = total" grams.
   Long lists show 100 g and two source servings first. Selecting results dismisses
   the native keyboard. Saved entries show amounts, Edit, and a named removal control.
   Drink details have one Drink amount (ml) field before the nutrition preview,
@@ -169,8 +172,11 @@ reference patterns, not implemented companion features.
   saturated fat and trans fat are indented under Fat. Missing values say
   Not available. Both themes preserve protein and fat category colors.
   Exercise adds completed exercises with sets, reps, and actual load ranges;
-  planned sets do not count as completed activity. Only saved food contributes
-  to nutrition totals.
+  planned sets do not count as completed activity. In a workout the exercise chips are
+  one size (72pt minimum) with the exercise's number above a short name of up to three
+  characters. The set table puts each set's number with a remove control under it, and
+  weighted modes add an optional RIR column; the armed "Are you sure?" pill overlays the
+  row. Only saved food contributes to nutrition totals.
 - Settings is a grouped list: an overline title above one card of rows each, with icon
   wells and hairline dividers. It starts with the account summary and ends with Data &
   account (export and log out), with Delete account in its own red control below,
@@ -179,7 +185,7 @@ reference patterns, not implemented companion features.
   in place of the password field, and deletion unlocks for 10 minutes after that sign-in.
   Reminders are hidden on web.
   Language, units and version share one caption at the bottom.
-  Onboarding begins with welcome and goals before age confirmation, then profile
+  Onboarding begins with welcome and goals before age confirmation (18 and up), then profile
   questions and editable calorie/macro targets. Required account screens follow
   saving the final review. Automatic macros use 50% carbs,
   25% protein, and 25% fat, with editable gram overrides.
@@ -187,7 +193,8 @@ reference patterns, not implemented companion features.
   thread and uses ease-out curves (ease-in-out for segment slides, list glides and the
   loading bob): 120 ms presses, 180 ms toggles, segment slides and
   popover entrances, 300 ms entrances, and 650 ms value fills (ring arcs, macro bars and
-  the water cup). Kine greets with a short hop. Tab switches are instant; search results
+  the water cup). Kine greets with a short hop. Tab switches are instant (only the nav
+  bar's icon highlight slides, like a segmented control's fill), and a tab opens at the top each time; search results
   and figures do not animate. Under reduced motion nothing moves; only short fades
   remain. The artwork and its size limits are documented in
   [the mascot guide](assets/mascot/README.md).

@@ -1,6 +1,7 @@
 import type { Meal } from "../daily/model.ts";
 import { beverageForFood, drinkMlFromText } from "./beverage.ts";
 import {
+  isFoodGrams,
   parseFoodGrams,
   type CatalogFood,
   type Nutrition,
@@ -16,8 +17,14 @@ import {
 } from "./log-model.ts";
 import { parseNutritionAmount } from "./number-input.ts";
 
+export type Serving = Readonly<{ label: string; grams: number }>;
 export type FoodLoggingFields = {
   grams: string;
+  /** Counting servings only computes grams; the entry still saves grams. */
+  amountBy: "grams" | "servings";
+  servings: string;
+  /** The counted serving as chosen; undefined means the food's first portion. */
+  serving: Serving | undefined;
   drinkMl: string;
   meal: Meal;
   labelNutrition: Record<keyof Nutrition, string>;
@@ -44,6 +51,33 @@ export type FoodLoggingPreparation = { date: string; operation: "add" | "edit" }
 );
 
 const gramMessage = "Enter an amount greater than 0 and up to 10,000 g.";
+const servingsMessage = "Enter a number of servings that comes to more than 0 and up to 10,000 g.";
+const hundredGrams: Serving = { label: "100 g", grams: 100 };
+
+/** Serving size choices: the food's 100 g portion (or a plain 100 g) first, then its other portions. */
+export function servingChoices(portions: readonly Serving[]): Serving[] {
+  const hundred = portions.find((portion) => portion.grams === 100);
+  return [hundred ?? hundredGrams, ...portions.filter((portion) => portion !== hundred)];
+}
+
+/** The serving a count multiplies for a food: the chosen one while it is still offered,
+ * otherwise the first portion. Undefined when the food has no portion to count. */
+export function resolveServing(
+  portions: readonly Serving[],
+  chosen: Serving | undefined,
+): Serving | undefined {
+  if (portions.length === 0) return undefined;
+  const match = (choice: Serving) =>
+    choice.label === chosen?.label && choice.grams === chosen.grams;
+  return servingChoices(portions).find(match) ?? portions[0];
+}
+
+/** Grams for a count of one serving, rounded to 0.01 g, or null when they aren't a valid weight. */
+function servingsGrams(count: string, servingGrams: number): number | null {
+  const servings = parseNutritionAmount(count);
+  const grams = servings === null ? null : Math.round(servings * servingGrams * 100) / 100;
+  return isFoodGrams(grams) ? grams : null;
+}
 export const volumeMessage = "Enter a whole drink amount from 1 to 10,000 ml.";
 const labelMessage =
   "Enter label nutrition per 100 ml and a whole drink amount from 1 to 10,000 ml.";
@@ -136,16 +170,22 @@ export function prepareFoodLogging({
         ? { kind: "add", input: { ...input, food: food ?? target.food } }
         : { kind: "edit", input: { ...input, id: target.entry.id } };
   } else {
-    const amount = parseFoodGrams(fields.grams);
+    const serving =
+      fields.amountBy === "servings" && target.kind === "add"
+        ? resolveServing(target.food.portions, fields.serving)
+        : undefined;
+    const amount = serving
+      ? servingsGrams(fields.servings, serving.grams)
+      : parseFoodGrams(fields.grams);
     const gramFields = { measurement: "grams", meal: fields.meal } as const;
     if (amount === null)
       return {
         ...common,
         ...gramFields,
         amount,
-        status: fields.grams.trim() ? "invalid" : "incomplete",
+        status: (serving ? fields.servings : fields.grams).trim() ? "invalid" : "incomplete",
         reason: "amount",
-        message: gramMessage,
+        message: serving ? servingsMessage : gramMessage,
       };
     if (fields.meal === "drinks")
       return {

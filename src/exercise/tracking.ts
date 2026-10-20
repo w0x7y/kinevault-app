@@ -1,4 +1,4 @@
-import type { ExerciseDefinition, ExerciseSet } from "./model.ts";
+import type { ExerciseDefinition, ExerciseSet, SetSide } from "./model.ts";
 
 /**
  * A Tracking mode: what an Exercise definition's sets hold. Each set's `kind` is its exercise's
@@ -6,7 +6,7 @@ import type { ExerciseDefinition, ExerciseSet } from "./model.ts";
  */
 export type TrackingMode = ExerciseDefinition["tracking"];
 /** A value a set holds. */
-export type SetField = "reps" | "weightKg" | "seconds";
+export type SetField = "reps" | "weightKg" | "rir" | "seconds";
 /**
  * One row of a set's values: one side of a left/right set, or the whole set. A hint line holds
  * undefined where there is nothing to suggest.
@@ -16,12 +16,14 @@ type Column = { field: SetField; label: string; name: string };
 
 const reps: Column = { field: "reps", label: "Reps", name: "reps" };
 const weight: Column = { field: "weightKg", label: "Weight (kg)", name: "weight (kg)" };
+/** Reps in reserve: optional, and never a set's only value (see `setMeasurements`). */
+const rir: Column = { field: "rir", label: "RIR", name: "reps in reserve" };
 const modes = {
   single: {
     name: "Single weight",
     short: "Weight",
     tag: null,
-    columns: [reps, weight],
+    columns: [reps, weight, rir],
     sided: false,
     clock: false,
     chartable: true,
@@ -30,7 +32,7 @@ const modes = {
     name: "Left and right",
     short: "L / R",
     tag: "Left and right",
-    columns: [reps, weight],
+    columns: [reps, weight, rir],
     sided: true,
     clock: false,
     chartable: true,
@@ -39,7 +41,7 @@ const modes = {
     name: "Alternating",
     short: "Alt.",
     tag: "Alternating",
-    columns: [{ field: "reps", label: "Reps/side", name: "reps per side" }, weight],
+    columns: [{ field: "reps", label: "Reps/side", name: "reps per side" }, weight, rir],
     sided: false,
     clock: false,
     chartable: true,
@@ -96,12 +98,16 @@ export function createEmptySet(mode: TrackingMode, id: string): ExerciseSet {
 export function setLines(set: ExerciseSet): SetLine[] {
   switch (set.kind) {
     case "sides":
-      return (["left", "right"] as const).map((side) => ({ side, values: { ...set[side] } }));
+      return (["left", "right"] as const).map((side) => ({ side, values: liftValues(set[side]) }));
     case "time":
       return [{ side: null, values: { seconds: set.seconds } }];
     default:
-      return [{ side: null, values: { reps: set.reps, weightKg: set.weightKg } }];
+      return [{ side: null, values: liftValues(set) }];
   }
+}
+// Sets saved before RIR have none; a line still holds one value per column.
+function liftValues(value: SetSide) {
+  return { reps: value.reps, weightKg: value.weightKg, rir: value.rir ?? "" };
 }
 export function isBlankSet(set: ExerciseSet): boolean {
   return setLines(set).every((line) => Object.values(line.values).every((value) => !value?.trim()));
@@ -146,12 +152,16 @@ export function decimal(value: string, blank: number | null): number {
     throw new Error("Enter weights and minutes of 100,000 or less.");
   return amount;
 }
-function measurement(value: { reps: string; weightKg: string }, zeroAllowed: boolean) {
-  if (zeroAllowed && !value.reps.trim() && !value.weightKg.trim()) return { reps: 0, weightKg: 0 };
+function measurement(value: SetSide, zeroAllowed: boolean) {
+  const rir = value.rir?.trim() ?? "";
+  if (zeroAllowed && !value.reps.trim() && !value.weightKg.trim() && !rir)
+    return { reps: 0, weightKg: 0 };
   if (!/^\d+$/.test(value.reps.trim())) throw new Error("Enter whole repetitions for each set.");
   const reps = Number(value.reps.trim());
   if (!Number.isSafeInteger(reps) || reps < (zeroAllowed ? 0 : 1) || reps > 100000)
     throw new Error("Enter from 1 to 100,000 repetitions for each set.");
+  if (rir && (!/^\d+$/.test(rir) || Number(rir) > 10))
+    throw new Error("Enter reps in reserve as a whole number from 0 to 10, or leave it blank.");
   return { reps, weightKg: decimal(value.weightKg, 0) };
 }
 export type SetMeasurements = {
@@ -167,13 +177,23 @@ export type SetMeasurements = {
   /** A timed set's seconds; 0 otherwise. */
   seconds: number;
 };
+/**
+ * A Timed set's valid seconds, from 1 to 86,400 whole seconds: where its Set clock counts down
+ * from. Null for any other text (the clock runs as a stopwatch) and for other kinds of set.
+ */
+export function timedSeconds(set: ExerciseSet): number | null {
+  if (set.kind !== "time") return null;
+  const text = set.seconds.trim(),
+    seconds = Number(text);
+  return /^\d+$/.test(text) && seconds >= 1 && seconds <= 86400 ? seconds : null;
+}
+
 /** A completed set's numbers; throws the message to show for an invalid one. */
 export function setMeasurements(set: ExerciseSet): SetMeasurements {
   const none = { reps: 0, volume: 0, weights: [], left: null, right: null, seconds: 0 };
   if (set.kind === "time") {
-    const text = set.seconds.trim(),
-      seconds = Number(text);
-    if (!/^\d+$/.test(text) || seconds < 1 || seconds > 86400)
+    const seconds = timedSeconds(set);
+    if (seconds === null)
       throw new Error("Enter from 1 to 86,400 whole seconds for each timed set.");
     return { ...none, seconds };
   }

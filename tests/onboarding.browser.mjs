@@ -816,10 +816,10 @@ test("account onboarding also gates age-skipped setup", async (t) => {
   await enterSetup(page);
   await page.getByRole("radio", { name: "Maintain weight", exact: true }).click();
   await continueTo(page, "Let's check your age");
-  await page.getByRole("textbox", { name: "Age (years)", exact: true }).fill("16");
+  await page.getByRole("textbox", { name: "Age (years)", exact: true }).fill("18");
   await button(page, "Set up later").click();
   await heading(page, "Create your account");
-  assert.equal((await record(page)).answers.age, "16");
+  assert.equal((await record(page)).answers.age, "18");
   assert.equal(await button(page, "Continue without an account").count(), 0);
   await signInFixture(page);
   await heading(page, "Calories");
@@ -1243,7 +1243,7 @@ test("Kine estimates calories, resumes drafts, and saves an editable custom targ
   assert.deepEqual(errors, []);
 });
 
-test("age gate covers skip and setup; a 16-year-old can finish without an adult estimate", async (t) => {
+test("age gate covers skip and setup for ages 18 and up", async (t) => {
   const page = await open(t);
   await heading(page, "Hi, I'm Kine.");
   assert.equal(await page.getByRole("textbox").count(), 0);
@@ -1251,31 +1251,17 @@ test("age gate covers skip and setup; a 16-year-old can finish without an adult 
   await page.getByRole("radio", { name: "Lose weight", exact: true }).click();
   await continueTo(page, "Let's check your age");
   const age = page.getByRole("textbox", { name: "Age (years)", exact: true });
-  await age.fill("15");
+  await age.fill("17");
   for (const label of ["Set up later", "Continue"]) {
     await button(page, label).click();
     await page
-      .getByText("Enter age between 16 and 100 years in whole years.", { exact: true })
+      .getByText("Enter age between 18 and 100 years in whole years.", { exact: true })
       .waitFor();
     assert.equal(await button(page, "Continue").count(), 1);
   }
-  await age.fill("16");
+  await age.fill("18");
   await continueTo(page, "What should I call you?");
-  await continueTo(page, "A little about you");
-  assert.equal(
-    await page.getByRole("radio", { name: "Use the standard estimate", exact: true }).count(),
-    0,
-  );
-  await continueTo(page, "How active are you?");
-  await continueTo(page, "Your daily starting point");
-  assert.equal(await button(page, "How was this calculated?").count(), 0);
-  await continueTo(page, "Ready when you are.");
-  await finishSetupWithAccount(page);
-  const saved = await record(page);
-  assert.equal(saved.kind, "complete");
-  assert.equal(saved.answers.age, "16");
-  assert.equal(saved.answers.estimateEnabled, false);
-  assert.equal(saved.answers.customCalories, "");
+  assert.equal((await record(page)).answers.age, "18");
 });
 
 test("onboarding poses load and onboarding fits phone and desktop widths", async (t) => {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { answerSummary, choiceLabels, emptyAnswers } from "../src/profile/answers.ts";
-import { estimateCalories, validateAnswers, changeAnswers } from "../src/profile/calories.ts";
+import { estimateCalories, validateAnswers } from "../src/profile/calories.ts";
 import { parseProfile } from "../src/profile/model.ts";
 
 const adult = {
@@ -87,27 +87,20 @@ test("malformed and incompatible records cannot count as completed setup", () =>
   }
 });
 
-test("16 and 17 year olds can join without an adult calorie estimate", () => {
-  for (const age of ["16", "17"]) {
-    const teen = { ...emptyAnswers, age };
-    assert.deepEqual(validateAnswers(teen), {});
-    assert.equal(estimateCalories({ ...adult, age }), null);
-    assert.deepEqual(validateAnswers({ ...teen, customCalories: "2300" }), {});
-    assert.equal(
-      parseProfile(JSON.stringify({ version: 1, kind: "complete", answers: teen })).kind,
-      "complete",
-    );
-  }
-  for (const age of ["", "15", "16.5", "101"])
+test("the app is for ages 18 and up", () => {
+  for (const age of ["", "15", "16", "17", "18.5", "101"])
     assert.ok(validateAnswers({ ...emptyAnswers, age, estimateEnabled: false }).age);
+  assert.deepEqual(validateAnswers({ ...emptyAnswers, age: "18", estimateEnabled: false }), {});
   assert.notEqual(estimateCalories({ ...adult, age: "18" }), null);
-  assert.equal(
-    changeAnswers({ ...adult, customCalories: "2000" }, { kind: "fields", patch: { age: "16" } })
-      .customCalories,
-    "",
-  );
+  // A profile saved while 16 and 17 were allowed goes back to the age question.
+  const answers = { ...emptyAnswers, age: "17", estimateEnabled: false };
+  assert.deepEqual(parseProfile(JSON.stringify({ version: 1, kind: "complete", answers })), {
+    version: 1,
+    kind: "draft",
+    step: "age",
+    answers,
+  });
 });
-
 test("older profiles without a supported age keep their answers for re-checking", () => {
   const answers = { ...adult, age: "" };
   assert.deepEqual(parseProfile(JSON.stringify({ version: 1, kind: "complete", answers })), {

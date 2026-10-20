@@ -5,7 +5,9 @@ import {
   elapsedSeconds,
   formatElapsed,
   matchingExercises,
+  minutesText,
   parsePlannedSetCount,
+  resizeSets,
   setHints,
   type ExerciseDefinition,
   type ExerciseDocument,
@@ -304,6 +306,62 @@ test("legacy templates omit set counts while configured counts survive version-o
     assert.throws(() => parse({ ...document(), workouts: [{ ...workout, setCounts }] }));
   }
 });
+test("sets saved before RIR parse without it, and an entered RIR round-trips", () => {
+  const legacy = parse(document([session])).sessions[0]!.exercises[0]!.sets[0]!;
+  assert.deepEqual(legacy, session.exercises[0]!.sets[0]);
+  assert.ok(legacy.kind === "sides" && !("rir" in legacy.left));
+  const withRir = document([
+    {
+      ...session,
+      exercises: [
+        {
+          ...session.exercises[0]!,
+          sets: [
+            {
+              id: "set",
+              kind: "sides",
+              left: { reps: "8", weightKg: "10", rir: "2" },
+              right: { reps: "6", weightKg: "12", rir: "" },
+            },
+          ],
+        },
+        {
+          id: "single-row",
+          exercise: { ...exercise, id: "press", tracking: "single" },
+          sets: [{ id: "press-set", kind: "single", reps: "5", weightKg: "40", rir: "0" }],
+        },
+      ],
+    },
+  ]);
+  assert.deepEqual(parse(withRir), withRir);
+  const set = withRir.sessions[0]!.exercises[1]!.sets[0]!;
+  for (const rir of [2, null, "x".repeat(33)])
+    assert.throws(() =>
+      parse({
+        ...withRir,
+        sessions: [
+          {
+            ...withRir.sessions[0]!,
+            exercises: [{ ...withRir.sessions[0]!.exercises[1]!, sets: [{ ...set, rir }] }],
+          },
+        ],
+      }),
+    );
+  // A completed log keeps only an RIR from 0 to 10.
+  assert.throws(
+    () =>
+      parse({
+        ...withRir,
+        sessions: [
+          {
+            ...withRir.sessions[0]!,
+            exercises: [{ ...withRir.sessions[0]!.exercises[1]!, sets: [{ ...set, rir: "11" }] }],
+          },
+        ],
+      }),
+    /reps in reserve/,
+  );
+});
 test("persisted completed records still reject untouched placeholders alongside valid sets", () => {
   const row = session.exercises[0]!;
   assert.throws(() =>
@@ -358,7 +416,9 @@ function log(
 const today = { id: "today", date: "2026-10-04" };
 const hints = (sessions: WorkoutSession[], sets: ExerciseSet[], definition = squat) =>
   setHints(sessions, today, { id: "row", exercise: definition, sets });
-const hint = (reps?: string, weightKg?: string) => [{ side: null, values: { reps, weightKg } }];
+const hint = (reps?: string, weightKg?: string) => [
+  { side: null, values: { reps, weightKg, rir: undefined } },
+];
 
 test("Previous sets come from the latest other completed log on or before the log's day", () => {
   const sessions = [
@@ -423,16 +483,16 @@ test("hints follow a tracking change between single-load and left/right sets", (
     hints([log("old", "2026-10-03", [sided], "completed", sides)], [blankSides], sides),
     [
       [
-        { side: "left", values: { reps: "8", weightKg: "10" } },
-        { side: "right", values: { reps: "6", weightKg: undefined } },
+        { side: "left", values: { reps: "8", weightKg: "10", rir: undefined } },
+        { side: "right", values: { reps: "6", weightKg: undefined, rir: undefined } },
       ],
     ],
   );
   // A left/right set reads a single load on both sides.
   assert.deepEqual(hints([log("old", "2026-10-03", [lift("a", "5", "20")])], [blankSides], sides), [
     [
-      { side: "left", values: { reps: "5", weightKg: "20" } },
-      { side: "right", values: { reps: "5", weightKg: "20" } },
+      { side: "left", values: { reps: "5", weightKg: "20", rir: undefined } },
+      { side: "right", values: { reps: "5", weightKg: "20", rir: undefined } },
     ],
   ]);
 });
@@ -461,6 +521,32 @@ test("planned set counts are whole numbers from 0 to 100", () => {
     assert.equal(parsePlannedSetCount(raw), count);
   for (const raw of ["", "-1", "101", "3.0", "1e2", "abc"])
     assert.equal(parsePlannedSetCount(raw), null);
+});
+
+test("resizing sets cuts extra sets off the end and adds empty sets of the row's mode", () => {
+  let next = 0;
+  const newId = () => `new-${++next}`;
+  const sets: ExerciseSet[] = [
+    { id: "a", kind: "time", seconds: "30" },
+    { id: "b", kind: "time", seconds: "" },
+  ];
+  assert.deepEqual(resizeSets(sets, "time", 1, newId), [sets[0]]);
+  assert.deepEqual(resizeSets(sets, "time", 0, newId), []);
+  assert.deepEqual(resizeSets(sets, "time", 2, newId), sets);
+  assert.deepEqual(resizeSets(sets, "time", 3, newId), [
+    ...sets,
+    { id: "new-1", kind: "time", seconds: "" },
+  ]);
+  assert.deepEqual(resizeSets([], "alternating", 2, newId), [
+    { id: "new-2", kind: "alternating", reps: "", weightKg: "" },
+    { id: "new-3", kind: "alternating", reps: "", weightKg: "" },
+  ]);
+});
+
+test("minutes text shows a duration with two decimals, blank when unknown", () => {
+  assert.equal(minutesText(null), "");
+  assert.equal(minutesText(150), "2.5");
+  assert.equal(minutesText(437), "7.28");
 });
 
 test("alternating and timed logs parse, and a set must match its exercise's mode", () => {

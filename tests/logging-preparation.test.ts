@@ -28,6 +28,9 @@ const blankLabel = { calories: "", carbs: "", protein: "", fat: "" };
 const zeroLabel = { calories: "0", carbs: "0", protein: "0", fat: "0" };
 const fields: FoodLoggingFields = {
   grams: "100",
+  amountBy: "grams",
+  servings: "1",
+  serving: undefined,
   drinkMl: "",
   meal: "lunch",
   labelNutrition: blankLabel,

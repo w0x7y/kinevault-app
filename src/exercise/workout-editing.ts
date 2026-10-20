@@ -2,8 +2,10 @@ import {
   activeWorkout,
   durationFromMinutes,
   formatElapsed,
+  minutesText,
   parsePlannedSetCount,
   plannedSetCountMessage,
+  resizeSets,
   setHints,
   type ExerciseDefinition,
   type ExerciseDocument,
@@ -14,6 +16,7 @@ import {
 import {
   createEmptySet,
   isBlankSet,
+  timedSeconds,
   withSetValue,
   type SetField,
   type SetLine,
@@ -59,6 +62,8 @@ type Change =
   | { kind: "minutes"; value: string }
   | { kind: "count"; rowId: string; value: string }
   | { kind: "add-set"; rowId: string }
+  /** Removes a set from this log only; workout templates keep their planned set counts. */
+  | { kind: "remove-set"; rowId: string; setId: string }
   | {
       kind: "set";
       rowId: string;
@@ -93,14 +98,13 @@ type WorkoutLogControls = {
   /** The page over the tab (a null title shows the workout's name); a compact card stays on the tab. */
   sheet: { title: string | null; testID: string } | null;
 };
-/** A saved log's editable fields. Two decimals of minutes keep every whole second through a save. */
+/** A saved log's editable fields. */
 function savedFields(session: WorkoutSession): Pick<WorkoutEditState, "fields" | "counts"> {
-  const { durationSeconds } = session;
   return {
     fields: {
       name: session.name,
       exercises: session.exercises,
-      minutes: durationSeconds === null ? "" : String(Number((durationSeconds / 60).toFixed(2))),
+      minutes: minutesText(session.durationSeconds),
     },
     counts: Object.fromEntries(session.exercises.map((row) => [row.id, String(row.sets.length)])),
   };
@@ -186,13 +190,18 @@ type Entry = {
 
 const invalidDuration =
   "Enter a nonnegative duration in minutes or leave it blank before leaving the workout. Your sets have been saved.";
-function durationCaption(minutes: string) {
+/** Seconds for typed minutes: null when blank, undefined when invalid. */
+function typedSeconds(minutes: string) {
   try {
-    const seconds = durationFromMinutes(minutes);
-    return seconds === null ? "Duration not set" : formatElapsed(seconds);
+    return durationFromMinutes(minutes);
   } catch {
-    return "Invalid duration";
+    return undefined;
   }
+}
+function durationCaption(minutes: string) {
+  const seconds = typedSeconds(minutes);
+  if (seconds === undefined) return "Invalid duration";
+  return seconds === null ? "Duration not set" : formatElapsed(seconds);
 }
 function localId() {
   return `set-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
@@ -330,20 +339,14 @@ export function createWorkoutEditing(
     return entry;
   }
   async function persist(id: string, entry: Entry, fields: WorkoutFields, revision: number) {
-    let durationSeconds: number | null | undefined,
-      invalidMinutes = false;
-    if (entry.state.session.status === "planned") {
-      try {
-        durationSeconds = durationFromMinutes(fields.minutes);
-      } catch {
-        invalidMinutes = true;
-      }
-    }
+    // A planned draft saves its sets and keeps the saved duration while the typed one is invalid.
+    const planned = entry.state.session.status === "planned",
+      invalidMinutes = planned && typedSeconds(fields.minutes) === undefined;
     const result = await store.updateSession({
       id,
       name: fields.name,
       exercises: fields.exercises,
-      durationSeconds,
+      durationMinutes: planned && !invalidMinutes ? fields.minutes : undefined,
     });
     if (current(id, entry) && entry.revision === revision)
       publish(entry, {
@@ -461,27 +464,21 @@ export function createWorkoutEditing(
                 ? value
                 : {
                     ...value,
-                    sets:
-                      count <= value.sets.length
-                        ? value.sets.slice(0, count)
-                        : [
-                            ...value.sets,
-                            ...Array.from({ length: count - value.sets.length }, () =>
-                              createEmptySet(value.exercise.tracking, localId()),
-                            ),
-                          ],
+                    sets: resizeSets(value.sets, value.exercise.tracking, count, localId),
                   },
             ),
           };
         }
       } else {
         const row = fields.exercises.find((value) => value.id === input.rowId);
+        if (input.kind === "remove-set" && !row?.sets.some((set) => set.id === input.setId)) return;
         if (
-          input.kind === "add-set" &&
+          input.kind !== "set" &&
           row &&
           !countProblem(row, counts[row.id] ?? String(row.sets.length))
         ) {
-          counts = { ...counts, [row.id]: String(row.sets.length + 1) };
+          const count = row.sets.length + (input.kind === "add-set" ? 1 : -1);
+          counts = { ...counts, [row.id]: String(count) };
         }
         fields = {
           ...fields,
@@ -493,20 +490,27 @@ export function createWorkoutEditing(
                   sets:
                     input.kind === "add-set"
                       ? [...row.sets, createEmptySet(row.exercise.tracking, localId())]
-                      : row.sets.map((set) =>
-                          set.id === input.setId
-                            ? withSetValue(set, input.side, input.field, input.value)
-                            : set,
-                        ),
+                      : input.kind === "remove-set"
+                        ? row.sets.filter((set) => set.id !== input.setId)
+                        : row.sets.map((set) =>
+                            set.id === input.setId
+                              ? withSetValue(set, input.side, input.field, input.value)
+                              : set,
+                          ),
                 },
           ),
         };
       }
       const countError =
         entry.state.session.status === "planned" ? plannedCountError(fields, counts) : null;
+      // A removed set's running clock goes with it.
+      const clock =
+        input.kind === "remove-set" && entry.state.clock?.setId === input.setId
+          ? null
+          : entry.state.clock;
       const revision = ++entry.revision;
       // Commit state and enqueue (or queue) this captured revision before observers can enter a newer change.
-      entry.state = { ...entry.state, fields, counts, countError };
+      entry.state = { ...entry.state, fields, counts, countError, clock };
       if (entry.state.session.status !== "completed" && !resizeBlocked)
         autosave(id, entry, fields, revision);
       emit();
@@ -545,31 +549,16 @@ export function createWorkoutEditing(
             : kind === "start"
               ? ["Couldn't start.", "Try again."]
               : ["Couldn't save.", "Your fields are still here. Try again."];
-        let result: ExerciseWrite<true> | null = null,
-          error: string | null = null;
-        try {
-          if (kind === "discard") result = await store.removeSession(id);
-          else if (kind === "start") {
-            // A failed draft save shows its own feedback.
-            if (await persist(id, entry, fields, entry.revision))
-              result = await store.startSession(id);
-          } else if (kind === "complete")
-            result = await store.completeSession({
-              id,
-              name: fields.name,
-              exercises: fields.exercises,
-              durationMinutes: fields.minutes,
-            });
-          else
-            result = await store.updateSession({
-              id,
-              name: fields.name,
-              exercises: fields.exercises,
-              durationSeconds: durationFromMinutes(fields.minutes),
-            });
-        } catch (reason) {
-          error = `${lead} ${reason instanceof Error ? reason.message : "Check your workout values."}`;
-        }
+        let result: ExerciseWrite<true> | null = null;
+        const input = { id, name: fields.name, exercises: fields.exercises };
+        if (kind === "discard") result = await store.removeSession(id);
+        else if (kind === "start") {
+          // A failed draft save shows its own feedback.
+          if (await persist(id, entry, fields, entry.revision))
+            result = await store.startSession(id);
+        } else if (kind === "complete")
+          result = await store.completeSession({ ...input, durationMinutes: fields.minutes });
+        else result = await store.updateSession({ ...input, durationMinutes: fields.minutes });
         const success = result?.kind === "saved";
         if (!current(id, entry)) return success;
         if (success) {
@@ -586,7 +575,6 @@ export function createWorkoutEditing(
         } else
           publish(entry, {
             error:
-              error ??
               (result ? writeFailure(result, lead, retry) : entry.state.error) ??
               `${lead} ${retry}`,
           });
@@ -625,9 +613,7 @@ export function createWorkoutEditing(
           .find((row) => row.id === rowId)
           ?.sets.find((value) => value.id === setId);
         if (set?.kind !== "time") return;
-        const seconds = set.seconds.trim();
-        const target = /^\d+$/.test(seconds) && Number(seconds) > 0 ? Number(seconds) : null;
-        publish(entry, { clock: { rowId, setId, startedAt: now(), target } });
+        publish(entry, { clock: { rowId, setId, startedAt: now(), target: timedSeconds(set) } });
       },
       /** The running clock's seconds: counted up, or left of a countdown. */
       clockTime() {

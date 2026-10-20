@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createFoodCatalog,
+  isFoodGrams,
   nutritionForGrams,
   parseFoodGrams,
   type CatalogFood,
@@ -157,4 +158,10 @@ test("food amounts accept metric decimal edits and reject unsafe or invalid inpu
     assert.equal(parseFoodGrams(input), expected);
   for (const input of ["", "0", "-1", "1e3", "NaN", "12g", "1,2.3", "10001"])
     assert.equal(parseFoodGrams(input), null);
+});
+
+test("one gram rule covers typed amounts and saved records: more than 0, up to 10,000 g", () => {
+  for (const value of [0.01, 1, 10000]) assert.equal(isFoodGrams(value), true);
+  for (const value of [0, -1, 10000.01, NaN, Infinity, "100", null])
+    assert.equal(isFoodGrams(value), false);
 });

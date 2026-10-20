@@ -1,7 +1,12 @@
 import { parseDay } from "../calendar/dates.ts";
 import { detailedNutrientsForEntry, type FindFood } from "./entry-nutrients.ts";
 import { meals, type FoodEntry, type Meal } from "../daily/model.ts";
-import { nutritionForGrams, type CatalogFood, type ServingNutrition } from "./catalog.ts";
+import {
+  isFoodGrams,
+  nutritionForGrams,
+  type CatalogFood,
+  type ServingNutrition,
+} from "./catalog.ts";
 import { beverageForFood, isDrinkMl, nutritionForMl } from "./beverage.ts";
 import {
   detailedNutrients,
@@ -98,9 +103,7 @@ function parseEntry(value: unknown): FoodEntry {
   }
   if (
     (value.measurement !== undefined && value.measurement !== "grams") ||
-    !isNumber(value.grams) ||
-    value.grams <= 0 ||
-    value.grams > 10000
+    !isFoodGrams(value.grams)
   )
     throw new Error("Invalid gram entry");
   return {
@@ -157,8 +160,7 @@ export function entryForFood(
   if (beverageForFood(food) || input.meal === "drinks" || input.drinkMl !== undefined)
     throw new Error("Drinks require volume logging");
   const { grams, meal } = input;
-  if (!Number.isFinite(grams) || grams <= 0 || grams > 10000)
-    throw new RangeError("Invalid food weight");
+  if (!isFoodGrams(grams)) throw new RangeError("Invalid food weight");
   return parseEntry({
     id,
     name: food.name,
@@ -172,8 +174,7 @@ export function entryForFood(
 
 export function nutritionForEntry(entry: FoodEntry, grams: number): ServingNutrition {
   if (entry.measurement === "volume") throw new Error("Use drink volume for this entry");
-  if (!Number.isFinite(grams) || grams <= 0 || grams > 10000)
-    throw new RangeError("Invalid food weight");
+  if (!isFoodGrams(grams)) throw new RangeError("Invalid food weight");
   const factor = grams / entry.grams;
   return scaleEntry(entry, factor);
 }

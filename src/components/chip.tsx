@@ -14,6 +14,8 @@ import { fonts, radius, spacing } from "../theme/tokens";
  * - The chip hugs its text; `fill` grows it into its row's free space and `singleLine` keeps it
  *   on one line, at most 200 pt wide, for chips in a scrolling bar. `small` trims the side
  *   padding for narrow grid cells.
+ * - `caption` is a small line above the label, e.g. a position number; `minWidth` keeps a row of
+ *   short labels the same size.
  */
 export function Chip({
   label,
@@ -27,6 +29,8 @@ export function Chip({
   fill = false,
   singleLine = false,
   size = "regular",
+  caption,
+  minWidth = 0,
 }: {
   label: string;
   detail?: string;
@@ -39,6 +43,8 @@ export function Chip({
   fill?: boolean;
   singleLine?: boolean;
   size?: "regular" | "small";
+  caption?: string;
+  minWidth?: number;
 }) {
   const { colors } = useTheme();
   const foreground = selected ? colors.primaryForeground : colors.foreground;
@@ -54,19 +60,28 @@ export function Chip({
       style={({ pressed }) => ({
         flexGrow: fill ? 1 : 0,
         flexShrink: 1,
-        minWidth: 0,
+        minWidth,
         maxWidth: singleLine ? 200 : undefined,
-        flexDirection: "row",
+        flexDirection: caption ? "column" : "row",
         alignItems: "center",
         justifyContent: "center",
-        gap: 6,
+        gap: caption ? 0 : 6,
         paddingHorizontal: size === "small" ? spacing.md - 2 : spacing.md + 2,
-        paddingVertical: spacing.sm,
+        paddingVertical: caption ? spacing.xs : spacing.sm,
         borderRadius: radius.pill,
         backgroundColor: selected ? colors.primary : pressed ? colors.accent : colors.muted,
       })}
     >
       {icon && <Icon name={icon} size={16} color={foreground} />}
+      {caption && (
+        <AppText
+          variant="overline"
+          numberOfLines={1}
+          style={{ color: selected ? colors.primaryForeground : colors.mutedForeground }}
+        >
+          {caption}
+        </AppText>
+      )}
       <AppText
         variant="label"
         numberOfLines={singleLine ? 1 : undefined}

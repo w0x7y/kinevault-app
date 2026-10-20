@@ -1,3 +1,4 @@
+import { useFocusEffect, useNavigation } from "expo-router";
 import Head from "expo-router/head";
 import {
   Platform,
@@ -11,7 +12,15 @@ import {
   type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { createContext, useContext, type PropsWithChildren, type Ref } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useImperativeHandle,
+  useRef,
+  type PropsWithChildren,
+  type Ref,
+} from "react";
 import { useTheme } from "../theme/provider";
 import { cardShadow, fonts, radius, spacing } from "../theme/tokens";
 
@@ -119,13 +128,27 @@ export function Screen({
 }>) {
   const { colors } = useTheme();
   const tabBarInset = useContext(TabBarInset);
+  const scroll = useRef<ScrollView>(null);
+  useImperativeHandle(scrollRef, () => scroll.current as ScrollView, []);
+  const navigation = useNavigation();
+  // Switching to another tab drops this one's scroll position, so it always opens at the top.
+  // A page pushed over the tabs (Edit profile) blurs it too; coming back keeps the position.
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        if (navigation.getParent()?.isFocused() ?? true)
+          scroll.current?.scrollTo({ y: 0, animated: false });
+      },
+      [navigation],
+    ),
+  );
   return (
     <SafeAreaView edges={["left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
       <DocumentTitle title={title} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}
-        ref={scrollRef}
+        ref={scroll}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets={adjustKeyboardInsets}
         contentContainerStyle={[

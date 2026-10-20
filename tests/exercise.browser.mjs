@@ -1031,7 +1031,7 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
   assert.equal(await live.count(), 1);
   assert.equal(await field(page, "Workout name").count(), 0);
   assert.equal(await live.getByRole("heading", { name: "Strength day", exact: true }).count(), 1);
-  assert.equal(await button(live, /Remove/).count(), 0);
+  assert.equal(await button(live, /from workout$/).count(), 0);
   assert.doesNotMatch(
     await workspace.innerText(),
     /2026-10-04|In progress|Blank weight means|Close workout|Live workout/,
@@ -1061,9 +1061,23 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
   assert.equal(await field(details, "Squat set 3 reps").count(), 0);
   await field(details, "Squat set 1 reps").fill("5");
   await field(details, "Squat set 1 weight (kg)").fill("40");
-  // Chips show short names; their accessible names keep the full ones.
-  assert.equal(await button(topbar, `Select exercise ${long.name}`).innerText(), "SLSWAEENFNPL");
-  assert.equal(await button(topbar, "Select exercise Squat").innerText(), "Squat");
+  // RIR sits beside reps and weight; removing a set asks first and changes only this workout.
+  await field(details, "Squat set 1 reps in reserve").fill("2");
+  await button(details, "Remove set 2 from Squat").click();
+  await button(details, "Confirm remove set 2 from Squat").click();
+  await storedWhen(
+    page,
+    (document) =>
+      document.sessions[0].exercises[0].sets.length === 1 &&
+      document.sessions[0].exercises[0].sets[0].rir === "2",
+  );
+  // Chips show their position and a short name, all the same size; their accessible names keep
+  // the full ones.
+  const longChip = button(topbar, `Select exercise ${long.name}`);
+  const squatChip = button(topbar, "Select exercise Squat");
+  assert.match(await longChip.innerText(), /^3\s+SLS$/);
+  assert.match(await squatChip.innerText(), /^1\s+SQU$/);
+  assert.equal((await longChip.boundingBox()).width, (await squatChip.boundingBox()).width);
   await button(topbar, "Select exercise Curl").click();
   assert.equal(await field(page, "Squat set 1 reps").count(), 0);
   assert.equal(await field(details, "Curl set 3 left reps").count(), 1);
@@ -1122,18 +1136,21 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
         })
       );
     });
-    if (width === 320)
-      await page.waitForFunction(() => {
-        const bar = document.querySelector('[data-testid="exercise-topbar"]');
-        return (
-          bar &&
-          [bar, ...bar.querySelectorAll("*")].some(
-            (node) =>
-              /auto|scroll/.test(getComputedStyle(node).overflowX) &&
-              node.scrollWidth > node.clientWidth,
-          )
-        );
-      });
+    if (width === 320) {
+      const widths = (locator) =>
+        locator.evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().width));
+      // Chips are one size; reps, weight and RIR keep room for "102.5" beside the remove control.
+      const chips = await widths(topbar.getByRole("button"));
+      assert.ok(
+        chips.every((chip) => chip >= 72 && Math.abs(chip - chips[0]) < 1),
+        `${chips}`,
+      );
+      const inputs = await widths(details.getByRole("textbox"));
+      assert.ok(
+        inputs.every((input) => input >= 56),
+        `${inputs}`,
+      );
+    }
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
       false,

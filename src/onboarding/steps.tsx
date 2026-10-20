@@ -27,7 +27,7 @@ export const stepCopy: Record<Step, { title: string; message: string }> = {
   },
   age: {
     title: "Let's check your age",
-    message: "KineVault is for ages 16 and up. This helps us set up the right options for you.",
+    message: "KineVault is for ages 18 and up. This helps us set up the right options for you.",
   },
   body: {
     title: "A little about you",
@@ -58,7 +58,7 @@ export function Question({ step, ...props }: QuestionProps & { step: Step }) {
           label="Age (years)"
           value={answers.age}
           onChange={(age) => update({ kind: "fields", patch: { age } })}
-          placeholder="16 or older"
+          placeholder="18 or older"
           kind="integer"
           filter
           maxLength={3}
@@ -91,7 +91,7 @@ export function Question({ step, ...props }: QuestionProps & { step: Step }) {
             <Choice
               key={value}
               label={label}
-              description={calorieState(answers).kind === "teen" ? undefined : description}
+              description={description}
               selected={answers.goal === value}
               onPress={() => update({ kind: "fields", patch: { goal: value } })}
               disabled={disabled}

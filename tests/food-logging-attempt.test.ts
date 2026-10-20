@@ -51,11 +51,141 @@ test("default amounts use a saved item's first serving and 100 g for bundled foo
   assert.equal(defaultAmount(banana), "100");
 });
 
+test("a serving count becomes grams that log like typed grams", async () => {
+  const f = await fixture();
+  const attempt = f.open({ kind: "add", food: banana });
+  assert.equal(attempt.getSnapshot().amount.servingsAvailable, true);
+  attempt.setAmountBy("servings");
+  const grams = () => attempt.getSnapshot().preparation.amount;
+  for (const [count, amount] of [
+    ["1", 126],
+    ["2", 252],
+    ["1,5", 189],
+  ] as const) {
+    attempt.setServings(count);
+    assert.equal(grams(), amount);
+  }
+  attempt.choosePortion({ label: "1 slice", grams: 6 });
+  attempt.setServings("0.333");
+  assert.equal(grams(), 2, "rounded to 0.01 g");
+  const snapshot = attempt.getSnapshot();
+  assert.equal(snapshot.preparation.status, "ready");
+  assert.equal(snapshot.amount.caption, "1 slice (6 g) each = 2 g");
+  assert.deepEqual(
+    snapshot.amount.portions.filter((portion) => portion.chosen).map((portion) => portion.label),
+    ["1 slice"],
+  );
+  assert.equal(snapshot.fields.grams, "100", "the typed weight is kept");
+  if (snapshot.preparation.status !== "ready") return;
+  assert.equal(snapshot.preparation.write.kind, "add");
+  assert.equal(snapshot.preparation.write.input.grams, 2);
+
+  // The plain 100 g chip doesn't repeat its weight.
+  attempt.choosePortion({ label: "100 g", grams: 100 });
+  attempt.setServings("2");
+  assert.equal(attempt.getSnapshot().amount.caption, "100 g each = 200 g");
+});
+
+test("an invalid serving count asks for servings, not grams", async () => {
+  const f = await fixture();
+  const attempt = f.open({ kind: "add", food: banana });
+  attempt.setAmountBy("servings");
+  for (const [count, status] of [
+    ["0", "invalid"],
+    ["abc", "invalid"],
+    ["100", "invalid"],
+    [" ", "incomplete"],
+  ] as const) {
+    attempt.setServings(count);
+    const { preparation, amount } = attempt.getSnapshot();
+    assert.equal(preparation.status, status);
+    assert.equal(
+      preparation.message,
+      "Enter a number of servings that comes to more than 0 and up to 10,000 g.",
+    );
+    assert.equal(amount.caption, "1 banana (126 g) each");
+  }
+  attempt.setAmountBy("grams");
+  assert.equal(attempt.getSnapshot().preparation.status, "ready", "weight still validates grams");
+});
+
+test("by weight a chip sets grams; leaving servings keeps their total as the weight", async () => {
+  const f = await fixture();
+  const attempt = f.open({ kind: "add", food: banana });
+  attempt.choosePortion({ label: "1 cup", grams: 150 });
+  assert.equal(attempt.getSnapshot().fields.grams, "150");
+  assert.equal(attempt.getSnapshot().amount.caption, "");
+  attempt.setAmountBy("servings");
+  attempt.setServings("3");
+  attempt.setAmountBy("grams");
+  const { fields, amount, preparation } = attempt.getSnapshot();
+  assert.equal(amount.by, "grams");
+  assert.equal(fields.grams, "378");
+  assert.equal(preparation.amount, 378);
+});
+
+test("servings are offered only when adding a gram-measured food with a portion", async () => {
+  const f = await fixture();
+  const available = (target: FoodSaveTarget) => {
+    const attempt = f.open(target);
+    attempt.setAmountBy("servings");
+    const { amount } = attempt.getSnapshot();
+    return [amount.servingsAvailable, amount.by];
+  };
+  assert.deepEqual(available({ kind: "add", food: banana }), [true, "servings"]);
+  assert.deepEqual(available({ kind: "add", food: { ...banana, portions: [] } }), [false, "grams"]);
+  assert.deepEqual(available({ kind: "add", food: cola }), [false, "grams"]);
+  const entry = entryForFood({ id: "logged", food: banana, grams: 50, meal: "lunch" });
+  assert.deepEqual(available({ kind: "edit", entry }), [false, "grams"]);
+});
+
+test("the counted serving follows the food's current portions", async () => {
+  const f = await fixture({ foods: [oats] });
+  const attempt = f.open({ kind: "add", food: oats });
+  attempt.setAmountBy("servings");
+  attempt.setServings("2");
+  assert.equal(attempt.getSnapshot().preparation.amount, 500);
+
+  // The edited serving weight replaces the one that no longer exists.
+  assert.ok(await f.catalog.updateFood(oats.customId, oatsDraft));
+  await flush();
+  let snapshot = attempt.getSnapshot();
+  assert.equal(snapshot.preparation.amount, 360);
+  assert.equal(snapshot.amount.caption, "1 serving (180 g) each = 360 g");
+
+  // A chosen choice still offered stays chosen.
+  attempt.choosePortion({ label: "100 g", grams: 100 });
+  assert.ok(await f.catalog.updateFood(oats.customId, { ...oatsDraft, servingGrams: "200" }));
+  await flush();
+  snapshot = attempt.getSnapshot();
+  assert.equal(snapshot.preparation.amount, 200);
+  assert.deepEqual(
+    snapshot.amount.portions.map((portion) => [portion.label, portion.grams, portion.chosen]),
+    [
+      ["100 g", 100, true],
+      ["1 serving", 200, false],
+    ],
+  );
+
+  // A saved catalog edit restarts the count from the first serving.
+  attempt.setServings("3");
+  const edited = attempt.getSnapshot().item?.food;
+  assert.ok(edited);
+  attempt.catalogSaved(edited);
+  snapshot = attempt.getSnapshot();
+  assert.equal(snapshot.amount.by, "servings");
+  assert.equal(snapshot.fields.servings, "1");
+  assert.equal(snapshot.preparation.amount, 200);
+});
+
 test("adding starts from the food's default amount and the Meal destination", async () => {
   const f = await fixture({ foods: [{ ...oats, portions: [{ label: "1 serving", grams: 320 }] }] });
   const bundled = f.open({ kind: "add", food: banana }).getSnapshot();
   assert.deepEqual(bundled.fields, {
     grams: "100",
+    amountBy: "grams",
+    servings: "1",
+    serving: undefined,
     drinkMl: "",
     meal: "breakfast",
     labelNutrition: { calories: "", carbs: "", protein: "", fat: "" },

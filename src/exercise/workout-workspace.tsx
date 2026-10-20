@@ -7,7 +7,7 @@ import { useLayoutMotion } from "../components/motion";
 import { AppText, Overline } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
-import { exerciseChipLabels, exerciseRowLabel, type WorkspaceExercise } from "./short-name";
+import { exerciseRowLabel, shortExerciseName, type WorkspaceExercise } from "./short-name";
 
 export function WorkoutWorkspace({
   name,
@@ -94,8 +94,6 @@ function ExerciseBar({
     const { width, contentWidth, offset } = Object.assign(bar.current, next);
     setMore(contentWidth - width - offset > 4);
   };
-  // Chips show short names; the buttons' accessible names keep the full ones.
-  const labels = exerciseChipLabels(exercises.map((row) => row.exercise.name));
   return (
     <View testID="exercise-topbar-frame" style={{ minWidth: 0, marginHorizontal: -spacing.card }}>
       <ScrollView
@@ -119,9 +117,12 @@ function ExerciseBar({
         <LayoutAnimationConfig skipEntering>
           {exercises.map((row, index) => (
             <Animated.View key={row.id} entering={fade}>
+              {/* Chips show a short name and position; the accessible names keep the full ones. */}
               <Chip
                 singleLine
-                label={labels[index]}
+                minWidth={72}
+                caption={String(index + 1)}
+                label={shortExerciseName(row.exercise.name)}
                 accessibilityLabel={`Select exercise ${exerciseRowLabel(exercises, row, index)}`}
                 selected={selectedId === row.id}
                 disabled={busy}

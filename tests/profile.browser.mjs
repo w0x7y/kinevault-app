@@ -428,14 +428,11 @@ test("focused editing validates, retains failed saves, merges latest values and 
   await editDetail(page, "age");
   await page.getByRole("textbox", { name: "Age (years)", exact: true }).fill("15");
   await button(page, "Save age").click();
-  await page.getByRole("alert").filter({ hasText: "between 16 and 100" }).waitFor();
-  await page.getByRole("textbox", { name: "Age (years)", exact: true }).fill("17");
+  await page.getByRole("alert").filter({ hasText: "between 18 and 100" }).waitFor();
+  await page.getByRole("textbox", { name: "Age (years)", exact: true }).fill("18");
   await button(page, "Save age").click();
   await button(page, "Edit details and goals").waitFor();
-  const next = (await stored(page)).answers;
-  assert.equal(next.estimateEnabled, false);
-  assert.equal(next.customCalories, "");
-  assert.equal(next.sex, null);
+  assert.equal((await stored(page)).answers.age, "18");
   await page.getByRole("tab", { name: "Settings", exact: true }).click();
   await page.getByText("Edit profile", { exact: true }).waitFor();
 });

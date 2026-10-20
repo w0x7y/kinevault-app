@@ -1,4 +1,10 @@
-import { nutritionForGrams, parseFoodGrams, type CatalogFood, type Nutrition } from "./catalog.ts";
+import {
+  isFoodGrams,
+  nutritionForGrams,
+  parseFoodGrams,
+  type CatalogFood,
+  type Nutrition,
+} from "./catalog.ts";
 import { unknownNutrients } from "./nutrients.ts";
 import { nutritionAmountText, parseNutritionAmount } from "./number-input.ts";
 import { parseCustomMeal, type CustomMeal } from "./meal-model.ts";
@@ -124,7 +130,11 @@ export function parseCustomFoods(raw: string | null): CustomFoodDocument {
       throw new Error("Invalid custom food");
     if (parsed.per100g) {
       const portion = parsed.portions[0];
-      if (parsed.portions.length !== 1 || portion.label !== "1 serving" || portion.grams > 10000)
+      if (
+        parsed.portions.length !== 1 ||
+        portion.label !== "1 serving" ||
+        !isFoodGrams(portion.grams)
+      )
         throw new Error("Invalid custom serving");
     } else if (parsed.beverage.kind !== "known-volume" || parsed.beverage.source !== "label")
       throw new Error("Invalid custom drink");

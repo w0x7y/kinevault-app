@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateMeal, mealFromDraft, type MealDraft } from "../src/food/meal-model.ts";
+import {
+  calculateMeal,
+  mealFromDraft,
+  previewMeal,
+  type MealDraft,
+} from "../src/food/meal-model.ts";
 import { parseCustomFoods } from "../src/food/custom-model.ts";
 import {
   createCustomFoodPersistence,
@@ -112,6 +117,15 @@ test("meal overrides accept explicit zero, preserve other calculated macros and 
   }
   const reset = mealFromDraft(draft, "meal-one");
   if (reset.ok) assert.equal(nutritionForGrams(reset.meal, 250).protein, 30);
+});
+
+test("an ingredient at 0 g leaves the rest of the meal preview intact", () => {
+  for (const amount of ["0", ""]) {
+    const preview = previewMeal([draft.ingredients[0], { ...draft.ingredients[1], amount }]);
+    assert.equal(preview?.grams, 50);
+    assert.equal(preview?.nutrition.calories, 200);
+  }
+  assert.equal(previewMeal([{ ...draft.ingredients[0], amount: "0" }]), null);
 });
 
 test("invalid and empty meals cannot be saved or normalized", () => {

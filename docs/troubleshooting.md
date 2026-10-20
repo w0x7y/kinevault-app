@@ -50,3 +50,12 @@ in handwriting mode and hide the keypad. Tap the field again after running the
 command. These settings persist on the emulator; physical phones are untouched.
 The command uses `adb` from your Android SDK or PATH.
 
+## Web preview shows old code
+
+The Expo web dev server can keep serving a stale bundle after source edits, so
+the browser and `npm run test:browser` see the previous code. Stop the server
+and start it again with a cleared cache:
+
+```sh
+npx expo start --web --port 8081 --clear
+```

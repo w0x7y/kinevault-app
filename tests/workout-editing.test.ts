@@ -67,8 +67,9 @@ function tabView(store: Parameters<typeof createExerciseTabView>[0]["store"]) {
 async function fixture(
   status: WorkoutSession["status"] = "completed",
   sessions = [session(status)],
+  workouts: ExerciseDocument["workouts"] = [],
 ) {
-  const document: ExerciseDocument = { version: 1, exercises: [exercise], workouts: [], sessions };
+  const document: ExerciseDocument = { version: 1, exercises: [exercise], workouts, sessions };
   let raw = JSON.stringify(document);
   const storage = {
     async getItem(key: string) {
@@ -212,13 +213,13 @@ test("the row on screen shows its own Previous sets hints", async () => {
   // hints the set above it.
   assert.equal(edit.getSnapshot().selected?.id, "row");
   assert.deepEqual(edit.getSnapshot().hints, [
-    [{ side: null, values: { reps: undefined, weightKg: undefined } }],
-    [{ side: null, values: { reps: "8", weightKg: "10" } }],
+    [{ side: null, values: { reps: undefined, weightKg: undefined, rir: undefined } }],
+    [{ side: null, values: { reps: "8", weightKg: "10", rir: undefined } }],
   ]);
   edit.select("curl-row");
   assert.equal(edit.getSnapshot().selected?.id, "curl-row");
   assert.deepEqual(edit.getSnapshot().hints, [
-    [{ side: null, values: { reps: "12", weightKg: "15" } }],
+    [{ side: null, values: { reps: "12", weightKg: "15", rir: undefined } }],
   ]);
 });
 
@@ -235,6 +236,20 @@ test("the duration caption reads the entered minutes", async () => {
     edit.change({ kind: "minutes", value: minutes! });
     assert.equal(edit.getSnapshot().durationCaption, caption);
   }
+});
+
+test("a completed Save with invalid minutes keeps the saved log and explains the duration", async () => {
+  const f = await fixture();
+  await f.tab.requestView({ kind: "session", id: "log" });
+  const edit = f.editing.edit("log");
+  edit.change({ kind: "minutes", value: "1e2" });
+  assert.equal(await edit.run("save"), false);
+  assert.equal(
+    edit.getSnapshot().error,
+    "Couldn't save. Enter weights and minutes as numbers of 0 or more.",
+  );
+  assert.equal(edit.getSnapshot().fields.minutes, "1e2");
+  assert.equal(f.saved().durationSeconds, 120);
 });
 
 test("a compact card's settings stay open until they save, beside any count problem", async () => {
@@ -354,6 +369,46 @@ test("planned counts retain invalid text, reject shrink over entered sets, and r
   assert.equal(await edit.run("start"), true);
   assert.equal(f.saved().status, "active");
   assert.equal(f.saved().exercises[0]!.sets.length, 1);
+});
+
+test("removing a set changes this log and its planned count, never the workout template", async () => {
+  const template = {
+    id: "template",
+    name: "Strength",
+    exercises: [exercise],
+    setCounts: { squat: 2 },
+  };
+  const f = await fixture("planned", [session("planned")], [template]);
+  await f.tab.requestView({ kind: "session", id: "log" });
+  const edit = f.editing.edit("log");
+  const before = edit.getSnapshot();
+  edit.change({ kind: "remove-set", rowId: "row", setId: "missing" });
+  assert.equal(edit.getSnapshot(), before, "an unknown set changes nothing");
+  edit.change({ kind: "remove-set", rowId: "row", setId: "blank" });
+  assert.deepEqual(
+    edit.getSnapshot().fields.exercises[0]!.sets.map((set) => set.id),
+    ["set"],
+  );
+  assert.equal(edit.getSnapshot().counts.row, "1");
+  // A set with values can go too, down to none.
+  edit.change({ kind: "remove-set", rowId: "row", setId: "set" });
+  assert.equal(edit.getSnapshot().counts.row, "0");
+  assert.equal(edit.getSnapshot().countError, null);
+  await tick();
+  assert.deepEqual(f.saved().exercises[0]!.sets, []);
+  assert.deepEqual(parseExerciseDocument(f.raw()).workouts, [template]);
+});
+
+test("removing a timed set stops its running clock without logging it", async () => {
+  const f = await timedFixture();
+  f.edit().toggleClock("stretch-row", "hold");
+  f.edit().change({ kind: "remove-set", rowId: "stretch-row", setId: "open" });
+  assert.equal(f.edit().getSnapshot().clock?.setId, "hold", "another set's clock keeps running");
+  f.time.now += 5_000;
+  f.edit().change({ kind: "remove-set", rowId: "stretch-row", setId: "hold" });
+  assert.equal(f.edit().getSnapshot().clock, null);
+  assert.equal(f.edit().clockTime(), null);
+  assert.deepEqual(f.edit().getSnapshot().fields.exercises[1]!.sets, []);
 });
 
 test("starting a card from the day opens the Active workout's page; a manual page stays up", async () => {
@@ -662,11 +717,9 @@ test("a stopped tab view ignores saved changes and catches up when it starts aga
 });
 
 test("a timed log's duration opens as readable minutes and an untouched Save keeps its seconds", async () => {
-  const f = await fixture(),
-    { exercises } = f.saved();
+  const f = await fixture("completed", [{ ...session("completed"), durationSeconds: 437 }]);
   await f.tab.requestView({ kind: "session", id: "log" });
   const edit = f.editing.edit("log");
-  await f.store.updateSession({ id: "log", name: "Strength", exercises, durationSeconds: 437 });
   assert.equal(edit.getSnapshot().fields.minutes, "7.28");
   assert.equal(await edit.run("cancel"), true);
   await f.tab.requestView({ kind: "session", id: "log" });
@@ -1150,6 +1203,28 @@ test("a countdown that runs out logs its seconds, even after waiting out a busy 
   assert.equal(f.edit().tickClock(), true);
   assert.equal(f.edit().getSnapshot().clock, null);
   assert.equal(f.seconds("hold"), "30");
+});
+
+test("a timed set's seconds start a countdown only when they are valid whole seconds", async () => {
+  const f = await timedFixture();
+  for (const [seconds, target] of [
+    ["30.5", null],
+    ["1e2", null],
+    ["86401", null],
+    [" 45 ", 45],
+  ] as const) {
+    f.edit().change({
+      kind: "set",
+      rowId: "stretch-row",
+      setId: "hold",
+      side: null,
+      field: "seconds",
+      value: seconds,
+    });
+    f.edit().toggleClock("stretch-row", "hold");
+    assert.equal(f.edit().getSnapshot().clock?.target, target, seconds);
+    f.edit().toggleClock("stretch-row", "hold");
+  }
 });
 
 test("starting another set's clock logs the running one; ending the workout logs a running clock", async () => {

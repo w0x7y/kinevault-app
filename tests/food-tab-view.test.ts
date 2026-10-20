@@ -223,6 +223,26 @@ test("a page waits hidden while the tab is away and returns with its attempt", a
   assert.equal(f.tab.getSnapshot().sheet, true);
 });
 
+test("counting servings survives the tab hiding and the catalog editor", async () => {
+  const f = await fixture();
+  f.tab.search("oats");
+  f.tab.select(oats);
+  const { attempt } = f.detail();
+  attempt.setAmountBy("servings");
+  attempt.setServings("2.5");
+  f.tab.setPresence({ focused: false, foreground: true });
+  f.tab.stop();
+  f.tab.start();
+  f.tab.setPresence({ focused: true, foreground: true });
+  f.tab.editCatalog();
+  f.tab.back();
+  assert.equal(f.detail().attempt, attempt);
+  const { amount, fields, preparation } = attempt.getSnapshot();
+  assert.equal(amount.by, "servings");
+  assert.equal(fields.servings, "2.5");
+  assert.equal(preparation.amount, 250);
+});
+
 test("leaving the tab closes the scanner and interrupts a lookup without losing its import", async () => {
   const f = await fixture();
   assert.equal(f.tab.scan(), true);
