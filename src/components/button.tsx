@@ -30,6 +30,7 @@ export function AppButton({
   tone = "secondary",
   size = "regular",
   icon,
+  iconAfter = false,
   disabled = false,
   busy = false,
   selected,
@@ -46,6 +47,8 @@ export function AppButton({
   tone?: ButtonTone;
   size?: ButtonSize;
   icon?: IconName;
+  /** Draws the icon after the label, as a forward arrow reads. */
+  iconAfter?: boolean;
   disabled?: boolean;
   /** Working: announced as busy and unavailable until the work ends. */
   busy?: boolean;
@@ -131,7 +134,7 @@ export function AppButton({
       surface={small ? look : undefined}
       surfaceHeight={small ? 32 : undefined}
     >
-      {iconMark}
+      {!iconAfter && iconMark}
       <AppText
         variant="label"
         style={{
@@ -145,6 +148,7 @@ export function AppButton({
       >
         {label}
       </AppText>
+      {iconAfter && iconMark}
     </Tappable>
   );
 }

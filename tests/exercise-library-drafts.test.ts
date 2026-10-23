@@ -269,6 +269,10 @@ test("a template draft keeps its selected exercise, builder and search when its 
   assert.equal(remounted.settingsOpen, true);
   assert.equal(remounted.query, "lun");
   assert.equal(remounted.selectedId, "lunge");
+  // An ID the template doesn't hold shows its first exercise.
+  assert.equal(remounted.selected?.id, "squat");
+  // Every handle the tab hands out reads the same snapshot until the draft changes.
+  assert.equal(f.drafts.template(f.token(), template).getSnapshot(), remounted);
   await f.tab.requestView({ kind: "workout" });
   const created = f.drafts.template(f.token()).getSnapshot();
   assert.deepEqual(
@@ -289,6 +293,61 @@ test("a template draft keeps its result limit and open notes; a new search shows
   assert.equal(remounted.notesId, "squat");
   draft.search("s");
   assert.equal(draft.getSnapshot().limit, 20);
+});
+
+test("a template draft's search lists library exercises it doesn't hold; adding one shows it", async () => {
+  const f = await fixture();
+  await f.tab.requestView({ kind: "workout" });
+  const draft = f.drafts.template(f.token());
+  assert.deepEqual(draft.getSnapshot().results, {
+    items: [],
+    more: false,
+    message: "Search by name, muscle group, equipment, or notes to add exercises.",
+  });
+  draft.search("squ");
+  assert.deepEqual(draft.getSnapshot().results, { items: [squat], more: false, message: null });
+  assert.equal(draft.getSnapshot().selected, undefined);
+  draft.add(squat);
+  assert.equal(draft.getSnapshot().selected?.id, "squat");
+  assert.deepEqual(draft.getSnapshot().results, {
+    items: [],
+    more: false,
+    message: "No available exercises match your search.",
+  });
+  draft.change((current) => current.remove("squat"));
+  assert.equal(draft.getSnapshot().selected, undefined);
+  assert.deepEqual(draft.getSnapshot().results.items, [squat]);
+});
+
+test("linking a KineVault demo fills blank fields and shows Change; unlinking opens the search", async () => {
+  const f = await fixture();
+  await f.tab.requestView({ kind: "exercise" });
+  const draft = f.drafts.exercise(f.token());
+  draft.pickDemo({ query: "press" });
+  draft.linkCatalog({
+    id: "00000000-0000-4000-8000-000000000001",
+    slug: "bench-press",
+    name: "Bench Press",
+    aliases: [],
+    muscleGroup: "Chest",
+    equipment: "Barbell",
+    credit: "",
+    status: "published",
+    videoPath: "bench.mp4",
+    posterPath: "bench.jpg",
+  });
+  const linked = draft.getSnapshot();
+  assert.deepEqual(linked.values.catalog, {
+    id: "00000000-0000-4000-8000-000000000001",
+    slug: "bench-press",
+  });
+  assert.equal(linked.values.name, "Bench Press");
+  assert.deepEqual(linked.demo, { query: "", changing: false, focus: "change" });
+  draft.unlinkCatalog();
+  const unlinked = draft.getSnapshot();
+  assert.equal(unlinked.values.catalog, undefined);
+  assert.equal(unlinked.values.name, "Bench Press");
+  assert.equal(unlinked.demo.focus, "search");
 });
 
 test("an exercise draft keeps its KineVault search and Change mode when its form remounts", async () => {

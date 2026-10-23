@@ -1,11 +1,14 @@
+import type { CatalogExercise } from "./demo/catalog.ts";
 import {
+  applyCatalogLink,
   demoPicker,
   initialDemoPicker,
+  withoutCatalogLink,
   type DemoPicker,
   type DemoPickerEvent,
 } from "./demo/demo-link.ts";
 import { createWorkoutImportFlow, type WorkoutImportFlowSource } from "./import/import-flow.ts";
-import type { ExerciseDefinition, WorkoutTemplate } from "./model.ts";
+import { matchingExercises, type ExerciseDefinition, type WorkoutTemplate } from "./model.ts";
 import { writeFailure, type createExercisePersistence, type ExerciseWrite } from "./persistence.ts";
 import type { ExercisePanels } from "./tab-view.ts";
 import { createWorkoutTemplateDraft, type WorkoutTemplateDraft } from "./workout-template-draft.ts";
@@ -28,6 +31,19 @@ type TemplateDraftState = Attempt & {
   notesId: string | null;
 };
 const resultPage = 20;
+/** The template builder's search: the results on this page, whether more follow, and why none show. */
+type TemplateResults = {
+  items: ExerciseDefinition[];
+  more: boolean;
+  message: string | null;
+};
+type TemplateDraftSnapshot = Readonly<
+  TemplateDraftState & {
+    /** The exercise row on screen: the selected one, or the first. */
+    selected: WorkoutTemplateDraft["rows"][number] | undefined;
+    results: TemplateResults;
+  }
+>;
 type SavedWorkoutsState = Attempt;
 type Store = Pick<
   ReturnType<typeof createExercisePersistence>,
@@ -38,14 +54,46 @@ type Store = Pick<
   | "planWorkout"
   | "removeSession"
   | "importWorkoutPlan"
+  | "getSnapshot"
 >;
 /** The Exercise tab's panels, which library drafts close or hand over once they succeed. */
 type Panels = Pick<ExercisePanels, "panel" | "subscribe" | "closeView" | "replaceView">;
 type Entry =
   | { kind: "exercise"; state: ExerciseDraftState }
-  | { kind: "template"; state: TemplateDraftState }
+  | {
+      kind: "template";
+      state: TemplateDraftState;
+      /** The last snapshot, with the state and library it shows. */
+      view?: {
+        state: TemplateDraftState;
+        exercises: readonly ExerciseDefinition[];
+        snapshot: TemplateDraftSnapshot;
+      };
+    }
   | { kind: "saved-workouts"; state: SavedWorkoutsState }
   | { kind: "import"; flow: ReturnType<typeof createWorkoutImportFlow> };
+
+function templateResults(
+  library: readonly ExerciseDefinition[],
+  { draft, query, limit }: TemplateDraftState,
+): TemplateResults {
+  // Exercises already in the template don't show again.
+  const available = matchingExercises(library, query).filter(
+    (item) => !draft.rows.some((row) => row.id === item.id),
+  );
+  return {
+    items: available.slice(0, limit),
+    more: available.length > limit,
+    message:
+      library.length === 0
+        ? "Create an exercise first, then return to build your workout."
+        : !query.trim()
+          ? "Search by name, muscle group, equipment, or notes to add exercises."
+          : available.length === 0
+            ? "No available exercises match your search."
+            : null,
+  };
+}
 
 /** Each write's lead, followed by its command's reason or, when storage couldn't take it, a retry. */
 const failures = {
@@ -75,6 +123,10 @@ export function createLibraryDrafts({
 }) {
   const entries = new Map<number, Entry>(),
     listeners = new Set<() => void>();
+  const library = () => {
+    const state = store.getSnapshot().state;
+    return state.kind === "ready" ? state.document.exercises : [];
+  };
   const subscribe = (listener: () => void) => {
     listeners.add(listener);
     return () => {
@@ -152,8 +204,24 @@ export function createLibraryDrafts({
         change(update: (values: ExerciseValues) => ExerciseValues) {
           if (!entry.state.busy) publish(entry, { values: update(entry.state.values) });
         },
-        pickDemo: (event: DemoPickerEvent) =>
+        pickDemo: (event: Exclude<DemoPickerEvent, "linked" | "unlink">) =>
           publish(entry, { demo: demoPicker(entry.state.demo, event) }),
+        /** Links a KineVault demo, filling blank fields from it, and shows it with its Change button. */
+        linkCatalog(catalog: CatalogExercise) {
+          if (entry.state.busy) return;
+          publish(entry, {
+            values: applyCatalogLink(entry.state.values, catalog),
+            demo: demoPicker(entry.state.demo, "linked"),
+          });
+        },
+        /** Removes the linked demo and gives way to the search. */
+        unlinkCatalog() {
+          if (entry.state.busy) return;
+          publish(entry, {
+            values: withoutCatalogLink(entry.state.values),
+            demo: demoPicker(entry.state.demo, "unlink"),
+          });
+        },
         save: () =>
           attempt(
             entry,
@@ -189,10 +257,28 @@ export function createLibraryDrafts({
         },
       }));
       return {
-        getSnapshot: () => entry.state,
+        // The snapshot is rebuilt when the draft or the library changes, not for each handle.
+        getSnapshot(): TemplateDraftSnapshot {
+          const { state, view } = entry,
+            exercises = library();
+          if (view?.state === state && view.exercises === exercises) return view.snapshot;
+          const { rows } = state.draft;
+          const snapshot = {
+            ...state,
+            selected: rows.find((row) => row.id === state.selectedId) ?? rows[0],
+            results: templateResults(exercises, state),
+          };
+          entry.view = { state, exercises, snapshot };
+          return snapshot;
+        },
         subscribe,
         change(update: (draft: WorkoutTemplateDraft) => WorkoutTemplateDraft) {
           if (!entry.state.busy) publish(entry, { draft: update(entry.state.draft) });
+        },
+        /** Appends a search result to the order and shows it. */
+        add(exercise: ExerciseDefinition) {
+          if (!entry.state.busy)
+            publish(entry, { draft: entry.state.draft.add(exercise), selectedId: exercise.id });
         },
         select: (selectedId: string) => publish(entry, { selectedId }),
         showSettings: (settingsOpen: boolean) => publish(entry, { settingsOpen }),

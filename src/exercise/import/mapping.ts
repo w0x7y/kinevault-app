@@ -50,6 +50,8 @@ type Entry = {
   draft: Omit<ExerciseDefinition, "id">;
   count: number;
   knownSets: number | null;
+  /** Tracked lists a unilateral exercise's sides as separate sets: L1, R1, L2, R2 is Sets 4. */
+  rowPerSide: boolean;
 };
 
 /** Library matching ignores case, Unicode width variants and repeated spaces. */
@@ -110,6 +112,7 @@ function prepare(document: ExerciseDocument, plan: ImportedWorkoutPlan) {
         },
         count: 1,
         knownSets: exercise.sets,
+        rowPerSide: sides,
       };
       entries.set(key, entry);
     }
@@ -124,7 +127,13 @@ function prepare(document: ExerciseDocument, plan: ImportedWorkoutPlan) {
     });
   }
   const list = [...entries.values()];
-  const sets = (entry: Entry) => Math.min(maxSetCount, entry.knownSets ?? defaultSetCount);
+  const sets = (entry: Entry) => {
+    if (entry.knownSets === null) return defaultSetCount;
+    // A left/right set holds both sides, so it takes two of Tracked's rows.
+    const paired =
+      entry.rowPerSide && (entry.existing?.tracking ?? entry.draft.tracking) === "sides";
+    return Math.min(maxSetCount, paired ? Math.ceil(entry.knownSets / 2) : entry.knownSets);
+  };
   const replacing = document.workouts.find((workout) => workout.id === templateId) ?? null;
   const newExercises = list.filter((entry) => !entry.existing).length;
   const problem = !name

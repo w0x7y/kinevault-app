@@ -115,6 +115,15 @@ test("completed edits remain local across panels; Cancel releases all retained f
   assert.equal(f.editing.edit("log").getSnapshot().fields.minutes, "2");
 });
 
+test("a card keeps one edit handle across publishes, so its clock effect doesn't restart", async () => {
+  const f = await fixture();
+  await f.tab.requestView({ kind: "session", id: "log" });
+  const edit = f.editing.edit("log");
+  edit.change({ kind: "name", value: "Renamed" });
+  await tick();
+  assert.equal(f.editing.edit("log"), edit);
+});
+
 test("the selected exercise row outlives the editor until Cancel releases the edit", async () => {
   const log = session("completed");
   const first = log.exercises[0]!;
@@ -407,7 +416,7 @@ test("removing a timed set stops its running clock without logging it", async ()
   f.time.now += 5_000;
   f.edit().change({ kind: "remove-set", rowId: "stretch-row", setId: "hold" });
   assert.equal(f.edit().getSnapshot().clock, null);
-  assert.equal(f.edit().clockTime(), null);
+  assert.equal(f.edit().shownClock("stretch-row"), null);
   assert.deepEqual(f.edit().getSnapshot().fields.exercises[1]!.sets, []);
 });
 
@@ -1042,7 +1051,6 @@ test("each log mode allows its own controls, and the mode follows the open panel
     retry: true,
     overline: "Planned",
     testID: "planned-workout-card",
-    sheet: null,
   });
   await planned.tab.requestView({ kind: "session", id: "log", manual: true });
   assert.deepEqual(controls(planned.editing.edit("log")), {
@@ -1057,7 +1065,6 @@ test("each log mode allows its own controls, and the mode follows the open panel
     retry: true,
     overline: "Log a workout",
     testID: "manual-workout-workspace",
-    sheet: { title: "Log workout", testID: "session-editor" },
   });
   const active = await fixture("active");
   assert.deepEqual(controls(active.editing.edit("log")), {
@@ -1072,8 +1079,6 @@ test("each log mode allows its own controls, and the mode follows the open panel
     retry: true,
     overline: undefined,
     testID: "active-workout-workspace",
-    // The Active workout's page is titled with its name.
-    sheet: { title: null, testID: "active-workout" },
   });
   const completed = await fixture("completed");
   assert.deepEqual(controls(completed.editing.edit("log")), {
@@ -1089,7 +1094,6 @@ test("each log mode allows its own controls, and the mode follows the open panel
     retry: false,
     overline: "Logged workout",
     testID: "completed-workout-workspace",
-    sheet: { title: "Logged workout", testID: "session-editor" },
   });
   // An unchanged edit keeps its snapshot, as React's store subscription requires.
   const edit = completed.editing.edit("log");
@@ -1177,7 +1181,12 @@ test("a stopwatch keeps running while another exercise shows, and stopping logs 
   // Showing the lift used to unmount the clock with its row.
   f.edit().select("row");
   f.time.now += 42_000;
-  assert.equal(f.edit().clockTime(), 42);
+  assert.deepEqual(f.edit().shownClock("stretch-row"), {
+    setId: "open",
+    seconds: 42,
+    countdown: false,
+  });
+  assert.equal(f.edit().shownClock("row"), null, "only the clock's own row shows it");
   assert.equal(f.edit().tickClock(), false, "a stopwatch never runs out");
   f.edit().toggleClock("stretch-row", "open");
   assert.equal(f.edit().getSnapshot().clock, null);
@@ -1189,7 +1198,11 @@ test("a countdown that runs out logs its seconds, even after waiting out a busy 
   f.edit().toggleClock("stretch-row", "hold");
   assert.equal(f.edit().getSnapshot().clock?.target, 30);
   f.time.now += 10_000;
-  assert.equal(f.edit().clockTime(), 20, "a countdown shows the time left");
+  assert.deepEqual(
+    f.edit().shownClock("stretch-row"),
+    { setId: "hold", seconds: 20, countdown: true },
+    "a countdown shows the time left",
+  );
   assert.equal(f.edit().tickClock(), false);
   const held = holdWrites(f, () => false);
   const saving = f.edit().run("retry");

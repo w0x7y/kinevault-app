@@ -7,6 +7,8 @@ import {
 } from "./model.ts";
 
 type TemplateDraftRow = {
+  /** The exercise's ID; a template holds each exercise once. */
+  readonly id: string;
   readonly exercise: Readonly<ExerciseDefinition>;
   readonly rawCount: string;
 };
@@ -32,7 +34,11 @@ function draftValue(
 ): WorkoutTemplateDraft {
   const draft: WorkoutTemplateDraft = {
     name,
-    rows: selected.map((exercise) => ({ exercise, rawCount: rawCounts.get(exercise.id)! })),
+    rows: selected.map((exercise) => ({
+      id: exercise.id,
+      exercise,
+      rawCount: rawCounts.get(exercise.id)!,
+    })),
     rename: (nextName) => draftValue(id, nextName, selected, rawCounts),
     add(exercise) {
       if (selected.some((row) => row.id === exercise.id)) return draft;

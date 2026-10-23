@@ -182,8 +182,9 @@ export function WorkoutImport({
                   ))}
                   {preview.rows.some((row) => row.sidesFromName) && (
                     <AppText variant="caption" muted>
-                      New exercises with Unilateral in the name track left and right sides. You can
-                      change this in the exercise.
+                      New exercises with Unilateral in the name track left and right sides, so each
+                      left and right pair from Tracked becomes one set. You can change this in the
+                      exercise.
                     </AppText>
                   )}
                 </View>
