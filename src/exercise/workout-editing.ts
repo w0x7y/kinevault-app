@@ -35,6 +35,8 @@ export type WorkoutFields = { name: string; exercises: SessionExercise[]; minute
  * the seconds the set held when it started.
  */
 export type SetClock = { rowId: string; setId: string; startedAt: number; target: number | null };
+/** A running clock as its set shows it: seconds counted up, or left of a countdown. */
+export type ShownClock = { setId: string; seconds: number; countdown: boolean };
 export type WorkoutEditState = {
   session: WorkoutSession;
   fields: WorkoutFields;
@@ -95,8 +97,6 @@ type WorkoutLogControls = {
   /** The card's or workspace's overline and test ID. */
   overline: string | undefined;
   testID: string;
-  /** The page over the tab (a null title shows the workout's name); a compact card stays on the tab. */
-  sheet: { title: string | null; testID: string } | null;
 };
 /** A saved log's editable fields. */
 function savedFields(session: WorkoutSession): Pick<WorkoutEditState, "fields" | "counts"> {
@@ -122,7 +122,6 @@ export const workoutLogControls = {
     retry: true,
     overline: "Planned",
     testID: "planned-workout-card",
-    sheet: null,
   },
   active: {
     back: "leave",
@@ -135,7 +134,6 @@ export const workoutLogControls = {
     retry: true,
     overline: undefined,
     testID: "active-workout-workspace",
-    sheet: { title: null, testID: "active-workout" },
   },
   manual: {
     back: "cancel",
@@ -148,7 +146,6 @@ export const workoutLogControls = {
     retry: true,
     overline: "Log a workout",
     testID: "manual-workout-workspace",
-    sheet: { title: "Log workout", testID: "session-editor" },
   },
   completed: {
     back: "cancel",
@@ -161,7 +158,6 @@ export const workoutLogControls = {
     retry: false,
     overline: "Logged workout",
     testID: "completed-workout-workspace",
-    sheet: { title: "Logged workout", testID: "session-editor" },
   },
 } satisfies Record<WorkoutLogMode, WorkoutLogControls>;
 /** The edit with the controls its log mode allows. The saved log and row ID stay inside. */
@@ -222,11 +218,7 @@ export function workoutLogMode(session: WorkoutSession, view?: WorkoutView | nul
 }
 
 function plannedCountError(fields: WorkoutFields, counts: Record<string, string>) {
-  return (
-    fields.exercises
-      .map((row) => countProblem(row, counts[row.id] ?? String(row.sets.length)))
-      .find(Boolean) ?? null
-  );
+  return fields.exercises.map((row) => countProblem(row, counts[row.id]!)).find(Boolean) ?? null;
 }
 
 // Fields outlive render mounts. Only durable success or explicit completed Cancel releases an edit.
@@ -440,9 +432,19 @@ export function createWorkoutEditing(
       return true;
     })();
   }
+  // A card or page keeps one handle per edit and origin, so its effects don't restart each publish.
+  const handles = new WeakMap<Entry, { originToken: number | null; value: EditHandle }>();
+  type EditHandle = ReturnType<typeof handle>;
   function edit(id: string) {
     const entry = entryFor(id),
       originToken = panels.panel()?.token ?? null;
+    const cached = handles.get(entry);
+    if (cached?.originToken === originToken) return cached.value;
+    const value = handle(id, entry, originToken);
+    handles.set(entry, { originToken, value });
+    return value;
+  }
+  function handle(id: string, entry: Entry, originToken: number | null) {
     function change(input: Change) {
       if (!current(id, entry) || entry.state.busy) return;
       let fields = entry.state.fields,
@@ -456,7 +458,7 @@ export function createWorkoutEditing(
         if (!row || entry.state.session.status !== "planned") return;
         resizeBlocked = Boolean(countProblem(row, input.value));
         if (!resizeBlocked) {
-          const count = Number(input.value.trim());
+          const count = parsePlannedSetCount(input.value)!;
           fields = {
             ...fields,
             exercises: fields.exercises.map((value) =>
@@ -472,11 +474,7 @@ export function createWorkoutEditing(
       } else {
         const row = fields.exercises.find((value) => value.id === input.rowId);
         if (input.kind === "remove-set" && !row?.sets.some((set) => set.id === input.setId)) return;
-        if (
-          input.kind !== "set" &&
-          row &&
-          !countProblem(row, counts[row.id] ?? String(row.sets.length))
-        ) {
+        if (input.kind !== "set" && row && !countProblem(row, counts[row.id]!)) {
           const count = row.sets.length + (input.kind === "add-set" ? 1 : -1);
           counts = { ...counts, [row.id]: String(count) };
         }
@@ -615,12 +613,17 @@ export function createWorkoutEditing(
         if (set?.kind !== "time") return;
         publish(entry, { clock: { rowId, setId, startedAt: now(), target: timedSeconds(set) } });
       },
-      /** The running clock's seconds: counted up, or left of a countdown. */
-      clockTime() {
+      /** The running clock as the row's set shows it, or null when none runs on the row. */
+      shownClock(rowId: string): ShownClock | null {
         const clock = entry.state.clock;
-        if (!clock) return null;
+        if (clock?.rowId !== rowId) return null;
         const seconds = clockSeconds(clock);
-        return clock.target === null ? seconds : clock.target - seconds;
+        const countdown = clock.target !== null;
+        return {
+          setId: clock.setId,
+          seconds: countdown ? clock.target! - seconds : seconds,
+          countdown,
+        };
       },
       /** Ends a countdown that has run out and logs its seconds; true when one ended. */
       tickClock() {

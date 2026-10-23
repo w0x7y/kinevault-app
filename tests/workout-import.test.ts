@@ -399,7 +399,8 @@ test("maps a plan into one workout template with new library exercises", () => {
   assert.equal(byName("Shoulder Press Machine (Wide Grip/Top Half)").equipment, "machine");
   assert.equal(byName("Incline Smith Press (15°)").equipment, "smith machine");
   assert.equal(byName("Cable Sldl").equipment, "cable");
-  assert.equal(template.setCounts![byName(plan.exercises[2]!.name).id], 4);
+  // Tracked's Sets 4 lists L1, R1, L2, R2: two left/right sets.
+  assert.equal(template.setCounts![byName(plan.exercises[2]!.name).id], 2);
   assert.equal(template.setCounts![byName("Jilly Pushdown").id], 2);
   assert.equal(template.setCounts![byName("Dumbbell Pullover").id], 3);
 });
@@ -426,6 +427,20 @@ test("reuses library exercises by name and never rewrites their notes", () => {
   assert.deepEqual(snapshot, library);
   assert.notEqual(snapshot, library);
   assert.equal(document.workouts[0]!.setCounts!.mine, 2);
+});
+
+test("a unilateral library exercise tracked as one line keeps a set per Tracked row", () => {
+  const plan = parseTrackedWorkoutPage(page, workoutId);
+  const library: ExerciseDefinition = {
+    id: "curl",
+    name: plan.exercises[2]!.name,
+    muscleGroup: "",
+    equipment: "",
+    notes: "",
+    tracking: "single",
+  };
+  const { document } = applyWorkoutImport({ ...empty, exercises: [library] }, plan, ids());
+  assert.equal(document.workouts[0]!.setCounts!.curl, 4);
 });
 
 test("importing the same link again replaces its workout without duplicating exercises", () => {
@@ -549,7 +564,7 @@ test("persists an import as one write and plans its set counts", async () => {
     store.planWorkout({ date: "2026-10-12", workoutId: result!.templateId }),
   );
   const session = parseExerciseDocument(raw).sessions.find((item) => item.id === sessionId)!;
-  assert.equal(session.exercises[2]!.sets.length, 4);
+  assert.equal(session.exercises[2]!.sets.length, 2);
   assert.equal(session.exercises[2]!.sets[0]!.kind, "sides");
   assert.equal(session.exercises[4]!.sets.length, 3);
   store.stop();

@@ -5,12 +5,11 @@ import { ButtonRow, AppButton, IconButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
 import { spacing } from "../theme/tokens";
 import type { SessionExercise } from "./model";
-import { ExerciseDemoSlot } from "./demo/exercise-demo";
 import { useSnapshot } from "./use-exercise-tab-view";
 import type { WorkoutEdit } from "./workout-editing";
 import { InlineMessage } from "../components/inline-message";
 import { TextField } from "../components/text-field";
-import { ExerciseNotes, SectionLabel } from "./controls";
+import { SectionLabel } from "./controls";
 import { ExerciseSetTable } from "./set-table";
 import { exerciseRowLabel } from "./short-name";
 import { WorkoutWorkspace } from "./workout-workspace";
@@ -60,65 +59,23 @@ export function SessionEditor({
     }, 250);
     return () => clearInterval(timer);
   }, [clock, edit]);
-  const clockTime = edit.clockTime();
   // In a sheet, its back button is this workout's Cancel. The Active workout keeps running.
   const inSheet = useSheetBack({ onPress: () => void edit.run(back), disabled: busy });
-  function renderExercise(row: SessionExercise, index: number) {
-    const rowLabel = exerciseRowLabel(draft.exercises, row, index);
+  function renderSets(row: SessionExercise, rowLabel: string) {
     return (
-      <View key={row.id} style={{ gap: spacing.layout, minWidth: 0 }}>
-        <View
-          testID="exercise-detail-heading"
-          style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, minWidth: 0 }}
-        >
-          <AppText
-            variant="heading"
-            accessibilityRole="header"
-            style={{ flex: 1, minWidth: 0, fontSize: 17 }}
-          >
-            {row.exercise.name}
-          </AppText>
-          <IconButton
-            appearance="secondary"
-            icon="plus"
-            label={`Add set to ${rowLabel}`}
-            disabled={busy}
-            onPress={() => edit.change({ kind: "add-set", rowId: row.id })}
-          />
-          <IconButton
-            appearance="secondary"
-            icon="note-sticky"
-            label={`View notes for ${rowLabel}`}
-            expanded={notesId === row.id}
-            disabled={busy}
-            onPress={() => edit.showNotes(notesId === row.id ? null : row.id)}
-          />
-        </View>
-        <ExerciseSetTable
-          tracking={row.exercise.tracking}
-          sets={row.sets}
-          hints={hints}
-          rowLabel={rowLabel}
-          busy={busy}
-          clock={
-            clock?.rowId === row.id && clockTime !== null
-              ? { setId: clock.setId, seconds: clockTime, countdown: clock.target !== null }
-              : null
-          }
-          onChange={(setId, side, field, value) =>
-            edit.change({ kind: "set", rowId: row.id, setId, side, field, value })
-          }
-          onClock={(setId) => edit.toggleClock(row.id, setId)}
-          onRemove={(setId) => edit.change({ kind: "remove-set", rowId: row.id, setId })}
-        />
-        {notesId === row.id && <ExerciseNotes notes={row.exercise.notes} />}
-        <ExerciseDemoSlot
-          exercise={row.exercise}
-          label={rowLabel}
-          disabled={busy}
-          onLinkDemo={(definition) => void edit.linkDemo(definition)}
-        />
-      </View>
+      <ExerciseSetTable
+        tracking={row.exercise.tracking}
+        sets={row.sets}
+        hints={hints}
+        rowLabel={rowLabel}
+        busy={busy}
+        clock={edit.shownClock(row.id)}
+        onChange={(setId, side, field, value) =>
+          edit.change({ kind: "set", rowId: row.id, setId, side, field, value })
+        }
+        onClock={(setId) => edit.toggleClock(row.id, setId)}
+        onRemove={(setId) => edit.change({ kind: "remove-set", rowId: row.id, setId })}
+      />
     );
   }
   const feedback = (
@@ -269,7 +226,7 @@ export function SessionEditor({
                   labelTone="muted"
                   key={row.id}
                   label={`Planned sets for ${exerciseRowLabel(draft.exercises, row, index)}`}
-                  value={counts[row.id] ?? String(row.sets.length)}
+                  value={counts[row.id]}
                   onChange={(value) => edit.change({ kind: "count", rowId: row.id, value })}
                   kind="decimal"
                   layout="inline"
@@ -294,17 +251,26 @@ export function SessionEditor({
           headerActions={headerActions}
           toolbar={toolbar}
           exercises={draft.exercises}
-          selectedId={selected?.id}
+          selected={selected}
           onSelect={edit.select}
+          notesId={notesId}
+          onShowNotes={edit.showNotes}
+          onLinkDemo={(definition) => void edit.linkDemo(definition)}
+          exerciseActions={(row, rowLabel) => (
+            <IconButton
+              appearance="secondary"
+              icon="plus"
+              label={`Add set to ${rowLabel}`}
+              disabled={busy}
+              onPress={() => edit.change({ kind: "add-set", rowId: row.id })}
+            />
+          )}
+          empty={<AppText muted>This workout has no exercises.</AppText>}
           busy={busy}
           feedback={feedback}
           actions={actions}
         >
-          {selected ? (
-            renderExercise(selected, draft.exercises.indexOf(selected))
-          ) : (
-            <AppText muted>This workout has no exercises.</AppText>
-          )}
+          {renderSets}
         </WorkoutWorkspace>
       )}
     </Panel>

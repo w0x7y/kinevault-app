@@ -153,6 +153,16 @@ export function exerciseTabView({
   };
 }
 
+/** A workout log's page over the tab; a null title shows the workout's name. */
+const logSheets = {
+  active: { title: null, testID: "active-workout" },
+  manual: { title: "Log workout", testID: "session-editor" },
+  completed: { title: "Logged workout", testID: "session-editor" },
+} satisfies Record<
+  NonNullable<ExerciseTabSheet["log"]>["mode"],
+  { title: string | null; testID: string }
+>;
+
 /** The sheet's title, back button name and test ID for a panel that opens over the tab. */
 function sheetPage(
   content: WorkoutView,
@@ -189,10 +199,10 @@ function sheetPage(
       };
     case "session": {
       if (!log) return { title: "Workout", closeLabel: "Close workout", log: null };
-      const { sheet, backLabel } = workoutLogControls[log.mode];
+      const sheet = logSheets[log.mode];
       return {
         title: sheet.title ?? (log.session.name || "Workout"),
-        closeLabel: backLabel,
+        closeLabel: workoutLogControls[log.mode].backLabel,
         testID: sheet.testID,
         log,
       };

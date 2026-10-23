@@ -8,21 +8,17 @@ import { Icon } from "../components/icon";
 import { Tappable } from "../components/tappable";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
-import { matchingExercises, type ExerciseDefinition, type WorkoutTemplate } from "./model";
+import type { ExerciseDefinition, WorkoutTemplate } from "./model";
 import { trackingMode, trackingModes } from "./tracking";
-import { useExercises } from "./provider";
 import { InlineMessage } from "../components/inline-message";
 import { TextField } from "../components/text-field";
-import { ExerciseNotes, Hairline, SectionLabel } from "./controls";
+import { Hairline, SectionLabel } from "./controls";
 import { SegmentedControl } from "../components/segmented-control";
 import { useSheetBack, useSheetScrollTarget } from "../components/sheet-page";
-import { exerciseRowLabel } from "./short-name";
 import { WorkoutWorkspace } from "./workout-workspace";
 import type { LibraryDrafts } from "./library-drafts";
 import { useSnapshot } from "./use-exercise-tab-view";
-import { ExerciseDemoSlot } from "./demo/exercise-demo";
 import { KineVaultDemoSection } from "./demo/demo-picker";
-import { applyCatalogLink, withoutCatalogLink } from "./demo/demo-link";
 
 type ExerciseDraft = ReturnType<LibraryDrafts["exercise"]>;
 type TemplateDraft = ReturnType<LibraryDrafts["template"]>;
@@ -98,8 +94,8 @@ export function ExerciseForm({
           picker={demo}
           onPick={draft.pickDemo}
           disabled={busy}
-          onLink={(entry) => draft.change((current) => applyCatalogLink(current, entry))}
-          onUnlink={() => draft.change(withoutCatalogLink)}
+          onLink={draft.linkCatalog}
+          onUnlink={draft.unlinkCatalog}
         />
       </View>
       <InlineMessage>{error}</InlineMessage>
@@ -130,14 +126,9 @@ export function WorkoutForm({
   /** The saved template being edited, if any. */
   workout?: WorkoutTemplate;
 }) {
-  const store = useExercises();
-  const exercises = store.state.kind === "ready" ? store.state.document.exercises : [];
-  const { draft, busy, error, selectedId, settingsOpen, query, limit, notesId } =
+  const { draft, busy, error, selected, settingsOpen, query, notesId, results } =
     useSnapshot(template);
   const rise = useLayoutMotion().enter();
-  const available = matchingExercises(exercises, query).filter(
-    (item) => !draft.rows.some((row) => row.exercise.id === item.id),
-  );
   // The sheet's back button is this form's Cancel, except while it saves.
   useSheetBack({ disabled: busy });
   const builder = (
@@ -157,37 +148,22 @@ export function WorkoutForm({
         onChange={template.search}
         disabled={busy}
       />
-      {exercises.length === 0 ? (
+      {results.message && (
         <AppText variant="caption" muted>
-          Create an exercise first, then return to build your workout.
+          {results.message}
         </AppText>
-      ) : !query.trim() ? (
-        <AppText variant="caption" muted>
-          Search by name, muscle group, equipment, or notes to add exercises.
-        </AppText>
-      ) : available.length === 0 ? (
-        <AppText variant="caption" muted>
-          No available exercises match your search.
-        </AppText>
-      ) : null}
-      {available.length > 0 && (
+      )}
+      {results.items.length > 0 && (
         <View>
-          {available.slice(0, limit).map((item, index) => (
+          {results.items.map((item, index) => (
             <View key={item.id}>
               {index > 0 && <Hairline />}
-              <AddExerciseRow
-                exercise={item}
-                onPress={() => {
-                  template.change((current) => current.add(item));
-                  template.select(item.id);
-                }}
-                disabled={busy}
-              />
+              <AddExerciseRow exercise={item} onPress={() => template.add(item)} disabled={busy} />
             </View>
           ))}
         </View>
       )}
-      {available.length > limit && (
+      {results.more && (
         <AppButton
           size="compact"
           fill
@@ -251,14 +227,6 @@ export function WorkoutForm({
       </LayoutAnimationConfig>
     </View>
   );
-  const selectedDraftRow =
-    draft.rows.find((row) => row.exercise.id === selectedId) ?? draft.rows[0];
-  const selectedExercise = selectedDraftRow?.exercise;
-  const rows = draft.rows.map(({ exercise }) => ({ id: exercise.id, exercise }));
-  const selectedRow = rows.find((row) => row.id === selectedExercise?.id);
-  const rowLabel = selectedRow
-    ? exerciseRowLabel(rows, selectedRow, rows.indexOf(selectedRow))
-    : "";
   return (
     <Panel>
       <WorkoutWorkspace
@@ -277,9 +245,18 @@ export function WorkoutForm({
           />
         }
         toolbar={settingsOpen ? builder : undefined}
-        exercises={rows}
-        selectedId={selectedExercise?.id}
+        exercises={draft.rows}
+        selected={selected}
         onSelect={template.select}
+        notesId={notesId}
+        onShowNotes={template.showNotes}
+        empty={
+          <AppText variant="caption" muted>
+            {settingsOpen
+              ? "Choose exercises above to set their planned sets."
+              : "Open Exercises to add exercises to this workout."}
+          </AppText>
+        }
         busy={busy}
         feedback={<InlineMessage>{error}</InlineMessage>}
         actions={
@@ -301,51 +278,17 @@ export function WorkoutForm({
           </View>
         }
       >
-        {selectedDraftRow && selectedExercise ? (
-          <>
-            <View
-              testID="exercise-heading-row"
-              style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}
-            >
-              <AppText
-                variant="heading"
-                accessibilityRole="header"
-                style={{ flex: 1, minWidth: 0, fontSize: 17 }}
-              >
-                {selectedExercise.name}
-              </AppText>
-              <IconButton
-                appearance="secondary"
-                label={`View notes for ${rowLabel}`}
-                icon="note-sticky"
-                expanded={notesId === selectedExercise.id}
-                onPress={() =>
-                  template.showNotes(notesId === selectedExercise.id ? null : selectedExercise.id)
-                }
-                disabled={busy}
-              />
-            </View>
-            <TextField
-              labelTone="muted"
-              label={`Planned sets for ${rowLabel}`}
-              value={selectedDraftRow.rawCount}
-              onChange={(value) =>
-                template.change((current) => current.setCount(selectedExercise.id, value))
-              }
-              kind="decimal"
-              layout="inline"
-              disabled={busy}
-            />
-            {notesId === selectedExercise.id && <ExerciseNotes notes={selectedExercise.notes} />}
-            {/* No "Link demo" here: leaving would discard unsaved template changes. */}
-            <ExerciseDemoSlot exercise={selectedExercise} label={rowLabel} disabled={busy} />
-          </>
-        ) : (
-          <AppText variant="caption" muted>
-            {settingsOpen
-              ? "Choose exercises above to set their planned sets."
-              : "Open Exercises to add exercises to this workout."}
-          </AppText>
+        {/* No "Link demo" here: leaving would discard unsaved template changes. */}
+        {(row, rowLabel) => (
+          <TextField
+            labelTone="muted"
+            label={`Planned sets for ${rowLabel}`}
+            value={row.rawCount}
+            onChange={(value) => template.change((current) => current.setCount(row.id, value))}
+            kind="decimal"
+            layout="inline"
+            disabled={busy}
+          />
         )}
       </WorkoutWorkspace>
     </Panel>

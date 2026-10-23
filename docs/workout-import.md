@@ -191,7 +191,11 @@ answers first. To deploy the function, see
   - muscle group is empty;
   - notes hold the prescription without sets, e.g. `Reps 5-8 · RIR 0-1 · Rest 3 min`.
 - `setCounts` are keyed by exercise definition ID. The Sets chip gives the
-  count. Without one the count is 3, the default for new templates.
+  count. Without one the count is 3, the default for new templates. Tracked lists
+  a Unilateral exercise's sides as separate sets (L1, R1, L2, R2 is Sets 4), so
+  when the name contains "Unilateral" and the definition tracks `sides`, the count
+  is halved, rounding up: Sets 4 becomes 2 left-and-right sets. A library
+  definition that tracks one line keeps a set per Tracked row.
 - When the same exercise name appears more than once, the template keeps it once
   at its first position. Its count is the sum of the known Sets values (3 if none
   are known), capped at 100. The preview says so.

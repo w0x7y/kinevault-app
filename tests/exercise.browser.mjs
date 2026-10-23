@@ -1089,6 +1089,15 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
     page,
     (document) => document.sessions[0].exercises[1].sets[0].right.weightKg === "12",
   );
+  // Back and Next step through the exercises and stop at either end.
+  await button(details, "Back to previous exercise").click();
+  assert.equal(await field(details, "Squat set 1 reps").inputValue(), "5");
+  assert.equal(await button(details, "Back to previous exercise").isDisabled(), true);
+  await button(details, "Next exercise").click();
+  assert.equal(await field(details, "Curl set 1 right reps").inputValue(), "6");
+  await button(details, "Next exercise").click();
+  assert.equal(await button(details, "Next exercise").isDisabled(), true);
+  assert.equal(await field(details, "Curl set 1 right reps").count(), 0);
   await page.reload();
   // After a reload the tab shows the live card; it reopens the workout.
   await button(page, "Open live workout").click();

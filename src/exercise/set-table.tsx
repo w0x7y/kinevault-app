@@ -9,6 +9,7 @@ import { AppText, Overline } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { formatElapsed, type ExerciseSet, type SetHint } from "./model";
+import type { ShownClock } from "./workout-editing";
 import {
   isBlankSet,
   setLines,
@@ -109,9 +110,6 @@ function SetBadge({ number, done }: { number: number; done: boolean }) {
     </View>
   );
 }
-
-/** A running set clock as the table shows it. */
-export type ShownClock = { setId: string; seconds: number; countdown: boolean };
 
 /** The running clock in place of a timed set's seconds field. */
 function ClockFace({ clock, label }: { clock: ShownClock; label: string }) {

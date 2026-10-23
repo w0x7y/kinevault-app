@@ -76,9 +76,11 @@ export function KineVaultDemoSection({
   link: CatalogLink | undefined;
   exerciseName: string;
   picker: DemoPicker;
-  onPick: (event: DemoPickerEvent) => void;
+  onPick: (event: Exclude<DemoPickerEvent, "linked" | "unlink">) => void;
   disabled: boolean;
+  /** Links the entry and shows it; its picker mode changes with it. */
   onLink: (entry: CatalogExercise) => void;
+  /** Unlinks the demo and opens the search; its picker mode changes with it. */
   onUnlink: () => void;
 }) {
   const { colors } = useTheme();
@@ -133,10 +135,7 @@ export function KineVaultDemoSection({
               accessibilityLabel="Unlink KineVault demo"
               fill
               disabled={disabled}
-              onPress={() => {
-                onPick("unlink");
-                onUnlink();
-              }}
+              onPress={onUnlink}
             />
           </ButtonRow>
         </>
@@ -165,10 +164,7 @@ export function KineVaultDemoSection({
                 key={entry.id}
                 entry={entry}
                 disabled={disabled}
-                onPress={() => {
-                  onLink(entry);
-                  onPick("linked");
-                }}
+                onPress={() => onLink(entry)}
               />
             ))
           )}
