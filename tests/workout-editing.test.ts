@@ -218,12 +218,12 @@ test("the row on screen shows its own Previous sets hints", async () => {
   };
   const f = await fixture("planned", [log, earlier]);
   const edit = f.editing.edit("log");
-  // The first row shows until another is selected. Squat has no earlier log, so its blank set
-  // hints the set above it.
+  // The first row shows until another is selected. Squat has no earlier log, so no set hints,
+  // not even one below a filled set.
   assert.equal(edit.getSnapshot().selected?.id, "row");
   assert.deepEqual(edit.getSnapshot().hints, [
     [{ side: null, values: { reps: undefined, weightKg: undefined, rir: undefined } }],
-    [{ side: null, values: { reps: "8", weightKg: "10", rir: undefined } }],
+    [{ side: null, values: { reps: undefined, weightKg: undefined, rir: undefined } }],
   ]);
   edit.select("curl-row");
   assert.equal(edit.getSnapshot().selected?.id, "curl-row");
@@ -380,7 +380,7 @@ test("planned counts retain invalid text, reject shrink over entered sets, and r
   assert.equal(f.saved().exercises[0]!.sets.length, 1);
 });
 
-test("removing a set changes this log and its planned count, never the workout template", async () => {
+test("removing a set takes the last one from this log and its planned count, never the workout template", async () => {
   const template = {
     id: "template",
     name: "Strength",
@@ -391,32 +391,85 @@ test("removing a set changes this log and its planned count, never the workout t
   await f.tab.requestView({ kind: "session", id: "log" });
   const edit = f.editing.edit("log");
   const before = edit.getSnapshot();
-  edit.change({ kind: "remove-set", rowId: "row", setId: "missing" });
-  assert.equal(edit.getSnapshot(), before, "an unknown set changes nothing");
-  edit.change({ kind: "remove-set", rowId: "row", setId: "blank" });
+  edit.change({ kind: "remove-set", rowId: "missing" });
+  assert.equal(edit.getSnapshot(), before, "an unknown row changes nothing");
+  edit.change({ kind: "remove-set", rowId: "row" });
   assert.deepEqual(
     edit.getSnapshot().fields.exercises[0]!.sets.map((set) => set.id),
     ["set"],
   );
   assert.equal(edit.getSnapshot().counts.row, "1");
-  // A set with values can go too, down to none.
-  edit.change({ kind: "remove-set", rowId: "row", setId: "set" });
+  // A set with values can go too, down to none; then there's nothing left to remove.
+  edit.change({ kind: "remove-set", rowId: "row" });
   assert.equal(edit.getSnapshot().counts.row, "0");
+  const empty = edit.getSnapshot();
+  edit.change({ kind: "remove-set", rowId: "row" });
+  assert.equal(edit.getSnapshot(), empty);
   assert.equal(edit.getSnapshot().countError, null);
   await tick();
   assert.deepEqual(f.saved().exercises[0]!.sets, []);
   assert.deepEqual(parseExerciseDocument(f.raw()).workouts, [template]);
 });
 
+test("pressing a set's number fills its blank fields from Previous sets in one change", async () => {
+  const earlier: WorkoutSession = {
+    ...session("completed"),
+    id: "earlier",
+    date: "2026-10-03",
+    exercises: [
+      {
+        id: "earlier-row",
+        exercise,
+        sets: [
+          { id: "a", kind: "single", reps: "12", weightKg: "15" },
+          { id: "b", kind: "single", reps: "6", weightKg: " " },
+        ],
+      },
+    ],
+  };
+  const f = await fixture("active", [session("active"), earlier]);
+  const edit = f.editing.edit("log");
+  // "set" already holds 8 x 10, so there is nothing to fill.
+  const before = edit.getSnapshot();
+  edit.change({ kind: "fill", rowId: "row", setId: "set", side: null });
+  assert.equal(edit.getSnapshot(), before);
+  edit.change({ kind: "set", rowId: "row", setId: "blank", side: null, field: "rir", value: "2" });
+  edit.change({ kind: "fill", rowId: "row", setId: "blank", side: null });
+  // A whitespace-only weight was never a value, so only reps fill; the typed RIR stays.
+  assert.deepEqual(edit.getSnapshot().fields.exercises[0]!.sets[1], {
+    id: "blank",
+    kind: "single",
+    reps: "6",
+    weightKg: "",
+    rir: "2",
+  });
+  assert.deepEqual(edit.getSnapshot().hints[1], [
+    { side: null, values: { reps: "6", weightKg: undefined, rir: undefined } },
+  ]);
+  await tick();
+  assert.deepEqual(
+    f.saved().exercises[0]!.sets[1],
+    edit.getSnapshot().fields.exercises[0]!.sets[1],
+  );
+});
+
+test("an open set menu belongs to the edit, so a remounted editor keeps it", async () => {
+  const f = await fixture("active");
+  f.editing.edit("log").showSetMenu("row");
+  assert.equal(f.editing.edit("log").getSnapshot().setMenuId, "row");
+  f.editing.edit("log").showSetMenu(null);
+  assert.equal(f.editing.edit("log").getSnapshot().setMenuId, null);
+});
+
 test("removing a timed set stops its running clock without logging it", async () => {
   const f = await timedFixture();
   f.edit().toggleClock("stretch-row", "hold");
-  f.edit().change({ kind: "remove-set", rowId: "stretch-row", setId: "open" });
+  f.edit().change({ kind: "remove-set", rowId: "stretch-row" });
   assert.equal(f.edit().getSnapshot().clock?.setId, "hold", "another set's clock keeps running");
   f.time.now += 5_000;
-  f.edit().change({ kind: "remove-set", rowId: "stretch-row", setId: "hold" });
+  f.edit().change({ kind: "remove-set", rowId: "stretch-row" });
   assert.equal(f.edit().getSnapshot().clock, null);
-  assert.equal(f.edit().shownClock("stretch-row"), null);
+  assert.equal(f.edit().getSnapshot().shownClock, null);
   assert.deepEqual(f.edit().getSnapshot().fields.exercises[1]!.sets, []);
 });
 
@@ -1029,7 +1082,10 @@ test("each log mode allows its own controls, and the mode follows the open panel
       settingsOpen,
       detailsOpen,
       notesId,
+      setMenuId,
       clock,
+      clockReadAt,
+      shownClock,
       selected,
       hints,
       durationCaption,
@@ -1048,6 +1104,8 @@ test("each log mode allows its own controls, and the mode follows the open panel
     discard: false,
     start: true,
     details: false,
+    showName: true,
+    linkDemo: false,
     retry: true,
     overline: "Planned",
     testID: "planned-workout-card",
@@ -1062,6 +1120,8 @@ test("each log mode allows its own controls, and the mode follows the open panel
     discard: true,
     start: true,
     details: true,
+    showName: true,
+    linkDemo: true,
     retry: true,
     overline: "Log a workout",
     testID: "manual-workout-workspace",
@@ -1076,6 +1136,8 @@ test("each log mode allows its own controls, and the mode follows the open panel
     discard: true,
     start: false,
     details: false,
+    showName: false,
+    linkDemo: false,
     retry: true,
     overline: undefined,
     testID: "active-workout-workspace",
@@ -1090,11 +1152,17 @@ test("each log mode allows its own controls, and the mode follows the open panel
     discard: false,
     start: false,
     details: true,
+    showName: true,
+    linkDemo: true,
     // A completed log saves only through Save changes, so it has no draft save to retry.
     retry: false,
     overline: "Logged workout",
     testID: "completed-workout-workspace",
   });
+  // A live workout doesn't leave for the exercise form.
+  const panel = active.tab.getSnapshot().panel;
+  assert.equal(await active.editing.edit("log").linkDemo(exercise), false);
+  assert.equal(active.tab.getSnapshot().panel, panel);
   // An unchanged edit keeps its snapshot, as React's store subscription requires.
   const edit = completed.editing.edit("log");
   assert.equal(edit.getSnapshot(), edit.getSnapshot());
@@ -1150,11 +1218,23 @@ async function timedFixture() {
     },
   ]);
   const time = { now: 5_000_000 };
+  // The fake ticker: `tick` runs it once, and `ticking` says whether the edits keep one running.
+  let ticker: (() => void) | null = null;
+  const buzzes = { count: 0 };
   const tab = createExerciseTabView({
     store: f.store,
     date: "2026-10-04",
     importSources: [],
-    now: () => time.now,
+    clocks: {
+      now: () => time.now,
+      every: (_ms, tick) => {
+        ticker = tick;
+        return () => {
+          ticker = null;
+        };
+      },
+      onCountdownEnd: () => buzzes.count++,
+    },
   });
   tab.start();
   await tab.requestView({ kind: "session", id: "log" });
@@ -1165,7 +1245,16 @@ async function timedFixture() {
       .fields.exercises[1]!.sets.find((value) => value.id === setId)!;
     return set.kind === "time" ? set.seconds : null;
   };
-  return { ...f, tab, edit: () => tab.edits.edit("log"), time, seconds };
+  return {
+    ...f,
+    tab,
+    edit: () => tab.edits.edit("log"),
+    time,
+    seconds,
+    buzzes,
+    tick: () => ticker?.(),
+    ticking: () => ticker !== null,
+  };
 }
 
 test("a stopwatch keeps running while another exercise shows, and stopping logs its time", async () => {
@@ -1181,41 +1270,57 @@ test("a stopwatch keeps running while another exercise shows, and stopping logs 
   // Showing the lift used to unmount the clock with its row.
   f.edit().select("row");
   f.time.now += 42_000;
-  assert.deepEqual(f.edit().shownClock("stretch-row"), {
+  // The shown time moves on with the ticker, not with each read.
+  assert.equal(f.edit().getSnapshot().shownClock?.seconds, 0);
+  f.tick();
+  assert.deepEqual(f.edit().getSnapshot().shownClock, {
+    rowId: "stretch-row",
     setId: "open",
     seconds: 42,
     countdown: false,
   });
-  assert.equal(f.edit().shownClock("row"), null, "only the clock's own row shows it");
-  assert.equal(f.edit().tickClock(), false, "a stopwatch never runs out");
+  f.time.now += 600_000;
+  f.tick();
+  assert.notEqual(f.edit().getSnapshot().clock, null, "a stopwatch never runs out");
+  // A detached tab keeps no timer; the clock picks up on return.
+  f.tab.stop();
+  assert.equal(f.ticking(), false);
+  f.tab.start();
+  assert.equal(f.ticking(), true);
+  f.time.now -= 600_000;
   f.edit().toggleClock("stretch-row", "open");
   assert.equal(f.edit().getSnapshot().clock, null);
   assert.equal(f.seconds("open"), "42");
+  assert.equal(f.ticking(), false, "the ticker stops with the last clock");
 });
 
 test("a countdown that runs out logs its seconds, even after waiting out a busy save", async () => {
   const f = await timedFixture();
   f.edit().toggleClock("stretch-row", "hold");
   assert.equal(f.edit().getSnapshot().clock?.target, 30);
+  assert.equal(f.ticking(), true);
   f.time.now += 10_000;
+  f.tick();
   assert.deepEqual(
-    f.edit().shownClock("stretch-row"),
-    { setId: "hold", seconds: 20, countdown: true },
+    f.edit().getSnapshot().shownClock,
+    { rowId: "stretch-row", setId: "hold", seconds: 20, countdown: true },
     "a countdown shows the time left",
   );
-  assert.equal(f.edit().tickClock(), false);
   const held = holdWrites(f, () => false);
   const saving = f.edit().run("retry");
   assert.equal(f.edit().getSnapshot().busy, true);
   f.time.now += 25_000;
   // A busy edit takes no changes, so the clock waits instead of dropping the time.
-  assert.equal(f.edit().tickClock(), false);
+  f.tick();
   assert.notEqual(f.edit().getSnapshot().clock, null);
+  assert.equal(f.buzzes.count, 0);
   held.release();
   assert.equal(await saving, true);
-  assert.equal(f.edit().tickClock(), true);
+  f.tick();
   assert.equal(f.edit().getSnapshot().clock, null);
   assert.equal(f.seconds("hold"), "30");
+  assert.equal(f.buzzes.count, 1, "the countdown's end buzzes once");
+  assert.equal(f.ticking(), false);
 });
 
 test("a timed set's seconds start a countdown only when they are valid whole seconds", async () => {

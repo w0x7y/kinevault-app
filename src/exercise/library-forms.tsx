@@ -259,23 +259,23 @@ export function WorkoutForm({
         }
         busy={busy}
         feedback={<InlineMessage>{error}</InlineMessage>}
+        primary={
+          <AppButton
+            label="Save workout"
+            onPress={() => void template.save()}
+            tone="primary"
+            disabled={busy}
+          />
+        }
         actions={
-          <View testID="workout-template-actions" style={{ gap: spacing.sm }}>
-            <AppButton
-              label="Save workout"
-              onPress={() => void template.save()}
-              tone="primary"
+          workout && (
+            <DeleteButton
+              label="Delete workout"
+              confirmAccessibilityLabel="Confirm delete workout"
+              onDelete={template.remove}
               disabled={busy}
             />
-            {workout && (
-              <DeleteButton
-                label="Delete workout"
-                confirmAccessibilityLabel="Confirm delete workout"
-                onDelete={template.remove}
-                disabled={busy}
-              />
-            )}
-          </View>
+          )
         }
       >
         {/* No "Link demo" here: leaving would discard unsaved template changes. */}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { TextInput, View } from "react-native";
 import Animated, { LayoutAnimationConfig } from "react-native-reanimated";
 import { IconButton } from "../components/button";
-import { DeleteButton } from "../components/delete-button";
+import { Tappable } from "../components/tappable";
 import { useLayoutMotion, useStateTransition } from "../components/motion";
 import { inputSurface } from "../components/text-field";
 import { AppText, Overline } from "../components/ui";
@@ -15,15 +15,15 @@ import {
   setLines,
   timedSeconds,
   trackingMode,
+  withHintValues,
   type SetField,
   type SetLine,
   type TrackingMode,
 } from "./tracking";
 
-const badgeColumn = 36;
-const sideColumn = 44;
-/** A set's number with its remove control under it, leaving the inputs the row's width. */
-const stackedColumn = 44;
+const badgeColumn = 32;
+/** A left/right set's lines are badged L1 and R1. */
+const sideLetter = { left: "L", right: "R" } as const;
 
 function NumberInput({
   label,
@@ -79,35 +79,65 @@ function NumberInput({
   );
 }
 
-/** The set number; it fills in ink once the set has values. */
-function SetBadge({ number, done }: { number: number; done: boolean }) {
+/**
+ * The set number (L1 and R1 on a left/right set); it fills in ink once the set has values. With
+ * `fill`, pressing it copies last workout's values into the line's blank fields.
+ */
+function SetBadge({
+  label,
+  done,
+  fill,
+}: {
+  label: string;
+  done: boolean;
+  fill?: { label: string; onPress: () => void };
+}) {
   const { colors } = useTheme();
   const transition = useStateTransition(["backgroundColor"]);
-  return (
-    <View style={{ width: badgeColumn, minHeight: 48, justifyContent: "center" }}>
-      <Animated.View
+  const badge = (
+    <Animated.View
+      style={{
+        minWidth: 28,
+        height: 28,
+        paddingHorizontal: 3,
+        borderRadius: 14,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: done ? colors.primary : colors.muted,
+        ...transition,
+      }}
+    >
+      <AppText
+        variant="caption"
         style={{
-          width: 28,
-          height: 28,
-          borderRadius: 14,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: done ? colors.primary : colors.muted,
-          ...transition,
+          fontFamily: fonts.bold,
+          fontVariant: ["tabular-nums"],
+          color: done ? colors.primaryForeground : colors.mutedForeground,
         }}
       >
-        <AppText
-          variant="caption"
-          style={{
-            fontFamily: fonts.bold,
-            fontVariant: ["tabular-nums"],
-            color: done ? colors.primaryForeground : colors.mutedForeground,
-          }}
-        >
-          {number}
-        </AppText>
-      </Animated.View>
-    </View>
+        {label}
+      </AppText>
+    </Animated.View>
+  );
+  const column = { width: badgeColumn, minHeight: 48, justifyContent: "center" } as const;
+  if (!fill) return <View style={column}>{badge}</View>;
+  // The 44 pt target overhangs the narrower column so the fields keep their width.
+  const overhang = (44 - badgeColumn) / 2;
+  return (
+    <Tappable
+      label={fill.label}
+      hint="Fills this set with your last workout's values"
+      ring="outline"
+      onPress={fill.onPress}
+      style={{
+        ...column,
+        width: 44,
+        marginHorizontal: -overhang,
+        paddingHorizontal: overhang,
+      }}
+    >
+      {badge}
+    </Tappable>
   );
 }
 
@@ -139,8 +169,7 @@ function ClockFace({ clock, label }: { clock: ShownClock; label: string }) {
 
 /**
  * The sets of one exercise in its Tracking mode's columns. A timed set's button starts its clock:
- * a countdown from the entered seconds, or a stopwatch on a blank set. Each set has a remove
- * control that asks before it removes.
+ * a countdown from the entered seconds, or a stopwatch on a blank set.
  */
 export function ExerciseSetTable({
   tracking,
@@ -150,8 +179,8 @@ export function ExerciseSetTable({
   busy,
   clock,
   onChange,
+  onFill,
   onClock,
-  onRemove,
 }: {
   tracking: TrackingMode;
   sets: ExerciseSet[];
@@ -161,24 +190,29 @@ export function ExerciseSetTable({
   busy: boolean;
   clock: ShownClock | null;
   onChange: (setId: string, side: SetLine["side"], field: SetField, value: string) => void;
+  /** Copies a line's hint into its blank fields. */
+  onFill: (setId: string, side: SetLine["side"]) => void;
   onClock: (setId: string) => void;
-  onRemove: (setId: string) => void;
 }) {
   const mode = trackingMode(tracking);
   const rise = useLayoutMotion().enter();
   const columns = { flexDirection: "row", gap: spacing.sm, alignItems: "center" } as const;
   const cell = { flex: 1, minWidth: 0, textAlign: "center" } as const;
+  // A set's lines: a badge, then the fields.
+  const setRow = [columns, { gap: spacing.xs }];
+  const fields = [columns, { flex: 1, minWidth: 0 }];
   return (
     <View style={{ gap: spacing.sm }}>
-      <View style={columns}>
-        <Overline style={{ width: stackedColumn }}>Set</Overline>
-        {mode.sided && <View style={{ width: sideColumn }} />}
-        {mode.columns.map((column) => (
-          <Overline key={column.field} style={cell}>
-            {column.label}
-          </Overline>
-        ))}
-        {mode.clock && <View style={{ width: 44 }} />}
+      <View style={setRow}>
+        <Overline style={{ width: badgeColumn }}>Set</Overline>
+        <View style={fields}>
+          {mode.columns.map((column) => (
+            <Overline key={column.field} style={cell}>
+              {column.label}
+            </Overline>
+          ))}
+          {mode.clock && <View style={{ width: 44 }} />}
+        </View>
       </View>
       {sets.length === 0 && (
         <AppText variant="caption" muted>
@@ -191,42 +225,28 @@ export function ExerciseSetTable({
           const prefix = `${rowLabel} set ${index + 1}`;
           const running = clock?.setId === set.id ? clock : null;
           const countdown = timedSeconds(set);
-          const badge = <SetBadge number={index + 1} done={!isBlankSet(set)} />;
-          const remove = (
-            <DeleteButton
-              appearance="icon"
-              label={`Remove set ${index + 1} from ${rowLabel}`}
-              confirmAccessibilityLabel={`Confirm remove set ${index + 1} from ${rowLabel}`}
-              onDelete={() => onRemove(set.id)}
-              disabled={busy}
-            />
-          );
           return (
-            <Animated.View
-              key={set.id}
-              entering={rise}
-              style={[columns, { alignItems: "stretch" }]}
-            >
-              {/* The armed "Are you sure?" pill is wider than the column; it overlays the row. */}
-              <View
-                style={{ width: stackedColumn, alignItems: "center", gap: spacing.xs, zIndex: 1 }}
-              >
-                {badge}
-                {/* Wide enough for the armed pill on one line; the empty part passes touches on. */}
-                <View style={{ width: 140, alignSelf: "flex-start", pointerEvents: "box-none" }}>
-                  <View style={{ alignSelf: "flex-start" }}>{remove}</View>
-                </View>
-              </View>
-              <View style={{ flex: 1, minWidth: 0, gap: spacing.xs + 2 }}>
-                {setLines(set).map((line, lineIndex) => {
-                  const label = line.side ? `${prefix} ${line.side}` : prefix;
-                  return (
-                    <View key={line.side ?? "set"} style={columns}>
-                      {mode.sided && (
-                        <AppText variant="caption" muted style={{ width: sideColumn }}>
-                          {line.side === "left" ? "Left" : "Right"}
-                        </AppText>
-                      )}
+            <Animated.View key={set.id} entering={rise} style={{ gap: spacing.xs + 2 }}>
+              {setLines(set).map((line, lineIndex) => {
+                const label = line.side ? `${prefix} ${line.side}` : prefix;
+                const hint = hints[index]?.[lineIndex];
+                // Last workout's values would fill a field still blank.
+                const fillable = hint !== undefined && withHintValues(set, hint) !== set;
+                return (
+                  <View key={line.side ?? "set"} style={setRow}>
+                    <SetBadge
+                      label={`${line.side ? sideLetter[line.side] : ""}${index + 1}`}
+                      done={!isBlankSet(set)}
+                      fill={
+                        fillable && !busy
+                          ? {
+                              label: `Fill ${label} from last workout`,
+                              onPress: () => onFill(set.id, line.side),
+                            }
+                          : undefined
+                      }
+                    />
+                    <View style={fields}>
                       {mode.columns.map((column) =>
                         running && column.field === "seconds" ? (
                           <ClockFace key={column.field} clock={running} label={prefix} />
@@ -235,7 +255,7 @@ export function ExerciseSetTable({
                             key={column.field}
                             label={`${label} ${column.name}`}
                             value={line.values[column.field] ?? ""}
-                            placeholder={hints[index]?.[lineIndex]?.values[column.field]}
+                            placeholder={hint?.values[column.field]}
                             disabled={busy}
                             onChange={(value) => onChange(set.id, line.side, column.field, value)}
                           />
@@ -257,9 +277,9 @@ export function ExerciseSetTable({
                         />
                       )}
                     </View>
-                  );
-                })}
-              </View>
+                  </View>
+                );
+              })}
             </Animated.View>
           );
         })}

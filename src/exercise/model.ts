@@ -83,7 +83,7 @@ function seconds(value: unknown): number | null {
 /** KineVault catalog IDs and slugs, shared by catalog links and catalog rows. */
 export const catalogIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const catalogSlugPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-export function parseCatalogLink(value: unknown): CatalogLink {
+function parseCatalogLink(value: unknown): CatalogLink {
   const item = record(value);
   if (typeof item.id !== "string" || !catalogIdPattern.test(item.id))
     throw new Error("Invalid catalog link");
@@ -193,6 +193,14 @@ export function parseWorkoutSession(value: unknown): WorkoutSession {
   return { id: id(item.id), date, name, status, startedAt, durationSeconds, exercises };
 }
 export const maxPlannedSets = 100;
+/** New workout templates plan three sets per exercise. */
+export const defaultPlannedSets = 3;
+/** A template's planned sets for an exercise; a legacy template without a count plans none. */
+export function plannedSetCount(workout: Pick<WorkoutTemplate, "setCounts">, exerciseId: string) {
+  return workout.setCounts && Object.hasOwn(workout.setCounts, exerciseId)
+    ? workout.setCounts[exerciseId]!
+    : 0;
+}
 /** A typed planned set count: a whole number from 0 to `maxPlannedSets`, or null. */
 export function parsePlannedSetCount(raw: string): number | null {
   const text = raw.trim();
@@ -328,7 +336,7 @@ function previousSets(
 export type SetHint = SetLine[];
 /**
  * The Previous sets hint for each set of `row`: the matching set from the latest other Completed
- * workout with this exercise on or before `session`'s day, or failing that the set above it.
+ * workout with this exercise on or before `session`'s day; none past that workout's sets.
  */
 export function setHints(
   sessions: readonly WorkoutSession[],
@@ -336,5 +344,5 @@ export function setHints(
   row: SessionExercise,
 ): SetHint[] {
   const previous = previousSets(sessions, session, row.exercise.id);
-  return row.sets.map((set, index) => setHint(set, previous[index] ?? row.sets[index - 1]));
+  return row.sets.map((set, index) => setHint(set, previous[index]));
 }

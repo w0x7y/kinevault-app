@@ -1,6 +1,8 @@
 import type { SaveWorkoutInput } from "./commands.ts";
 import {
+  defaultPlannedSets,
   parsePlannedSetCount,
+  plannedSetCount,
   plannedSetCountMessage,
   type ExerciseDefinition,
   type WorkoutTemplate,
@@ -12,7 +14,7 @@ type TemplateDraftRow = {
   readonly exercise: Readonly<ExerciseDefinition>;
   readonly rawCount: string;
 };
-export type TemplateDraftPreparation =
+type TemplateDraftPreparation =
   { kind: "ready"; input: SaveWorkoutInput } | { kind: "invalid"; message: string };
 
 export type WorkoutTemplateDraft = {
@@ -43,7 +45,7 @@ function draftValue(
     add(exercise) {
       if (selected.some((row) => row.id === exercise.id)) return draft;
       const nextCounts = new Map(rawCounts);
-      if (!nextCounts.has(exercise.id)) nextCounts.set(exercise.id, "3");
+      if (!nextCounts.has(exercise.id)) nextCounts.set(exercise.id, String(defaultPlannedSets));
       return draftValue(id, name, [...selected, { ...exercise }], nextCounts);
     },
     remove: (exerciseId) =>
@@ -97,7 +99,10 @@ function draftValue(
 export function createWorkoutTemplateDraft(workout?: WorkoutTemplate): WorkoutTemplateDraft {
   const selected = (workout?.exercises ?? []).map((exercise) => ({ ...exercise }));
   const rawCounts = new Map(
-    selected.map((exercise) => [exercise.id, String(workout?.setCounts?.[exercise.id] ?? 0)]),
+    selected.map((exercise) => [
+      exercise.id,
+      String(workout ? plannedSetCount(workout, exercise.id) : 0),
+    ]),
   );
   return draftValue(workout?.id, workout?.name ?? "", selected, rawCounts);
 }

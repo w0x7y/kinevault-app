@@ -450,13 +450,12 @@ test("same-day completed logs hint from the first in document order", () => {
   assert.deepEqual(hints(sessions, [blank("x")]), [hint("8", "50")]);
 });
 
-test("a set past the previous sets hints from the set above it; blank values give no hint", () => {
+test("a set past the previous sets has no hint, even below a filled set; blank values give none", () => {
   const sessions = [log("old", "2026-10-03", [lift("a", "8", "")])];
   assert.deepEqual(hints(sessions, [blank("x"), lift("y", "7", ""), blank("z")]), [
     hint("8"),
-    // Falls back to the blank set above.
     hint(),
-    hint("7"),
+    hint(),
   ]);
   assert.deepEqual(hints([], [blank("x")]), [hint()]);
 });

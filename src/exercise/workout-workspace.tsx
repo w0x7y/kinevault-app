@@ -5,6 +5,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { AppButton, ButtonRow, IconButton } from "../components/button";
 import { Chip } from "../components/chip";
 import { useLayoutMotion, useReducedMotion } from "../components/motion";
+import { useSheetControls } from "../components/sheet-page";
 import { AppText, Overline } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
@@ -14,9 +15,10 @@ import type { ExerciseDefinition } from "./model";
 import { exerciseRowLabel, shortExerciseName, type WorkspaceExercise } from "./short-name";
 
 /**
- * A workout's page: its heading, the exercise bar and the exercise on screen. The workspace draws
- * that exercise's heading, notes, demo and Back/Next steps; `children` draws what the caller logs
- * or plans for it.
+ * A workout's page on its sheet: its heading, the exercise bar and the exercise on screen. The
+ * workspace draws that exercise's heading, notes and demo, and pins Back and Next on top of the
+ * main action under the page, where they stay put; `children` draws what the caller logs or
+ * plans for the exercise.
  */
 export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDefinition }>({
   name,
@@ -35,9 +37,12 @@ export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDef
   testID = "active-workout-workspace",
   children,
   feedback,
+  primary,
+  trailing,
   actions,
 }: {
-  name: string;
+  /** The workout's name; none leaves the heading out, as on the live workout. */
+  name?: string;
   /** A small label above the name, e.g. "Saved workout". */
   overline?: string;
   headerActions?: ReactNode;
@@ -51,7 +56,7 @@ export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDef
   onShowNotes: (id: string | null) => void;
   /** "Link demo" under an exercise without one; left out where leaving would lose changes. */
   onLinkDemo?: (definition: ExerciseDefinition) => void;
-  /** Buttons beside the exercise's name, before its notes. */
+  /** Buttons beside the exercise's name, after its notes. */
   exerciseActions?: (row: Row, label: string) => ReactNode;
   /** What shows when there is no exercise. */
   empty: ReactNode;
@@ -60,8 +65,29 @@ export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDef
   /** The exercise's sets or plan, given its row and accessible name. */
   children: (row: Row, label: string) => ReactNode;
   feedback?: ReactNode;
-  actions: ReactNode;
+  /** The main action, pinned under the page with Back and Next on top of it. */
+  primary: ReactNode;
+  /** A control pinned to the header's right, e.g. Discard. */
+  trailing?: ReactNode;
+  /** Controls at the end of the page, e.g. Delete workout. */
+  actions?: ReactNode;
 }) {
+  useSheetControls({
+    trailing,
+    footer: (
+      <View style={{ gap: spacing.sm }}>
+        {selected && (
+          <ExerciseSteps
+            exercises={exercises}
+            selected={selected}
+            onSelect={onSelect}
+            busy={busy}
+          />
+        )}
+        {primary}
+      </View>
+    ),
+  });
   const heading = (
     <View
       testID="workout-workspace-heading"
@@ -85,10 +111,7 @@ export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDef
     </View>
   );
   function renderExercise(row: Row) {
-    const index = exercises.indexOf(row);
-    const label = exerciseRowLabel(exercises, row, index);
-    const previous = exercises[index - 1],
-      next = exercises[index + 1];
+    const label = exerciseRowLabel(exercises, row, exercises.indexOf(row));
     return (
       <View key={row.id} style={{ gap: spacing.layout, minWidth: 0 }}>
         <View
@@ -102,7 +125,6 @@ export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDef
           >
             {row.exercise.name}
           </AppText>
-          {exerciseActions?.(row, label)}
           <IconButton
             appearance="secondary"
             icon="note-sticky"
@@ -111,6 +133,7 @@ export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDef
             disabled={busy}
             onPress={() => onShowNotes(notesId === row.id ? null : row.id)}
           />
+          {exerciseActions?.(row, label)}
         </View>
         {children(row, label)}
         {notesId === row.id && <ExerciseNotes notes={row.exercise.notes} />}
@@ -120,29 +143,12 @@ export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDef
           disabled={busy}
           onLinkDemo={onLinkDemo}
         />
-        <ButtonRow testID="exercise-step-buttons">
-          <AppButton
-            icon="arrow-left"
-            label="Back"
-            accessibilityLabel="Back to previous exercise"
-            disabled={busy || !previous}
-            onPress={() => previous && onSelect(previous.id)}
-          />
-          <AppButton
-            icon="arrow-right"
-            iconAfter
-            label="Next"
-            accessibilityLabel="Next exercise"
-            disabled={busy || !next}
-            onPress={() => next && onSelect(next.id)}
-          />
-        </ButtonRow>
       </View>
     );
   }
   return (
     <View testID={testID} style={{ flexGrow: 1, gap: spacing.layout + 2, minWidth: 0 }}>
-      {heading}
+      {name !== undefined && heading}
       {toolbar}
       <ExerciseBar
         exercises={exercises}
@@ -159,7 +165,43 @@ export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDef
   );
 }
 
-/** Exercise pills in a horizontal scroller, fading out at the edge while more follow. */
+/** Back and Next: the exercise before and after `selected`. */
+function ExerciseSteps<Row extends { id: string }>({
+  exercises,
+  selected,
+  onSelect,
+  busy,
+}: {
+  exercises: readonly Row[];
+  selected: Row;
+  onSelect: (id: string) => void;
+  busy: boolean;
+}) {
+  const index = exercises.indexOf(selected);
+  const previous = exercises[index - 1],
+    next = index < 0 ? undefined : exercises[index + 1];
+  return (
+    <ButtonRow testID="exercise-step-buttons">
+      <AppButton
+        icon="arrow-left"
+        label="Back"
+        accessibilityLabel="Back to previous exercise"
+        disabled={busy || !previous}
+        onPress={() => previous && onSelect(previous.id)}
+      />
+      <AppButton
+        icon="arrow-right"
+        iconAfter
+        label="Next"
+        accessibilityLabel="Next exercise"
+        disabled={busy || !next}
+        onPress={() => next && onSelect(next.id)}
+      />
+    </ButtonRow>
+  );
+}
+
+/** Exercise pills in a horizontal scroller, fading out at either edge while more lie past it. */
 function ExerciseBar({
   exercises,
   selectedId,
@@ -171,14 +213,15 @@ function ExerciseBar({
   onSelect: (id: string) => void;
   busy: boolean;
 }) {
-  const { colors } = useTheme();
   const { fade } = useLayoutMotion();
-  // Scrolling reports ~30 times a second; only the fade's flag re-renders the chips.
+  // Scrolling reports ~30 times a second; only the fades' flags re-render the chips.
   const bar = useRef({ width: 0, contentWidth: 0, offset: 0 });
-  const [more, setMore] = useState(false);
+  const [before, setBefore] = useState(false);
+  const [after, setAfter] = useState(false);
   const measure = (next: Partial<typeof bar.current>) => {
     const { width, contentWidth, offset } = Object.assign(bar.current, next);
-    setMore(contentWidth - width - offset > 4);
+    setBefore(offset > 4);
+    setAfter(contentWidth - width - offset > 4);
   };
   // Back and Next can pick an exercise whose chip sits off screen; bring it into view.
   const reduced = useReducedMotion();
@@ -237,28 +280,44 @@ function ExerciseBar({
           ))}
         </LayoutAnimationConfig>
       </ScrollView>
-      {more && (
-        <View
-          style={{
-            position: "absolute",
-            top: 0,
-            right: 0,
-            bottom: 0,
-            width: 40,
-            pointerEvents: "none",
-          }}
-        >
-          <Svg width="100%" height="100%">
-            <Defs>
-              <LinearGradient id="exercise-bar-fade" x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0" stopColor={colors.card} stopOpacity={0} />
-                <Stop offset="0.75" stopColor={colors.card} stopOpacity={1} />
-              </LinearGradient>
-            </Defs>
-            <Rect width="100%" height="100%" fill="url(#exercise-bar-fade)" />
-          </Svg>
-        </View>
-      )}
+      {before && <EdgeFade side="left" />}
+      {after && <EdgeFade side="right" />}
+    </View>
+  );
+}
+
+/** A card-colored fade over one end of the exercise bar. */
+function EdgeFade({ side }: { side: "left" | "right" }) {
+  const { colors } = useTheme();
+  const id = `exercise-bar-fade-${side}`;
+  return (
+    <View
+      testID={id}
+      style={{
+        position: "absolute",
+        top: 0,
+        bottom: 0,
+        ...(side === "left" ? { left: 0 } : { right: 0 }),
+        width: 40,
+        pointerEvents: "none",
+      }}
+    >
+      <Svg width="100%" height="100%">
+        <Defs>
+          {/* Clear at the chips, solid at the edge. */}
+          <LinearGradient
+            id={id}
+            x1={side === "left" ? "1" : "0"}
+            y1="0"
+            x2={side === "left" ? "0" : "1"}
+            y2="0"
+          >
+            <Stop offset="0" stopColor={colors.card} stopOpacity={0} />
+            <Stop offset="0.75" stopColor={colors.card} stopOpacity={1} />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill={`url(#${id})`} />
+      </Svg>
     </View>
   );
 }

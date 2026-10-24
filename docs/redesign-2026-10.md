@@ -290,9 +290,16 @@ Changes requested after the first review, replacing parts of sections 2–3:
   chips are one size and show the exercise's number above a short name
   (`src/exercise/short-name.ts`: up to three initials, or a single word's
   first three letters, ignoring any parenthetical; full names stay in
-  accessible labels). The set table stacks each set's number over its
-  remove control in every mode, and the weighted modes add an optional RIR
-  column; the armed "Are you sure?" pill overlays the row.
+  accessible labels). The set table starts each line with the set's number
+  (L1 and R1 on a left/right set); the weighted modes add an optional RIR
+  column. A ⋯ button right of the notes opens Add set and Remove set (the
+  last set, after "Are you sure?"). The live workout leaves out the
+  workout's name; Discard, a no-entry icon, sits at the top bar's right;
+  Back and Next sit on End workout, pinned under the page with
+  `useSheetControls` (the saved-workout editor pins them on Save workout).
+  A live workout doesn't offer "Link demo"; logged and manual workouts do.
+  Hints come only from the last completed workout's matching set, and
+  pressing a set's number fills them in.
 - **Buttons:** destructive actions are red text on a soft red fill
   (`colors.dangerSoft`), never bare text; other text-only actions became
   quiet filled or compact pill buttons.

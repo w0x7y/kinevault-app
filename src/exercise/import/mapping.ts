@@ -1,4 +1,6 @@
 import {
+  defaultPlannedSets,
+  maxPlannedSets,
   parseExerciseDefinition,
   type ExerciseDefinition,
   type ExerciseDocument,
@@ -9,9 +11,6 @@ import { prescriptionText, type ImportedWorkoutPlan } from "./plan.ts";
 // These mirror the list limits that parseExerciseDocument enforces.
 export const exerciseLibraryLimit = 10000;
 export const workoutLibraryLimit = 10000;
-// New workout templates plan three sets when the source gives no count.
-const defaultSetCount = 3;
-const maxSetCount = 100;
 
 export type WorkoutImportRow = {
   key: string;
@@ -128,11 +127,11 @@ function prepare(document: ExerciseDocument, plan: ImportedWorkoutPlan) {
   }
   const list = [...entries.values()];
   const sets = (entry: Entry) => {
-    if (entry.knownSets === null) return defaultSetCount;
+    if (entry.knownSets === null) return defaultPlannedSets;
     // A left/right set holds both sides, so it takes two of Tracked's rows.
     const paired =
       entry.rowPerSide && (entry.existing?.tracking ?? entry.draft.tracking) === "sides";
-    return Math.min(maxSetCount, paired ? Math.ceil(entry.knownSets / 2) : entry.knownSets);
+    return Math.min(maxPlannedSets, paired ? Math.ceil(entry.knownSets / 2) : entry.knownSets);
   };
   const replacing = document.workouts.find((workout) => workout.id === templateId) ?? null;
   const newExercises = list.filter((entry) => !entry.existing).length;

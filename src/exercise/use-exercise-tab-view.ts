@@ -1,5 +1,6 @@
 import { useIsFocused } from "expo-router";
 import { useLayoutEffect, useState, useSyncExternalStore } from "react";
+import { Vibration } from "react-native";
 import { workoutImportSources } from "./import/sources";
 import { useExercisePersistence } from "./provider";
 import { createExerciseTabView } from "./tab-view";
@@ -8,7 +9,13 @@ import { createExerciseTabView } from "./tab-view";
 export function useExerciseTabView(date: string) {
   const store = useExercisePersistence();
   const [tab] = useState(() =>
-    createExerciseTabView({ store, date, importSources: workoutImportSources }),
+    createExerciseTabView({
+      store,
+      date,
+      importSources: workoutImportSources,
+      // A countdown that runs out buzzes, whichever page shows.
+      clocks: { onCountdownEnd: () => Vibration.vibrate() },
+    }),
   );
   const view = useSnapshot(tab);
   const focused = useIsFocused();

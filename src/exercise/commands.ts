@@ -6,6 +6,7 @@ import {
   parseSessionExercise,
   parseSetCounts,
   parseWorkoutSession,
+  plannedSetCount,
   resizeSets,
   type ExerciseDefinition,
   type ExerciseDocument,
@@ -195,10 +196,7 @@ export function createExerciseCommands({
         const exercise = {
           ...(document.exercises.find((item) => item.id === retained.id) ?? retained),
         };
-        const count =
-          workout.setCounts && Object.hasOwn(workout.setCounts, retained.id)
-            ? workout.setCounts[retained.id]!
-            : 0;
+        const count = plannedSetCount(workout, retained.id);
         return {
           id: createId(),
           exercise,

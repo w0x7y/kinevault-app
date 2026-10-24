@@ -63,8 +63,8 @@ export function useDeleteConfirmation({
  * failed deletion stays armed under a short alert.
  *
  * `appearance`: `button` is red text on a soft red fill at the regular size, `pill` the same on
- * a 44 pt pill for a row, and `icon` a quiet 44 pt trash icon (named by `label`) whose armed
- * state is the red pill.
+ * a 44 pt pill for a row, and `icon` a quiet 44 pt icon (named by `label`; a trash can unless
+ * `icon` says otherwise) whose armed state is the red pill.
  */
 export function DeleteButton({
   label,
@@ -74,6 +74,7 @@ export function DeleteButton({
   disabled = false,
   appearance = "button",
   icon,
+  iconSize = 18,
   hint,
   fill = false,
   testID,
@@ -84,8 +85,10 @@ export function DeleteButton({
   onDelete: () => void | Promise<unknown>;
   disabled?: boolean;
   appearance?: "button" | "pill" | "icon";
-  /** Shown beside the label until armed. The `icon` appearance always draws the trash can. */
+  /** Shown beside the label until armed; the `icon` appearance's glyph, a trash can by default. */
   icon?: IconName;
+  /** The `icon` appearance's glyph size. */
+  iconSize?: number;
   hint?: string;
   fill?: boolean;
   testID?: string;
@@ -125,7 +128,7 @@ export function DeleteButton({
               Are you sure?
             </AppText>
           ) : (
-            <Icon name="trash-can" size={18} color={colors.mutedForeground} />
+            <Icon name={icon ?? "trash-can"} size={iconSize} color={colors.mutedForeground} />
           )}
         </Tappable>
       ) : (

@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type PropsWithChildren,
   type ReactNode,
   type Ref,
@@ -37,7 +38,7 @@ type SheetPageProps = PropsWithChildren<{
   scrollRef?: Ref<ScrollView>;
 }>;
 type SheetHeader = Required<Pick<SheetPageProps, "title" | "closeLabel" | "closeDisabled">> &
-  Pick<SheetPageProps, "trailing" | "center"> & { onClose: () => void };
+  Pick<SheetPageProps, "trailing" | "center"> & { onClose: () => void; footer?: ReactNode };
 /** Part of the header taken over by a page; deeper claims win. */
 type HeaderClaim = { depth: number; header: Partial<SheetHeader> };
 type SheetHost = {
@@ -99,6 +100,57 @@ export function useSheetBack({
   );
   // The back button belongs to the page that encloses the caller, over that page's own header.
   useHeaderClaim(host, depth + 0.5, header);
+  return host !== null;
+}
+
+type PinnedControls = Pick<SheetHeader, "trailing" | "footer">;
+/** A page's latest pinned controls, which its slots on the sheet follow. */
+function createPinned() {
+  let controls: PinnedControls = {};
+  const listeners = new Set<() => void>();
+  return {
+    get: () => controls,
+    set(next: PinnedControls) {
+      controls = next;
+      for (const listener of listeners) listener();
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+type Pinned = ReturnType<typeof createPinned>;
+function PinnedSlot({ pinned, slot }: { pinned: Pinned; slot: keyof PinnedControls }) {
+  const read = () => pinned.get()[slot];
+  return useSyncExternalStore(pinned.subscribe, read, read);
+}
+
+/**
+ * Pins a page's controls to the open sheet, outside its scrolling body: `trailing` on the
+ * header's right and `footer` along the bottom, so they stay put however long the page is.
+ * Returns whether the caller is on a sheet; off one, the caller draws them itself.
+ */
+export function useSheetControls({ trailing, footer }: PinnedControls) {
+  const host = useContext(SheetHostContext),
+    depth = useContext(SheetDepthContext);
+  // The sheet holds slots that follow the page's latest controls, so a page's every render
+  // redraws only the slots, not the whole sheet.
+  const [pinned] = useState(createPinned);
+  useLayoutEffect(() => pinned.set({ trailing, footer }));
+  const hasTrailing = Boolean(trailing),
+    hasFooter = Boolean(footer);
+  // Only what the page sets, so an unset control keeps the sheet's own.
+  const claim = useMemo(
+    () => ({
+      ...(hasTrailing ? { trailing: <PinnedSlot pinned={pinned} slot="trailing" /> } : {}),
+      ...(hasFooter ? { footer: <PinnedSlot pinned={pinned} slot="footer" /> } : {}),
+    }),
+    [pinned, hasTrailing, hasFooter],
+  );
+  useHeaderClaim(host, depth + 0.5, claim);
   return host !== null;
 }
 
@@ -194,7 +246,9 @@ function SheetFrame({
       );
     },
   }));
-  const { title, onClose, closeLabel, closeDisabled, trailing, center } = [...claims.values()]
+  const { title, onClose, closeLabel, closeDisabled, trailing, center, footer } = [
+    ...claims.values(),
+  ]
     .sort((left, right) => left.depth - right.depth)
     .reduce<SheetHeader>((header, claim) => ({ ...header, ...claim.header }), {
       title: ownTitle,
@@ -269,7 +323,10 @@ function SheetFrame({
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             automaticallyAdjustKeyboardInsets
-            contentContainerStyle={[styles.content, { paddingBottom: spacing.xl + insets.bottom }]}
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: spacing.xl + (footer ? 0 : insets.bottom) },
+            ]}
           >
             {/* Pages measure their scroll targets against this view. */}
             <View
@@ -282,6 +339,18 @@ function SheetFrame({
               <SheetHostContext.Provider value={host}>{children}</SheetHostContext.Provider>
             </View>
           </ScrollView>
+          {footer && (
+            <View
+              testID="sheet-footer"
+              style={{
+                borderTopWidth: StyleSheet.hairlineWidth,
+                borderTopColor: colors.border,
+                paddingBottom: spacing.sm + insets.bottom,
+              }}
+            >
+              <View style={styles.footer}>{footer}</View>
+            </View>
+          )}
         </View>
       </SafeAreaView>
     </Modal>
@@ -325,4 +394,11 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   pages: { flexGrow: 1, gap: spacing.layout },
+  footer: {
+    width: "100%",
+    maxWidth: 768,
+    alignSelf: "center",
+    paddingHorizontal: spacing.gutter,
+    paddingTop: spacing.sm,
+  },
 });

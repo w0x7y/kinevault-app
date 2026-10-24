@@ -332,7 +332,7 @@ test("the live timer sits in the header and restores after reload; the tab shows
   const workout = page.getByTestId("active-workout");
   await workout.getByTestId("active-workout-workspace").waitFor();
   assert.match(await workout.getByTestId("active-workout-timer").innerText(), /2:30/);
-  assert.match(await workout.innerText(), /Active training/);
+  assert.doesNotMatch(await workout.innerText(), /Active training/);
   assert.equal(await workout.getByText("Live workout", { exact: true }).count(), 0);
   // Back leaves the workout running and returns to the live card.
   await button(workout, "Back to Exercise").click();
@@ -455,12 +455,14 @@ test("manual completion saves independent side measurements and bodyweight and s
   });
   await openLoggedWorkout(page, "Strength");
   const editor = page.getByTestId("session-editor");
+  await button(editor, "Sets for Curl").click();
   await button(editor, "Add set to Curl").click();
   await field(editor, "Curl set 1 left reps").fill("8");
   await field(editor, "Curl set 1 left weight (kg)").fill("10");
   await field(editor, "Curl set 1 right reps").fill("6");
   await field(editor, "Curl set 1 right weight (kg)").fill("12");
   await button(editor, "Select exercise Squat").click();
+  await button(editor, "Sets for Squat").click();
   await button(editor, "Add set to Squat").click();
   await field(editor, "Squat set 1 reps").fill("5");
   await field(editor, "Duration in minutes (optional)").fill("10");
@@ -581,6 +583,114 @@ test("the saved workout menu restores manual duration, blocks Start without a na
   assert.ok(completed.sessions[0].durationSeconds < 750);
   assert.equal(completed.sessions[0].name, "Corrected workout");
   assert.equal(completed.sessions[0].exercises[0].sets[0].reps, "5");
+});
+
+test("a live workout hints only last workout's sets, and a set's number fills them in", async (t) => {
+  const last = {
+    id: "last",
+    date: "2026-10-02",
+    name: "Arms",
+    status: "completed",
+    startedAt: null,
+    durationSeconds: 1800,
+    exercises: [
+      {
+        id: "curl-last",
+        exercise: sides,
+        sets: [
+          {
+            id: "a",
+            kind: "sides",
+            left: { reps: "8", weightKg: "10" },
+            right: { reps: "6", weightKg: "12" },
+          },
+        ],
+      },
+    ],
+  };
+  const active = {
+    id: "running",
+    date,
+    name: "Arms again",
+    status: "active",
+    startedAt: time.getTime() - 60000,
+    durationSeconds: null,
+    exercises: [
+      {
+        id: "curl-row",
+        exercise: sides,
+        sets: [
+          {
+            id: "x",
+            kind: "sides",
+            left: { reps: "", weightKg: "" },
+            right: { reps: "", weightKg: "" },
+          },
+          {
+            id: "y",
+            kind: "sides",
+            left: { reps: "9", weightKg: "" },
+            right: { reps: "", weightKg: "" },
+          },
+        ],
+      },
+    ],
+  };
+  const page = await open(t, {
+    document: { ...empty(), exercises: [sides], sessions: [last, active] },
+  });
+  await button(page, "Open live workout").click();
+  const details = page.getByTestId("active-workout").getByTestId("exercise-details");
+  const placeholder = (name) => field(details, name).getAttribute("placeholder");
+  assert.equal(await placeholder("Curl set 1 left reps"), "8");
+  assert.equal(await placeholder("Curl set 1 right weight (kg)"), "12");
+  // Set 2 has no match in the last workout and no longer copies the set above it.
+  assert.equal(await placeholder("Curl set 2 left weight (kg)"), null);
+  assert.equal(await button(details, "Fill Curl set 2 left from last workout").count(), 0);
+  // A typed value stays; the number fills only the blank fields.
+  await field(details, "Curl set 1 left reps").fill("11");
+  await button(details, "Fill Curl set 1 left from last workout").click();
+  assert.equal(await field(details, "Curl set 1 left reps").inputValue(), "11");
+  assert.equal(await field(details, "Curl set 1 left weight (kg)").inputValue(), "10");
+  assert.equal(await field(details, "Curl set 1 right reps").inputValue(), "");
+  await button(details, "Fill Curl set 1 right from last workout").click();
+  assert.equal(await field(details, "Curl set 1 right reps").inputValue(), "6");
+  assert.equal(await button(details, "Fill Curl set 1 right from last workout").count(), 0);
+  await storedWhen(page, (document) => {
+    const set = document.sessions.find((session) => session.id === "running").exercises[0].sets[0];
+    return set.left.reps === "11" && set.left.weightKg === "10" && set.right.weightKg === "12";
+  });
+});
+
+test("a live workout offers no Link demo, and its exercise bar fades at each end with more past it", async (t) => {
+  const active = {
+    id: "running",
+    date,
+    name: "Long workout",
+    status: "active",
+    startedAt: time.getTime() - 90000,
+    durationSeconds: null,
+    exercises: Array.from({ length: 8 }, (_, index) => ({
+      id: `row-${index}`,
+      exercise: single,
+      sets: [],
+    })),
+  };
+  const page = await open(t, { document: { ...empty(), exercises: [single], sessions: [active] } });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await button(page, "Open live workout").click();
+  const live = page.getByTestId("active-workout");
+  await live.getByTestId("active-workout-workspace").waitFor();
+  assert.equal(await live.getByRole("button", { name: /^Link a KineVault demo/ }).count(), 0);
+  const left = live.getByTestId("exercise-bar-fade-left"),
+    right = live.getByTestId("exercise-bar-fade-right");
+  await right.waitFor();
+  assert.equal(await left.count(), 0);
+  await live.getByTestId("exercise-topbar").evaluate((node) => {
+    node.scrollLeft = node.scrollWidth;
+  });
+  await left.waitFor();
+  await right.waitFor({ state: "detached" });
 });
 
 test("failed active completion retains local edits and the running timer, then retry saves the current draft", async (t) => {
@@ -707,6 +817,7 @@ test("a workout menu keeps its captured date when the calendar changes, and logg
   assert.equal(planned.sessions[0].date, date);
   await button(page.getByTestId("planned-workout-card"), "Log completed workout").click();
   const editor = page.getByTestId("session-editor");
+  await button(editor, "Sets for Squat").click();
   await button(editor, "Add set to Squat").click();
   await field(editor, "Squat set 1 reps").fill("1.5");
   await button(editor, "Log completed workout").click();
@@ -1030,19 +1141,19 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
   assert.equal(await compact.count(), 0);
   assert.equal(await live.count(), 1);
   assert.equal(await field(page, "Workout name").count(), 0);
-  assert.equal(await live.getByRole("heading", { name: "Strength day", exact: true }).count(), 1);
+  // The live workout leads with its timer; the workout's name is left out.
+  assert.equal(await live.getByText("Strength day", { exact: true }).count(), 0);
   assert.equal(await button(live, /from workout$/).count(), 0);
   assert.doesNotMatch(
     await workspace.innerText(),
     /2026-10-04|In progress|Blank weight means|Close workout|Live workout/,
   );
-  // The timer is centered in the page's top bar, above the workout's name, without an
-  // "elapsed" caption; the exercise bar has no rules.
+  // The timer is centered in the page's top bar without an "elapsed" caption; the exercise bar
+  // has no rules.
   const timer = live.getByTestId("active-workout-timer");
   const timerBox = await timer.boundingBox();
-  const headingBox = await workspace.getByTestId("workout-workspace-heading").boundingBox();
   assert.ok(Math.abs(timerBox.x + timerBox.width / 2 - 390 / 2) <= 2, "the timer is centered");
-  assert.ok(timerBox.y + timerBox.height <= headingBox.y, "the timer sits above the name");
+  assert.equal(await workspace.getByTestId("workout-workspace-heading").count(), 0);
   assert.match(await timer.innerText(), /\b\d+:\d{2}$/);
   assert.doesNotMatch(await live.innerText(), /elapsed/i);
   const borders = await workspace.getByTestId("exercise-topbar-frame").evaluate((node) => {
@@ -1061,10 +1172,21 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
   assert.equal(await field(details, "Squat set 3 reps").count(), 0);
   await field(details, "Squat set 1 reps").fill("5");
   await field(details, "Squat set 1 weight (kg)").fill("40");
-  // RIR sits beside reps and weight; removing a set asks first and changes only this workout.
+  // RIR sits beside reps and weight. The set menu, right of the notes, adds and removes sets;
+  // removing the last set asks first and changes only this workout.
   await field(details, "Squat set 1 reps in reserve").fill("2");
-  await button(details, "Remove set 2 from Squat").click();
-  await button(details, "Confirm remove set 2 from Squat").click();
+  assert.equal(await button(details, "Remove set 2 from Squat").count(), 0);
+  const menu = button(details, "Sets for Squat");
+  const notesBox = await button(details, "View notes for Squat").boundingBox();
+  assert.ok(
+    (await menu.boundingBox()).x >= notesBox.x + notesBox.width,
+    "menu sits right of notes",
+  );
+  await menu.click();
+  assert.equal(await menu.getAttribute("aria-expanded"), "true");
+  await button(details, "Remove last set from Squat").click();
+  assert.equal(await field(details, "Squat set 2 reps").count(), 1);
+  await button(details, "Confirm remove last set from Squat").click();
   await storedWhen(
     page,
     (document) =>
@@ -1081,6 +1203,9 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
   await button(topbar, "Select exercise Curl").click();
   assert.equal(await field(page, "Squat set 1 reps").count(), 0);
   assert.equal(await field(details, "Curl set 3 left reps").count(), 1);
+  // Left and right lines are badged with their side and set number.
+  await details.getByText("L1", { exact: true }).waitFor();
+  await details.getByText("R3", { exact: true }).waitFor();
   await field(details, "Curl set 1 left reps").fill("8");
   await field(details, "Curl set 1 left weight (kg)").fill("10");
   await field(details, "Curl set 1 right reps").fill("6");
@@ -1090,13 +1215,13 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
     (document) => document.sessions[0].exercises[1].sets[0].right.weightKg === "12",
   );
   // Back and Next step through the exercises and stop at either end.
-  await button(details, "Back to previous exercise").click();
+  await button(live, "Back to previous exercise").click();
   assert.equal(await field(details, "Squat set 1 reps").inputValue(), "5");
-  assert.equal(await button(details, "Back to previous exercise").isDisabled(), true);
-  await button(details, "Next exercise").click();
+  assert.equal(await button(live, "Back to previous exercise").isDisabled(), true);
+  await button(live, "Next exercise").click();
   assert.equal(await field(details, "Curl set 1 right reps").inputValue(), "6");
-  await button(details, "Next exercise").click();
-  assert.equal(await button(details, "Next exercise").isDisabled(), true);
+  await button(live, "Next exercise").click();
+  assert.equal(await button(live, "Next exercise").isDisabled(), true);
   assert.equal(await field(details, "Curl set 1 right reps").count(), 0);
   await page.reload();
   // After a reload the tab shows the live card; it reopens the workout.
@@ -1113,25 +1238,41 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
       const workspace = document.querySelector('[data-testid="active-workout-workspace"]');
       const bar = document.querySelector('[data-testid="exercise-topbar"]');
       const details = document.querySelector('[data-testid="exercise-details"]');
-      const end = workspace?.querySelector('[aria-label="End workout"]');
-      const discard = workspace?.querySelector('[aria-label="Discard workout"]');
-      const actions = workspace?.querySelector('[data-testid="workout-log-actions"]');
+      const footer = document.querySelector('[data-testid="sheet-footer"]');
+      const end = footer?.querySelector('[aria-label="End workout"]');
+      const steps = footer?.querySelector('[data-testid="exercise-step-buttons"]');
+      const timer = document.querySelector('[data-testid="active-workout-timer"]');
+      const discard = document.querySelector('[aria-label="Discard workout"]');
       const exerciseHeading = workspace?.querySelector('[data-testid="exercise-detail-heading"]');
-      if (!workspace || !bar || !details || !end || !discard || !actions || !exerciseHeading)
+      if (
+        !workspace ||
+        !bar ||
+        !details ||
+        !end ||
+        !steps ||
+        !timer ||
+        !discard ||
+        !exerciseHeading
+      )
         return false;
       const endBox = end.getBoundingClientRect(),
-        discardBox = discard.getBoundingClientRect();
+        stepsBox = steps.getBoundingClientRect(),
+        discardBox = discard.getBoundingClientRect(),
+        timerBox = timer.getBoundingClientRect();
       const headingBox = exerciseHeading.getBoundingClientRect();
       const headingButtons = [...exerciseHeading.querySelectorAll('[role="button"]')];
       return (
         bar.getBoundingClientRect().bottom <= details.getBoundingClientRect().top + 1 &&
-        actions.getBoundingClientRect().top >= details.getBoundingClientRect().bottom &&
-        Math.abs(
-          actions.getBoundingClientRect().bottom - workspace.getBoundingClientRect().bottom,
-        ) < 2 &&
-        discardBox.top >= endBox.bottom &&
-        // Discard is a full-width red button under End workout, as wide but never above it.
-        Math.abs(endBox.width - discardBox.width) < 2 &&
+        // Back and Next sit right on End workout, pinned to the bottom of the screen.
+        stepsBox.bottom <= endBox.top &&
+        endBox.top - stepsBox.bottom <= 10 &&
+        Math.abs(footer.getBoundingClientRect().bottom - innerHeight) < 2 &&
+        // Discard is the header's top-right control, level with the timer.
+        discardBox.left >= timerBox.right &&
+        discardBox.right >= endBox.right &&
+        discardBox.top < timerBox.bottom &&
+        discardBox.bottom > timerBox.top &&
+        discardBox.width >= 44 &&
         discardBox.height >= 44 &&
         headingButtons.length === 2 &&
         headingButtons.every((button) => {
@@ -1148,7 +1289,7 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
     if (width === 320) {
       const widths = (locator) =>
         locator.evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().width));
-      // Chips are one size; reps, weight and RIR keep room for "102.5" beside the remove control.
+      // Chips are one size; reps, weight and RIR stay at least 44 pt wide.
       const chips = await widths(topbar.getByRole("button"));
       assert.ok(
         chips.every((chip) => chip >= 72 && Math.abs(chip - chips[0]) < 1),
@@ -1156,7 +1297,7 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
       );
       const inputs = await widths(details.getByRole("textbox"));
       assert.ok(
-        inputs.every((input) => input >= 56),
+        inputs.every((input) => input >= 44),
         `${inputs}`,
       );
     }
@@ -1165,12 +1306,26 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
       false,
     );
   }
-  await button(workspace, "Discard workout").click();
-  const confirm = button(workspace, "Confirm discard workout");
+  // From 360 pt, a common small Android width, "102.5" fits beside the remove control.
+  await page.setViewportSize({ width: 360, height: 844 });
+  const input = details.getByRole("textbox").first();
+  await input.fill("102.5");
+  assert.ok(await input.evaluate((node) => node.scrollWidth <= node.clientWidth));
+  await input.fill("");
+  // The pinned controls stay put while the sets scroll under them.
+  const footer = live.getByTestId("sheet-footer");
+  await page.setViewportSize({ width: 390, height: 560 });
+  const pinnedTop = (await footer.boundingBox()).y;
+  await details.hover();
+  await page.mouse.wheel(0, 600);
+  await page.waitForTimeout(100);
+  assert.equal((await footer.boundingBox()).y, pinnedTop);
+  await button(live, "Discard workout").click();
+  const confirm = button(live, "Confirm discard workout");
   assert.equal(await confirm.innerText(), "Are you sure?");
   assert.equal((await documentFrom(page)).sessions[0].status, "active");
   await confirm.blur();
-  await button(workspace, "End workout").click();
+  await button(live, "End workout").click();
   const document = await storedWhen(
     page,
     (document) => document.sessions[0].status === "completed",
@@ -1303,17 +1458,25 @@ test("saved workout editing uses the exercise bar and preserves settings through
       const frame = document.querySelector(
         '[data-testid="template-workout-workspace"] [data-testid="exercise-topbar-frame"]',
       );
-      const actions = document.querySelector('[data-testid="workout-template-actions"]');
-      if (!frame || !actions) return false;
+      // Back and Next sit on Save workout, pinned to the bottom of the screen; Delete workout
+      // stays at the end of the page.
+      const footer = document.querySelector('[data-testid="sheet-footer"]');
+      const steps = footer?.querySelector('[data-testid="exercise-step-buttons"]');
+      const save = footer?.querySelector('[aria-label="Save workout"]');
+      const remove = document.querySelector('[aria-label="Delete workout"]');
+      if (!frame || !steps || !save || !remove || footer.contains(remove)) return false;
       const style = getComputedStyle(frame),
-        buttons = actions.querySelectorAll('[role="button"]');
-      if (buttons.length !== 2) return false;
-      const [left, right] = [...buttons].map((node) => node.getBoundingClientRect());
+        [back, next] = [...steps.querySelectorAll('[role="button"]')].map((node) =>
+          node.getBoundingClientRect(),
+        ),
+        saveBox = save.getBoundingClientRect();
       return (
         parseFloat(style.borderTopWidth) === 0 &&
         parseFloat(style.borderBottomWidth) === 0 &&
-        Math.abs(left.width - right.width) < 2 &&
-        Math.abs(left.height - right.height) < 2
+        Math.abs(back.width - next.width) < 2 &&
+        back.bottom <= saveBox.top &&
+        saveBox.top - back.bottom <= 10 &&
+        Math.abs(footer.getBoundingClientRect().bottom - innerHeight) < 2
       );
     });
     assert.equal(
@@ -1394,9 +1557,10 @@ test("completed workout editing shares the layout and keeps side edits local unt
   assert.equal(await field(editor, "Workout name").count(), 0);
   assert.equal(await button(editor, "Close workout").count(), 0);
   assert.equal(await button(editor, "Link a KineVault demo to Squat").count(), 1);
-  assert.equal(await button(editor, "Add set to Squat").count(), 1);
+  assert.equal(await button(editor, "Sets for Squat").count(), 1);
   await button(editor, "Select exercise Curl").click();
   await field(editor, "Curl set 1 right reps").fill("9");
+  await button(editor, "Sets for Curl").click();
   await button(editor, "Add set to Curl").click();
   await button(editor, "Select exercise Squat").click();
   await field(editor, "Squat set 1 reps").fill("7");

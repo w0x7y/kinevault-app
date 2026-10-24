@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { Vibration, View } from "react-native";
+import { View } from "react-native";
 import { AppText, Overline, Panel } from "../components/ui";
 import { ButtonRow, AppButton, IconButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
@@ -32,7 +31,8 @@ export function SessionEditor({
     selected,
     hints,
     notesId,
-    clock,
+    setMenuId,
+    shownClock,
     durationCaption,
     settingsOpen,
     detailsOpen,
@@ -44,38 +44,49 @@ export function SessionEditor({
     discard,
     start,
     details,
+    showName,
+    linkDemo,
     retry,
     overline,
     testID,
   } = useSnapshot(edit);
-  // While a set clock runs the editor redraws it, and a countdown that runs out logs its time
-  // and buzzes, whichever exercise shows.
-  const [, redraw] = useState(0);
-  useEffect(() => {
-    if (!clock) return;
-    const timer = setInterval(() => {
-      if (edit.tickClock()) Vibration.vibrate();
-      redraw((count) => count + 1);
-    }, 250);
-    return () => clearInterval(timer);
-  }, [clock, edit]);
   // In a sheet, its back button is this workout's Cancel. The Active workout keeps running.
   const inSheet = useSheetBack({ onPress: () => void edit.run(back), disabled: busy });
   function renderSets(row: SessionExercise, rowLabel: string) {
     return (
-      <ExerciseSetTable
-        tracking={row.exercise.tracking}
-        sets={row.sets}
-        hints={hints}
-        rowLabel={rowLabel}
-        busy={busy}
-        clock={edit.shownClock(row.id)}
-        onChange={(setId, side, field, value) =>
-          edit.change({ kind: "set", rowId: row.id, setId, side, field, value })
-        }
-        onClock={(setId) => edit.toggleClock(row.id, setId)}
-        onRemove={(setId) => edit.change({ kind: "remove-set", rowId: row.id, setId })}
-      />
+      <>
+        {setMenuId === row.id && (
+          <ButtonRow testID="set-menu">
+            <AppButton
+              icon="plus"
+              label="Add set"
+              accessibilityLabel={`Add set to ${rowLabel}`}
+              disabled={busy}
+              onPress={() => edit.change({ kind: "add-set", rowId: row.id })}
+            />
+            <DeleteButton
+              label="Remove set"
+              accessibilityLabel={`Remove last set from ${rowLabel}`}
+              confirmAccessibilityLabel={`Confirm remove last set from ${rowLabel}`}
+              disabled={busy || !row.sets.length}
+              onDelete={() => edit.change({ kind: "remove-set", rowId: row.id })}
+            />
+          </ButtonRow>
+        )}
+        <ExerciseSetTable
+          tracking={row.exercise.tracking}
+          sets={row.sets}
+          hints={hints}
+          rowLabel={rowLabel}
+          busy={busy}
+          clock={shownClock?.rowId === row.id ? shownClock : null}
+          onChange={(setId, side, field, value) =>
+            edit.change({ kind: "set", rowId: row.id, setId, side, field, value })
+          }
+          onFill={(setId, side) => edit.change({ kind: "fill", rowId: row.id, setId, side })}
+          onClock={(setId) => edit.toggleClock(row.id, setId)}
+        />
+      </>
     );
   }
   const feedback = (
@@ -140,24 +151,17 @@ export function SessionEditor({
       )}
     </>
   );
-  // The main action leads; discarding sits under it in red, so it is never the first tap.
-  const actions = (
-    <View testID="workout-log-actions" style={{ gap: spacing.sm, marginTop: "auto" }}>
-      <AppButton
-        label={primaryLabel}
-        onPress={() => void edit.run(primary)}
-        tone="primary"
-        disabled={busy}
-      />
-      {discard && (
-        <DeleteButton
-          label="Discard workout"
-          confirmAccessibilityLabel="Confirm discard workout"
-          onDelete={() => edit.run("discard")}
-          disabled={busy}
-        />
-      )}
-    </View>
+  // Discarding sits apart from the main action, at the top right, so it is never the next tap.
+  const discardButton = discard && (
+    <DeleteButton
+      appearance="icon"
+      icon="ban"
+      iconSize={26}
+      label="Discard workout"
+      confirmAccessibilityLabel="Confirm discard workout"
+      onDelete={() => edit.run("discard")}
+      disabled={busy}
+    />
   );
   const plannedHeading = (
     <View style={{ gap: 2 }}>
@@ -245,7 +249,7 @@ export function SessionEditor({
         </View>
       ) : (
         <WorkoutWorkspace
-          name={draft.name}
+          name={showName ? draft.name : undefined}
           overline={overline}
           testID={testID}
           headerActions={headerActions}
@@ -255,20 +259,29 @@ export function SessionEditor({
           onSelect={edit.select}
           notesId={notesId}
           onShowNotes={edit.showNotes}
-          onLinkDemo={(definition) => void edit.linkDemo(definition)}
+          onLinkDemo={linkDemo ? (definition) => void edit.linkDemo(definition) : undefined}
           exerciseActions={(row, rowLabel) => (
             <IconButton
               appearance="secondary"
-              icon="plus"
-              label={`Add set to ${rowLabel}`}
+              icon="ellipsis"
+              label={`Sets for ${rowLabel}`}
+              expanded={setMenuId === row.id}
               disabled={busy}
-              onPress={() => edit.change({ kind: "add-set", rowId: row.id })}
+              onPress={() => edit.showSetMenu(setMenuId === row.id ? null : row.id)}
             />
           )}
           empty={<AppText muted>This workout has no exercises.</AppText>}
           busy={busy}
           feedback={feedback}
-          actions={actions}
+          primary={
+            <AppButton
+              label={primaryLabel}
+              onPress={() => void edit.run(primary)}
+              tone="primary"
+              disabled={busy}
+            />
+          }
+          trailing={discardButton}
         >
           {renderSets}
         </WorkoutWorkspace>

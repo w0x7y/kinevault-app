@@ -104,6 +104,8 @@ const outline: Partial<Record<IconName, keyof typeof ionGlyphMap>> = {
   rotate: "sync-outline",
   "user-xmark": "person-remove-outline",
   "arrow-up": "arrow-up",
+  ban: "ban-outline",
+  ellipsis: "ellipsis-horizontal",
   "arrow-down": "arrow-down",
   "circle-check": "checkmark-circle-outline",
   "circle-info": "information-circle-outline",

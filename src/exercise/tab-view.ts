@@ -225,7 +225,7 @@ export type ExerciseTabPage =
   | { kind: "session"; edit: WorkoutEdit | null };
 
 /** A Workout log card on the tab with the edit that renders it. */
-export type ExerciseTabCard = { session: WorkoutSession; edit: WorkoutEdit };
+type ExerciseTabCard = { session: WorkoutSession; edit: WorkoutEdit };
 type ExerciseTabSnapshot = Readonly<
   Omit<ExerciseTabProjection, "sheet" | "plannedCards" | "inline"> & {
     plannedCards: readonly ExerciseTabCard[];
@@ -252,13 +252,13 @@ export function createExerciseTabView({
   store,
   date,
   importSources,
-  now,
+  clocks,
 }: {
   store: Store;
   date: string;
   importSources: readonly WorkoutImportFlowSource[];
-  /** The time set clocks read; the device clock by default. */
-  now?: () => number;
+  /** What set clocks read and how they tick; the device's by default. */
+  clocks?: Parameters<typeof createWorkoutEditing>[3];
 }) {
   const listeners = new Set<() => void>();
   let panel: WorkoutPanel | null = null;
@@ -378,7 +378,7 @@ export function createExerciseTabView({
   };
   // Library drafts subscribe first, so a replaced panel's draft retires before the screen renders.
   const drafts = createLibraryDrafts({ store, panels, importSources });
-  const edits = createWorkoutEditing(store, panels, requestView, now);
+  const edits = createWorkoutEditing(store, panels, requestView, clocks);
   let snapshot = build();
 
   /** Opens `content` once the logs it leaves are saved; only the latest request opens. */
@@ -433,6 +433,7 @@ export function createExerciseTabView({
       attached = true;
       unfollow = store.subscribe(refresh);
       refresh();
+      edits.start();
     },
     /** Leaving rejects pending navigation and late panel changes from before. */
     stop() {
@@ -441,6 +442,7 @@ export function createExerciseTabView({
       ++request;
       unfollow?.();
       unfollow = undefined;
+      edits.stop();
     },
     /** `?workoutMenu=<day>`: Saved workouts for that day. A malformed day does nothing. */
     openWorkoutMenu(date: string) {
@@ -465,4 +467,3 @@ export function createExerciseTabView({
     },
   };
 }
-export type ExerciseTabView = ReturnType<typeof createExerciseTabView>;

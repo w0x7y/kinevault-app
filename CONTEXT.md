@@ -140,7 +140,8 @@ is a stopwatch; started on a set with 1 to 86,400 whole seconds it counts down f
 them (any other entry also runs a stopwatch). Stopping logs
 the seconds it ran, and a countdown that runs out logs its seconds. One clock runs at a
 time: starting another logs the first. It keeps running while another exercise shows
-or the workout's page is away, and Save, Log, End and Cancel log it first. It is not
+or the workout's page is away (a countdown that runs out still logs and buzzes), and
+Save, Log, End and Cancel log it first. It is not
 saved, so closing the app loses it.
 
 **Workout template**: A named, ordered exercise list with optional planned set
@@ -207,8 +208,9 @@ and duration under Details.
 
 **Previous sets**: The sets of the latest Completed workout, on or before the
 log's date, that includes the same Exercise definition. A blank set field shows
-the matching previous set's value (reps, kilograms, RIR or seconds) as a hint, or failing that the set
-above it. Hints are never saved as entered values.
+the matching previous set's value (reps, kilograms, RIR or seconds) as a hint; a set
+past the previous ones shows none. Hints are never saved as entered values unless the
+set's number is pressed, which copies its line's hints into the blank fields.
 
 **Exercise snapshot**: The exercise definition retained in a template or log.
 Historical logs survive changes or deletion of their library sources.

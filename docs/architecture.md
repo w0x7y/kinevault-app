@@ -185,7 +185,7 @@ the same log mode drives planned-count validation. The edit's snapshot carries t
 mode and the controls it allows from one table, `workoutLogControls`: whether Back
 leaves or cancels and its name, the main action (Save, complete, or on a compact card
 `manual`, which opens the manual page) and its label, Discard, Start,
-Details, Retry and the overline; the compact card and the editor render them. The tab
+Details, the workout's name, Link demo, Retry and the overline; the compact card and the editor render them. The tab
 view keeps each log page's sheet title and test ID. The snapshot also resolves the row on screen, its
 Previous sets hints and the duration caption. The tab passes its view request in when it
 creates the edits, so an edit opens its own manual page and its "Link demo" trip, which
@@ -202,18 +202,19 @@ which seconds a Timed set's clock counts down from (`timedSeconds`).
 The set table renders a mode's columns and sends the edit field changes and set
 removals, never a set of its own; removing a set changes this log only, and Workout
 templates keep their planned counts. A set's `kind` is its exercise's mode, so the exercise model only checks
-that they match. Workout edits also own the Set clock, reading the time they're given
-(`now`), so the clock survives the table unmounting; `shownClock` gives a row's running
-clock as its set shows it, and the session editor ticks it, which logs a countdown that
-ran out and buzzes. The tab view hands every Workout log it shows its edit, compact cards
+that they match. Workout edits also own the Set clock and its ticker, reading the time and
+timer they're given (`clocks`), so the clock survives the table unmounting: the ticker runs
+while a clock does and the tab is attached, moves the snapshot's `shownClock` on each second
+and logs a countdown that ran out, which buzzes (`onCountdownEnd`). The tab view hands every Workout log it shows its edit, compact cards
 included; an edit keeps one handle per origin, so a card's effects don't restart on each
 publish. The edit's snapshot leaves out the saved log and the selected row ID it keeps
 inside.
 `short-name.ts` owns both row labels: the accessible "Squat exercise 2" and the chip label
 (at most three characters; the bar shows the row's number above it). `WorkoutWorkspace` is
 the page of a Workout edit and a Workout template draft alike: the exercise bar and, for the
-row on screen, its heading, notes toggle, notes, demo and Back/Next steps; the caller draws
-only the row's sets or planned count. Library drafts own Exercise
+row on screen, its heading, notes toggle, notes and demo. It pins Back and Next on top of the
+caller's main action under the sheet's page, and the caller's `trailing` control to the
+header's right (`useSheetControls`); the caller draws the row's sets or planned count. Library drafts own Exercise
 definition (including its KineVault search, where linking or unlinking a demo changes the
 fields and the search in one step), Workout template (including its selected
 exercise, builder disclosure, search and its results, result limit and open notes), Saved workouts and

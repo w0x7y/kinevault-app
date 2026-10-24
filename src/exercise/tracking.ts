@@ -125,6 +125,17 @@ export function withSetValue(
   return side === null ? set : { ...set, [side]: { ...set[side], [field]: value } };
 }
 /**
+ * `set` with `hint`'s values in the blank fields of the hint's line; entered values stay. The same
+ * set comes back when there is nothing to fill.
+ */
+export function withHintValues(set: ExerciseSet, hint: SetLine): ExerciseSet {
+  const line = setLines(set).find((value) => value.side === hint.side);
+  let next = set;
+  for (const [field, value] of Object.entries(hint.values) as [SetField, string | undefined][])
+    if (value && !line?.values[field]?.trim()) next = withSetValue(next, hint.side, field, value);
+  return next;
+}
+/**
  * The Previous sets hint for `set` from `source`, line by line. A one-line source fills both
  * sides; a left/right source gives its left side to a one-line set; values the set doesn't hold
  * are dropped.
@@ -136,7 +147,9 @@ export function setHint(set: ExerciseSet, source: ExerciseSet | undefined): SetL
     const line = from.find((value) => value.side === (side ?? "left")) ?? from[0];
     return {
       side,
-      values: Object.fromEntries(fields.map((field) => [field, line?.values[field] || undefined])),
+      values: Object.fromEntries(
+        fields.map((field) => [field, line?.values[field]?.trim() || undefined]),
+      ),
     };
   });
 }
@@ -164,7 +177,7 @@ function measurement(value: SetSide, zeroAllowed: boolean) {
     throw new Error("Enter reps in reserve as a whole number from 0 to 10, or leave it blank.");
   return { reps, weightKg: decimal(value.weightKg, 0) };
 }
-export type SetMeasurements = {
+type SetMeasurements = {
   /** Every repetition, both sides counted: an alternating set of 10 reps per side is 20. */
   reps: number;
   /** Kilograms times repetitions. */
