@@ -1,7 +1,10 @@
 import {
   activeWorkout,
+  defaultPlannedSets,
   durationFromMinutes,
+  exerciseResultPage,
   formatElapsed,
+  matchingExercises,
   minutesText,
   parsePlannedSetCount,
   plannedSetCountMessage,
@@ -24,6 +27,7 @@ import {
   type SetLine,
 } from "./tracking.ts";
 import { writeFailure, type createExercisePersistence, type ExerciseWrite } from "./persistence.ts";
+import { exerciseRowLabel } from "./short-name.ts";
 import type { ExercisePanels, WorkoutView } from "./tab-view.ts";
 
 /**
@@ -66,8 +70,15 @@ type WorkoutEditState = {
   detailsOpen: boolean;
   /** The exercise row whose notes show. */
   notesId: string | null;
-  /** The exercise row whose set menu (Add set, Remove set) shows. */
-  setMenuId: string | null;
+  /**
+   * Edit mode: each set gets add and remove buttons, and the exercise bar removes, reorders and
+   * adds exercises.
+   */
+  editing: boolean;
+  /** Edit mode's open Add exercise: its library search and how many results show. */
+  adding: { query: string; limit: number } | null;
+  /** The exercise row whose removal awaits confirmation. */
+  removingId: string | null;
   /** The running set clock; it keeps running while another exercise shows or the page is away. */
   clock: SetClock | null;
   /** When the shown clock was read; the ticker moves it on each second. */
@@ -81,11 +92,22 @@ type Change =
   | { kind: "name"; value: string }
   | { kind: "minutes"; value: string }
   | { kind: "count"; rowId: string; value: string }
+  /** Appends an exercise to this log only, with the default planned sets, and shows it. */
+  | { kind: "add-exercise"; exercise: ExerciseDefinition }
+  /** Removes an exercise row from this log only; templates and the library keep it. */
+  | { kind: "remove-exercise"; rowId: string }
+  | { kind: "move-exercise"; rowId: string; to: number }
+  /** An exercise's notes, in every row of it; the save command also gives them to the library. */
+  | { kind: "notes"; rowId: string; value: string }
   | SetChange;
 type SetChange =
-  | { kind: "add-set"; rowId: string }
-  /** Removes the row's last set from this log only; workout templates keep their planned counts. */
-  | { kind: "remove-set"; rowId: string }
+  /** Adds an empty set after `afterId`, or at the end. */
+  | { kind: "add-set"; rowId: string; afterId?: string }
+  /**
+   * Removes set `setId`, or the row's last set, from this log only; workout templates keep their
+   * planned counts.
+   */
+  | { kind: "remove-set"; rowId: string; setId?: string }
   /** Copies a set line's Previous sets hint into its blank fields (pressing the set's number). */
   | { kind: "fill"; rowId: string; setId: string; side: SetLine["side"] }
   | {
@@ -207,6 +229,13 @@ type WorkoutEditSnapshot = Readonly<
       durationCaption: string;
       /** The running clock as of `clockReadAt`. */
       shownClock: ShownClock | null;
+      /**
+       * Add exercise's results: the library's matches for its search, or the whole library
+       * before one, a page at a time.
+       */
+      addResults: { items: readonly ExerciseDefinition[]; more: boolean } | null;
+      /** The row awaiting removal, its name and the confirmation's question. */
+      removing: { id: string; label: string; question: string } | null;
     }
 >;
 type Entry = {
@@ -235,8 +264,8 @@ function durationCaption(minutes: string) {
   if (seconds === undefined) return "Invalid duration";
   return seconds === null ? "Duration not set" : formatElapsed(seconds);
 }
-function localId() {
-  return `set-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+function localId(kind = "set") {
+  return `${kind}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 function countProblem(row: SessionExercise, raw: string): string | null {
   const count = parsePlannedSetCount(raw);
@@ -251,6 +280,26 @@ function countProblem(row: SessionExercise, raw: string): string | null {
 export function workoutLogMode(session: WorkoutSession, view?: WorkoutView | null): WorkoutLogMode {
   if (session.status !== "planned") return session.status;
   return view?.kind === "session" && view.id === session.id && view.manual ? "manual" : "compact";
+}
+
+function addResults(
+  library: readonly ExerciseDefinition[],
+  { query, limit }: { query: string; limit: number },
+) {
+  const matches = query.trim() ? matchingExercises(library, query) : library;
+  return { items: matches.slice(0, limit), more: matches.length > limit };
+}
+
+function removal(exercises: readonly SessionExercise[], id: string | null) {
+  const row = exercises.find((value) => value.id === id);
+  if (!row) return null;
+  const label = exerciseRowLabel(exercises, row);
+  const logged = row.sets.some((set) => !isBlankSet(set));
+  return {
+    id: row.id,
+    label,
+    question: `Remove ${label} from this workout only? Your library and saved workouts keep it.${logged ? " The sets you entered go with it." : ""}`,
+  };
 }
 
 function plannedCountError(fields: WorkoutFields, counts: Record<string, string>) {
@@ -361,6 +410,8 @@ export function createWorkoutEditing(
         seconds: clock.target === null ? seconds! : clock.target - seconds!,
         countdown: clock.target !== null,
       },
+      addResults: state.adding && addResults(document()?.exercises ?? [], state.adding),
+      removing: removal(exercises, state.removingId),
     };
     entry.view = { state, snapshot };
     return snapshot;
@@ -411,7 +462,9 @@ export function createWorkoutEditing(
           settingsOpen: false,
           detailsOpen: false,
           notesId: null,
-          setMenuId: null,
+          editing: false,
+          adding: null,
+          removingId: null,
           clock: null,
           clockReadAt: 0,
         },
@@ -538,10 +591,22 @@ export function createWorkoutEditing(
     /** A row's sets after a set change; the same array when nothing changes. */
     function changedSets(row: SessionExercise, input: SetChange): ExerciseSet[] {
       switch (input.kind) {
-        case "add-set":
-          return [...row.sets, createEmptySet(row.exercise.tracking, localId())];
-        case "remove-set":
-          return row.sets.length ? row.sets.slice(0, -1) : row.sets;
+        case "add-set": {
+          const at =
+            input.afterId === undefined
+              ? row.sets.length
+              : row.sets.findIndex((set) => set.id === input.afterId) + 1;
+          if (at === 0 && input.afterId !== undefined) return row.sets;
+          const added = createEmptySet(row.exercise.tracking, localId());
+          return [...row.sets.slice(0, at), added, ...row.sets.slice(at)];
+        }
+        case "remove-set": {
+          const removed =
+            input.setId === undefined
+              ? row.sets.at(-1)
+              : row.sets.find((set) => set.id === input.setId);
+          return removed ? row.sets.filter((set) => set !== removed) : row.sets;
+        }
         case "fill": {
           const index = row.sets.findIndex((set) => set.id === input.setId);
           const hint = setHints(document()?.sessions ?? [], entry.state.session, row)[index]?.find(
@@ -564,7 +629,7 @@ export function createWorkoutEditing(
       let fields = entry.state.fields,
         counts = entry.state.counts;
       let resizeBlocked = false,
-        removed: string | undefined;
+        { selectedId, adding, removingId } = entry.state;
       if (input.kind === "name" || input.kind === "minutes")
         fields = { ...fields, [input.kind]: input.value };
       else if (input.kind === "count") {
@@ -586,6 +651,48 @@ export function createWorkoutEditing(
             ),
           };
         }
+      } else if (input.kind === "add-exercise") {
+        const { tracking } = input.exercise;
+        const row = {
+          id: localId("row"),
+          exercise: { ...input.exercise },
+          sets: resizeSets([], tracking, defaultPlannedSets, localId),
+        };
+        fields = { ...fields, exercises: [...fields.exercises, row] };
+        counts = { ...counts, [row.id]: String(row.sets.length) };
+        selectedId = row.id;
+        adding = null;
+      } else if (input.kind === "remove-exercise") {
+        const exercises = fields.exercises.filter((value) => value.id !== input.rowId);
+        if (exercises.length === fields.exercises.length) return;
+        fields = { ...fields, exercises };
+        removingId = null;
+      } else if (input.kind === "notes") {
+        const row = fields.exercises.find((value) => value.id === input.rowId);
+        if (!row || row.exercise.notes === input.value) return;
+        const exerciseId = row.exercise.id;
+        fields = {
+          ...fields,
+          exercises: fields.exercises.map((value) =>
+            value.exercise.id === exerciseId
+              ? { ...value, exercise: { ...value.exercise, notes: input.value } }
+              : value,
+          ),
+        };
+      } else if (input.kind === "move-exercise") {
+        const row = fields.exercises.find((value) => value.id === input.rowId);
+        const exercises = fields.exercises.filter((value) => value !== row);
+        if (
+          !row ||
+          fields.exercises[input.to] === row ||
+          !(input.to >= 0 && input.to <= exercises.length)
+        )
+          return;
+        exercises.splice(input.to, 0, row);
+        // The exercise on screen stays on screen, even when it was only shown for being first.
+        selectedId = (fields.exercises.find((value) => value.id === selectedId) ??
+          fields.exercises[0])!.id;
+        fields = { ...fields, exercises };
       } else {
         const row = fields.exercises.find((value) => value.id === input.rowId);
         if (!row) return;
@@ -593,7 +700,6 @@ export function createWorkoutEditing(
         if (sets === row.sets) return;
         if (input.kind !== "set" && input.kind !== "fill" && !countProblem(row, counts[row.id]!))
           counts = { ...counts, [row.id]: String(sets.length) };
-        if (input.kind === "remove-set") removed = row.sets.at(-1)!.id;
         fields = {
           ...fields,
           exercises: fields.exercises.map((value) => (value === row ? { ...row, sets } : value)),
@@ -601,11 +707,22 @@ export function createWorkoutEditing(
       }
       const countError =
         entry.state.session.status === "planned" ? plannedCountError(fields, counts) : null;
-      // A removed set's running clock goes with it.
-      const clock = removed && entry.state.clock?.setId === removed ? null : entry.state.clock;
+      // A removed set's running clock, or its exercise's, goes with it.
+      let clock = entry.state.clock;
+      const timed = clock && fields.exercises.find((row) => row.id === clock!.rowId);
+      if (!timed?.sets.some((set) => set.id === clock!.setId)) clock = null;
       const revision = ++entry.revision;
       // Commit state and enqueue (or queue) this captured revision before observers can enter a newer change.
-      entry.state = { ...entry.state, fields, counts, countError, clock };
+      entry.state = {
+        ...entry.state,
+        fields,
+        counts,
+        countError,
+        clock,
+        selectedId,
+        adding,
+        removingId,
+      };
       if (entry.state.session.status !== "completed" && !resizeBlocked)
         autosave(id, entry, fields, revision);
       emit();
@@ -716,10 +833,42 @@ export function createWorkoutEditing(
       showNotes(rowId: string | null) {
         if (current(id, entry) && entry.state.notesId !== rowId) publish(entry, { notesId: rowId });
       },
-      /** Shows a row's set menu, or none. */
-      showSetMenu(rowId: string | null) {
-        if (current(id, entry) && entry.state.setMenuId !== rowId)
-          publish(entry, { setMenuId: rowId });
+      /** Turns edit mode on or off. */
+      setEditing(on: boolean) {
+        if (current(id, entry) && entry.state.editing !== on) publish(entry, { editing: on });
+      },
+      /** Opens Add exercise on a blank search, or closes it. */
+      showAddExercise(open: boolean) {
+        if (current(id, entry))
+          publish(entry, { adding: open ? { query: "", limit: exerciseResultPage } : null });
+      },
+      /** Add exercise's search; a new search starts on its first page. */
+      searchLibrary(query: string) {
+        if (current(id, entry) && entry.state.adding)
+          publish(entry, { adding: { query, limit: exerciseResultPage } });
+      },
+      showMoreExercises() {
+        const adding = entry.state.adding;
+        if (current(id, entry) && adding)
+          publish(entry, { adding: { ...adding, limit: adding.limit + exerciseResultPage } });
+      },
+      /** Asks to confirm removing a row from this workout, or drops the question. */
+      askRemove(rowId: string | null) {
+        if (current(id, entry) && entry.state.removingId !== rowId)
+          publish(entry, { removingId: rowId });
+      },
+      /**
+       * Opens a new exercise's form. Saving it returns here and adds the exercise to this workout;
+       * Cancel just returns.
+       */
+      createExercise() {
+        if (!current(id, entry)) return Promise.resolve(false);
+        publish(entry, { adding: null });
+        return requestView({
+          kind: "exercise",
+          addToWorkout: true,
+          returnTo: { kind: "session", id, manual: modeOf(entry) === "manual" },
+        });
       },
       /**
        * Opens the exercise's form at its KineVault search; its Save or Cancel returns here. Only
@@ -742,6 +891,12 @@ export function createWorkoutEditing(
     refreshDocument,
     edit,
     depart,
+    /** Adds library exercise `exerciseId` to workout log `id`; nothing when either is gone. */
+    addExercise(id: string, exerciseId: string) {
+      const exercise = document()?.exercises.find((value) => value.id === exerciseId);
+      if (exercise && document()?.sessions.some((session) => session.id === id))
+        edit(id).change({ kind: "add-exercise", exercise });
+    },
     /** Set clocks tick while the tab is attached. */
     start() {
       ticking = true;

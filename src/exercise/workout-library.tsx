@@ -4,7 +4,6 @@ import { AppText, Overline, Panel } from "../components/ui";
 import { fonts, spacing } from "../theme/tokens";
 import { shortDayLabel } from "../calendar/dates";
 import type { WorkoutTemplate } from "./model";
-import { useExercises } from "./provider";
 import { AppButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
 import { InlineMessage } from "../components/inline-message";
@@ -25,13 +24,7 @@ export function WorkoutLibrary({
   onEdit: (workout: WorkoutTemplate) => void;
   onOpen: (id: string) => void;
 }) {
-  const store = useExercises();
-  const workouts = store.state.kind === "ready" ? store.state.document.workouts : [];
-  const records =
-    store.state.kind === "ready"
-      ? store.state.document.sessions.filter((workout) => workout.date === date)
-      : [];
-  const { busy, error } = useSnapshot(actions);
+  const { busy, error, workouts, logs: records } = useSnapshot(actions);
   // The sheet's back button closes the menu, except while a change is saving.
   useSheetBack({ disabled: busy });
   return (

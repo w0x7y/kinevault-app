@@ -68,8 +68,9 @@ async function fixture(
   status: WorkoutSession["status"] = "completed",
   sessions = [session(status)],
   workouts: ExerciseDocument["workouts"] = [],
+  exercises: ExerciseDocument["exercises"] = [exercise],
 ) {
-  const document: ExerciseDocument = { version: 1, exercises: [exercise], workouts, sessions };
+  const document: ExerciseDocument = { version: 1, exercises, workouts, sessions };
   let raw = JSON.stringify(document);
   const storage = {
     async getItem(key: string) {
@@ -453,12 +454,222 @@ test("pressing a set's number fills its blank fields from Previous sets in one c
   );
 });
 
-test("an open set menu belongs to the edit, so a remounted editor keeps it", async () => {
+test("edit mode belongs to the edit, so a remounted editor keeps it", async () => {
   const f = await fixture("active");
-  f.editing.edit("log").showSetMenu("row");
-  assert.equal(f.editing.edit("log").getSnapshot().setMenuId, "row");
-  f.editing.edit("log").showSetMenu(null);
-  assert.equal(f.editing.edit("log").getSnapshot().setMenuId, null);
+  f.editing.edit("log").setEditing(true);
+  assert.equal(f.editing.edit("log").getSnapshot().editing, true);
+  f.editing.edit("log").setEditing(false);
+  assert.equal(f.editing.edit("log").getSnapshot().editing, false);
+});
+
+test("edit mode adds a set after any set and removes any set", async () => {
+  const f = await fixture("active");
+  const edit = f.editing.edit("log");
+  const ids = () => edit.getSnapshot().fields.exercises[0]!.sets.map((set) => set.id);
+  edit.change({ kind: "add-set", rowId: "row", afterId: "set" });
+  const [first, added, last] = ids();
+  assert.deepEqual([first, last], ["set", "blank"]);
+  assert.match(added!, /^set-/);
+  const before = edit.getSnapshot();
+  edit.change({ kind: "add-set", rowId: "row", afterId: "missing" });
+  edit.change({ kind: "remove-set", rowId: "row", setId: "missing" });
+  assert.equal(edit.getSnapshot(), before, "an unknown set changes nothing");
+  edit.change({ kind: "remove-set", rowId: "row", setId: "set" });
+  assert.deepEqual(ids(), [added, "blank"]);
+  await tick();
+  assert.deepEqual(
+    f.saved().exercises[0]!.sets.map((set) => set.id),
+    [added, "blank"],
+  );
+});
+
+test("edit mode adds, moves and removes exercises in this log only", async () => {
+  const log = session("active");
+  const first = log.exercises[0]!;
+  const f = await fixture("active", [{ ...log, exercises: [first, { ...first, id: "second" }] }]);
+  const edit = f.editing.edit("log");
+  const rows = () => edit.getSnapshot().fields.exercises.map((row) => row.id);
+  const press = { ...exercise, id: "press", name: "Press", tracking: "time" as const };
+  edit.change({ kind: "add-exercise", exercise: press });
+  const added = edit.getSnapshot().selected!;
+  assert.equal(added.exercise.name, "Press");
+  assert.deepEqual(
+    added.sets.map((set) => set.kind),
+    ["time", "time", "time"],
+    "a new exercise gets the default planned sets in its tracking mode",
+  );
+  edit.change({ kind: "move-exercise", rowId: added.id, to: 0 });
+  assert.deepEqual(rows(), [added.id, "row", "second"]);
+  const before = edit.getSnapshot();
+  edit.change({ kind: "move-exercise", rowId: added.id, to: 0 });
+  edit.change({ kind: "move-exercise", rowId: added.id, to: 3 });
+  edit.change({ kind: "remove-exercise", rowId: "missing" });
+  assert.equal(edit.getSnapshot(), before, "a no-op or out-of-range change changes nothing");
+  // A removed exercise's running clock stops without logging.
+  edit.toggleClock(added.id, added.sets[0]!.id);
+  edit.change({ kind: "remove-exercise", rowId: added.id });
+  assert.deepEqual(rows(), ["row", "second"]);
+  assert.equal(edit.getSnapshot().clock, null);
+  assert.equal(
+    edit.getSnapshot().selected?.id,
+    "row",
+    "the first row shows once the shown one goes",
+  );
+  await tick();
+  assert.deepEqual(
+    f.saved().exercises.map((row) => row.id),
+    ["row", "second"],
+  );
+});
+
+test("moving exercises keeps the one on screen, even when it showed for being first", async () => {
+  const log = session("active");
+  const first = log.exercises[0]!;
+  const f = await fixture("active", [{ ...log, exercises: [first, { ...first, id: "second" }] }]);
+  const edit = f.editing.edit("log");
+  assert.equal(edit.getSnapshot().selected?.id, "row");
+  edit.change({ kind: "move-exercise", rowId: "row", to: 1 });
+  assert.equal(edit.getSnapshot().selected?.id, "row");
+  edit.change({ kind: "move-exercise", rowId: "second", to: 1 });
+  assert.equal(edit.getSnapshot().selected?.id, "row");
+});
+
+test("notes edited in a workout save to it and to the library, so later workouts show them", async () => {
+  const template = {
+    id: "template",
+    name: "Strength",
+    exercises: [exercise],
+    setCounts: { squat: 1 },
+  };
+  const done = { ...session("completed"), id: "done" };
+  const f = await fixture("active", [session("active"), done], [template]);
+  f.editing.edit("log").change({ kind: "notes", rowId: "row", value: "Brace first." });
+  await tick();
+  let document = parseExerciseDocument(f.raw());
+  assert.equal(document.exercises[0]!.notes, "Brace first.");
+  assert.equal(f.saved().exercises[0]!.exercise.notes, "Brace first.");
+  assert.equal(
+    document.sessions[1]!.exercises[0]!.exercise.notes,
+    "",
+    "other logs keep their copy",
+  );
+  const planned = await value(f.store.planWorkout({ date: "2026-10-05", workoutId: "template" }));
+  document = parseExerciseDocument(f.raw());
+  const later = document.sessions.find((value) => value.id === planned)!;
+  assert.equal(later.exercises[0]!.exercise.notes, "Brace first.");
+});
+
+test("a workout's untouched notes never overwrite newer library notes", async () => {
+  const f = await fixture("active");
+  await value(f.store.saveExercise({ ...exercise, notes: "Newer." }));
+  f.editing
+    .edit("log")
+    .change({ kind: "set", rowId: "row", setId: "blank", side: null, field: "reps", value: "3" });
+  await tick();
+  assert.deepEqual(f.saved().exercises[0]!.sets[1], {
+    id: "blank",
+    kind: "single",
+    reps: "3",
+    weightKg: "",
+  });
+  assert.equal(parseExerciseDocument(f.raw()).exercises[0]!.notes, "Newer.");
+});
+
+test("a logged workout's edited notes reach the library only with Save", async () => {
+  const f = await fixture();
+  await f.tab.requestView({ kind: "session", id: "log" });
+  const edit = f.editing.edit("log");
+  edit.change({ kind: "notes", rowId: "row", value: "Slow down." });
+  await tick();
+  assert.equal(parseExerciseDocument(f.raw()).exercises[0]!.notes, "");
+  assert.equal(await edit.run("save"), true);
+  assert.equal(parseExerciseDocument(f.raw()).exercises[0]!.notes, "Slow down.");
+  assert.equal(f.saved().exercises[0]!.exercise.notes, "Slow down.");
+});
+
+test("Add exercise lists the library before a search, a page at a time, and closes on adding", async () => {
+  const library = [
+    exercise,
+    ...Array.from({ length: 21 }, (_, index) => ({
+      ...exercise,
+      id: `press-${index}`,
+      name: `Press ${index + 1}`,
+    })),
+  ];
+  const f = await fixture("active", [session("active")], [], library);
+  const edit = f.editing.edit("log");
+  assert.equal(edit.getSnapshot().addResults, null);
+  edit.showAddExercise(true);
+  let results = edit.getSnapshot().addResults!;
+  assert.equal(results.items.length, 20);
+  assert.equal(results.more, true);
+  edit.showMoreExercises();
+  results = edit.getSnapshot().addResults!;
+  assert.equal(results.items.length, 22);
+  assert.equal(results.more, false);
+  edit.searchLibrary("squ");
+  assert.deepEqual(edit.getSnapshot().addResults, { items: [exercise], more: false });
+  edit.searchLibrary("zzz");
+  assert.deepEqual(edit.getSnapshot().addResults, { items: [], more: false });
+  edit.change({ kind: "add-exercise", exercise: library[1]! });
+  assert.equal(edit.getSnapshot().adding, null, "adding an exercise closes Add exercise");
+  assert.equal(edit.getSnapshot().selected?.exercise.name, "Press 1");
+});
+
+test("removing an exercise asks first, and says when its entered sets go with it", async () => {
+  const log = session("active");
+  const first = log.exercises[0]!;
+  const blank = { ...first, id: "blank-row", sets: [first.sets[1]!] };
+  const f = await fixture("active", [{ ...log, exercises: [first, blank] }]);
+  const edit = f.editing.edit("log");
+  edit.askRemove("row");
+  assert.deepEqual(edit.getSnapshot().removing, {
+    id: "row",
+    label: "Squat exercise 1",
+    question:
+      "Remove Squat exercise 1 from this workout only? Your library and saved workouts keep it. The sets you entered go with it.",
+  });
+  edit.askRemove("blank-row");
+  assert.equal(
+    edit.getSnapshot().removing?.question,
+    "Remove Squat exercise 2 from this workout only? Your library and saved workouts keep it.",
+  );
+  edit.change({ kind: "remove-exercise", rowId: "blank-row" });
+  assert.equal(edit.getSnapshot().removing, null);
+  assert.deepEqual(
+    edit.getSnapshot().fields.exercises.map((row) => row.id),
+    ["row"],
+  );
+});
+
+test("an exercise created from a workout's Add exercise joins that workout on save", async () => {
+  const f = await fixture("active");
+  await f.tab.requestView({ kind: "session", id: "log" });
+  assert.equal(await f.editing.edit("log").createExercise(), true);
+  const panel = f.tab.getSnapshot().panel!;
+  assert.equal(panel.content.kind, "exercise");
+  const draft = f.tab.drafts.exercise(panel.token);
+  draft.change((values) => ({ ...values, name: "Lunge" }));
+  assert.equal(await draft.save(), true);
+  assert.deepEqual(f.tab.getSnapshot().panel?.content, {
+    kind: "session",
+    id: "log",
+    manual: false,
+  });
+  const rows = f.editing.edit("log").getSnapshot().fields.exercises;
+  assert.deepEqual(
+    rows.map((row) => row.exercise.name),
+    ["Squat", "Lunge"],
+  );
+});
+
+test("an exercise form left with Cancel adds nothing to the workout", async () => {
+  const f = await fixture("active");
+  await f.tab.requestView({ kind: "session", id: "log" });
+  await f.editing.edit("log").createExercise();
+  f.tab.closeView(f.tab.getSnapshot().panel!.token);
+  assert.equal(f.tab.getSnapshot().panel?.content.kind, "session");
+  assert.equal(f.editing.edit("log").getSnapshot().fields.exercises.length, 1);
 });
 
 test("removing a timed set stops its running clock without logging it", async () => {
@@ -1082,7 +1293,11 @@ test("each log mode allows its own controls, and the mode follows the open panel
       settingsOpen,
       detailsOpen,
       notesId,
-      setMenuId,
+      editing,
+      adding,
+      removingId,
+      addResults,
+      removing,
       clock,
       clockReadAt,
       shownClock,

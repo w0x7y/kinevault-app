@@ -295,8 +295,8 @@ export function WorkoutForm({
   );
 }
 
-/** A search result in the workout builder: tap to append the exercise to the order. */
-function AddExerciseRow({
+/** A search result in a workout builder or Add exercise: tap to append the exercise. */
+export function AddExerciseRow({
   exercise,
   onPress,
   disabled,

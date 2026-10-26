@@ -106,6 +106,33 @@ function name(input: string, kind: "an exercise" | "a workout"): string {
   if (input.length > 400) throw new Error("Use a name of 400 characters or fewer.");
   return input.trim();
 }
+/**
+ * The library with the notes a log's save edits: an exercise whose notes differ from the saved
+ * log's copy (or, for one added since, the library's) takes them, so later workouts show them.
+ * Other saved logs keep their own copy.
+ */
+function withEditedNotes(
+  document: ExerciseDocument,
+  session: WorkoutSession,
+  exercises: unknown[],
+): ExerciseDocument {
+  const saved = new Map([
+    ...document.exercises.map((exercise) => [exercise.id, exercise.notes] as const),
+    ...session.exercises.map((row) => [row.exercise.id, row.exercise.notes] as const),
+  ]);
+  const edited = new Map<string, string>();
+  for (const { exercise } of exercises.map(parseSessionExercise))
+    if (saved.get(exercise.id) !== exercise.notes) edited.set(exercise.id, exercise.notes);
+  if (!edited.size) return document;
+  return {
+    ...document,
+    exercises: document.exercises.map((exercise) =>
+      edited.has(exercise.id)
+        ? parseExerciseDefinition({ ...exercise, notes: edited.get(exercise.id) })
+        : exercise,
+    ),
+  };
+}
 function loggedExercises(exercises: SessionExercise[]): SessionExercise[] {
   return exercises.map((input) => {
     const row = parseSessionExercise(input);
@@ -219,7 +246,7 @@ export function createExerciseCommands({
     },
     updateSession(document: ExerciseDocument, input: UpdateSessionInput): ExerciseChange<true> {
       const session = requireSession(document, input.id);
-      return replaceSession(document, {
+      return replaceSession(withEditedNotes(document, session, input.exercises), {
         ...session,
         name: input.name,
         exercises:
@@ -248,7 +275,7 @@ export function createExerciseCommands({
         session.status === "active"
           ? elapsedSeconds(session, now())
           : durationFromMinutes(input.durationMinutes);
-      return replaceSession(document, {
+      return replaceSession(withEditedNotes(document, session, input.exercises), {
         ...session,
         status: "completed",
         name: name(input.name, "a workout"),

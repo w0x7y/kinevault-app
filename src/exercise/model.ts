@@ -299,6 +299,9 @@ export function elapsedSeconds(session: WorkoutSession, now: number): number {
   return Math.max(0, Math.floor((now - session.startedAt) / 1000));
 }
 
+/** How many library results an exercise picker shows before "Show more". */
+export const exerciseResultPage = 20;
+
 /**
  * Library exercises whose name, muscle group, equipment or notes contain the typed `query`, in
  * any case. A blank query matches nothing.

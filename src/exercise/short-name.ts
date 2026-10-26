@@ -24,9 +24,8 @@ export function shortExerciseName(name: string): string {
 export function exerciseRowLabel(
   exercises: readonly WorkspaceExercise[],
   row: WorkspaceExercise,
-  index: number,
 ): string {
   return exercises.filter((item) => item.exercise.name === row.exercise.name).length > 1
-    ? `${row.exercise.name} exercise ${index + 1}`
+    ? `${row.exercise.name} exercise ${exercises.indexOf(row) + 1}`
     : row.exercise.name;
 }

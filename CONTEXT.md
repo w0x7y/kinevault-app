@@ -161,10 +161,13 @@ control that returns to the day.
 **Workout edit**: Unfinished changes to a workout log. Planned and active fields
 are saved as drafts; completed changes require explicit Save. Failed saves retain
 the entered fields. Leaving for another panel preserves completed changes, while
-Cancel discards them. Removing a set, after a confirmation, changes only that log,
-never its Workout template. The selected exercise row, a compact card's planned-set
-settings, open notes and an open Details section belong to the edit, so a remounted editor
-keeps them.
+Cancel discards them. Edit mode (the pencil) puts add and remove buttons beside each set
+and lets the exercise bar remove (after a confirmation), reorder and add exercises; these
+change only that log, never its Workout template. In edit mode an exercise's notes become
+a field, and saving gives them to the Exercise definition too, so later workouts show them;
+other saved logs keep their copy. The selected exercise row, a compact card's planned-set
+settings, open notes, an open Details section, edit mode, Add exercise's search and a
+pending removal belong to the edit, so a remounted editor keeps them.
 
 **Workout template draft**: The name, ordered Exercise definitions and planned
 counts being prepared for a reusable workout. A newly selected exercise defaults

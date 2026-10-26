@@ -13,6 +13,8 @@ import { ExerciseSetTable } from "./set-table";
 import { exerciseRowLabel } from "./short-name";
 import { WorkoutWorkspace } from "./workout-workspace";
 import { useSheetBack } from "../components/sheet-page";
+import { ModalSheet } from "../components/modal-sheet";
+import { AddExerciseSheet } from "./add-exercise-sheet";
 
 export function SessionEditor({
   edit,
@@ -31,7 +33,10 @@ export function SessionEditor({
     selected,
     hints,
     notesId,
-    setMenuId,
+    editing,
+    adding,
+    addResults,
+    removing,
     shownClock,
     durationCaption,
     settingsOpen,
@@ -52,27 +57,19 @@ export function SessionEditor({
   } = useSnapshot(edit);
   // In a sheet, its back button is this workout's Cancel. The Active workout keeps running.
   const inSheet = useSheetBack({ onPress: () => void edit.run(back), disabled: busy });
+  const editToggle = (
+    <IconButton
+      appearance="secondary"
+      icon="pen"
+      label="Edit workout"
+      selected={editing}
+      disabled={busy}
+      onPress={() => edit.setEditing(!editing)}
+    />
+  );
   function renderSets(row: SessionExercise, rowLabel: string) {
     return (
       <>
-        {setMenuId === row.id && (
-          <ButtonRow testID="set-menu">
-            <AppButton
-              icon="plus"
-              label="Add set"
-              accessibilityLabel={`Add set to ${rowLabel}`}
-              disabled={busy}
-              onPress={() => edit.change({ kind: "add-set", rowId: row.id })}
-            />
-            <DeleteButton
-              label="Remove set"
-              accessibilityLabel={`Remove last set from ${rowLabel}`}
-              confirmAccessibilityLabel={`Confirm remove last set from ${rowLabel}`}
-              disabled={busy || !row.sets.length}
-              onDelete={() => edit.change({ kind: "remove-set", rowId: row.id })}
-            />
-          </ButtonRow>
-        )}
         <ExerciseSetTable
           tracking={row.exercise.tracking}
           sets={row.sets}
@@ -85,7 +82,24 @@ export function SessionEditor({
           }
           onFill={(setId, side) => edit.change({ kind: "fill", rowId: row.id, setId, side })}
           onClock={(setId) => edit.toggleClock(row.id, setId)}
+          editing={
+            editing
+              ? {
+                  onAdd: (setId) => edit.change({ kind: "add-set", rowId: row.id, afterId: setId }),
+                  onRemove: (setId) => edit.change({ kind: "remove-set", rowId: row.id, setId }),
+                }
+              : undefined
+          }
         />
+        {editing && !row.sets.length && (
+          <AppButton
+            icon="plus"
+            label="Add set"
+            accessibilityLabel={`Add set to ${rowLabel}`}
+            disabled={busy}
+            onPress={() => edit.change({ kind: "add-set", rowId: row.id })}
+          />
+        )}
       </>
     );
   }
@@ -225,11 +239,11 @@ export function SessionEditor({
           {settingsOpen && (
             <View testID="planned-workout-settings" style={{ gap: spacing.layout }}>
               <SectionLabel>Planned sets</SectionLabel>
-              {draft.exercises.map((row, index) => (
+              {draft.exercises.map((row) => (
                 <TextField
                   labelTone="muted"
                   key={row.id}
-                  label={`Planned sets for ${exerciseRowLabel(draft.exercises, row, index)}`}
+                  label={`Planned sets for ${exerciseRowLabel(draft.exercises, row)}`}
                   value={counts[row.id]}
                   onChange={(value) => edit.change({ kind: "count", rowId: row.id, value })}
                   kind="decimal"
@@ -260,17 +274,25 @@ export function SessionEditor({
           notesId={notesId}
           onShowNotes={edit.showNotes}
           onLinkDemo={linkDemo ? (definition) => void edit.linkDemo(definition) : undefined}
-          exerciseActions={(row, rowLabel) => (
-            <IconButton
-              appearance="secondary"
-              icon="ellipsis"
-              label={`Sets for ${rowLabel}`}
-              expanded={setMenuId === row.id}
-              disabled={busy}
-              onPress={() => edit.showSetMenu(setMenuId === row.id ? null : row.id)}
-            />
-          )}
-          empty={<AppText muted>This workout has no exercises.</AppText>}
+          exerciseActions={editToggle}
+          editing={
+            editing
+              ? {
+                  onRemove: edit.askRemove,
+                  onMove: (rowId, to) => edit.change({ kind: "move-exercise", rowId, to }),
+                  onAdd: () => edit.showAddExercise(true),
+                  onNotes: (rowId, value) => edit.change({ kind: "notes", rowId, value }),
+                }
+              : undefined
+          }
+          empty={
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+              <AppText muted style={{ flex: 1 }}>
+                This workout has no exercises.
+              </AppText>
+              {editToggle}
+            </View>
+          }
           busy={busy}
           feedback={feedback}
           primary={
@@ -286,6 +308,38 @@ export function SessionEditor({
           {renderSets}
         </WorkoutWorkspace>
       )}
+      <AddExerciseSheet
+        query={adding?.query ?? ""}
+        results={addResults}
+        onSearch={edit.searchLibrary}
+        onShowMore={edit.showMoreExercises}
+        onAdd={(exercise) => edit.change({ kind: "add-exercise", exercise })}
+        onCreate={() => void edit.createExercise()}
+        onClose={() => edit.showAddExercise(false)}
+      />
+      <ModalSheet
+        open={removing !== null}
+        title="Remove exercise"
+        onDismiss={() => edit.askRemove(null)}
+        testID="remove-exercise-sheet"
+      >
+        {removing && (
+          <>
+            <AppText muted>{removing.question}</AppText>
+            <ButtonRow>
+              <AppButton label="Cancel" onPress={() => edit.askRemove(null)} fill />
+              <AppButton
+                label="Remove"
+                accessibilityLabel={`Confirm remove ${removing.label} from workout`}
+                tone="destructive"
+                disabled={busy}
+                onPress={() => edit.change({ kind: "remove-exercise", rowId: removing.id })}
+                fill
+              />
+            </ButtonRow>
+          </>
+        )}
+      </ModalSheet>
     </Panel>
   );
 }
