@@ -292,8 +292,13 @@ Changes requested after the first review, replacing parts of sections 2–3:
   first three letters, ignoring any parenthetical; full names stay in
   accessible labels). The set table starts each line with the set's number
   (L1 and R1 on a left/right set); the weighted modes add an optional RIR
-  column. A ⋯ button right of the notes opens Add set and Remove set (the
-  last set, after "Are you sure?"). The live workout leaves out the
+  column. A pencil button right of the notes toggles edit mode: + and −
+  beside each set; exercise chips wiggle, wear an X (removal asks first),
+  reorder by press-and-hold then drag (holding one at either end scrolls
+  the bar that way), and end in a + chip that opens Add exercise (search,
+  or a + button that creates the exercise when nothing matches). Its notes
+  become a field that also saves to the library, so later workouts show
+  them. Edit mode changes only that workout. The live workout leaves out the
   workout's name; Discard, a no-entry icon, sits at the top bar's right;
   Back and Next sit on End workout, pinned under the page with
   `useSheetControls` (the saved-workout editor pins them on Save workout).

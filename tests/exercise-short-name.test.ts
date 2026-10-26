@@ -44,7 +44,7 @@ test("a repeated exercise's accessible name adds its position", () => {
     exercise: { name },
   }));
   assert.deepEqual(
-    rows.map((row, index) => exerciseRowLabel(rows, row, index)),
+    rows.map((row) => exerciseRowLabel(rows, row)),
     ["Squat exercise 1", "Curl", "Squat exercise 3"],
   );
 });

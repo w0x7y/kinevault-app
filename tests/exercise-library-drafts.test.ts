@@ -179,6 +179,26 @@ test("Add to day opens the new log only once it is saved on the menu's day", asy
   assert.equal(f.tab.getSnapshot().panel?.content.kind, "library");
 });
 
+test("Saved workouts shows the templates and only its own day's logs", async () => {
+  const f = await fixture();
+  await f.tab.requestView({ kind: "library", date: "2026-10-03" });
+  const menu = f.drafts.savedWorkouts(f.token(), "2026-10-03");
+  const empty = menu.getSnapshot();
+  assert.deepEqual(empty.workouts, [template]);
+  assert.deepEqual(empty.logs, []);
+  assert.equal(menu.getSnapshot(), empty, "an unchanged menu keeps its snapshot");
+  assert.equal(await menu.plan("legs"), true);
+  await f.tab.requestView({ kind: "library", date: "2026-10-04" });
+  const other = f.drafts.savedWorkouts(f.token(), "2026-10-04");
+  assert.deepEqual(other.getSnapshot().logs, [], "another day's menu leaves it out");
+  await f.tab.requestView({ kind: "library", date: "2026-10-03" });
+  const day = f.drafts.savedWorkouts(f.token(), "2026-10-03").getSnapshot();
+  assert.deepEqual(
+    day.logs.map((log) => log.date),
+    ["2026-10-03"],
+  );
+});
+
 test("a late success from a replaced panel cannot close or replace the newer one", async () => {
   const f = await fixture();
   await f.tab.requestView({ kind: "library", date: "2026-10-04" });

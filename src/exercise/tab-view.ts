@@ -25,6 +25,8 @@ export type WorkoutView =
       linkDemo?: boolean;
       /** The workout to return to after Save or Cancel. */
       returnTo?: WorkoutView;
+      /** Saving a new exercise also adds it to the `returnTo` workout. */
+      addToWorkout?: true;
     }
   | { kind: "workout"; workout?: WorkoutTemplate }
   | { kind: "library"; date: string }
@@ -43,8 +45,11 @@ export type ExercisePanels = {
   origin(): PanelOrigin;
   /** Replaces panel `token` (none: the default view) with `content` unless another view took over since `origin`. */
   leave(token: number | null, origin: PanelOrigin, content?: WorkoutView | null): void;
-  /** Leaves panel `token` for the workout it returns to (after "Link demo"), or no panel. */
-  closeView(token: number): void;
+  /**
+   * Leaves panel `token` for the workout it returns to (after "Link demo"), or no panel. `saved`
+   * is the exercise the panel just saved.
+   */
+  closeView(token: number, saved?: string): void;
   /** Panel `token` hands over to `content`, e.g. Saved workouts opening the log it added. */
   replaceView(token: number, content: WorkoutView): void;
 };
@@ -55,7 +60,6 @@ type Store = Parameters<typeof createWorkoutEditing>[0] &
 /** A compact workout card that a panel opened on the tab itself rather than on a sheet. */
 type InlineWorkoutLog = {
   session: WorkoutSession;
-  mode: Extract<WorkoutLogMode, "compact">;
   /** The panel that opened the card in place. */
   panel: WorkoutPanel;
 };
@@ -130,7 +134,7 @@ export function exerciseTabView({
     sheet: ExerciseTabSheet | null = null;
   if (open) {
     const mode = opened && workoutLogMode(opened, content);
-    if (opened && mode === "compact") inline = { session: opened, mode, panel: open };
+    if (opened && mode === "compact") inline = { session: opened, panel: open };
     else
       sheet = {
         panel: open,
@@ -362,11 +366,20 @@ export function createExerciseTabView({
         replace(content);
       }
     },
-    closeView(token) {
+    closeView(token, saved) {
       const content = panel?.content;
       if (attached && panel?.token === token) {
         ++request;
-        replace((content?.kind === "exercise" && content.returnTo) || null);
+        const back = (content?.kind === "exercise" && content.returnTo) || null;
+        replace(back);
+        // A new exercise created from a workout's Add exercise joins it.
+        if (
+          saved &&
+          content?.kind === "exercise" &&
+          content.addToWorkout &&
+          back?.kind === "session"
+        )
+          edits.addExercise(back.id, saved);
       }
     },
     replaceView(token, content) {

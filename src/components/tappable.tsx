@@ -99,6 +99,8 @@ export function Tappable({
   nativeID,
   ref,
   onLayout,
+  actions,
+  onAction,
   children,
 }: {
   role?: "button" | "link" | "menuitem" | "tab" | "radio" | "checkbox" | "switch";
@@ -131,6 +133,9 @@ export function Tappable({
   ref?: Ref<ViewType>;
   /** The control's frame (the hit area when `surface` is set), e.g. to place an indicator. */
   onLayout?: (event: LayoutChangeEvent) => void;
+  /** Screen reader actions besides the press, e.g. moving a tile; `onAction` gets the name. */
+  actions?: readonly { name: string; label: string }[];
+  onAction?: (name: string) => void;
   children?: ReactNode | ((state: TappableState) => ReactNode);
 }) {
   const { colors } = useTheme();
@@ -192,6 +197,8 @@ export function Tappable({
       onFocus={focus.onFocus}
       onBlur={focus.onBlur}
       onLayout={onLayout}
+      accessibilityActions={actions}
+      onAccessibilityAction={onAction && ((event) => onAction(event.nativeEvent.actionName))}
       // Flat: Link's asChild slot rejects style arrays.
       style={StyleSheet.flatten([
         // The ring above replaces the browser's own focus outline.

@@ -8,7 +8,14 @@ import {
   type DemoPickerEvent,
 } from "./demo/demo-link.ts";
 import { createWorkoutImportFlow, type WorkoutImportFlowSource } from "./import/import-flow.ts";
-import { matchingExercises, type ExerciseDefinition, type WorkoutTemplate } from "./model.ts";
+import {
+  exerciseResultPage as resultPage,
+  matchingExercises,
+  type ExerciseDefinition,
+  type ExerciseDocument,
+  type WorkoutSession,
+  type WorkoutTemplate,
+} from "./model.ts";
 import { writeFailure, type createExercisePersistence, type ExerciseWrite } from "./persistence.ts";
 import type { ExercisePanels } from "./tab-view.ts";
 import { createWorkoutTemplateDraft, type WorkoutTemplateDraft } from "./workout-template-draft.ts";
@@ -30,7 +37,6 @@ type TemplateDraftState = Attempt & {
   /** The exercise whose notes show. */
   notesId: string | null;
 };
-const resultPage = 20;
 /** The template builder's search: the results on this page, whether more follow, and why none show. */
 type TemplateResults = {
   items: ExerciseDefinition[];
@@ -45,6 +51,14 @@ type TemplateDraftSnapshot = Readonly<
   }
 >;
 type SavedWorkoutsState = Attempt;
+type SavedWorkoutsSnapshot = Readonly<
+  SavedWorkoutsState & {
+    /** The library's Workout templates. */
+    workouts: readonly WorkoutTemplate[];
+    /** The menu day's Workout logs. */
+    logs: readonly WorkoutSession[];
+  }
+>;
 type Store = Pick<
   ReturnType<typeof createExercisePersistence>,
   | "saveExercise"
@@ -70,7 +84,16 @@ type Entry =
         snapshot: TemplateDraftSnapshot;
       };
     }
-  | { kind: "saved-workouts"; state: SavedWorkoutsState }
+  | {
+      kind: "saved-workouts";
+      state: SavedWorkoutsState;
+      /** The last snapshot, with the state and document it shows. */
+      view?: {
+        state: SavedWorkoutsState;
+        document: ExerciseDocument | null;
+        snapshot: SavedWorkoutsSnapshot;
+      };
+    }
   | { kind: "import"; flow: ReturnType<typeof createWorkoutImportFlow> };
 
 function templateResults(
@@ -123,10 +146,11 @@ export function createLibraryDrafts({
 }) {
   const entries = new Map<number, Entry>(),
     listeners = new Set<() => void>();
-  const library = () => {
+  const document = () => {
     const state = store.getSnapshot().state;
-    return state.kind === "ready" ? state.document.exercises : [];
+    return state.kind === "ready" ? state.document : null;
   };
+  const library = () => document()?.exercises ?? [];
   const subscribe = (listener: () => void) => {
     listeners.add(listener);
     return () => {
@@ -227,7 +251,7 @@ export function createLibraryDrafts({
             entry,
             () => store.saveExercise({ ...entry.state.values, id: exercise?.id }),
             failures.saveExercise,
-            () => panels.closeView(token),
+            (id) => panels.closeView(token, id),
           ),
         remove: () =>
           exercise
@@ -317,7 +341,19 @@ export function createLibraryDrafts({
         state: { busy: false, error: null },
       }));
       return {
-        getSnapshot: () => entry.state,
+        // Rebuilt when the attempt or the saved document changes.
+        getSnapshot(): SavedWorkoutsSnapshot {
+          const { state, view } = entry,
+            saved = document();
+          if (view?.state === state && view.document === saved) return view.snapshot;
+          const snapshot = {
+            ...state,
+            workouts: saved?.workouts ?? [],
+            logs: saved?.sessions.filter((session) => session.date === date) ?? [],
+          };
+          entry.view = { state, document: saved, snapshot };
+          return snapshot;
+        },
         subscribe,
         /** Adds a Workout log of the template to the menu's day, then opens it. */
         plan: (workoutId: string) =>

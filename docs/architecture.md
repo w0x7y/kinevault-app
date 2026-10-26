@@ -180,7 +180,9 @@ workout before opening its own page. `activeWorkout` in the exercise model is th
 lookup of the Active workout. The app header reads the Active workout from
 the exercise store and opens the page through the `liveWorkout` route request. Workout edits own the selected exercise, the Details
 disclosure, the open notes and the planned-set settings disclosure, which reopens when a
-planned count is invalid, and
+planned count is invalid, edit mode with its Add exercise search (the library before a
+search, a page of `exerciseResultPage` at a time) and the row whose removal awaits
+confirmation, with the question's wording, and
 the same log mode drives planned-count validation. The edit's snapshot carries that
 mode and the controls it allows from one table, `workoutLogControls`: whether Back
 leaves or cancels and its name, the main action (Save, complete, or on a compact card
@@ -195,12 +197,15 @@ changing a row's set count (cut from the end, add empty sets), for planned count
 adding a saved workout to a day; `minutesText` writes a duration as the minutes text the commands
 read back (`durationMinutes` on update and complete). `setHints` gives each blank set its
 Previous sets hint, and `matchingExercises` is the one library search rule; it takes the typed query.
+A log's update and complete commands give the library the notes the log edited: those that
+differ from the saved log's copy at write time. Other saved logs keep their own copy. An
+exercise created from Add exercise joins its workout through `addExercise` on the edits.
 `tracking.ts` owns what each Tracking mode means: its name and tag, the columns its set
 lines hold, its empty set, the blank rule, entering one value (`withSetValue`), the hint
 a set takes from another set in any mode, the measurements a completed set counts, and
 which seconds a Timed set's clock counts down from (`timedSeconds`).
-The set table renders a mode's columns and sends the edit field changes and set
-removals, never a set of its own; removing a set changes this log only, and Workout
+The set table renders a mode's columns and sends the edit field changes and, in edit mode,
+set additions and removals, never a set of its own; removing a set changes this log only, and Workout
 templates keep their planned counts. A set's `kind` is its exercise's mode, so the exercise model only checks
 that they match. Workout edits also own the Set clock and its ticker, reading the time and
 timer they're given (`clocks`), so the clock survives the table unmounting: the ticker runs
@@ -212,12 +217,16 @@ inside.
 `short-name.ts` owns both row labels: the accessible "Squat exercise 2" and the chip label
 (at most three characters; the bar shows the row's number above it). `WorkoutWorkspace` is
 the page of a Workout edit and a Workout template draft alike: the exercise bar and, for the
-row on screen, its heading, notes toggle, notes and demo. It pins Back and Next on top of the
+row on screen, its heading, notes toggle, notes (a field in edit mode) and demo. The exercise
+bar (`exercise-bar.tsx`) owns the chips, their edge fades and edit mode's tiles: the wiggle, the
+remove badge, press-and-hold drag with its scrolling at either end, and the add tile; it
+reports removals, moves and Add to the caller. It pins Back and Next on top of the
 caller's main action under the sheet's page, and the caller's `trailing` control to the
 header's right (`useSheetControls`); the caller draws the row's sets or planned count. Library drafts own Exercise
 definition (including its KineVault search, where linking or unlinking a demo changes the
 fields and the search in one step), Workout template (including its selected
-exercise, builder disclosure, search and its results, result limit and open notes), Saved workouts and
+exercise, builder disclosure, search and its results, result limit and open notes), Saved workouts
+(its templates and the menu day's logs) and
 Workout import state per panel, so the sheet can unmount when the tab
 loses focus without losing input; their durable success closes the originating
 panel through the same panel seam as Workout edits. Exercise persistence returns

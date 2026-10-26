@@ -97,11 +97,9 @@ export function ExerciseSearchResults({
       <View style={{ gap: 2 }}>
         <Overline accessibilityRole="header">Exercise library</Overline>
         <AppText variant="caption" muted accessibilityLiveRegion="polite">
-          {!query.trim()
-            ? "Type to search exercises."
-            : matches.length
-              ? `${matches.length.toLocaleString()} matching exercises.`
-              : "No exercises found. Try a simpler name or different equipment."}
+          {matches.length
+            ? `${matches.length.toLocaleString()} matching exercises.`
+            : "No exercises found. Try a simpler name or different equipment."}
         </AppText>
       </View>
       <View>

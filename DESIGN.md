@@ -175,8 +175,11 @@ reference patterns, not implemented companion features.
   planned sets do not count as completed activity. In a workout the exercise chips are
   one size (72pt minimum) with the exercise's number above a short name of up to three
   characters. The set table starts each line with the set's number (L1 and R1 on a
-  left/right set); weighted modes add an optional RIR column. A ⋯ button right of the
-  notes opens Add set and Remove set (the last set, after "Are you sure?"). The live
+  left/right set); weighted modes add an optional RIR column. A pencil button right of the
+  notes toggles edit mode: + and − beside each set, and exercise chips that wiggle, wear an
+  X (removal asks first), reorder by press-and-hold then drag, and end in a + chip that
+  opens Add exercise. Edit mode changes only that workout, except the exercise's notes,
+  which become a field and also save to the library for later workouts. The live
   workout leaves out the workout's name, pins Discard (a no-entry icon) to the top bar's
   right and Back, Next and End workout to the bottom of the page; the saved-workout
   editor pins Back, Next and Save workout the same way. Grayed, italic hints are the

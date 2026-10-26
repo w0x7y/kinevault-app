@@ -12,10 +12,16 @@ export type SetField = "reps" | "weightKg" | "rir" | "seconds";
  * undefined where there is nothing to suggest.
  */
 export type SetLine = { side: "left" | "right" | null; values: Partial<Record<SetField, string>> };
-type Column = { field: SetField; label: string; name: string };
+/** `short` heads the column when edit mode's buttons narrow the fields. */
+type Column = { field: SetField; label: string; short?: string; name: string };
 
 const reps: Column = { field: "reps", label: "Reps", name: "reps" };
-const weight: Column = { field: "weightKg", label: "Weight (kg)", name: "weight (kg)" };
+const weight: Column = {
+  field: "weightKg",
+  label: "Weight (kg)",
+  short: "Kg",
+  name: "weight (kg)",
+};
 /** Reps in reserve: optional, and never a set's only value (see `setMeasurements`). */
 const rir: Column = { field: "rir", label: "RIR", name: "reps in reserve" };
 const modes = {
@@ -41,7 +47,11 @@ const modes = {
     name: "Alternating",
     short: "Alt.",
     tag: "Alternating",
-    columns: [{ field: "reps", label: "Reps/side", name: "reps per side" }, weight, rir],
+    columns: [
+      { field: "reps", label: "Reps/side", short: "Reps", name: "reps per side" },
+      weight,
+      rir,
+    ],
     sided: false,
     clock: false,
     chartable: true,

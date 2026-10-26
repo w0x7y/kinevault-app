@@ -455,14 +455,14 @@ test("manual completion saves independent side measurements and bodyweight and s
   });
   await openLoggedWorkout(page, "Strength");
   const editor = page.getByTestId("session-editor");
-  await button(editor, "Sets for Curl").click();
+  // Edit mode adds a first set to an exercise without one.
+  await button(editor, "Edit workout").click();
   await button(editor, "Add set to Curl").click();
   await field(editor, "Curl set 1 left reps").fill("8");
   await field(editor, "Curl set 1 left weight (kg)").fill("10");
   await field(editor, "Curl set 1 right reps").fill("6");
   await field(editor, "Curl set 1 right weight (kg)").fill("12");
   await button(editor, "Select exercise Squat").click();
-  await button(editor, "Sets for Squat").click();
   await button(editor, "Add set to Squat").click();
   await field(editor, "Squat set 1 reps").fill("5");
   await field(editor, "Duration in minutes (optional)").fill("10");
@@ -817,7 +817,7 @@ test("a workout menu keeps its captured date when the calendar changes, and logg
   assert.equal(planned.sessions[0].date, date);
   await button(page.getByTestId("planned-workout-card"), "Log completed workout").click();
   const editor = page.getByTestId("session-editor");
-  await button(editor, "Sets for Squat").click();
+  await button(editor, "Edit workout").click();
   await button(editor, "Add set to Squat").click();
   await field(editor, "Squat set 1 reps").fill("1.5");
   await button(editor, "Log completed workout").click();
@@ -1172,21 +1172,22 @@ test("a compact workout configures planned sets and starts a scrolling exercise 
   assert.equal(await field(details, "Squat set 3 reps").count(), 0);
   await field(details, "Squat set 1 reps").fill("5");
   await field(details, "Squat set 1 weight (kg)").fill("40");
-  // RIR sits beside reps and weight. The set menu, right of the notes, adds and removes sets;
-  // removing the last set asks first and changes only this workout.
+  // RIR sits beside reps and weight. Edit mode, right of the notes, puts add and remove buttons
+  // beside each set; removing one changes only this workout.
   await field(details, "Squat set 1 reps in reserve").fill("2");
-  assert.equal(await button(details, "Remove set 2 from Squat").count(), 0);
-  const menu = button(details, "Sets for Squat");
+  assert.equal(await button(details, "Remove Squat set 2").count(), 0);
+  const pencil = button(details, "Edit workout");
   const notesBox = await button(details, "View notes for Squat").boundingBox();
   assert.ok(
-    (await menu.boundingBox()).x >= notesBox.x + notesBox.width,
-    "menu sits right of notes",
+    (await pencil.boundingBox()).x >= notesBox.x + notesBox.width,
+    "edit sits right of notes",
   );
-  await menu.click();
-  assert.equal(await menu.getAttribute("aria-expanded"), "true");
-  await button(details, "Remove last set from Squat").click();
-  assert.equal(await field(details, "Squat set 2 reps").count(), 1);
-  await button(details, "Confirm remove last set from Squat").click();
+  await pencil.click();
+  assert.equal(await pencil.getAttribute("aria-pressed"), "true");
+  await button(details, "Remove Squat set 2").click();
+  assert.equal(await field(details, "Squat set 2 reps").count(), 0);
+  await pencil.click();
+  assert.equal(await button(details, "Remove Squat set 1").count(), 0);
   await storedWhen(
     page,
     (document) =>
@@ -1557,11 +1558,12 @@ test("completed workout editing shares the layout and keeps side edits local unt
   assert.equal(await field(editor, "Workout name").count(), 0);
   assert.equal(await button(editor, "Close workout").count(), 0);
   assert.equal(await button(editor, "Link a KineVault demo to Squat").count(), 1);
-  assert.equal(await button(editor, "Sets for Squat").count(), 1);
+  assert.equal(await button(editor, "Edit workout").count(), 1);
   await button(editor, "Select exercise Curl").click();
   await field(editor, "Curl set 1 right reps").fill("9");
-  await button(editor, "Sets for Curl").click();
-  await button(editor, "Add set to Curl").click();
+  await button(editor, "Edit workout").click();
+  await button(editor, "Add set after Curl set 1").click();
+  await button(editor, "Edit workout").click();
   await button(editor, "Select exercise Squat").click();
   await field(editor, "Squat set 1 reps").fill("7");
   await button(editor, "Workout name and duration").click();
@@ -1856,4 +1858,162 @@ test("a set holding only spaces keeps the blank set badge", async (t) => {
     await page.waitForTimeout(100);
   assert.notEqual(await badge(2), blank);
   assert.equal(await badge(1), blank, "a space is not a logged value");
+});
+
+test("live workout edit mode removes, reorders and adds exercises in this workout only", async (t) => {
+  const press = { ...single, id: "press", name: "Press" };
+  const active = {
+    id: "active",
+    date,
+    name: "Strength",
+    status: "active",
+    startedAt: time.getTime() - 60000,
+    durationSeconds: null,
+    exercises: [
+      {
+        id: "squat-row",
+        exercise: single,
+        sets: [{ id: "a", kind: "single", reps: "5", weightKg: "" }],
+      },
+      { id: "curl-row", exercise: sides, sets: [] },
+    ],
+  };
+  const page = await open(t, {
+    document: { ...empty(), exercises: [single, sides, press], sessions: [active] },
+  });
+  await button(page, "Open live workout").click();
+  const workout = page.getByTestId("active-workout");
+  const topbar = workout.getByTestId("exercise-topbar");
+  assert.equal(await button(topbar, "Remove Squat from workout").count(), 0);
+  await button(workout, "Edit workout").click();
+  // Notes become a field, saved to this workout and to the library for later workouts.
+  await field(workout, "Notes for Squat").fill("Brace first.");
+  await storedWhen(
+    page,
+    (document) =>
+      document.exercises[0].notes === "Brace first." &&
+      document.sessions[0].exercises[0].exercise.notes === "Brace first.",
+  );
+  // Each set gets + and −.
+  await button(workout, "Add set after Squat set 1").click();
+  assert.equal(await field(workout, "Squat set 2 reps").count(), 1);
+  // The X asks first; Cancel keeps the exercise.
+  await button(topbar, "Remove Curl from workout").click();
+  const removal = page.getByTestId("remove-exercise-sheet");
+  await button(removal, "Cancel").click();
+  await removal.waitFor({ state: "detached" });
+  await button(topbar, "Remove Curl from workout").click();
+  await button(page, "Confirm remove Curl from workout").click();
+  await storedWhen(page, (document) => document.sessions[0].exercises.length === 1);
+  assert.deepEqual(
+    (await documentFrom(page)).exercises.map((item) => item.id),
+    ["squat", "curl", "press"],
+  );
+  // The + tile searches the library; when nothing matches, only a + button to create one shows.
+  await button(topbar, "Add exercise").click();
+  const adding = page.getByTestId("add-exercise-sheet");
+  await field(adding, "Search exercises").fill("zzz");
+  const create = button(adding, "Create new exercise");
+  await create.waitFor();
+  assert.equal(await adding.getByText("No exercises found.", { exact: true }).count(), 0);
+  assert.equal(await adding.getByTestId("kine-exercise").count(), 0);
+  await field(adding, "Search exercises").fill("pre");
+  await button(adding, "Add Press to workout").click();
+  await adding.waitFor({ state: "detached" });
+  const added = await storedWhen(page, (document) => document.sessions[0].exercises.length === 2);
+  assert.equal(added.sessions[0].exercises[1].exercise.name, "Press");
+  assert.equal(added.sessions[0].exercises[1].sets.length, 3);
+  // Press and hold a tile, then drag it past the next one.
+  const squat = await button(topbar, "Select exercise Squat").boundingBox();
+  const pressTile = await button(topbar, "Select exercise Press").boundingBox();
+  await page.mouse.move(squat.x + squat.width / 2, squat.y + squat.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(600);
+  await page.mouse.move(pressTile.x + pressTile.width, squat.y + squat.height / 2, { steps: 12 });
+  await page.mouse.up();
+  const moved = await storedWhen(
+    page,
+    (document) => document.sessions[0].exercises[0].exercise.id === "press",
+  );
+  assert.deepEqual(
+    moved.sessions[0].exercises.map((row) => row.exercise.id),
+    ["press", "squat"],
+  );
+});
+
+test("an exercise created from Add exercise joins the live workout", async (t) => {
+  const active = {
+    id: "active",
+    date,
+    name: "Strength",
+    status: "active",
+    startedAt: time.getTime() - 60000,
+    durationSeconds: null,
+    exercises: [{ id: "squat-row", exercise: single, sets: [] }],
+  };
+  const page = await open(t, { document: { ...empty(), exercises: [single], sessions: [active] } });
+  await button(page, "Open live workout").click();
+  const workout = page.getByTestId("active-workout");
+  await button(workout, "Edit workout").click();
+  await button(workout.getByTestId("exercise-topbar"), "Add exercise").click();
+  const adding = page.getByTestId("add-exercise-sheet");
+  await field(adding, "Search exercises").fill("Row");
+  await button(adding, "Create new exercise").click();
+  const form = page.getByTestId("exercise-form");
+  await field(form, "Exercise name").fill("Row");
+  await button(form, "Save exercise").click();
+  await page.getByTestId("active-workout").waitFor();
+  const saved = await storedWhen(page, (document) => document.sessions[0].exercises.length === 2);
+  assert.equal(saved.sessions[0].exercises[1].exercise.name, "Row");
+});
+
+test("a tile dragged into the end of the exercise bar scrolls it that way", async (t) => {
+  const names = ["Squat", "Bench press", "Deadlift", "Overhead press", "Pull-up", "Row", "Lunge"];
+  const library = names.map((name, index) => ({ ...single, id: `ex-${index}`, name }));
+  const active = {
+    id: "active",
+    date,
+    name: "Strength",
+    status: "active",
+    startedAt: time.getTime() - 60000,
+    durationSeconds: null,
+    exercises: library.map((exercise, index) => ({ id: `row-${index}`, exercise, sets: [] })),
+  };
+  const page = await open(t, { document: { ...empty(), exercises: library, sessions: [active] } });
+  await button(page, "Open live workout").click();
+  const workout = page.getByTestId("active-workout");
+  await button(workout, "Edit workout").click();
+  const topbar = workout.getByTestId("exercise-topbar");
+  await button(topbar, "Add exercise").waitFor();
+  // The tiles' drag attaches a frame or two after edit mode turns on.
+  await page.evaluate(
+    () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
+  );
+  const frame = await topbar.boundingBox();
+  const squat = await button(topbar, "Select exercise Squat").boundingBox();
+  const y = squat.y + squat.height / 2;
+  await page.mouse.move(squat.x + squat.width / 2, y);
+  await page.mouse.down();
+  await page.waitForTimeout(600);
+  await page.mouse.move(frame.x + frame.width - 8, y, { steps: 12 });
+  // Held at the right end, the bar scrolls to its end under the tile.
+  await page.waitForFunction(
+    () => {
+      const bar = document.querySelector('[data-testid="exercise-topbar"]');
+      // The content's own width: the dragged tile itself overhangs it.
+      const end = bar.firstElementChild.offsetWidth - bar.clientWidth;
+      return end > 0 && bar.scrollLeft >= end - 1;
+    },
+    undefined,
+    { timeout: 5000 },
+  );
+  await page.mouse.up();
+  const moved = await storedWhen(
+    page,
+    (document) => document.sessions[0].exercises.at(-1).exercise.name === "Squat",
+  );
+  assert.deepEqual(
+    moved.sessions[0].exercises.map((row) => row.exercise.name),
+    [...names.slice(1), "Squat"],
+  );
 });

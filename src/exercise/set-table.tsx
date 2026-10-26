@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { TextInput, View } from "react-native";
 import Animated, { LayoutAnimationConfig } from "react-native-reanimated";
-import { IconButton } from "../components/button";
+import { IconButton, iconButtonSize } from "../components/button";
 import { Tappable } from "../components/tappable";
 import { useLayoutMotion, useStateTransition } from "../components/motion";
 import { inputSurface } from "../components/text-field";
@@ -22,6 +22,8 @@ import {
 } from "./tracking";
 
 const badgeColumn = 32;
+/** Edit mode's add and remove buttons beside a set: two 48 pt icon buttons. */
+const editColumn = iconButtonSize * 2 + spacing.xs;
 /** A left/right set's lines are badged L1 and R1. */
 const sideLetter = { left: "L", right: "R" } as const;
 
@@ -181,6 +183,7 @@ export function ExerciseSetTable({
   onChange,
   onFill,
   onClock,
+  editing,
 }: {
   tracking: TrackingMode;
   sets: ExerciseSet[];
@@ -193,6 +196,8 @@ export function ExerciseSetTable({
   /** Copies a line's hint into its blank fields. */
   onFill: (setId: string, side: SetLine["side"]) => void;
   onClock: (setId: string) => void;
+  /** Edit mode: add a set after this one, or remove it. */
+  editing?: { onAdd: (setId: string) => void; onRemove: (setId: string) => void };
 }) {
   const mode = trackingMode(tracking);
   const rise = useLayoutMotion().enter();
@@ -208,10 +213,11 @@ export function ExerciseSetTable({
         <View style={fields}>
           {mode.columns.map((column) => (
             <Overline key={column.field} style={cell}>
-              {column.label}
+              {editing && "short" in column ? (column.short ?? column.label) : column.label}
             </Overline>
           ))}
-          {mode.clock && <View style={{ width: 44 }} />}
+          {mode.clock && <View style={{ width: iconButtonSize }} />}
+          {editing && <View style={{ width: editColumn }} />}
         </View>
       </View>
       {sets.length === 0 && (
@@ -276,6 +282,28 @@ export function ExerciseSetTable({
                           onPress={() => onClock(set.id)}
                         />
                       )}
+                      {/* A left/right set's buttons sit on its first line; the second keeps the column. */}
+                      {editing &&
+                        (lineIndex === 0 ? (
+                          <View style={{ flexDirection: "row", gap: spacing.xs }}>
+                            <IconButton
+                              appearance="secondary"
+                              icon="plus"
+                              label={`Add set after ${prefix}`}
+                              disabled={busy}
+                              onPress={() => editing.onAdd(set.id)}
+                            />
+                            <IconButton
+                              appearance="secondary"
+                              icon="minus"
+                              label={`Remove ${prefix}`}
+                              disabled={busy}
+                              onPress={() => editing.onRemove(set.id)}
+                            />
+                          </View>
+                        ) : (
+                          <View style={{ width: editColumn }} />
+                        ))}
                     </View>
                   </View>
                 );

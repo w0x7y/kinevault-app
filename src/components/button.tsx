@@ -166,6 +166,9 @@ export function ButtonRow({ children, style, ...props }: ViewProps) {
   );
 }
 
+/** IconButton's diameter, for layouts that reserve its column. */
+export const iconButtonSize = 48;
+
 /** A round 48 pt icon-only action; `label` names it. */
 export function IconButton({
   label,
@@ -175,6 +178,7 @@ export function IconButton({
   destructive = false,
   appearance = "plain",
   expanded,
+  selected,
   ref,
 }: {
   label: string;
@@ -184,6 +188,8 @@ export function IconButton({
   destructive?: boolean;
   appearance?: "plain" | "secondary";
   expanded?: boolean;
+  /** A toggle's state, e.g. edit mode on; it shows like `expanded`. */
+  selected?: boolean;
   ref?: Ref<View>;
 }) {
   const { colors } = useTheme();
@@ -193,16 +199,17 @@ export function IconButton({
       label={label}
       disabled={disabled}
       expanded={expanded}
+      selected={selected}
       onPress={onPress}
       style={({ pressed }) => ({
-        width: 48,
-        height: 48,
+        width: iconButtonSize,
+        height: iconButtonSize,
         flexShrink: 0,
         alignItems: "center",
         justifyContent: "center",
         borderRadius: radius.pill,
         backgroundColor:
-          pressed || expanded
+          pressed || expanded || selected
             ? colors.accent
             : appearance === "secondary"
               ? colors.secondary

@@ -31,6 +31,8 @@ export function Chip({
   size = "regular",
   caption,
   minWidth = 0,
+  actions,
+  onAction,
 }: {
   label: string;
   detail?: string;
@@ -45,6 +47,8 @@ export function Chip({
   size?: "regular" | "small";
   caption?: string;
   minWidth?: number;
+  actions?: readonly { name: string; label: string }[];
+  onAction?: (name: string) => void;
 }) {
   const { colors } = useTheme();
   const foreground = selected ? colors.primaryForeground : colors.foreground;
@@ -56,6 +60,8 @@ export function Chip({
       checked={role === "button" ? undefined : selected}
       disabled={disabled}
       onPress={onPress}
+      actions={actions}
+      onAction={onAction}
       eases={["backgroundColor"]}
       style={({ pressed }) => ({
         flexGrow: fill ? 1 : 0,
