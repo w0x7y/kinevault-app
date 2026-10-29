@@ -64,6 +64,15 @@ test("ordinary public and browser-private caches retain permitted reuse", () => 
   assert.equal(privateCache.satisfiesWithoutRevalidation(request), true);
 });
 
+// Expo Router 58 parses links with WHATWG URLSearchParams instead of query-string.
+const routerQuery = "expo-router/build/fork/getStateFromPath-forks.js";
+const route = { name: "auth/callback" };
+
+test("Expo Router no longer resolves the patched query-string", () => {
+  const routerRequire = createRequire(require.resolve("expo-router"));
+  assert.throws(() => routerRequire("query-string"), { code: "MODULE_NOT_FOUND" });
+});
+
 test("Expo Router query parsing handles long malformed escapes without blocking", () => {
   const result = spawnSync(
     process.execPath,
@@ -74,8 +83,9 @@ test("Expo Router query parsing handles long malformed escapes without blocking"
     import { createRequire } from 'node:module';
     import assert from 'node:assert/strict';
     const require = createRequire(import.meta.url);
-    const query = createRequire(require.resolve('expo-router'))('query-string');
-    assert.equal(query.parse('value=' + '%FF'.repeat(800)).value, '%FF'.repeat(800));
+    const { parseQueryParams } = require(${JSON.stringify(routerQuery)});
+    const params = parseQueryParams('/auth/callback?value=' + '%FF'.repeat(800), ${JSON.stringify(route)});
+    assert.equal(params.value, '\\uFFFD'.repeat(800));
   `,
     ],
     { cwd: new URL("../", import.meta.url), timeout: 1500, encoding: "utf8" },
@@ -84,10 +94,11 @@ test("Expo Router query parsing handles long malformed escapes without blocking"
   assert.equal(result.status, 0, result.stderr);
 });
 
-test("Expo Router keeps its query-string API and UTF-8, plus, array and URL handling", () => {
-  const query = createRequire(require.resolve("expo-router"))("query-string");
+test("Expo Router keeps UTF-8, plus, array and URL handling in links", () => {
+  const { parseQueryParams } = require(routerQuery);
+  const { stringifySearchParams } = require("expo-router/build/utils/queryParams.js");
   assert.deepEqual(
-    { ...query.parse("name=Kine+Vault&unicode=%E2%9C%93&tag=a&tag=b") },
+    { ...parseQueryParams("/auth/callback?name=Kine+Vault&unicode=%E2%9C%93&tag=a&tag=b", route) },
     {
       name: "Kine Vault",
       unicode: "✓",
@@ -95,9 +106,9 @@ test("Expo Router keeps its query-string API and UTF-8, plus, array and URL hand
     },
   );
   assert.equal(
-    query.stringify({ name: "Kine Vault", tag: ["a", "b"] }),
-    "name=Kine%20Vault&tag=a&tag=b",
+    stringifySearchParams({ name: "Kine Vault", tag: ["a", "b"] }),
+    "name=Kine+Vault&tag=a&tag=b",
   );
-  assert.equal(query.parseUrl("https://track.example/auth/callback?code=a%2Bb").query.code, "a+b");
-  assert.equal(query.parse("value=%FF%41%E2%9C%93").value, "%FFA✓");
+  assert.equal(parseQueryParams("/auth/callback?code=a%2Bb", route).code, "a+b");
+  assert.equal(parseQueryParams("/auth/callback?value=%FF%41%E2%9C%93", route).value, "\uFFFDA✓");
 });

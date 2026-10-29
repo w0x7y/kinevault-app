@@ -1437,6 +1437,9 @@ test("daily screens fit narrow phones and desktop in both themes", async (t) => 
       (appearance) => window.accountFixture.setItem("kinevault-track.appearance", appearance),
       appearance,
     );
+    // Router 58 reloads the tab in the URL, and the previous pass ended on Settings.
+    await page.getByRole("tab", { name: /Home/ }).click();
+    await page.waitForURL((url) => url.pathname === "/");
     await page.reload();
     await heading(page, "Calories");
     assert.equal(await page.evaluate(() => document.documentElement.style.colorScheme), appearance);
@@ -1795,6 +1798,7 @@ test("food catalog searches offline, scales portions, pages results, and recover
   await heading(page, "Daily food log");
   await page.context().setOffline(false);
   await page.getByRole("tab", { name: /Home/ }).click();
+  await page.waitForURL((url) => url.pathname === "/");
   assert.equal(
     await page.getByRole("progressbar", { name: /^0 kilocalories consumed/ }).count(),
     1,
@@ -1864,6 +1868,7 @@ test("food logging saves to the selected date and meal, retries failures, update
   assert.equal(saved.days[date][0].meal, "lunch");
   assert.equal(saved.days[date][0].calories, 122.22);
   await page.getByRole("tab", { name: /Home/ }).click();
+  await page.waitForURL((url) => url.pathname === "/");
   await page.getByTestId("home-calories").getByText("122 / 2,760 kcal", { exact: true }).waitFor();
   await page.getByText("28.6 / 345 g", { exact: true }).waitFor();
   await page.reload();
@@ -1967,6 +1972,7 @@ test("logged food edits retain the draft on failure, move meals, update totals, 
   await page.getByTestId("daily-nutrient-potassium").getByText("652", { exact: true }).waitFor();
   await button(page, "Back to food log").click();
   await page.getByRole("tab", { name: /Home/ }).click();
+  await page.waitForURL((url) => url.pathname === "/");
   await page.getByTestId("home-calories").getByText("194 / 2,760 kcal", { exact: true }).waitFor();
   await page.reload();
   await heading(page, "Calories");

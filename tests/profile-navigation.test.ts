@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { TabRouter } from "../node_modules/expo-router/build/react-navigation/routers/TabRouter.js";
+import { createInitialState } from "../node_modules/expo-router/build/react-navigation/core/createInitialState.js";
+import {
+  TabRouter,
+  type TabNavigationState,
+} from "../node_modules/expo-router/build/react-navigation/routers/TabRouter.js";
+import type { ParamListBase } from "../node_modules/expo-router/build/react-navigation/routers/types.js";
+import { isActionHandled } from "../node_modules/expo-router/build/react-navigation/routers/utils.js";
 import {
   headerPage,
   isJournal,
@@ -9,23 +15,31 @@ import {
   parseRouteRequest,
   popoverAfterNavigation,
   routeRequest,
+  tabAnchor,
   tabNavigator,
   tabRouteNames,
   type TabPath,
 } from "../src/navigation/track-tabs.ts";
 
 // Exercise the installed router with the route order and options the tab layout supplies.
-const options = { routeNames: tabRouteNames, routeParamList: {}, routeGetIdList: {} };
-const router = TabRouter(tabNavigator);
-const fresh = () => router.getInitialState(options);
+// Expo Router passes the layout's anchor to the router as its initial route.
+const options = { routeNames: tabRouteNames, routeGetIdList: {} };
+const router = TabRouter({ ...tabNavigator, initialRouteName: tabAnchor });
+const open = (initialRouteName: string) =>
+  createInitialState<TabNavigationState<ParamListBase>>({
+    routeNames: tabRouteNames,
+    initialRouteName,
+    parentChain: "tabs",
+  });
+const fresh = () => open(tabAnchor);
 function jump(state: ReturnType<typeof fresh>, name: string) {
   const next = router.getStateForAction(state, { type: "JUMP_TO", payload: { name } }, options);
-  assert.ok(next);
-  return router.getRehydratedState(next, options);
+  assert.ok(isActionHandled(next));
+  return next.state;
 }
 function back(state: ReturnType<typeof fresh>) {
   const next = router.getStateForAction(state, { type: "GO_BACK" }, options);
-  return next ? router.getRehydratedState(next, options) : null;
+  return isActionHandled(next) ? next.state : null;
 }
 const active = (state: ReturnType<typeof fresh>) => state.routes[state.index].name;
 
@@ -48,10 +62,7 @@ test("Home Back never selects hidden Profile even after a Profile visit", () => 
   assert.equal(back(jump(jump(fresh(), "profile"), "index")), null);
 });
 test("direct Profile entry has a Home fallback without earlier navigation history", () => {
-  const direct = router.getRehydratedState(
-    { stale: true, index: 0, routes: [{ name: "profile" }] },
-    options,
-  );
+  const direct = open("profile");
   assert.equal(active(direct), "profile");
   const result = back(direct);
   assert.ok(result);

@@ -5,8 +5,8 @@ import test from "node:test";
 const require = createRequire(import.meta.url);
 const dnsNamespace = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
 
-test("build-tool UUID generation rejects undersized output buffers", () => {
-  const uuid: unknown = createRequire(require.resolve("xcode"))("uuid");
+test("tunnel UUID generation rejects undersized output buffers", () => {
+  const uuid: unknown = createRequire(require.resolve("@expo/ngrok"))("uuid");
   assert.ok(uuid && typeof uuid === "object" && "v3" in uuid && "v5" in uuid);
   assert.equal(typeof uuid.v3, "function");
   assert.equal(typeof uuid.v5, "function");
@@ -19,19 +19,23 @@ test("build-tool UUID generation rejects undersized output buffers", () => {
   }
 });
 
-test("Expo tunnel and build tools retain CommonJS UUID v4 generation", () => {
-  for (const consumer of ["@expo/ngrok", "xcode"]) {
-    const uuid: unknown = createRequire(require.resolve(consumer))("uuid");
-    assert.ok(
-      uuid &&
-        (typeof uuid === "object" || typeof uuid === "function") &&
-        "v4" in uuid &&
-        typeof uuid.v4 === "function",
-    );
-    const value: unknown = uuid.v4();
-    assert.ok(typeof value === "string");
-    assert.match(value, /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/);
-  }
+test("the Expo tunnel retains CommonJS UUID v4 generation", () => {
+  const uuid: unknown = createRequire(require.resolve("@expo/ngrok"))("uuid");
+  assert.ok(
+    uuid &&
+      (typeof uuid === "object" || typeof uuid === "function") &&
+      "v4" in uuid &&
+      typeof uuid.v4 === "function",
+  );
+  const value: unknown = uuid.v4();
+  assert.ok(typeof value === "string");
+  assert.match(value, /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/);
+});
+
+// Xcode 4 generates identifiers with crypto.randomUUID, so it needs no uuid override.
+test("Xcode no longer depends on uuid", () => {
+  const manifest: { dependencies?: Record<string, string> } = require("xcode/package.json");
+  assert.equal(manifest.dependencies?.uuid, undefined);
 });
 
 test("Xcode still generates unique project identifiers", () => {

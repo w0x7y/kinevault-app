@@ -18,7 +18,10 @@ import { useAccount } from "../../account/provider";
 import { AccountTrackingProvider, TrackingRefreshNotices } from "../../account/tracking-provider";
 import { routeDecision } from "../../account/entry-policy";
 import { EntryGate } from "../../account/entry-gate";
-import { journalTab, tabNavigator, trackTabs } from "../../navigation/track-tabs";
+import { journalTab, tabAnchor, tabNavigator, trackTabs } from "../../navigation/track-tabs";
+
+// Expo Router 58 ignores a navigator's `initialRouteName` prop and reads the anchor here.
+export const unstable_settings = { anchor: tabAnchor };
 
 /**
  * The bar the highlight slides in, the chosen route, its measured frame, and how that route's icon
@@ -91,7 +94,8 @@ export default function TabLayout() {
                       }}
                     />
                   ))}
-                  <Tabs.Screen name={journalTab.name} options={{ href: null }} />
+                  {/* Router 58 redirects away from an `href: null` tab; draw no button instead. */}
+                  <Tabs.Screen name={journalTab.name} options={{ tabBarButton: () => null }} />
                 </Tabs>
               </View>
               <AppHeader onHeightChange={setHeaderHeight} />

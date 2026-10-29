@@ -3,10 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const patches = [
-  ["http-cache-semantics", "4.3.0"],
-  ["query-string", "7.1.3"],
-];
+const patches = [["http-cache-semantics", "4.3.0"]];
 
 function gitApply(args) {
   const result = spawnSync("git", ["apply", ...args], { cwd: root, encoding: "utf8" });

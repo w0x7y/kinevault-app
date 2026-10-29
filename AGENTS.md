@@ -1,7 +1,7 @@
 # KineVault Track: working notes
 
-KineVault Track is the Expo app in this repository (Expo SDK 57, React Native 0.86,
-Expo Router, Reanimated 4.5, Supabase accounts). It runs on iOS, Android and a web
+KineVault Track is the Expo app in this repository (Expo SDK 58, React Native 0.88,
+Expo Router, Reanimated 4.7, Supabase accounts). It runs on iOS, Android and a web
 preview. The sibling `KineVault/` folder is a separate studio project; don't edit it
 from here.
 
