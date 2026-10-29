@@ -166,7 +166,8 @@ node --env-file=.env.auth.local scripts/configure-auth.mjs --apply
 The first command shows the proposed settings without credentials. The second
 applies Resend SMTP and the additive redirect list, and sets the server password
 minimum to at least 10 characters while preserving stricter existing settings. It
-hasn't been run, so Resend and the password minimum aren't applied yet.
+hasn't been run, so Resend isn't applied yet. The server password minimum was set
+to 10 by itself through the Management API on 2026-10-28.
 The native and localhost callbacks listed below were added to the redirect allowlist
 by hand on 2026-10-18. Before that the list was empty, so confirmation links fell back
 to the default Site URL, `http://localhost:3000`.
