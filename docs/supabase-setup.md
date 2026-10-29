@@ -64,9 +64,10 @@ Five later migrations are in `supabase/migrations/`:
   see [exercise demos](exercise-demos.md).
 - `20261018120000_account_deletion_attempts.sql` adds the per-account attempt limit
   that `delete-account` checks. It was applied on 2026-10-18, before the function
-  was deployed.
+  was deployed. It was added to the migration history on 2026-10-29, so
+  `supabase db push` won't run it again.
 - `20261029120000_track_documents_steps_log.sql` lets `track_documents` accept
-  `kinevault-track.steps-log.v1`. It is not applied; see
+  `kinevault-track.steps-log.v1`. It was applied on 2026-10-29; see
   [Logged steps sync](#logged-steps-sync).
 
 The migration was applied to the inspected empty project. Verification passed for
@@ -91,7 +92,10 @@ partitions stay food and exercise only. Deleting the Auth user still removes the
 through the existing foreign key cascade, and the account export reads it with the
 other documents. Phone steps have no key and are never uploaded.
 
-It hasn't been applied to the hosted project. On 2026-10-29 it passed against a
+It was applied to the hosted project on 2026-10-29 with the steps below. The checks
+after matched: the constraint gained the steps key, the history lists
+`20261029120000`, and every key's row count and highest revision were unchanged.
+Before that, on 2026-10-29, it passed against a
 throwaway Supabase Postgres 17.11 container: existing rows stayed byte for byte, the
 steps key saved through `save_track_document`, an unknown key was still rejected,
 another account couldn't read the row, the migration reran cleanly, and the rollback
