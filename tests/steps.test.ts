@@ -7,7 +7,12 @@ import {
   stepsLogStorageKey,
   type StepsLogStorage,
 } from "../src/steps/persistence.ts";
-import { phoneStepsStatus, stepDayRange } from "../src/steps/summary.ts";
+import {
+  phoneStepsKind,
+  phoneStepsStatus,
+  stepDayRange,
+  type PhoneSteps,
+} from "../src/steps/summary.ts";
 
 // The shared day amount log (parsing, replacing, clamped steps) is covered once in
 // day-amount-log.test.ts. These tests pin Logged steps' key, messages and documents.
@@ -85,6 +90,24 @@ test("the phone's range runs from local midnight to now, or the whole of a past 
   assert.equal(stepDayRange("2026-10-02", now), null);
 });
 
+test("one classification of the phone's reading covers every access and read state", () => {
+  const kinds = (access: PhoneSteps["access"]) =>
+    (["loading", "ready", "error"] as const).map((state) =>
+      phoneStepsKind({ access, state, steps: state === "ready" ? 4200 : null }),
+    );
+  assert.deepEqual(kinds("granted"), ["loading", "counted", "error"]);
+  // Nothing is counted before access is known.
+  assert.deepEqual(kinds(null), ["loading", "loading", "loading"]);
+  // Without access, a count read before access was lost doesn't show.
+  for (const [access, kind] of [
+    ["undetermined", "connect"],
+    ["denied", "denied"],
+    ["install", "install"],
+    ["unavailable", "unavailable"],
+  ] as const)
+    assert.deepEqual(kinds(access), [kind, kind, kind]);
+});
+
 test("the steps sheet offers the fix that fits each phone access", () => {
   const status = (access: Parameters<typeof phoneStepsStatus>[0]["access"], state = "ready") => {
     const { status, counted, action } = phoneStepsStatus({
@@ -96,7 +119,6 @@ test("the steps sheet offers the fix that fits each phone access", () => {
   };
   assert.deepEqual(status("granted"), [`${(4200).toLocaleString()} steps`, true, null]);
   assert.deepEqual(status("granted", "loading"), ["Loading...", false, null]);
-  assert.deepEqual(status(null, "loading"), ["Loading...", false, null]);
   assert.deepEqual(status("granted", "error"), [
     "Couldn't read phone steps.",
     false,

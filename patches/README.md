@@ -26,10 +26,12 @@ Expo Router and cacheable-request, including serialized cache policies, malforme
 URL parsing with a subprocess deadline, and ordinary permitted cache reuse.
 Keep these tests when removing patches after upstream releases.
 
-`braces@3.0.3` and `node-forge@1.4.0` still have no published fixed releases as of
-2026-10-05. Their 19 propagated high audit findings remain. These patches do not
-fix or suppress those advisories. Never use `npm audit fix --force` to downgrade
-Expo or React Native; recheck the registries and upstream advisories for fixes.
+These patches do not fix or suppress any other advisory. As of 2026-10-28,
+`node-forge` resolves to the fixed 1.4.2 and the braces advisory is withdrawn.
+The zod and deepmerge findings remain; see
+[security remediation](../docs/security-remediation.md#dependency-audit-2026-10-28).
+Never use `npm audit fix --force` to downgrade Expo or React Native; recheck the
+registries and upstream advisories for fixes.
 
 ## Expo upgrade checks
 

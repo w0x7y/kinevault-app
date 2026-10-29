@@ -6,6 +6,7 @@ import {
   removeOwnedMedia,
 } from "../profile/media-ownership.ts";
 import { profileStorageKey } from "../profile/persistence.ts";
+import { stepsLogStorageKey } from "../steps/persistence.ts";
 import { accountTrackingDocuments } from "./tracking-documents.ts";
 import {
   createPartitionedLocalStorage,
@@ -137,16 +138,27 @@ function parseEnvelope(raw: string | null): Envelope | null {
     dirty: value.dirty,
   };
 }
-function checkedCloud(row: CloudDocument): CloudDocument {
+// Builds before Logged steps synced saved them as a bare document. Read one as an unsynced edit.
+function parseStoredEnvelope(key: string, raw: string | null): Envelope | null {
+  if (key === stepsLogStorageKey && raw !== null && JSON.parse(raw)?.payload === undefined)
+    return { version: 1, payload: raw, revision: 0, dirty: true, sequence: 1 };
+  return parseEnvelope(raw);
+}
+function checkedRow(row: CloudDocument): CloudDocument {
   if (
-    !accountDocumentKeys.includes(row.document_key) ||
     !Number.isSafeInteger(row.revision) ||
     row.revision < 1 ||
     (row.payload !== null && typeof row.payload !== "string")
   )
     throw new Error("Invalid cloud document");
-  return { ...row, payload: canonical(row.document_key, row.payload) };
+  return row;
 }
+function checkedCloud(row: CloudDocument): CloudDocument {
+  if (!accountDocumentKeys.includes(row.document_key)) throw new Error("Invalid cloud document");
+  return { ...checkedRow(row), payload: canonical(row.document_key, row.payload) };
+}
+// A newer build's document. This build can't parse it, so sync skips it.
+const unknownCloud = (row: CloudDocument) => !accountDocumentKeys.includes(row.document_key);
 
 export function createAccountStorage({
   userId,
@@ -210,7 +222,7 @@ export function createAccountStorage({
     for (const listener of listeners) listener();
   }
   async function read(key: string) {
-    const envelope = parseEnvelope(await local.getItem(scoped(key)));
+    const envelope = parseStoredEnvelope(key, await local.getItem(scoped(key)));
     if (envelope && cache.get(key)?.payload !== envelope.payload)
       envelope.payload = canonical(key, envelope.payload);
     if (envelope) cache.set(key, envelope);
@@ -229,10 +241,12 @@ export function createAccountStorage({
   }
   async function hydrate(rows: CloudDocument[], ticket: number) {
     const cloud = new Map(
-      rows.map((row) => {
-        const checked = checkedCloud(row);
-        return [checked.document_key, checked];
-      }),
+      rows
+        .filter((row) => !unknownCloud(row))
+        .map((row) => {
+          const checked = checkedCloud(row);
+          return [checked.document_key, checked];
+        }),
     );
     await locally(local, async () => {
       for (const key of accountDocumentKeys) {
@@ -456,7 +470,8 @@ export function createAccountStorage({
       await checkWritable();
       // A validated replacement or reset needs revision metadata, not valid
       // prior answers. Damaged payloads must remain recoverable by replacement.
-      const previous = parseEnvelope(
+      const previous = parseStoredEnvelope(
+        key,
         isHistoryKey(key)
           ? await readHistoryEnvelopeMetadata(local, scoped(key))
           : await local.getItem(scoped(key)),
@@ -518,7 +533,9 @@ export function createAccountStorage({
       if (!userId) throw new Error("Log in to export your account");
       // A cloud failure must not be represented as an empty cloud account.
       if (includeCloud && !remote) throw new Error("Cloud export is unavailable");
-      const rows = includeCloud ? (await remote!.list()).map(checkedCloud) : null;
+      const listed = includeCloud ? await remote!.list() : null;
+      const rows = listed?.filter((row) => !unknownCloud(row)).map(checkedCloud) ?? null;
+      const unknown = listed?.filter(unknownCloud).map(checkedRow) ?? [];
       return locally(local, async () => {
         const documents = [];
         for (const key of accountDocumentKeys) {
@@ -552,6 +569,19 @@ export function createAccountStorage({
             ),
           });
         }
+        // Keep a newer build's documents as raw cloud copies rather than drop them.
+        for (const row of unknown)
+          documents.push({
+            key: row.document_key,
+            local: null,
+            cloud: {
+              data: dataOrNull(row.payload),
+              revision: row.revision,
+              updatedAt: row.updated_at ?? null,
+              source: "cloud-export",
+            },
+            conflict: false,
+          });
         return {
           documents,
           recoveredSetup: dataOrNull(await local.getItem(scoped(recoveredSetupStorageKey))),
@@ -671,7 +701,9 @@ export function createAccountStorage({
       if (pendingWrites) await pendingWrites;
       const target = userId === null ? await guestKey(key) : scoped(key);
       const raw = await local.getItem(target);
-      return userId !== null && documentParsers[key] ? (parseEnvelope(raw)?.payload ?? null) : raw;
+      return userId !== null && documentParsers[key]
+        ? (parseStoredEnvelope(key, raw)?.payload ?? null)
+        : raw;
     },
     setItem: (key: string, value: string) => mutate(key, value),
     removeItem: (key: string) => mutate(key, null),

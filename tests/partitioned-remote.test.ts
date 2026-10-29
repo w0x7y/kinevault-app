@@ -252,3 +252,18 @@ test("a delayed old download cannot replace newer cache revisions or redownload 
     ["manifest"],
   );
 });
+
+test("Logged steps sync as one plain document when history partitions are on", async () => {
+  const cloud = server(),
+    stepsKey = "kinevault-track.steps-log.v1",
+    steps = JSON.stringify({ version: 1, days: { "2026-10-27": 8000 } });
+  const store = createAccountStorage({ userId: "a", local: memory(), remote: cloud.remote() });
+  await store.start();
+  await store.setItem(stepsKey, steps);
+  await store.retry();
+  assert.equal(cloud.originals.get(stepsKey)?.payload, steps);
+  assert.deepEqual(cloud.saves, []);
+  const other = createAccountStorage({ userId: "a", local: memory(), remote: cloud.remote() });
+  await other.start();
+  assert.equal(await other.getItem(stepsKey), steps);
+});

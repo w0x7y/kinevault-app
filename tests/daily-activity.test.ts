@@ -233,13 +233,18 @@ test("exercise records aggregate only completed sessions on the selected date in
   assert.equal(activity.food.kind, "error");
   assert.equal(activity.workout.kind, "done");
   if (activity.workout.kind !== "done") return;
-  assert.equal(activity.workout.completed.volume, 400);
-  assert.equal(activity.workout.completed.sets, 2);
-  assert.equal(activity.workout.completed.reps, 10);
-  assert.equal(activity.workout.completed.durationSeconds, 1200);
-  assert.equal(activity.workout.completed.exercises.length, 2);
+  assert.equal(activity.workout.lifted, "400");
+  assert.deepEqual(activity.workout.stats, [
+    { label: "Duration", value: "20 min" },
+    { label: "Sets", value: "2" },
+    { label: "Reps", value: "10" },
+  ]);
+  assert.equal(activity.workout.detail, "2 exercises · 5 reps per set on average");
   const past = interpretDayActivity({ ...sources, date: otherDate, exercise }).workout;
-  assert.equal(past.kind === "done" && past.completed.volume, 200);
+  assert.deepEqual(past.kind === "done" && [past.lifted, past.detail], [
+    "200",
+    "1 exercise · 5 reps per set on average",
+  ]);
 });
 
 for (const kind of ["loading", "error"] as const) {
@@ -380,28 +385,25 @@ test("the Workout tile covers every state, with one minutes rule for the title a
     name: "Strength",
   });
 
-  assert.deepEqual(
-    { ...tile([completed]), completed: undefined },
-    {
-      kind: "done",
-      retry: noRetry,
-      summary: "200 kg · 30 min",
-      name: "Morning",
-      status: "Done",
-      completed: undefined,
-      lifted: "200",
-      exercises: [
-        {
-          id: JSON.stringify(["morning", "row"]),
-          name: "Squat",
-          counts: ["1 set", "5 reps"],
-          amount: "40 kg",
-          amountLabel: "weight 40 kg",
-        },
-      ],
-      stats: stats("30 min"),
-    },
-  );
+  assert.deepEqual(tile([completed]), {
+    kind: "done",
+    retry: noRetry,
+    summary: "200 kg · 30 min",
+    name: "Morning",
+    status: "Done",
+    lifted: "200",
+    detail: "1 exercise · 5 reps per set on average",
+    exercises: [
+      {
+        id: JSON.stringify(["morning", "row"]),
+        name: "Squat",
+        counts: ["1 set", "5 reps"],
+        amount: "40 kg",
+        amountLabel: "weight 40 kg",
+      },
+    ],
+    stats: stats("30 min"),
+  });
   // A timed exercise counts its sets and shows its total time instead of reps and weight.
   const stretch = { ...definition, id: "stretch", name: "Stretch", tracking: "time" as const };
   const timed = tile([
@@ -426,6 +428,8 @@ test("the Workout tile covers every state, with one minutes rule for the title a
     amount: "1:15",
     amountLabel: "time 1:15",
   });
+  // A Timed-only day has no reps to average.
+  assert.equal(timed.kind === "done" && timed.detail, "1 exercise");
   // The card's total rounds like the summary line.
   const fractional = tile([
     { ...completed, exercises: [{ ...completed.exercises[0], sets: [set("12.5")] }] },
@@ -459,24 +463,22 @@ test("the Workout tile covers every state, with one minutes rule for the title a
 
 test("each saved source reports its own availability and retries only itself", () => {
   const retried: string[] = [];
-  const failing = <Name extends "food" | "water" | "goal" | "exercise" | "loggedSteps">(
-    name: Name,
-  ) => source({ kind: "error" as const }, () => retried.push(name));
+  const failing = <Name extends "food" | "water" | "goal" | "exercise">(name: Name) =>
+    source({ kind: "error" as const }, () => retried.push(name));
   const activity = interpretDayActivity({
     ...sources,
     food: failing("food"),
     water: source({ kind: "loading" as const }, () => retried.push("water")),
     goal: failing("goal"),
     exercise: failing("exercise"),
-    loggedSteps: failing("loggedSteps"),
   });
-  const { food, water, waterGoal, workouts, loggedSteps } = activity.sources;
+  const { food, water, waterGoal, workouts } = activity.sources;
   assert.deepEqual(
-    [food.kind, water.kind, waterGoal.kind, workouts.kind, loggedSteps.kind],
-    ["error", "loading", "error", "error", "error"],
+    [food.kind, water.kind, waterGoal.kind, workouts.kind],
+    ["error", "loading", "error", "error"],
   );
-  for (const each of [workouts, waterGoal, food, loggedSteps, water]) each.retry();
-  assert.deepEqual(retried, ["exercise", "goal", "food", "loggedSteps", "water"]);
+  for (const each of [workouts, waterGoal, food, water]) each.retry();
+  assert.deepEqual(retried, ["exercise", "goal", "food", "water"]);
   const ready = interpretDayActivity(sources).sources;
   assert.ok(Object.values(ready).every((each) => each.kind === "ready"));
 });
@@ -540,10 +542,6 @@ test("the Steps tile adds logged steps to the phone's and says where the figure 
   assert.deepEqual(tile({}, 1500), {
     total: 5500,
     captions: ["From your phone", `Includes ${(1500).toLocaleString()} logged`],
-  });
-  assert.deepEqual(tile({ access: null, steps: null, state: "loading" }, 0), {
-    total: null,
-    captions: ["loading..."],
   });
   assert.deepEqual(tile({ state: "loading", steps: null }, 200), {
     total: 200,

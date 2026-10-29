@@ -16,6 +16,7 @@ const profileKey = "kinevault-track.profile.v1";
 const waterKey = "kinevault-track.water-log.v1";
 const foodKey = "kinevault-track.food-log.v1";
 const goalKey = "kinevault-track.water-goal.v1";
+const stepsKey = "kinevault-track.steps-log.v1";
 const ownerPrefix = `kinevault-track.account.${fixtureUserId}.`;
 const otherPrefix = "kinevault-track.account.22222222-2222-4222-8222-222222222222.";
 const profile = {
@@ -44,6 +45,7 @@ const profile = {
 const water = { version: 1, days: { "2026-10-08": 1750 } };
 const food = { version: 1, days: { "2026-10-08": [] } };
 const goal = { version: 1, dailyMl: 2600 };
+const steps = { version: 1, days: { "2026-10-08": 6400 } };
 const preserved = {
   "kinevault-track.appearance": "light",
   [`${otherPrefix}${profileKey}`]: JSON.stringify({
@@ -90,10 +92,12 @@ async function open(t, fixture = {}, statuses = [403, 200]) {
       waterKey,
       foodKey,
       goalKey,
+      stepsKey,
       profile,
       water,
       food,
       goal,
+      steps,
       preserved,
       ownerPrefix,
     }) => {
@@ -102,11 +106,25 @@ async function open(t, fixture = {}, statuses = [403, 200]) {
       localStorage.setItem(waterKey, JSON.stringify(water));
       localStorage.setItem(foodKey, JSON.stringify(food));
       localStorage.setItem(goalKey, JSON.stringify(goal));
+      localStorage.setItem(stepsKey, JSON.stringify(steps));
       localStorage.setItem(`${ownerPrefix}recovery-test.v1`, "owned-recovery-record");
       for (const [key, value] of Object.entries(preserved)) localStorage.setItem(key, value);
       sessionStorage.setItem("settings-fixture-seeded", "1");
     },
-    { profileKey, waterKey, foodKey, goalKey, profile, water, food, goal, preserved, ownerPrefix },
+    {
+      profileKey,
+      waterKey,
+      foodKey,
+      goalKey,
+      stepsKey,
+      profile,
+      water,
+      food,
+      goal,
+      steps,
+      preserved,
+      ownerPrefix,
+    },
   );
   const account = await installAccountFixture(context, fixture);
   const deletion = [0, 1].map(() => ({ started: deferred(), response: deferred() }));
@@ -211,6 +229,7 @@ test("Settings exports downloaded logical account JSON with weight history and n
       profileKey,
       goalKey,
       waterKey,
+      stepsKey,
     ].sort(),
   );
   for (const [key, data] of [
@@ -218,6 +237,7 @@ test("Settings exports downloaded logical account JSON with weight history and n
     [waterKey, water],
     [foodKey, food],
     [goalKey, goal],
+    [stepsKey, steps],
   ]) {
     const document = exported.documents.find((entry) => entry.key === key);
     assert.deepEqual(document.local.data, data);

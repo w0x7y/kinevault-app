@@ -2,7 +2,6 @@ import {
   activeWorkout,
   defaultPlannedSets,
   durationFromMinutes,
-  exerciseResultPage,
   formatElapsed,
   matchingExercises,
   minutesText,
@@ -27,8 +26,22 @@ import {
   type SetLine,
 } from "./tracking.ts";
 import { writeFailure, type createExercisePersistence, type ExerciseWrite } from "./persistence.ts";
+import {
+  createSetClock,
+  type SetClockTime,
+  type ShownClock,
+  type StoppedClock,
+} from "./set-clock.ts";
 import { exerciseRowLabel } from "./short-name.ts";
 import type { ExercisePanels, WorkoutView } from "./tab-view.ts";
+import {
+  keepShown,
+  librarySearch,
+  moreResults,
+  resultPage,
+  workspaceView,
+  type LibrarySearch,
+} from "./workspace-page.ts";
 
 /**
  * How a workout log presents: a compact planned card, the live workspace, manual logging of a
@@ -36,28 +49,17 @@ import type { ExercisePanels, WorkoutView } from "./tab-view.ts";
  */
 export type WorkoutLogMode = "compact" | "active" | "manual" | "completed";
 type WorkoutFields = { name: string; exercises: SessionExercise[]; minutes: string };
-/**
- * A timed set's running clock: a stopwatch from `startedAt`, or with a `target` a countdown from
- * the seconds the set held when it started.
- */
-type SetClock = { rowId: string; setId: string; startedAt: number; target: number | null };
-/** A running clock as its set shows it: seconds counted up, or left of a countdown. */
-export type ShownClock = { rowId: string; setId: string; seconds: number; countdown: boolean };
-/** What set clocks read and how they tick; the device's clock and timers by default. */
-type SetClocks = {
-  now?: () => number;
-  /** Calls `tick` every `ms` until the returned stop. */
-  every?: (ms: number, tick: () => void) => () => void;
+type SetClocks = SetClockTime & {
   /** A countdown ran out, e.g. to buzz. */
   onCountdownEnd?: () => void;
-};
-const deviceTimer = (ms: number, tick: () => void) => {
-  const timer = setInterval(tick, ms);
-  return () => clearInterval(timer);
 };
 type WorkoutEditState = {
   session: WorkoutSession;
   fields: WorkoutFields;
+  /**
+   * Planned count text typed on a compact card that its row's sets may not match: invalid, blocked
+   * by entered sets, or still being typed (so "05" stays "05"). Other rows show their set count.
+   */
   counts: Record<string, string>;
   busy: boolean;
   error: string | null;
@@ -76,13 +78,9 @@ type WorkoutEditState = {
    */
   editing: boolean;
   /** Edit mode's open Add exercise: its library search and how many results show. */
-  adding: { query: string; limit: number } | null;
+  adding: LibrarySearch | null;
   /** The exercise row whose removal awaits confirmation. */
   removingId: string | null;
-  /** The running set clock; it keeps running while another exercise shows or the page is away. */
-  clock: SetClock | null;
-  /** When the shown clock was read; the ticker moves it on each second. */
-  clockReadAt: number;
 };
 type Store = Pick<
   ReturnType<typeof createExercisePersistence>,
@@ -154,7 +152,7 @@ function savedFields(session: WorkoutSession): Pick<WorkoutEditState, "fields" |
       exercises: session.exercises,
       minutes: minutesText(session.durationSeconds),
     },
-    counts: Object.fromEntries(session.exercises.map((row) => [row.id, String(row.sets.length)])),
+    counts: {},
   };
 }
 /** What a workout log shows in each mode. */
@@ -218,16 +216,21 @@ export const workoutLogControls = {
 } satisfies Record<WorkoutLogMode, WorkoutLogControls>;
 /** The edit with the controls its log mode allows. The saved log and row ID stay inside. */
 type WorkoutEditSnapshot = Readonly<
-  Omit<WorkoutEditState, "session" | "selectedId"> &
+  Omit<WorkoutEditState, "session" | "selectedId" | "counts"> &
     WorkoutLogControls & {
       mode: WorkoutLogMode;
+      /** Each row's planned count as its field shows it: the typed text, or its set count. */
+      counts: Record<string, string>;
       /** The exercise row on screen: the selected one, or the first. */
       selected: SessionExercise | undefined;
+      /** The rows Back and Next show. */
+      previous: SessionExercise | undefined;
+      next: SessionExercise | undefined;
       /** The selected row's Previous sets hints, one per set. */
       hints: SetHint[];
       /** The entered duration as the page shows it. */
       durationCaption: string;
-      /** The running clock as of `clockReadAt`. */
+      /** The running set clock as of the ticker's last move. */
       shownClock: ShownClock | null;
       /**
        * Add exercise's results: the library's matches for its search, or the whole library
@@ -240,7 +243,10 @@ type WorkoutEditSnapshot = Readonly<
 >;
 type Entry = {
   state: WorkoutEditState;
-  /** The last snapshot and the state it shows, rebuilt when the state or the mode changes. */
+  /**
+   * The last snapshot and the state it shows, rebuilt when the state, the mode or the shown clock
+   * changes.
+   */
   view: { state: WorkoutEditState; snapshot: WorkoutEditSnapshot } | null;
   revision: number;
   pending: Promise<boolean> | null;
@@ -282,12 +288,8 @@ export function workoutLogMode(session: WorkoutSession, view?: WorkoutView | nul
   return view?.kind === "session" && view.id === session.id && view.manual ? "manual" : "compact";
 }
 
-function addResults(
-  library: readonly ExerciseDefinition[],
-  { query, limit }: { query: string; limit: number },
-) {
-  const matches = query.trim() ? matchingExercises(library, query) : library;
-  return { items: matches.slice(0, limit), more: matches.length > limit };
+function addResults(library: readonly ExerciseDefinition[], { query, limit }: LibrarySearch) {
+  return resultPage(query.trim() ? matchingExercises(library, query) : library, limit);
 }
 
 function removal(exercises: readonly SessionExercise[], id: string | null) {
@@ -302,8 +304,26 @@ function removal(exercises: readonly SessionExercise[], id: string | null) {
   };
 }
 
+function shownCount(row: SessionExercise, counts: Record<string, string>) {
+  return counts[row.id] ?? String(row.sets.length);
+}
 function plannedCountError(fields: WorkoutFields, counts: Record<string, string>) {
-  return fields.exercises.map((row) => countProblem(row, counts[row.id]!)).find(Boolean) ?? null;
+  return (
+    fields.exercises.map((row) => countProblem(row, shownCount(row, counts))).find(Boolean) ?? null
+  );
+}
+/**
+ * Typed counts after a change from `before` to `after`. A row's text goes with the row, and once
+ * the row's set count changes, unless the text was invalid or blocked by entered sets.
+ */
+function keptCounts(before: WorkoutFields, after: WorkoutFields, counts: Record<string, string>) {
+  return Object.fromEntries(
+    Object.entries(counts).filter(([id, text]) => {
+      const was = before.exercises.find((row) => row.id === id);
+      const row = after.exercises.find((value) => value.id === id);
+      return was && row && (row.sets.length === was.sets.length || countProblem(was, text));
+    }),
+  );
 }
 
 // Fields outlive render mounts. Only durable success or explicit completed Cancel releases an edit.
@@ -313,58 +333,44 @@ export function createWorkoutEditing(
   panels: Pick<ExercisePanels, "panel" | "origin" | "leave">,
   /** The tab's view request, which saves the logs it leaves before opening `content`. */
   requestView: (content: WorkoutView) => Promise<boolean>,
-  { now = Date.now, every = deviceTimer, onCountdownEnd = () => {} }: SetClocks = {},
+  { onCountdownEnd = () => {}, ...time }: SetClocks = {},
 ) {
   const entries = new Map<string, Entry>(),
     listeners = new Set<() => void>();
   let lastDocument: ExerciseDocument | null = null;
   const emit = () => {
-    syncTicker();
     for (const listener of listeners) listener();
   };
-  // One ticker runs while any log's clock does (and the tab is attached), whichever page shows.
-  let ticking = true,
-    stopTicker: (() => void) | null = null;
-  function syncTicker() {
-    const running = ticking && [...entries.values()].some((entry) => entry.state.clock);
-    if (running && !stopTicker) stopTicker = every(250, tick);
-    else if (!running && stopTicker) {
-      stopTicker();
-      stopTicker = null;
-    }
-  }
-  function clockSeconds(clock: SetClock, at = now()) {
-    const elapsed = Math.max(0, Math.floor((at - clock.startedAt) / 1000));
-    return clock.target === null ? elapsed : Math.min(elapsed, clock.target);
-  }
-  /** Moves each shown clock on a second, and logs a countdown that ran out once its edit is free. */
-  function tick() {
-    const at = now();
-    for (const [id, entry] of entries) {
-      const clock = entry.state.clock;
-      if (!clock || !document()?.sessions.some((session) => session.id === id)) continue;
-      if (clock.target !== null && !entry.state.busy && clockSeconds(clock, at) >= clock.target) {
-        settleClock(id, entry);
-        onCountdownEnd();
-      } else if (clockSeconds(clock, at) !== clockSeconds(clock, entry.state.clockReadAt))
-        publish(entry, { clockReadAt: at });
-    }
+  // One clock per log, whichever page shows; a countdown that ran out logs once its edit is free.
+  const clocks = createSetClock({
+    ...time,
+    onDue(id) {
+      const entry = entries.get(id);
+      if (!entry || entry.state.busy || !document()?.sessions.some((session) => session.id === id))
+        return;
+      settleClock(id, entry);
+      onCountdownEnd();
+    },
+  });
+  clocks.subscribe(emit);
+  /** Publishes a clock change, logging a stopped clock's seconds into its set. */
+  function logClock(id: string, stopped: StoppedClock | null) {
+    if (stopped && stopped.seconds > 0)
+      edit(id).change({
+        kind: "set",
+        rowId: stopped.rowId,
+        setId: stopped.setId,
+        side: null,
+        field: "seconds",
+        value: String(stopped.seconds),
+      });
+    else emit();
   }
   /** Stops a log's running clock and logs the seconds it ran; nothing while the edit is busy. */
   function settleClock(id: string, entry: Entry) {
-    const clock = entry.state.clock;
-    if (!clock || !current(id, entry) || entry.state.busy) return;
-    const seconds = clockSeconds(clock);
-    entry.state = { ...entry.state, clock: null };
-    if (seconds > 0)
-      edit(id).change({
-        ...clock,
-        kind: "set",
-        side: null,
-        field: "seconds",
-        value: String(seconds),
-      });
-    else emit();
+    if (!current(id, entry) || entry.state.busy) return;
+    const stopped = clocks.settle(id);
+    if (stopped) logClock(id, stopped);
   }
   const subscribe = (listener: () => void) => {
     listeners.add(listener);
@@ -386,30 +392,31 @@ export function createWorkoutEditing(
   function modeOf(entry: Entry) {
     return workoutLogMode(entry.state.session, panels.panel()?.content);
   }
-  function view(entry: Entry): WorkoutEditSnapshot {
+  function view(id: string, entry: Entry): WorkoutEditSnapshot {
     const { state } = entry,
-      mode = modeOf(entry);
-    if (entry.view?.state === state && entry.view.snapshot.mode === mode)
+      mode = modeOf(entry),
+      shownClock = clocks.shown(id);
+    if (
+      entry.view?.state === state &&
+      entry.view.snapshot.mode === mode &&
+      entry.view.snapshot.shownClock === shownClock
+    )
       return entry.view.snapshot;
-    const { session, selectedId, ...shown } = state;
+    const { session, selectedId, counts, ...shown } = state;
     const { exercises, minutes } = state.fields;
-    const { clock, clockReadAt } = state;
-    const seconds = clock && clockSeconds(clock, clockReadAt);
-    const selected = exercises.find((row) => row.id === selectedId) ?? exercises[0];
+    const { selected, previous, next } = workspaceView(exercises, selectedId);
     // Hints read other logs too; a newer document always replaces the state (see refreshDocument).
     const snapshot: WorkoutEditSnapshot = {
       ...shown,
       mode,
       ...workoutLogControls[mode],
+      counts: Object.fromEntries(exercises.map((row) => [row.id, shownCount(row, counts)])),
       selected,
+      previous,
+      next,
       hints: selected ? setHints(document()?.sessions ?? [], session, selected) : [],
       durationCaption: durationCaption(minutes),
-      shownClock: clock && {
-        rowId: clock.rowId,
-        setId: clock.setId,
-        seconds: clock.target === null ? seconds! : clock.target - seconds!,
-        countdown: clock.target !== null,
-      },
+      shownClock,
       addResults: state.adding && addResults(document()?.exercises ?? [], state.adding),
       removing: removal(exercises, state.removingId),
     };
@@ -431,7 +438,10 @@ export function createWorkoutEditing(
     for (const [id, entry] of entries) {
       const session = next.sessions.find((value) => value.id === id);
       if (!session) {
-        if (!entry.pending) entries.delete(id);
+        if (!entry.pending) {
+          entries.delete(id);
+          clocks.forget(id);
+        }
       } else {
         // Untouched fields follow a newer saved log, e.g. from an account refresh; entered fields never do.
         const fields = entry.revision === 0 && !entry.pending ? savedFields(session) : {};
@@ -465,8 +475,6 @@ export function createWorkoutEditing(
           editing: false,
           adding: null,
           removingId: null,
-          clock: null,
-          clockReadAt: 0,
         },
       };
       entries.set(id, entry);
@@ -626,14 +634,12 @@ export function createWorkoutEditing(
     }
     function change(input: Change) {
       if (!current(id, entry) || entry.state.busy) return;
-      let fields = entry.state.fields,
-        counts = entry.state.counts;
+      let fields = entry.state.fields;
       let resizeBlocked = false,
         { selectedId, adding, removingId } = entry.state;
       if (input.kind === "name" || input.kind === "minutes")
         fields = { ...fields, [input.kind]: input.value };
       else if (input.kind === "count") {
-        counts = { ...counts, [input.rowId]: input.value };
         const row = fields.exercises.find((value) => value.id === input.rowId);
         if (!row || entry.state.session.status !== "planned") return;
         resizeBlocked = Boolean(countProblem(row, input.value));
@@ -659,7 +665,6 @@ export function createWorkoutEditing(
           sets: resizeSets([], tracking, defaultPlannedSets, localId),
         };
         fields = { ...fields, exercises: [...fields.exercises, row] };
-        counts = { ...counts, [row.id]: String(row.sets.length) };
         selectedId = row.id;
         adding = null;
       } else if (input.kind === "remove-exercise") {
@@ -690,27 +695,26 @@ export function createWorkoutEditing(
           return;
         exercises.splice(input.to, 0, row);
         // The exercise on screen stays on screen, even when it was only shown for being first.
-        selectedId = (fields.exercises.find((value) => value.id === selectedId) ??
-          fields.exercises[0])!.id;
+        selectedId = keepShown(fields.exercises, selectedId) ?? null;
         fields = { ...fields, exercises };
       } else {
         const row = fields.exercises.find((value) => value.id === input.rowId);
         if (!row) return;
         const sets = changedSets(row, input);
         if (sets === row.sets) return;
-        if (input.kind !== "set" && input.kind !== "fill" && !countProblem(row, counts[row.id]!))
-          counts = { ...counts, [row.id]: String(sets.length) };
         fields = {
           ...fields,
           exercises: fields.exercises.map((value) => (value === row ? { ...row, sets } : value)),
         };
       }
+      let counts = keptCounts(entry.state.fields, fields, entry.state.counts);
+      if (input.kind === "count") counts = { ...counts, [input.rowId]: input.value };
       const countError =
         entry.state.session.status === "planned" ? plannedCountError(fields, counts) : null;
       // A removed set's running clock, or its exercise's, goes with it.
-      let clock = entry.state.clock;
-      const timed = clock && fields.exercises.find((row) => row.id === clock!.rowId);
-      if (!timed?.sets.some((set) => set.id === clock!.setId)) clock = null;
+      const clock = clocks.shown(id);
+      const timed = clock && fields.exercises.find((row) => row.id === clock.rowId);
+      if (clock && !timed?.sets.some((set) => set.id === clock.setId)) clocks.forget(id);
       const revision = ++entry.revision;
       // Commit state and enqueue (or queue) this captured revision before observers can enter a newer change.
       entry.state = {
@@ -718,7 +722,6 @@ export function createWorkoutEditing(
         fields,
         counts,
         countError,
-        clock,
         selectedId,
         adding,
         removingId,
@@ -745,7 +748,10 @@ export function createWorkoutEditing(
       if (kind === "cancel" || kind === "leave") {
         const success = await flush(id, entry);
         if (success && current(id, entry)) {
-          if (kind === "cancel") entries.delete(id);
+          if (kind === "cancel") {
+            entries.delete(id);
+            clocks.forget(id);
+          }
           panels.leave(originToken, origin);
         }
         return success;
@@ -781,6 +787,7 @@ export function createWorkoutEditing(
             if (originToken === null) panels.leave(null, origin, { kind: "session", id });
           } else {
             entries.delete(id);
+            clocks.forget(id);
             panels.leave(originToken, origin);
             emit();
           }
@@ -794,7 +801,7 @@ export function createWorkoutEditing(
       });
     }
     return {
-      getSnapshot: () => view(entry),
+      getSnapshot: () => view(id, entry),
       subscribe,
       change,
       run,
@@ -804,18 +811,11 @@ export function createWorkoutEditing(
        */
       toggleClock(rowId: string, setId: string) {
         if (!current(id, entry) || entry.state.busy) return;
-        const running = entry.state.clock;
-        settleClock(id, entry);
-        if (running?.setId === setId) return;
         const set = entry.state.fields.exercises
           .find((row) => row.id === rowId)
           ?.sets.find((value) => value.id === setId);
-        if (set?.kind !== "time") return;
-        const at = now();
-        publish(entry, {
-          clock: { rowId, setId, startedAt: at, target: timedSeconds(set) },
-          clockReadAt: at,
-        });
+        if (set?.kind === "time") logClock(id, clocks.toggle(id, rowId, setId, timedSeconds(set)));
+        else settleClock(id, entry);
       },
       select(rowId: string) {
         if (current(id, entry) && entry.state.selectedId !== rowId)
@@ -839,18 +839,16 @@ export function createWorkoutEditing(
       },
       /** Opens Add exercise on a blank search, or closes it. */
       showAddExercise(open: boolean) {
-        if (current(id, entry))
-          publish(entry, { adding: open ? { query: "", limit: exerciseResultPage } : null });
+        if (current(id, entry)) publish(entry, { adding: open ? librarySearch("") : null });
       },
       /** Add exercise's search; a new search starts on its first page. */
       searchLibrary(query: string) {
         if (current(id, entry) && entry.state.adding)
-          publish(entry, { adding: { query, limit: exerciseResultPage } });
+          publish(entry, { adding: librarySearch(query) });
       },
       showMoreExercises() {
         const adding = entry.state.adding;
-        if (current(id, entry) && adding)
-          publish(entry, { adding: { ...adding, limit: adding.limit + exerciseResultPage } });
+        if (current(id, entry) && adding) publish(entry, { adding: moreResults(adding) });
       },
       /** Asks to confirm removing a row from this workout, or drops the question. */
       askRemove(rowId: string | null) {
@@ -898,14 +896,8 @@ export function createWorkoutEditing(
         edit(id).change({ kind: "add-exercise", exercise });
     },
     /** Set clocks tick while the tab is attached. */
-    start() {
-      ticking = true;
-      syncTicker();
-    },
-    stop() {
-      ticking = false;
-      syncTicker();
-    },
+    start: clocks.attach,
+    stop: clocks.detach,
   };
 }
 export type WorkoutEditing = ReturnType<typeof createWorkoutEditing>;

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { accountTrackingDocuments } from "../src/account/tracking-documents.ts";
+import {
+  accountTrackingDocument,
+  accountTrackingDocuments,
+} from "../src/account/tracking-documents.ts";
 import { accountDocumentKeys } from "../src/account/storage.ts";
 import { historyKeys } from "../src/account/history-partitions.ts";
 
@@ -12,6 +15,7 @@ const persisted = [
   "kinevault-track.custom-foods.v1",
   "kinevault-track.water-log.v1",
   "kinevault-track.water-goal.v1",
+  "kinevault-track.steps-log.v1",
 ];
 
 test("Account tracking documents keep their persisted keys, in sync order", () => {
@@ -19,4 +23,8 @@ test("Account tracking documents keep their persisted keys, in sync order", () =
   assert.deepEqual(keys, persisted);
   assert.deepEqual(accountDocumentKeys, persisted);
   assert.deepEqual(historyKeys, ["kinevault-track.food-log.v1", "kinevault-track.exercise.v1"]);
+});
+
+test("Settings names a Logged steps conflict", () => {
+  assert.equal(accountTrackingDocument("kinevault-track.steps-log.v1")?.name, "Logged steps");
 });

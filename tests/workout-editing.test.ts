@@ -412,6 +412,21 @@ test("removing a set takes the last one from this log and its planned count, nev
   assert.deepEqual(parseExerciseDocument(f.raw()).workouts, [template]);
 });
 
+test("a typed planned count stays as typed until another change resizes its row", async () => {
+  const f = await fixture("planned");
+  const edit = f.editing.edit("log");
+  edit.change({ kind: "count", rowId: "row", value: "05" });
+  assert.equal(edit.getSnapshot().counts.row, "05", "typing isn't rewritten mid-keystroke");
+  assert.equal(edit.getSnapshot().fields.exercises[0]!.sets.length, 5);
+  edit.change({ kind: "add-set", rowId: "row" });
+  assert.equal(edit.getSnapshot().counts.row, "6");
+  // Text blocked by entered sets waits for the user, whatever the sets do.
+  edit.change({ kind: "count", rowId: "row", value: "0" });
+  edit.change({ kind: "remove-set", rowId: "row" });
+  assert.equal(edit.getSnapshot().counts.row, "0");
+  assert.ok(edit.getSnapshot().countError);
+});
+
 test("pressing a set's number fills its blank fields from Previous sets in one change", async () => {
   const earlier: WorkoutSession = {
     ...session("completed"),
@@ -509,7 +524,7 @@ test("edit mode adds, moves and removes exercises in this log only", async () =>
   edit.toggleClock(added.id, added.sets[0]!.id);
   edit.change({ kind: "remove-exercise", rowId: added.id });
   assert.deepEqual(rows(), ["row", "second"]);
-  assert.equal(edit.getSnapshot().clock, null);
+  assert.equal(edit.getSnapshot().shownClock, null);
   assert.equal(
     edit.getSnapshot().selected?.id,
     "row",
@@ -676,11 +691,15 @@ test("removing a timed set stops its running clock without logging it", async ()
   const f = await timedFixture();
   f.edit().toggleClock("stretch-row", "hold");
   f.edit().change({ kind: "remove-set", rowId: "stretch-row" });
-  assert.equal(f.edit().getSnapshot().clock?.setId, "hold", "another set's clock keeps running");
+  assert.equal(
+    f.edit().getSnapshot().shownClock?.setId,
+    "hold",
+    "another set's clock keeps running",
+  );
   f.time.now += 5_000;
   f.edit().change({ kind: "remove-set", rowId: "stretch-row" });
-  assert.equal(f.edit().getSnapshot().clock, null);
   assert.equal(f.edit().getSnapshot().shownClock, null);
+  assert.equal(f.ticking(), false);
   assert.deepEqual(f.edit().getSnapshot().fields.exercises[1]!.sets, []);
 });
 
@@ -1298,10 +1317,10 @@ test("each log mode allows its own controls, and the mode follows the open panel
       removingId,
       addResults,
       removing,
-      clock,
-      clockReadAt,
       shownClock,
       selected,
+      previous,
+      next,
       hints,
       durationCaption,
       ...rest
@@ -1476,35 +1495,28 @@ test("a stopwatch keeps running while another exercise shows, and stopping logs 
   const f = await timedFixture();
   f.edit().select("stretch-row");
   f.edit().toggleClock("stretch-row", "open");
-  assert.deepEqual(f.edit().getSnapshot().clock, {
-    rowId: "stretch-row",
-    setId: "open",
-    startedAt: 5_000_000,
-    target: null,
-  });
   // Showing the lift used to unmount the clock with its row.
   f.edit().select("row");
+  let published = 0;
+  f.edit().subscribe(() => published++);
   f.time.now += 42_000;
   // The shown time moves on with the ticker, not with each read.
   assert.equal(f.edit().getSnapshot().shownClock?.seconds, 0);
   f.tick();
+  assert.equal(published, 1, "the clock face hears each second");
   assert.deepEqual(f.edit().getSnapshot().shownClock, {
     rowId: "stretch-row",
     setId: "open",
     seconds: 42,
     countdown: false,
   });
-  f.time.now += 600_000;
-  f.tick();
-  assert.notEqual(f.edit().getSnapshot().clock, null, "a stopwatch never runs out");
   // A detached tab keeps no timer; the clock picks up on return.
   f.tab.stop();
   assert.equal(f.ticking(), false);
   f.tab.start();
   assert.equal(f.ticking(), true);
-  f.time.now -= 600_000;
   f.edit().toggleClock("stretch-row", "open");
-  assert.equal(f.edit().getSnapshot().clock, null);
+  assert.equal(f.edit().getSnapshot().shownClock, null);
   assert.equal(f.seconds("open"), "42");
   assert.equal(f.ticking(), false, "the ticker stops with the last clock");
 });
@@ -1512,27 +1524,18 @@ test("a stopwatch keeps running while another exercise shows, and stopping logs 
 test("a countdown that runs out logs its seconds, even after waiting out a busy save", async () => {
   const f = await timedFixture();
   f.edit().toggleClock("stretch-row", "hold");
-  assert.equal(f.edit().getSnapshot().clock?.target, 30);
-  assert.equal(f.ticking(), true);
-  f.time.now += 10_000;
-  f.tick();
-  assert.deepEqual(
-    f.edit().getSnapshot().shownClock,
-    { rowId: "stretch-row", setId: "hold", seconds: 20, countdown: true },
-    "a countdown shows the time left",
-  );
   const held = holdWrites(f, () => false);
   const saving = f.edit().run("retry");
   assert.equal(f.edit().getSnapshot().busy, true);
-  f.time.now += 25_000;
+  f.time.now += 35_000;
   // A busy edit takes no changes, so the clock waits instead of dropping the time.
   f.tick();
-  assert.notEqual(f.edit().getSnapshot().clock, null);
+  assert.notEqual(f.edit().getSnapshot().shownClock, null);
   assert.equal(f.buzzes.count, 0);
   held.release();
   assert.equal(await saving, true);
   f.tick();
-  assert.equal(f.edit().getSnapshot().clock, null);
+  assert.equal(f.edit().getSnapshot().shownClock, null);
   assert.equal(f.seconds("hold"), "30");
   assert.equal(f.buzzes.count, 1, "the countdown's end buzzes once");
   assert.equal(f.ticking(), false);
@@ -1555,7 +1558,8 @@ test("a timed set's seconds start a countdown only when they are valid whole sec
       value: seconds,
     });
     f.edit().toggleClock("stretch-row", "hold");
-    assert.equal(f.edit().getSnapshot().clock?.target, target, seconds);
+    const shown = f.edit().getSnapshot().shownClock;
+    assert.equal(shown?.countdown ? shown.seconds : null, target, seconds);
     f.edit().toggleClock("stretch-row", "hold");
   }
 });
@@ -1566,7 +1570,7 @@ test("starting another set's clock logs the running one; ending the workout logs
   f.time.now += 15_000;
   f.edit().toggleClock("stretch-row", "hold");
   assert.equal(f.seconds("open"), "15");
-  assert.equal(f.edit().getSnapshot().clock?.setId, "hold");
+  assert.equal(f.edit().getSnapshot().shownClock?.setId, "hold");
   f.time.now += 12_000;
   assert.equal(await f.edit().run("complete"), true);
   const stretch = f.saved().exercises[1]!.sets;

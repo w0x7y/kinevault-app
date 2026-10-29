@@ -31,6 +31,8 @@ export function SessionEditor({
     error,
     countError: settingsError,
     selected,
+    previous,
+    next,
     hints,
     notesId,
     editing,
@@ -270,6 +272,8 @@ export function SessionEditor({
           toolbar={toolbar}
           exercises={draft.exercises}
           selected={selected}
+          previous={previous}
+          next={next}
           onSelect={edit.select}
           notesId={notesId}
           onShowNotes={edit.showNotes}

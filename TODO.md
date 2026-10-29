@@ -11,10 +11,12 @@ and docs/ describe behavior and link here instead of repeating status.
 
 ## Steps
 
-- [x] Count phone steps on Home (Core Motion on iOS, Health Connect on Android) and log missed steps by hand. Logged steps stay on the device.
+- [x] Count phone steps on Home (Core Motion on iOS, Health Connect on Android) and log missed steps by hand. Phone steps stay on the device.
 - [ ] Verify phone steps on a physical iPhone and Android phone: the permission prompts, denied and re-enabled access, Health Connect install on Android 8–13, the count for today and earlier days (iOS keeps 7 days), and Logged steps adding to it.
-- [ ] Sync Logged steps across devices. The hosted `track_documents` table only accepts its listed document keys, so `kinevault-track.steps-log.v1` needs a reviewed migration before it can join the Account tracking document registry.
-- [ ] Include Logged steps in the account JSON export.
+- [x] Sync Logged steps across devices as an Account tracking document ("Logged steps"), with migration `20261029120000_track_documents_steps_log.sql`.
+- [x] Apply migration `20261029120000` to the hosted project (2026-10-29, verified).
+- [ ] Update every device on an account to a build from 2026-10-29 or later before logging steps there. Older builds fail every cloud download once the account holds a steps row (docs/supabase-setup.md).
+- [x] Include Logged steps in the account JSON export (in `documents`, with local and cloud copies).
 - [ ] Declare Health Connect step access in the Play Console and add a privacy policy page for its permission screen before any Google Play release; the link currently just opens the app.
 
 ## Exercise
@@ -56,18 +58,18 @@ and docs/ describe behavior and link here instead of repeating status.
 - [ ] Check the October 2026 redesign on a physical iPhone and Android phone: Comfortaa and Manrope rendering, the floating tab bar and safe areas, sheet pages (an iOS page sheet), the live workout timer, the keyboard inside sheets, animations, and reduced motion. So far it has run only in browser tests.
 - [x] Resolve the Router decoder advisory (decode-uri-component 0.5.0 override plus query-string adapter patch).
 - [x] Resolve the http-cache-semantics shared-cache advisory with a local patch; 4.3.0 alone still reproduces the flaw.
-- [ ] Adopt a compatible Expo/node-forge signature-verification fix when available.
-- [ ] Adopt a verified compatible Braces nested-pattern denial-of-service fix when available.
+- [x] Adopt the node-forge signature-verification fix: 1.4.2 through `npm audit fix` (2026-10-28). See docs/security-remediation.md.
+- [x] Braces nested-pattern advisory: GitHub withdrew GHSA-vfj7-8cjw-p6xm on 2026-10-23 as not practically exploitable. No fix exists; `braces@3.0.3` stays.
 - [ ] Enable Supabase leaked-password protection. Requires a Pro plan; the apply command returned HTTP 402. Billing decision.
 - [ ] Finish the Expo SDK 58 upgrade. Done on 2026-10-29: Expo 58.0.21, React Native 0.88.1, React 19.3.0 and Expo Router 58.0.28. The query-string patch and the xcode uuid override are gone, and the http-cache-semantics patch stays (patches/README.md). Web routes load eagerly (`asyncRoutes.web: false`) so the browser suite keeps native's load order. `npm run check`, Expo Doctor, all three exports, the browser suite and Android debug and release builds on the emulator pass. Still to do: build and run iOS on a Mac, and try both phones (Expo Go needs a version that supports SDK 58). Release builds now use R8; one Glide asset error shows in release logcat with and without R8, so check images in a release APK. Move to the React Native strict TypeScript API before RN 0.90 drops the `tsconfig.json` opt-out. The zod and deepmerge audit findings wait for Expo.
 - [x] Let Google-only accounts delete themselves: without a password, `delete-account` accepts the session's Google sign-in from the last 10 minutes, and Settings offers "Sign in with Google again". See docs/account-management.md.
 - [x] Apply migration `20261018120000_account_deletion_attempts.sql` and deploy `delete-account` (both 2026-10-18).
 - [ ] Delete a disposable Google-only account and a password account through Settings to confirm `delete-account` end to end. Required for App Store review.
 - [x] Decide on token-hash email links on a never-signed-in device: every hosted email template uses `{{ .ConfirmationURL }}` (PKCE), so Track refuses token-hash links. See docs/security-remediation.md.
-- [ ] Move the Android signing secrets into a GitHub Environment limited to `main` with a required reviewer. The workflow already uses the `android-release` environment; create it, move the two secrets and delete the repository copies (docs/android-apk.md).
+- [x] Move the Android signing secrets into the `android-release` GitHub Environment, limited to `main` with w0x7y as required reviewer, and delete the repository copies (2026-10-28). The 2026-10-28 build used them and kept the original certificate (docs/android-apk.md).
 - [ ] Enable Supabase Auth CAPTCHA (e.g. Turnstile) so sign-up, resend and reset emails can't be spammed through the shared project; the in-app resend cap is only a convenience.
 - [x] Before deploying the web app, add `script-src` and `connect-src` to the Content-Security-Policy in `vercel.json` and test it against the export. Checked locally against `npm run export:web` served with these headers; recheck in the browser console after the first Vercel deploy.
 - [ ] Remove the `localhost` callbacks and the `http://localhost:3000` Site URL from the production Auth settings, or move local testing to a separate Supabase project.
-- [ ] Apply the 10-character password minimum on the server (`password_min_length`); today only the app enforces it.
+- [x] Apply the 10-character password minimum on the server (`password_min_length` raised from 6 to 10 on 2026-10-28).
 - [x] Pin GitHub Actions to commit SHAs instead of tags, with the release tag in a comment. Update the SHA and comment together when bumping an action.
 - [x] Check how Supabase links a Google sign-in to an existing account whose email was never confirmed (pre-account takeover). Not a takeover with the current settings; see docs/security-remediation.md.

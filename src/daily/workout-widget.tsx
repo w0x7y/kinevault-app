@@ -111,7 +111,6 @@ export function WorkoutWidget({
         </AppText>
       </Panel>
     );
-  const workout = tile.completed;
   return (
     <Panel testID={testID} style={{ gap: spacing.layout }}>
       <View style={{ gap: spacing.xs }}>
@@ -140,14 +139,7 @@ export function WorkoutWidget({
         </AppText>
         {detailed && (
           <AppText variant="caption" muted>
-            <AppText variant="caption" muted>
-              {String(workout.exercises.length)}
-            </AppText>
-            {workout.exercises.length === 1 ? " exercise · " : " exercises · "}
-            <AppText variant="caption" muted>
-              {`${workout.averageRepsPerSet} reps`}
-            </AppText>
-            {" per set on average"}
+            {tile.detail}
           </AppText>
         )}
       </View>
