@@ -9,7 +9,7 @@ import { AppText, Overline } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { formatElapsed, type ExerciseSet, type SetHint } from "./model";
-import type { ShownClock } from "./workout-editing";
+import type { ShownClock } from "./set-clock";
 import {
   isBlankSet,
   setLines,

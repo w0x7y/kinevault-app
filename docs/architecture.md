@@ -87,13 +87,25 @@ Account storage, Cloud conflict names and the history partitions read keys from 
 or from the domain key constants it uses, so each key is written in one place.
 Each document's provider comes from `createDocumentProvider`, which owns store
 creation per account scope, subscription, start and stop, and the context guard.
-The tabs mount the documents they read through `AccountTrackingProvider`, and
-`TrackingRefreshNotices` renders their refresh notices from the same list; Profile
-mounts above them with the account scope. Adding a synced document means a domain key constant, a provider from the
-factory, one registry entry and a reviewed migration that adds the key to
-`track_documents_allowed_key`. Older builds fail every download once the cloud holds
-a key they don't know, so the rollout needs every device updated (see
-[Logged steps sync](supabase-setup.md#logged-steps-sync)).
+The tabs mount the documents they read through `AccountTrackingProvider`; Profile
+mounts above them with the account scope and its notice. `TrackingRefreshNotices`
+renders a map of refresh notices keyed by document key, typed so that every registered
+document except Profile needs one. A document whose cloud refresh failed refuses writes
+until that notice's retry reads it, so a missing notice would block saving.
+
+Cloud rows are checked by key first. Downloads skip a row whose key isn't registered,
+such as a newer build's document, and the rest still sync. Cloud export keeps such a
+row unparsed as a cloud-only entry rather than drop it. A registered key stays strict:
+a bad revision or payload, or one its parser rejects, fails the whole download, and a
+save result for any other key is an error.
+
+Adding a synced document means a domain key constant, a provider from the factory, one
+registry entry, its provider and refresh notice in `src/account/tracking-provider.tsx`
+(typecheck fails without the notice) and a reviewed migration that adds the key to
+`track_documents_allowed_key` (`scripts/track-documents-steps-log.test.mjs` fails
+without it). Builds installed before downloads skipped unknown keys fail every download
+once the cloud holds a key they don't know, so the rollout still needs every device
+updated (see [Logged steps sync](supabase-setup.md#logged-steps-sync)).
 
 Logged steps (`kinevault-track.steps-log.v1`) are a registered document like
 Manual water. Builds before they synced saved a bare document under the account's
@@ -209,10 +221,11 @@ which seconds a Timed set's clock counts down from (`timedSeconds`).
 The set table renders a mode's columns and sends the edit field changes and, in edit mode,
 set additions and removals, never a set of its own; removing a set changes this log only, and Workout
 templates keep their planned counts. A set's `kind` is its exercise's mode, so the exercise model only checks
-that they match. Workout edits also own the Set clock and its ticker, reading the time and
-timer they're given (`clocks`), so the clock survives the table unmounting: the ticker runs
-while a clock does and the tab is attached, moves the snapshot's `shownClock` on each second
-and logs a countdown that ran out, which buzzes (`onCountdownEnd`). The tab view hands every Workout log it shows its edit, compact cards
+that they match. Workout edits also own the Set clock, so it survives the table unmounting.
+Behind them, `set-clock.ts` owns the clock and its ticker, one clock per Workout log, reading
+the time and timer the edits are given (`clocks`). The ticker runs while a clock does and the
+tab is attached. It moves the snapshot's `shownClock` on each second and hands over a countdown
+that ran out. The edit logs it once it isn't busy, which buzzes (`onCountdownEnd`). The tab view hands every Workout log it shows its edit, compact cards
 included; an edit keeps one handle per origin, so a card's effects don't restart on each
 publish. The edit's snapshot leaves out the saved log and the selected row ID it keeps
 inside.
@@ -224,7 +237,12 @@ bar (`exercise-bar.tsx`) owns the chips, their edge fades and edit mode's tiles:
 remove badge, press-and-hold drag with its scrolling at either end, and the add tile; it
 reports removals, moves and Add to the caller. It pins Back and Next on top of the
 caller's main action under the sheet's page, and the caller's `trailing` control to the
-header's right (`useSheetControls`); the caller draws the row's sets or planned count. Library drafts own Exercise
+header's right (`useSheetControls`); the caller draws the row's sets or planned count, and
+gives it the rows Back and Next show. `workspace-page.ts` holds the page rules both callers
+share, while each keeps the state in its own entry: the row on screen is the selected one or
+else the first, it stays on screen when rows move, and a new library search starts on its
+first page, with Show more adding a page of `exerciseResultPage`. The tab's search pages by
+that size too. Library drafts own Exercise
 definition (including its KineVault search, where linking or unlinking a demo changes the
 fields and the search in one step), Workout template (including its selected
 exercise, builder disclosure, search and its results, result limit and open notes), Saved workouts
@@ -304,11 +322,17 @@ and the water total carries the journal's figure and label too, so it builds no 
 its own.
 `useDayActivity` is its React adapter; only Home asks it to read Phone steps. The journal's
 streak comes from the same activity and is counted once per change of its sources.
+`phoneStepsKind` (`src/steps/summary.ts`) is the one classification of the phone's reading:
+counted, loading, error, connect, denied, install or unavailable. The Home Steps tile and the
+steps sheet's `phoneStepsStatus` each word it in an exhaustive switch, so a new access value
+fails typecheck in both.
 
 Completed Workout totals derive from persisted Workout sessions and their valid
 sets. The Exercise summary (`src/exercise/summary.ts`) owns the completed workout's
 type and reads each set through `setMeasurements`; Daily activity words its exercise
-rows (counts and the weight or time), so the Workout card only lays them out. Daily
+rows (counts and the weight or time) and the detailed card's line under the total ("4
+exercises · 10 reps per set on average", with no average on a Timed-only day), so the
+Workout card only lays them out. Daily
 activity and test fixtures use the same Exercise summary interface; there is no
 separate workout interpreter or fixture-only measurement model.
 

@@ -138,8 +138,9 @@ has no weight to draw for it.
 **Set clock**: A Timed set's running clock in a Workout edit. Started on a blank set it
 is a stopwatch; started on a set with 1 to 86,400 whole seconds it counts down from
 them (any other entry also runs a stopwatch). Stopping logs
-the seconds it ran, and a countdown that runs out logs its seconds. One clock runs at a
-time: starting another logs the first. It keeps running while another exercise shows
+the seconds it ran, and a countdown that runs out logs its seconds. Each Workout log runs
+one clock at a time: starting another in the same log logs the first, and other logs keep
+theirs. It keeps running while another exercise shows
 or the workout's page is away (a countdown that runs out still logs and buzzes), and
 Save, Log, End and Cancel log it first. It is not
 saved, so closing the app loses it.
