@@ -144,16 +144,21 @@ function parseStoredEnvelope(key: string, raw: string | null): Envelope | null {
     return { version: 1, payload: raw, revision: 0, dirty: true, sequence: 1 };
   return parseEnvelope(raw);
 }
-function checkedCloud(row: CloudDocument): CloudDocument {
+function checkedRow(row: CloudDocument): CloudDocument {
   if (
-    !accountDocumentKeys.includes(row.document_key) ||
     !Number.isSafeInteger(row.revision) ||
     row.revision < 1 ||
     (row.payload !== null && typeof row.payload !== "string")
   )
     throw new Error("Invalid cloud document");
-  return { ...row, payload: canonical(row.document_key, row.payload) };
+  return row;
 }
+function checkedCloud(row: CloudDocument): CloudDocument {
+  if (!accountDocumentKeys.includes(row.document_key)) throw new Error("Invalid cloud document");
+  return { ...checkedRow(row), payload: canonical(row.document_key, row.payload) };
+}
+// A newer build's document. This build can't parse it, so sync skips it.
+const unknownCloud = (row: CloudDocument) => !accountDocumentKeys.includes(row.document_key);
 
 export function createAccountStorage({
   userId,
@@ -236,10 +241,12 @@ export function createAccountStorage({
   }
   async function hydrate(rows: CloudDocument[], ticket: number) {
     const cloud = new Map(
-      rows.map((row) => {
-        const checked = checkedCloud(row);
-        return [checked.document_key, checked];
-      }),
+      rows
+        .filter((row) => !unknownCloud(row))
+        .map((row) => {
+          const checked = checkedCloud(row);
+          return [checked.document_key, checked];
+        }),
     );
     await locally(local, async () => {
       for (const key of accountDocumentKeys) {
@@ -526,7 +533,9 @@ export function createAccountStorage({
       if (!userId) throw new Error("Log in to export your account");
       // A cloud failure must not be represented as an empty cloud account.
       if (includeCloud && !remote) throw new Error("Cloud export is unavailable");
-      const rows = includeCloud ? (await remote!.list()).map(checkedCloud) : null;
+      const listed = includeCloud ? await remote!.list() : null;
+      const rows = listed?.filter((row) => !unknownCloud(row)).map(checkedCloud) ?? null;
+      const unknown = listed?.filter(unknownCloud).map(checkedRow) ?? [];
       return locally(local, async () => {
         const documents = [];
         for (const key of accountDocumentKeys) {
@@ -560,6 +569,19 @@ export function createAccountStorage({
             ),
           });
         }
+        // Keep a newer build's documents as raw cloud copies rather than drop them.
+        for (const row of unknown)
+          documents.push({
+            key: row.document_key,
+            local: null,
+            cloud: {
+              data: dataOrNull(row.payload),
+              revision: row.revision,
+              updatedAt: row.updated_at ?? null,
+              source: "cloud-export",
+            },
+            conflict: false,
+          });
         return {
           documents,
           recoveredSetup: dataOrNull(await local.getItem(scoped(recoveredSetupStorageKey))),

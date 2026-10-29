@@ -96,13 +96,14 @@ throwaway Supabase Postgres 17.11 container: existing rows stayed byte for byte,
 steps key saved through `save_track_document`, an unknown key was still rejected,
 another account couldn't read the row, the migration reran cleanly, and the rollback
 below restored the original constraint. `scripts/track-documents-steps-log.test.mjs`
-repeats the main checks in PGlite on every `npm test`.
+repeats the main checks in PGlite on every `npm test`. It also runs every migration and
+checks that each key in the document registry saves.
 
 ### Older builds
 
-Every build since 2026-10-05 rejects a cloud document key it doesn't know
-(`checkedCloud` in `src/account/storage.ts`). Once an account has a Logged steps row,
-an older build signed in to that account:
+Builds from 2026-10-05 until the unknown-key skip below reject a cloud document key
+they don't know (`checkedCloud` in `src/account/storage.ts`). Once an account has a
+Logged steps row, an older build signed in to that account:
 
 - Fails every download, on app start, Try again and reconnect, with "Cloud sync
   couldn't finish". It gets no changes from other devices, for any document.
@@ -122,6 +123,12 @@ The other way around, an older build keeps its Logged steps on the device. After
 update they upload if the cloud has none. If another device already saved some,
 Settings shows a Logged steps Cloud conflict and the user keeps one copy. Days aren't
 merged.
+
+Newer builds skip a cloud document key they don't know (`unknownCloud` in
+`src/account/storage.ts`). Their downloads sync every other document, and cloud export
+keeps the unknown row as a cloud-only entry. That protects them from the next new
+document. Builds already installed don't have the skip and still fail as described
+above, so the rollout rule still holds.
 
 Rollout rule:
 

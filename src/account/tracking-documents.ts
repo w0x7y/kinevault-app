@@ -24,7 +24,7 @@ export type AccountTrackingDocument = {
 };
 
 /** Every synced Account tracking document, in sync order. Profile media stays on the device. */
-export const accountTrackingDocuments: readonly AccountTrackingDocument[] = [
+export const accountTrackingDocuments = [
   { key: profileStorageKey, parse: parseProfile, name: "Profile and goals" },
   { key: exerciseStorageKey, parse: parseExerciseDocument, name: "Exercises and workout history" },
   { key: foodLogStorageKey, parse: parseFoodLog, name: "Food log" },
@@ -32,7 +32,10 @@ export const accountTrackingDocuments: readonly AccountTrackingDocument[] = [
   { key: waterLogStorageKey, parse: parseWaterLog, name: "Water log" },
   { key: waterGoalStorageKey, parse: parseWaterGoal, name: "Water goal" },
   { key: stepsLogStorageKey, parse: parseStepsLog, name: "Logged steps" },
-];
+] as const satisfies readonly AccountTrackingDocument[];
+
+/** The storage key of a synced Account tracking document. */
+export type AccountDocumentKey = (typeof accountTrackingDocuments)[number]["key"];
 
 export function accountTrackingDocument(key: string): AccountTrackingDocument | undefined {
   return accountTrackingDocuments.find((document) => document.key === key);
