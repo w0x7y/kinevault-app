@@ -20,9 +20,11 @@ needs node 24 (`.nvmrc`). copy `.env.example` to `.env.local` and fill in the su
 
 ```sh
 npm ci
-npm start           # scan the qr with expo go (sdk 57)
+npm start           # scan the qr with expo go (sdk 58)
 npm run web         # browser preview
 ```
+
+expo go on the phone must be a version that supports sdk 58. update it from the app store or google play if the qr won't open the app.
 
 phone won't connect, or the emulator has no keyboard? see [troubleshooting](docs/troubleshooting.md)
 

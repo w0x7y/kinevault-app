@@ -73,6 +73,10 @@ async function open(t, { food = null, water = null, waterState = "ready", custom
 }
 async function tab(page, name) {
   await page.getByRole("tab", { name, exact: true }).click();
+  // Expo Router 58 updates the URL just after the new tab shows; a reload before then reloads
+  // the previous tab.
+  const path = name === "Home" ? "/" : `/${name.toLowerCase()}`;
+  await page.waitForURL((url) => url.pathname === path);
 }
 async function addCola(page) {
   await tab(page, "Food");

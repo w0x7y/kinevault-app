@@ -22,7 +22,7 @@ export async function saveAccountExport(contents: string, isCurrent: () => boole
   );
   try {
     file.create();
-    file.write(contents);
+    await file.write(contents);
     if (!isCurrent()) throw new Error("The account changed. Start again.");
     await Sharing.shareAsync(file.uri, {
       mimeType: "application/json",

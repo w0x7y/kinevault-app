@@ -31,7 +31,7 @@ because no screen sets its own orientation. The iPad keeps all four
 orientations in `UISupportedInterfaceOrientations~ipad`, and `UIRequiresFullScreen`
 is `false`, so Split View and Slide Over stay available. App Store validation
 rejects an iPad build that allows multitasking without all four orientations.
-The scene life cycle plugin doesn't change either key.
+The scene life cycle setup doesn't change either key.
 
 Info.plist also has the camera and photo library usage strings from the
 `expo-camera` and `expo-image-picker` entries in `app.json`, and the motion usage
@@ -47,8 +47,8 @@ share links (`https://app.tracked.gg/v/workout/<uuid>`) need no exception.
 
 ## Prerequisites
 
-- **Xcode 26 or newer.** React Native 0.86.3 stops `pod install` on anything
-  older than Xcode 16.1. Expo SDK 57 modules (`expo-image`, `expo-router`) also
+- **Xcode 26 or newer.** React Native 0.88 stops `pod install` on anything
+  older than Xcode 16.1. Expo SDK 58 modules (`expo-image`, `expo-router`) also
   call iOS 26 SDK APIs, so older Xcode versions fail to compile them. Xcode 27
   works too; see [Scene life cycle](#scene-life-cycle). After installing Xcode,
   open it once and install the iOS platform when prompted, then run:
@@ -294,15 +294,10 @@ Supabase allow list.
 ## Scene life cycle
 
 Apps built with the iOS 27 SDK (Xcode 27) stop at launch on iOS 27 unless they
-use the UIKit scene life cycle. Expo SDK 57 includes a scene delegate,
-`ExpoAppSceneDelegate`, but its prebuild template still starts React Native from
-the app delegate. `plugins/with-ios-scene-lifecycle.cjs` adds a
-`UIApplicationSceneManifest` to Info.plist that names `EXExpoAppSceneDelegate`. It
-also changes `AppDelegate.swift` so the scene delegate creates the window and
-starts React Native. Builds from Xcode 26 behave the same way.
-
-If a future Expo template already uses scenes or no longer matches, the plugin
-stops prebuild with an error. Remove it from `app.json` at that point.
+use the UIKit scene life cycle. Since SDK 58, `expo prebuild` generates
+`SceneDelegate.swift`, which creates the window and starts React Native, and adds
+a `UIApplicationSceneManifest` to Info.plist that names it. Builds from Xcode 26
+behave the same way.
 
 ## Privacy manifest
 
@@ -366,7 +361,7 @@ submission.
 - "Developer Mode disabled": see step 6.
 - The app closes immediately on iOS 27 after building with Xcode 27: check that
   `ios/KineVaultTrack/Info.plist` contains `UIApplicationSceneManifest`. If it
-  doesn't, the scene plugin is missing from `app.json`.
+  doesn't, run `npx expo prebuild --platform ios --clean` again.
 - Release build stuck on the splash screen or blank: read the Xcode console
   (View > Debug Area) for the JavaScript error, and check that `.env.local`
   existed when you built.

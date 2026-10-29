@@ -19,7 +19,10 @@ export type TabPath = (typeof trackTabs)[number]["path"];
  */
 export const journalTab = { name: "profile", path: "/profile" } as const;
 
-export const tabNavigator = { initialRouteName: "index", backBehavior: "initialRoute" } as const;
+/** Home anchors the tabs: the tab layout's `unstable_settings.anchor`, the initial route. */
+export const tabAnchor = "index";
+
+export const tabNavigator = { backBehavior: "initialRoute" } as const;
 
 /** Route names in the order the tab navigator declares them. */
 export const tabRouteNames = [...trackTabs.map((tab) => tab.name), journalTab.name];

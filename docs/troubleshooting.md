@@ -11,7 +11,8 @@ npm run start:tunnel
 
 Sign into the same Expo account in Expo Go on the iPhone. Physical iOS devices
 check the developer account ([Expo CLI authentication](https://docs.expo.dev/more/expo-cli/#authentication)).
-Update Expo Go from the App Store if necessary; this app uses SDK 57.
+This app uses SDK 58, so Expo Go needs a version that supports SDK 58. Update it
+from the App Store if necessary.
 Scan the new terminal QR with the Camera; pasting `exp://` into a browser search
 does not open the app. The tunnel bypasses local Wi-Fi routing and firewall
 restrictions. The tunnel address changes between sessions.
