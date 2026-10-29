@@ -10,6 +10,7 @@ import {
   createAccountStorage,
   type AccountLocalStorage,
   type AccountRemote,
+  type CloudDocument,
 } from "../src/account/storage.ts";
 import {
   createDeleteAccountHandler,
@@ -18,6 +19,8 @@ import {
 
 const goalKey = "kinevault-track.water-goal.v1";
 const mediaKey = "kinevault-track.profile-media.v1";
+const stepsKey = "kinevault-track.steps-log.v1";
+const steps = (days: Record<string, number>) => JSON.stringify({ version: 1, days });
 const scoped = (owner: string, key: string) =>
   `kinevault-track.account.${encodeURIComponent(owner)}.${key}`;
 const goal = (dailyMl: number) => JSON.stringify({ version: 1, dailyMl });
@@ -183,6 +186,9 @@ test("cloud, corrupt local data and missing photo failures never create a succes
   db.values.set(scoped("a", goalKey), "broken");
   await assert.rejects(buildAccountExport({ ...options, includeCloud: false }));
   db.values.delete(scoped("a", goalKey));
+  db.values.set(scoped("a", stepsKey), "broken");
+  await assert.rejects(buildAccountExport({ ...options, includeCloud: false }));
+  db.values.delete(scoped("a", stepsKey));
   db.values.set(scoped("a", mediaKey), media);
   await assert.rejects(
     buildAccountExport({
@@ -202,6 +208,105 @@ test("cloud, corrupt local data and missing photo failures never create a succes
     }),
     /could not be exported/,
   );
+});
+
+test("export includes the current account's Logged steps and no other account's or guest steps", async () => {
+  // Account b claimed this device's signed-out data, so its guest steps aren't a's.
+  const db = memory({
+    "kinevault-track.account.guest-claim.v1": "b",
+    [scoped("b", stepsKey)]: steps({ "2026-10-27": 44444 }),
+    [stepsKey]: steps({ "2026-10-26": 17171 }),
+  });
+  const rows = new Map<string, CloudDocument>();
+  const remote: AccountRemote = {
+    async list() {
+      return [...rows.values()];
+    },
+    async save(key, payload, revision) {
+      const row = { document_key: key, payload, revision: revision + 1 };
+      rows.set(key, row);
+      return row;
+    },
+  };
+  const storage = createAccountStorage({ userId: "a", local: db.local, remote });
+  await storage.start();
+  const options = {
+    storage,
+    ownerId: "a",
+    isCurrent: () => true,
+    includeCloud: true,
+    readPhoto: async () => jpeg,
+  };
+  const exported = async () => {
+    const contents = await buildAccountExport(options);
+    const documents: { key: string }[] = JSON.parse(contents).documents;
+    return { contents, row: documents.find((entry) => entry.key === stepsKey) };
+  };
+  assert.deepEqual((await exported()).row, {
+    key: stepsKey,
+    local: null,
+    cloud: null,
+    conflict: false,
+  });
+  await storage.setItem(stepsKey, steps({ "2026-10-27": 8000 }));
+  await storage.retry();
+  const { contents, row } = await exported();
+  assert.deepEqual(row, {
+    key: stepsKey,
+    local: { data: { version: 1, days: { "2026-10-27": 8000 } }, revision: 1, pending: false },
+    cloud: {
+      data: { version: 1, days: { "2026-10-27": 8000 } },
+      revision: 1,
+      updatedAt: null,
+      source: "cloud-export",
+    },
+    conflict: false,
+  });
+  assert.equal(contents.includes("44444"), false);
+  assert.equal(contents.includes("17171"), false);
+});
+
+test("cloud export keeps a document this build doesn't sync as a raw cloud copy", async () => {
+  const remote: AccountRemote = {
+    async list() {
+      return [
+        { document_key: goalKey, revision: 1, payload: goal(2100) },
+        {
+          document_key: "kinevault-track.future.v1",
+          revision: 3,
+          payload: '{"version":7,"kept":true}',
+          updated_at: "2026-10-29T08:00:00Z",
+        },
+      ];
+    },
+    async save() {
+      throw new Error("Export must not upload");
+    },
+  };
+  const storage = createAccountStorage({ userId: "a", local: memory().local, remote });
+  const exported = JSON.parse(
+    await buildAccountExport({
+      storage,
+      ownerId: "a",
+      isCurrent: () => true,
+      includeCloud: true,
+      readPhoto: async () => jpeg,
+    }),
+  );
+  const row = (key: string) =>
+    exported.documents.find((entry: { key: string }) => entry.key === key);
+  assert.equal(row(goalKey).cloud.data.dailyMl, 2100);
+  assert.deepEqual(row("kinevault-track.future.v1"), {
+    key: "kinevault-track.future.v1",
+    local: null,
+    cloud: {
+      data: { version: 7, kept: true },
+      revision: 3,
+      updatedAt: "2026-10-29T08:00:00Z",
+      source: "cloud-export",
+    },
+    conflict: false,
+  });
 });
 
 test("delayed photo export aborts after the active owner changes", async () => {

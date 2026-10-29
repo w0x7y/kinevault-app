@@ -20,7 +20,7 @@ const button = (page, name) => page.getByRole("button", { name, exact: true });
 const dialog = (page) => page.getByRole("dialog", { name: "Log steps", exact: true });
 const field = (page) => dialog(page).getByRole("textbox", { name: "Logged steps", exact: true });
 
-test("the Steps tile logs steps for the selected day on this device, with ±500 steppers", async (t) => {
+test("the Steps tile logs steps for the selected day, with ±500 steppers", async (t) => {
   const browser = await launchBrowser();
   t.after(() => browser.close());
   const context = await browser.newContext({
@@ -36,7 +36,7 @@ test("the Steps tile logs steps for the selected day on this device, with ±500 
       sessionStorage.setItem("steps-fixture-seeded", "true");
     }
   }, answers);
-  await installAccountFixture(context);
+  const account = await installAccountFixture(context);
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
   await page.clock.install({ time: new Date("2026-10-01T12:00:00+03:00") });
@@ -61,12 +61,15 @@ test("the Steps tile logs steps for the selected day on this device, with ±500 
   assert.equal(await total.innerText(), "1,500");
   await tile.getByText("Logged manually", { exact: true }).waitFor();
   assert.match(await tile.getAttribute("aria-label"), /^Log steps\. 1,500 steps for /);
-  // Logged steps stay on this device, scoped to the signed-in account.
+  // Logged steps are saved under the signed-in account and sync to its cloud copy.
   const keys = await page.evaluate(() =>
     Object.keys(localStorage).filter((key) => key.endsWith("kinevault-track.steps-log.v1")),
   );
   assert.equal(keys.length, 1);
   assert.match(keys[0], /^kinevault-track\.account\./);
+  const cloud = () => account.documents.get("kinevault-track.steps-log.v1")?.payload;
+  for (let wait = 0; wait < 50 && !cloud(); wait++) await page.waitForTimeout(100);
+  assert.deepEqual(JSON.parse(cloud()), { version: 1, days: { "2026-10-01": 1500 } });
   await page.reload();
   await total.waitFor();
   assert.equal(await total.innerText(), "1,500");

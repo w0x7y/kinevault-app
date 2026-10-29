@@ -10,6 +10,8 @@ import { parseWaterLog } from "../water/model.ts";
 import { waterLogStorageKey } from "../water/persistence.ts";
 import { parseWaterGoal } from "../water/goal-model.ts";
 import { waterGoalStorageKey } from "../water/goal-persistence.ts";
+import { parseStepsLog } from "../steps/model.ts";
+import { stepsLogStorageKey } from "../steps/persistence.ts";
 
 /** One saved Account tracking document, as account storage syncs it and Settings names it. */
 export type AccountTrackingDocument = {
@@ -22,14 +24,18 @@ export type AccountTrackingDocument = {
 };
 
 /** Every synced Account tracking document, in sync order. Profile media stays on the device. */
-export const accountTrackingDocuments: readonly AccountTrackingDocument[] = [
+export const accountTrackingDocuments = [
   { key: profileStorageKey, parse: parseProfile, name: "Profile and goals" },
   { key: exerciseStorageKey, parse: parseExerciseDocument, name: "Exercises and workout history" },
   { key: foodLogStorageKey, parse: parseFoodLog, name: "Food log" },
   { key: customFoodStorageKey, parse: parseCustomFoods, name: "Saved foods and meals" },
   { key: waterLogStorageKey, parse: parseWaterLog, name: "Water log" },
   { key: waterGoalStorageKey, parse: parseWaterGoal, name: "Water goal" },
-];
+  { key: stepsLogStorageKey, parse: parseStepsLog, name: "Logged steps" },
+] as const satisfies readonly AccountTrackingDocument[];
+
+/** The storage key of a synced Account tracking document. */
+export type AccountDocumentKey = (typeof accountTrackingDocuments)[number]["key"];
 
 export function accountTrackingDocument(key: string): AccountTrackingDocument | undefined {
   return accountTrackingDocuments.find((document) => document.key === key);

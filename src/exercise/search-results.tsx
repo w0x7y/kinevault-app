@@ -6,12 +6,14 @@ import { Tappable } from "../components/tappable";
 import { AppText, Overline, Panel } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
-import { matchingExercises, type ExerciseDefinition } from "./model";
+import {
+  exerciseResultPage as pageSize,
+  matchingExercises,
+  type ExerciseDefinition,
+} from "./model";
 import { trackingMode } from "./tracking";
 import { DemoThumbnail } from "./demo/exercise-demo";
 import { Hairline } from "./controls";
-
-const pageSize = 20;
 
 function ExerciseResult({
   exercise,

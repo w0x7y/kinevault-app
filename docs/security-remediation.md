@@ -24,6 +24,9 @@ the audit findings or downgrade the SDK to remove them.
 - [Node-forge advisory](https://github.com/advisories/GHSA-86w9-cpqp-85rv)
 - [Decoder advisory](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr)
 
+Both findings were closed on 28 October 2026. See
+[Dependency audit, 2026-10-28](#dependency-audit-2026-10-28).
+
 ## HTTP cache
 
 Reproduced unsafe reuse in http-cache-semantics 4.3.0 before modifying it.
@@ -247,3 +250,57 @@ from dependencies. Still open; the change needs a release run to verify.
 
 `npm audit` still reports the same 19 high findings, all from `node-forge` and
 `braces` in development tooling.
+
+## Dependency audit, 2026-10-28
+
+`npm audit fix`, without `--force`, changed only `package-lock.json`.
+`package.json`, its overrides and both local patches are unchanged. These
+packages moved:
+
+- `node-forge` 1.4.0 to 1.4.2, used by `@expo/cli@57.0.32` and
+  `@expo/code-signing-certificates@0.0.6`. Both already allow `^1.3.3`.
+- Development only: `@modelcontextprotocol/sdk` 1.31.0 to 1.32.2, `body-parser`
+  2.3.0 to 2.4.0, `fast-uri` 3.1.8 to 3.1.9, `ip-address` 10.7.2 to 10.7.5 and
+  `qs` 6.16.0 to 6.17.0.
+
+### Node-forge resolved
+
+The upstream changelog lists the nested DigestAlgorithm signature forgery
+(CVE-2026-85393, the CVE of GHSA-86w9-cpqp-85rv) as fixed in 1.4.1, published
+27 October 2026. 1.4.2 fixes a PEM decoding regression in 1.4.1 and is the
+latest release. The advisory covers `<= 1.4.0`, so 1.4.2 is outside it. The
+advisory still names no first patched version.
+
+### Braces advisory withdrawn
+
+GitHub withdrew GHSA-vfj7-8cjw-p6xm on 23 October 2026 because "it's not a
+practically exploitable vulnerability." No fix was published or applied:
+`braces@3.0.3` is still installed through `micromatch` in `metro-file-map`, and
+it is still the latest release. npm's bulk advisory endpoint returns nothing for
+`braces@3.0.3`, so `npm audit` no longer lists it. Nothing is left to adopt.
+
+### Remaining findings
+
+`npm audit --omit=dev` went from 9 findings (4 high, 5 low) to 8 (3 high,
+5 low). The full `npm audit` went from 16 (8 high, 3 moderate, 5 low) to 10
+(5 high, 5 low). Two advisories account for all of them:
+
+- [Zod](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) below 4.6.6, high,
+  through `@expo/cli` and the development-only `expo-mcp`. The fix is zod 4.6.6.
+- [Deepmerge](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) 4.2.0 to 4.3.1,
+  low, through `@expo/config`. No patched release exists.
+
+npm's only fix for either is `npm audit fix --force`. It would install
+`expo@51.0.39`, and `expo-mcp@0.3.1` for the development path. Don't run it.
+The latest `@expo/cli`, 58.1.16, still depends on zod 3, so the SDK 58 upgrade
+alone would not clear the zod finding.
+
+### Verification
+
+- A clean `npm ci` of the updated lockfile, in a separate copy, ran `postinstall`
+  and applied both patches. `git apply --check --reverse` confirmed each one.
+- `npm run check` passed: lint, Prettier, TypeScript and all 1,128 unit tests.
+- Expo Doctor passed all 21 checks.
+- The browser suite passed 179 tests with one optional visual test skipped. A
+  first run failed one water card layout check, which passed on its own and in a
+  second full run.

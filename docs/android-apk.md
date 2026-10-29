@@ -21,10 +21,10 @@ are local only) and any changes that haven't synced. Keep a copy of both files
 off this machine, for example in a password manager.
 
 The workflow's job runs in the `android-release` GitHub Environment and reads
-the key from two secrets. Until they move into that environment (open in
-[TODO.md](../TODO.md)), it reads the repository secrets of the same names. Once
-the environment is limited to `main` with a required reviewer, each run waits
-until a reviewer approves it under the run's **Review deployments** button.
+the key from two secrets stored only in that environment (since 2026-10-28; the
+repository copies were deleted). The environment runs only from `main` and has
+a required reviewer, so each run waits until a reviewer approves it under the
+run's **Review deployments** button.
 GitHub never shows a secret again, so they don't count as a backup. To set them
 in the environment, from `Application/`:
 

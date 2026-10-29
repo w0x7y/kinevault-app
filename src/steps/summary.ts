@@ -26,6 +26,36 @@ export type PhoneStepsReading = PhoneSteps & {
   openSettings(): Promise<void>;
 };
 
+/**
+ * The phone's reading in one word. The steps sheet and the Home Steps tile both word this, so
+ * they can't disagree:
+ * - `counted`: the phone's count for the day is showing.
+ * - `loading`: access or the count isn't known yet.
+ * - `error`: the phone couldn't count the day.
+ * - `connect`: the app can ask for access.
+ * - `denied`: access is off; only the system settings turn it back on.
+ * - `install`: Android needs Health Connect installed or updated first.
+ * - `unavailable`: this device can't count steps.
+ */
+export type PhoneStepsKind =
+  "counted" | "loading" | "error" | "connect" | "denied" | "install" | "unavailable";
+
+export function phoneStepsKind({ access, state }: PhoneSteps): PhoneStepsKind {
+  switch (access) {
+    // Nothing is counted before access is known.
+    case null:
+      return "loading";
+    case "granted":
+      return state === "ready" ? "counted" : state;
+    case "undetermined":
+      return "connect";
+    case "denied":
+    case "install":
+    case "unavailable":
+      return access;
+  }
+}
+
 /** What the steps sheet says about the phone: its count, why it has none, and the fix offered. */
 export function phoneStepsStatus(phone: PhoneSteps): {
   status: string;
@@ -33,38 +63,44 @@ export function phoneStepsStatus(phone: PhoneSteps): {
   counted: boolean;
   action: { label: string; kind: "retry" | "connect" | "openSettings" } | null;
 } {
-  const { access, state } = phone;
-  if (access === "granted" && state === "ready")
-    return { status: `${(phone.steps ?? 0).toLocaleString()} steps`, counted: true, action: null };
-  if (access === null || access === "granted")
-    return state === "error"
-      ? {
-          status: "Couldn't read phone steps.",
-          counted: false,
-          action: { label: "Retry phone steps", kind: "retry" },
-        }
-      : { status: "Loading...", counted: false, action: null };
-  if (access === "undetermined")
-    return {
-      status: "Not connected",
-      counted: false,
-      action: { label: "Connect phone steps", kind: "connect" },
-    };
-  if (access === "denied")
-    return {
-      status: "Step access is off.",
-      counted: false,
-      action: { label: "Open settings", kind: "openSettings" },
-    };
-  if (access === "install")
-    return {
-      status: "Install Health Connect to count steps.",
-      counted: false,
-      action: { label: "Get Health Connect", kind: "openSettings" },
-    };
-  return {
-    status: "Phone step counting isn't available on this device.",
-    counted: false,
-    action: null,
-  };
+  switch (phoneStepsKind(phone)) {
+    case "counted":
+      return {
+        status: `${(phone.steps ?? 0).toLocaleString()} steps`,
+        counted: true,
+        action: null,
+      };
+    case "loading":
+      return { status: "Loading...", counted: false, action: null };
+    case "error":
+      return {
+        status: "Couldn't read phone steps.",
+        counted: false,
+        action: { label: "Retry phone steps", kind: "retry" },
+      };
+    case "connect":
+      return {
+        status: "Not connected",
+        counted: false,
+        action: { label: "Connect phone steps", kind: "connect" },
+      };
+    case "denied":
+      return {
+        status: "Step access is off.",
+        counted: false,
+        action: { label: "Open settings", kind: "openSettings" },
+      };
+    case "install":
+      return {
+        status: "Install Health Connect to count steps.",
+        counted: false,
+        action: { label: "Get Health Connect", kind: "openSettings" },
+      };
+    case "unavailable":
+      return {
+        status: "Phone step counting isn't available on this device.",
+        counted: false,
+        action: null,
+      };
+  }
 }

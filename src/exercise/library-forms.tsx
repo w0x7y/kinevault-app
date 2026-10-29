@@ -126,7 +126,7 @@ export function WorkoutForm({
   /** The saved template being edited, if any. */
   workout?: WorkoutTemplate;
 }) {
-  const { draft, busy, error, selected, settingsOpen, query, notesId, results } =
+  const { draft, busy, error, selected, previous, next, settingsOpen, query, notesId, results } =
     useSnapshot(template);
   const rise = useLayoutMotion().enter();
   // The sheet's back button is this form's Cancel, except while it saves.
@@ -247,6 +247,8 @@ export function WorkoutForm({
         toolbar={settingsOpen ? builder : undefined}
         exercises={draft.rows}
         selected={selected}
+        previous={previous}
+        next={next}
         onSelect={template.select}
         notesId={notesId}
         onShowNotes={template.showNotes}

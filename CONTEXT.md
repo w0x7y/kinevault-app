@@ -28,13 +28,13 @@ their membership through client-side tracking edits. Payments are outside this v
 
 **Account tracking**: The Account's Profile and goals, Exercise definitions,
 Workout templates and logs, Custom foods and meals, Logged food, Manual water,
-and Water goal. Completed-workout summaries and journal stats derive from these
-saved records. Profile media remains private to the device.
+Water goal and Logged steps. Completed-workout summaries and journal stats derive
+from these saved records. Profile media remains private to the device.
 
 **Account tracking document**: One saved part of Account tracking (Profile,
-Exercises, Food log, Custom foods, Water log or Water goal) with its own storage
-key and Settings name. Each document syncs, and can have a Cloud conflict, on its
-own.
+Exercises, Food log, Custom foods, Water log, Water goal or Logged steps) with its
+own storage key and Settings name. Each document syncs, and can have a Cloud
+conflict, on its own.
 
 **Account management attempt**: An Account’s request to export tracking or
 confirm permanent deletion, with feedback belonging to the Settings view that
@@ -138,8 +138,9 @@ has no weight to draw for it.
 **Set clock**: A Timed set's running clock in a Workout edit. Started on a blank set it
 is a stopwatch; started on a set with 1 to 86,400 whole seconds it counts down from
 them (any other entry also runs a stopwatch). Stopping logs
-the seconds it ran, and a countdown that runs out logs its seconds. One clock runs at a
-time: starting another logs the first. It keeps running while another exercise shows
+the seconds it ran, and a countdown that runs out logs its seconds. Each Workout log runs
+one clock at a time: starting another in the same log logs the first, and other logs keep
+theirs. It keeps running while another exercise shows
 or the workout's page is away (a countdown that runs out still logs and buzzes), and
 Save, Log, End and Cancel log it first. It is not
 saved, so closing the app loses it.
@@ -268,8 +269,9 @@ Android have none. They are read on the device and never uploaded.
 
 **Logged steps**: Steps entered by hand for the Selected day, for walking the phone
 missed. They add to Phone steps for the day's total. Editing replaces that day's
-amount; zero clears it. They stay on the device, per Account, and are not an
-Account tracking document: they don't sync and aren't in the account export.
+amount; zero clears it. They are an Account tracking document, so they sync to the
+Account like the Water log and are in the account export. Phone steps are never
+stored or uploaded.
 
 **Manual water**: The milliliters entered directly for the Selected day,
 separate from saved Drinks. Editing replaces that day's manual amount; zero

@@ -14,6 +14,8 @@ const exerciseKey = "kinevault-track.exercise.v1";
 const mediaKey = "kinevault-track.profile-media.v1";
 const profileKey = "kinevault-track.profile.v1";
 const recoveryKey = "kinevault-track.recovered-setup.v1";
+const stepsKey = "kinevault-track.steps-log.v1";
+const steps = (days: Record<string, number>) => JSON.stringify({ version: 1, days });
 const goal = (dailyMl: number) => JSON.stringify({ version: 1, dailyMl });
 const profile = (name: string) => {
   const document = parseProfile(null);
@@ -935,4 +937,78 @@ test("an edit queued behind a background cloud replacement becomes a conflict in
   assert.equal(await store.getItem(goalKey), goal(2100));
   assert.equal(await store.resolveConflict(goalKey, "local"), true);
   assert.equal(cloud.rows.get(goalKey)?.payload, goal(2100));
+});
+
+test("Logged steps entered while signed out join the account and reach its other devices", async () => {
+  const phone = memory({ [stepsKey]: steps({ "2026-10-27": 4000 }) }),
+    cloud = server();
+  const a = createAccountStorage({ userId: "a", local: phone.storage, remote: cloud.remote });
+  await a.start();
+  assert.equal(cloud.rows.get(stepsKey)?.payload, steps({ "2026-10-27": 4000 }));
+  await a.setItem(stepsKey, steps({ "2026-10-27": 4000, "2026-10-28": 9000 }));
+  await a.retry();
+  assert.equal(cloud.rows.get(stepsKey)?.revision, 2);
+  const tablet = createAccountStorage({
+    userId: "a",
+    local: memory().storage,
+    remote: cloud.remote,
+  });
+  await tablet.start();
+  assert.equal(await tablet.getItem(stepsKey), steps({ "2026-10-27": 4000, "2026-10-28": 9000 }));
+});
+
+test("Logged steps an older build kept on the device upload once, or wait as a conflict", async () => {
+  // Older builds saved the bare document under the account's key, without sync metadata.
+  const scopedSteps = "kinevault-track.account.a.kinevault-track.steps-log.v1";
+  const phone = memory({ [scopedSteps]: steps({ "2026-10-26": 5000 }) }),
+    cloud = server();
+  const first = createAccountStorage({ userId: "a", local: phone.storage, remote: cloud.remote });
+  assert.equal(await first.getItem(stepsKey), steps({ "2026-10-26": 5000 }));
+  await first.start();
+  assert.equal(first.getSnapshot().state, "idle");
+  assert.deepEqual(cloud.rows.get(stepsKey), {
+    document_key: stepsKey,
+    payload: steps({ "2026-10-26": 5000 }),
+    revision: 1,
+  });
+  assert.equal(JSON.parse(phone.values.get(scopedSteps)!).revision, 1);
+  const tablet = memory({ [scopedSteps]: steps({ "2026-10-26": 7000 }) });
+  const second = createAccountStorage({ userId: "a", local: tablet.storage, remote: cloud.remote });
+  await second.start();
+  assert.deepEqual(second.getSnapshot().conflicts, [stepsKey]);
+  assert.equal(await second.getItem(stepsKey), steps({ "2026-10-26": 7000 }));
+  assert.equal(cloud.rows.get(stepsKey)?.payload, steps({ "2026-10-26": 5000 }));
+  await second.resolveConflict(stepsKey, "local");
+  assert.equal(cloud.rows.get(stepsKey)?.payload, steps({ "2026-10-26": 7000 }));
+});
+
+test("a cloud document this build doesn't sync is skipped, while known documents still sync", async () => {
+  // A newer build's document, plus a key that only exists on Object.prototype.
+  const future = { document_key: "kinevault-track.future.v1", payload: "{}", revision: 4 };
+  const local = memory(),
+    cloud = server([
+      { document_key: goalKey, payload: goal(2200), revision: 1 },
+      future,
+      { document_key: "constructor", payload: "{}", revision: 1 },
+    ]);
+  const store = createAccountStorage({ userId: "a", local: local.storage, remote: cloud.remote });
+  await store.start();
+  assert.equal(store.getSnapshot().state, "idle");
+  assert.equal(await store.getItem(goalKey), goal(2200));
+  await store.setItem(goalKey, goal(2400));
+  assert.equal(await store.retry(), true);
+  assert.deepEqual(cloud.rows.get(goalKey), {
+    document_key: goalKey,
+    payload: goal(2400),
+    revision: 2,
+  });
+  assert.deepEqual(cloud.rows.get(future.document_key), future);
+  assert.equal(local.values.has(`kinevault-track.account.a.${future.document_key}`), false);
+  // Known documents stay strict next to an unknown one.
+  cloud.rows.set(goalKey, { document_key: goalKey, payload: goal(2600), revision: 2.5 });
+  assert.equal(await store.retry(), false);
+  cloud.rows.set(goalKey, { document_key: goalKey, payload: goal(-1), revision: 3 });
+  assert.equal(await store.retry(), false);
+  assert.equal(store.getSnapshot().state, "error");
+  assert.equal(await store.getItem(goalKey), goal(2400));
 });

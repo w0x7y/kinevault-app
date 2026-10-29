@@ -4,7 +4,7 @@ import type { WaterLogSnapshot } from "../water/persistence.ts";
 import type { WaterGoalSnapshot } from "../water/goal-persistence.ts";
 import { waterGoalProgress } from "../water/goal-model.ts";
 import type { StepsLogSnapshot } from "../steps/persistence.ts";
-import type { PhoneStepsReading } from "../steps/summary.ts";
+import { phoneStepsKind, type PhoneStepsKind, type PhoneStepsReading } from "../steps/summary.ts";
 import { progressFraction, summarizeDay, type FoodDay } from "./model.ts";
 import { calorieSegments, macroCategories } from "./nutrition.ts";
 import type { ExerciseSnapshot } from "../exercise/persistence.ts";
@@ -156,7 +156,6 @@ export function interpretDayActivity({
       water: source(water),
       waterGoal: source(goal),
       workouts: source(exercise),
-      loggedSteps: source(loggedSteps),
     },
     /** The journal's streak up to this day, once food, water and workouts are known. Only the
      * journal shows it, so it is counted on first use. */
@@ -329,26 +328,38 @@ function waterTile(total: WaterTotal, goal: WaterGoal, progress: number | null) 
 
 /** The Home Steps tile: phone steps plus steps logged by hand, with what the figure includes. */
 function stepsTile(date: string, phone: PhoneStepsReading, logged: number | null) {
-  const read = phone.access === "granted" && phone.state === "ready" ? phone.steps : null;
+  const kind = phoneStepsKind(phone);
+  const read = kind === "counted" ? phone.steps : null;
   const extra = logged ?? 0;
   const value = read === null && extra === 0 ? null : (read ?? 0) + extra;
-  let captions: string[];
-  if (phone.access === null || (phone.access === "granted" && phone.state === "loading"))
-    captions = ["loading..."];
-  else if (phone.access === "granted")
-    captions =
-      phone.state === "error"
-        ? ["Couldn't read phone steps"]
-        : ["From your phone", ...(extra > 0 ? [`Includes ${extra.toLocaleString()} logged`] : [])];
-  else if (phone.access === "unavailable")
-    captions = [extra > 0 ? "Logged manually" : "Tap to log steps"];
-  else captions = ["Not connected"];
+  const captions = stepsCaptions(kind, extra);
   const figure = value === null ? "No steps yet" : `${value.toLocaleString()} steps`;
   return {
     value,
     captions,
     label: `Log steps. ${figure} for ${shortDayLabel(date)}. ${captions.join(". ")}.`,
   };
+}
+
+/** Where the Steps tile's figure comes from, or why the phone adds nothing. */
+function stepsCaptions(phone: PhoneStepsKind, logged: number): string[] {
+  switch (phone) {
+    case "counted":
+      return [
+        "From your phone",
+        ...(logged > 0 ? [`Includes ${logged.toLocaleString()} logged`] : []),
+      ];
+    case "loading":
+      return ["loading..."];
+    case "error":
+      return ["Couldn't read phone steps"];
+    case "connect":
+    case "denied":
+    case "install":
+      return ["Not connected"];
+    case "unavailable":
+      return [logged > 0 ? "Logged manually" : "Tap to log steps"];
+  }
 }
 
 /** A completed exercise on the detailed Workout card: its counts and its weight or time. */
@@ -394,9 +405,10 @@ function workoutTile(
       name: string;
       /** "Live" while a workout still runs on the day. */
       status: "Live" | "Done";
-      completed: CompletedWorkout;
       /** The card's Total lifted in kg, rounded like the summary. */
       lifted: string;
+      /** The detailed card's line under the total: "4 exercises · 10 reps per set on average". */
+      detail: string;
       /** The detailed card's exercise rows. */
       exercises: WorkoutExerciseRow[];
       stats: { label: string; value: string }[];
@@ -405,6 +417,8 @@ function workoutTile(
   if (kind !== "ready") return { kind, retry, summary: null };
   const minutes = `${Math.round(completed.durationSeconds / 60)} min`;
   const lifted = Math.round(completed.volume).toLocaleString();
+  const exerciseCount =
+    completed.exercises.length === 1 ? "1 exercise" : `${completed.exercises.length} exercises`;
   // The day's training in one line: volume when weights were logged, then duration.
   let summary = "No workouts yet";
   if (completed.sets > 0) {
@@ -429,8 +443,12 @@ function workoutTile(
     summary,
     name: completed.name,
     status: activeName === null ? "Done" : "Live",
-    completed,
     lifted,
+    // Timed sets have no reps, so a Timed-only day has no average.
+    detail:
+      completed.reps > 0
+        ? `${exerciseCount} · ${completed.averageRepsPerSet} reps per set on average`
+        : exerciseCount,
     exercises: completed.exercises.map((exercise) => ({
       id: exercise.id,
       name: exercise.name,

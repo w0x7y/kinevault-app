@@ -299,7 +299,10 @@ export function elapsedSeconds(session: WorkoutSession, now: number): number {
   return Math.max(0, Math.floor((now - session.startedAt) / 1000));
 }
 
-/** How many library results an exercise picker shows before "Show more". */
+/**
+ * How many library results show at a time: in an exercise picker before "Show more", and on each
+ * page of the tab's search.
+ */
 export const exerciseResultPage = 20;
 
 /**

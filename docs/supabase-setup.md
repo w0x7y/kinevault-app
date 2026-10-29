@@ -47,11 +47,12 @@ Document saves use compare-and-swap revisions. A stale revision returns no row,
 which the application treats as a conflict instead of overwriting newer tracking.
 Deleting a document writes a SQL `NULL` tombstone and advances its revision. Only
 the six legacy profile, exercise, food log, custom-food, water log and water-goal
-document keys are accepted. Payloads remain versioned JSON objects understood by
-the existing application parsers. Profile progress-photo documents and image files
-are outside this document sync.
+document keys are accepted, plus the Logged steps key once its migration is applied
+(see [Logged steps sync](#logged-steps-sync)). Payloads remain versioned JSON
+objects understood by the existing application parsers. Profile progress-photo
+documents and image files are outside this document sync.
 
-Four later migrations are in `supabase/migrations/`:
+Five later migrations are in `supabase/migrations/`:
 
 - `20261005152713_track_role_assignment_index.sql` indexes the role assignment
   foreign key. It is applied.
@@ -64,6 +65,9 @@ Four later migrations are in `supabase/migrations/`:
 - `20261018120000_account_deletion_attempts.sql` adds the per-account attempt limit
   that `delete-account` checks. It was applied on 2026-10-18, before the function
   was deployed.
+- `20261029120000_track_documents_steps_log.sql` lets `track_documents` accept
+  `kinevault-track.steps-log.v1`. It is not applied; see
+  [Logged steps sync](#logged-steps-sync).
 
 The migration was applied to the inspected empty project. Verification passed for
 account isolation, anonymous denial, subscription/role write denial, signup defaults,
@@ -77,6 +81,128 @@ remaining findings. Grants and RLS must be reviewed together, because
 new public tables no longer receive consistent default API access. See
 [Supabase's Data API grant change](https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically)
 and [row-level security documentation](https://supabase.com/docs/guides/database/postgres/row-level-security).
+
+## Logged steps sync
+
+`supabase/migrations/20261029120000_track_documents_steps_log.sql` adds
+`kinevault-track.steps-log.v1` to the `track_documents_allowed_key` check, so Logged
+steps sync like the water log. It adds no table, grant, policy or function. History
+partitions stay food and exercise only. Deleting the Auth user still removes the row
+through the existing foreign key cascade, and the account export reads it with the
+other documents. Phone steps have no key and are never uploaded.
+
+It hasn't been applied to the hosted project. On 2026-10-29 it passed against a
+throwaway Supabase Postgres 17.11 container: existing rows stayed byte for byte, the
+steps key saved through `save_track_document`, an unknown key was still rejected,
+another account couldn't read the row, the migration reran cleanly, and the rollback
+below restored the original constraint. `scripts/track-documents-steps-log.test.mjs`
+repeats the main checks in PGlite on every `npm test`. It also runs every migration and
+checks that each key in the document registry saves.
+
+### Older builds
+
+Builds from 2026-10-05 until the unknown-key skip below reject a cloud document key
+they don't know (`checkedCloud` in `src/account/storage.ts`). Once an account has a
+Logged steps row, an older build signed in to that account:
+
+- Fails every download, on app start, Try again and reconnect, with "Cloud sync
+  couldn't finish". It gets no changes from other devices, for any document.
+- Still uploads its own edits to documents no other device changed. An edit to a
+  document another device changed fails with the same error instead of showing a
+  Cloud conflict, and stays saved on the device.
+- Can't open the account on a device with no saved Profile for it, such as a new
+  install or a first sign-in. It shows "Couldn't load this account's saved data."
+- Can't export with cloud copies. Export device copy still works.
+
+Nothing is lost: pending edits stay on the device and sync after the update. The
+account gets a Logged steps row the first time an updated device syncs any Logged
+steps, including steps saved on that device before the update or while signed out.
+Accounts that never log steps aren't affected.
+
+The other way around, an older build keeps its Logged steps on the device. After the
+update they upload if the cloud has none. If another device already saved some,
+Settings shows a Logged steps Cloud conflict and the user keeps one copy. Days aren't
+merged.
+
+Newer builds skip a cloud document key they don't know (`unknownCloud` in
+`src/account/storage.ts`). Their downloads sync every other document, and cloud export
+keeps the unknown row as a cloud-only entry. That protects them from the next new
+document. Builds already installed don't have the skip and still fail as described
+above, so the rollout rule still holds.
+
+Rollout rule:
+
+1. Apply the migration before installing a build with this change anywhere. Against
+   the old constraint, a new build can't save Logged steps, and every sync on that
+   device ends with "Cloud sync couldn't finish".
+2. Update every device signed in to an account, the web preview included, before
+   logging steps on any of them. An older device left behind stops downloading until
+   it's updated.
+
+### Apply
+
+Don't use `supabase db push`: it would also apply the unapplied history migration.
+Run these in bash from `Application/`, with the Management API token from
+`.env.auth.local` exported as `SUPABASE_ACCESS_TOKEN`:
+
+```bash
+project=https://api.supabase.com/v1/projects/kkywpvkckxniriatelta
+query() {
+  jq -n --arg query "$1" '{query: $query}' |
+    curl -sS --fail-with-body "$project/database/query$2" \
+      -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+      -H "Content-Type: application/json" --data-binary @-
+  echo
+}
+```
+
+Before applying, record the current state. The constraint lists six keys, the
+history has no `20261029120000`, and the counts are the baseline for the check after:
+
+```bash
+query "select pg_get_constraintdef(oid) from pg_constraint where conname = 'track_documents_allowed_key'" /read-only
+curl -sS "$project/database/migrations" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"; echo
+query "select document_key, count(*) as rows, max(revision) as max_revision from public.track_documents group by document_key order by document_key" /read-only
+```
+
+Apply the file and record it in the migration history in one transaction:
+
+```bash
+jq -n --rawfile migration supabase/migrations/20261029120000_track_documents_steps_log.sql \
+  --arg record "insert into supabase_migrations.schema_migrations (version, name) values ('20261029120000', 'track_documents_steps_log');" \
+  '{query: "begin;\n\($migration)\n\($record)\ncommit;"}' |
+  curl -sS --fail-with-body "$project/database/query" \
+    -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+    -H "Content-Type: application/json" --data-binary @-
+```
+
+### Verify
+
+Run the three checks from before again. The constraint now ends with
+`'kinevault-track.steps-log.v1'::text`, the history lists `20261029120000`
+`track_documents_steps_log`, and the counts match the baseline. Then sign in to a test
+account on a build with this change, log steps, and check that Settings says "All
+changes saved to your account." and that another device on the same build shows them.
+
+### Roll back
+
+Roll back only before any build with this change is installed. The statement deletes
+every account's cloud copy of Logged steps. A device whose Logged steps already synced
+then fails every sync, because its saved copy expects the cloud row, so after release
+fix forward instead.
+
+```bash
+query "begin;
+delete from public.track_documents where document_key = 'kinevault-track.steps-log.v1';
+alter table public.track_documents
+  drop constraint track_documents_allowed_key,
+  add constraint track_documents_allowed_key check (document_key in (
+    'kinevault-track.profile.v1', 'kinevault-track.exercise.v1',
+    'kinevault-track.food-log.v1', 'kinevault-track.custom-foods.v1',
+    'kinevault-track.water-log.v1', 'kinevault-track.water-goal.v1'));
+delete from supabase_migrations.schema_migrations where version = '20261029120000';
+commit;"
+```
 
 ## Edge Functions
 
@@ -166,7 +292,8 @@ node --env-file=.env.auth.local scripts/configure-auth.mjs --apply
 The first command shows the proposed settings without credentials. The second
 applies Resend SMTP and the additive redirect list, and sets the server password
 minimum to at least 10 characters while preserving stricter existing settings. It
-hasn't been run, so Resend and the password minimum aren't applied yet.
+hasn't been run, so Resend isn't applied yet. The server password minimum was set
+to 10 by itself through the Management API on 2026-10-28.
 The native and localhost callbacks listed below were added to the redirect allowlist
 by hand on 2026-10-18. Before that the list was empty, so confirmation links fell back
 to the default Site URL, `http://localhost:3000`.

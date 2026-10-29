@@ -284,6 +284,7 @@ export async function installAccountFixture(
         "kinevault-track.custom-foods.v1",
         "kinevault-track.water-log.v1",
         "kinevault-track.water-goal.v1",
+        "kinevault-track.steps-log.v1",
       ]);
       const owner = () => {
         try {

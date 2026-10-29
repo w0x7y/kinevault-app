@@ -9,7 +9,6 @@ import {
 } from "./demo/demo-link.ts";
 import { createWorkoutImportFlow, type WorkoutImportFlowSource } from "./import/import-flow.ts";
 import {
-  exerciseResultPage as resultPage,
   matchingExercises,
   type ExerciseDefinition,
   type ExerciseDocument,
@@ -19,6 +18,13 @@ import {
 import { writeFailure, type createExercisePersistence, type ExerciseWrite } from "./persistence.ts";
 import type { ExercisePanels } from "./tab-view.ts";
 import { createWorkoutTemplateDraft, type WorkoutTemplateDraft } from "./workout-template-draft.ts";
+import {
+  keepShown,
+  librarySearch,
+  moreResults,
+  resultPage,
+  workspaceView,
+} from "./workspace-page.ts";
 
 type ExerciseValues = Omit<ExerciseDefinition, "id">;
 /** The panel's pending save or removal and the feedback of its last failure. */
@@ -47,6 +53,9 @@ type TemplateDraftSnapshot = Readonly<
   TemplateDraftState & {
     /** The exercise row on screen: the selected one, or the first. */
     selected: WorkoutTemplateDraft["rows"][number] | undefined;
+    /** The rows Back and Next show. */
+    previous: WorkoutTemplateDraft["rows"][number] | undefined;
+    next: WorkoutTemplateDraft["rows"][number] | undefined;
     results: TemplateResults;
   }
 >;
@@ -105,8 +114,7 @@ function templateResults(
     (item) => !draft.rows.some((row) => row.id === item.id),
   );
   return {
-    items: available.slice(0, limit),
-    more: available.length > limit,
+    ...resultPage(available, limit),
     message:
       library.length === 0
         ? "Create an exercise first, then return to build your workout."
@@ -275,8 +283,7 @@ export function createLibraryDrafts({
           // A new template opens on its builder; a saved one on its first exercise.
           selectedId: workout?.exercises[0]?.id,
           settingsOpen: !workout,
-          query: "",
-          limit: resultPage,
+          ...librarySearch(""),
           notesId: null,
         },
       }));
@@ -286,10 +293,9 @@ export function createLibraryDrafts({
           const { state, view } = entry,
             exercises = library();
           if (view?.state === state && view.exercises === exercises) return view.snapshot;
-          const { rows } = state.draft;
           const snapshot = {
             ...state,
-            selected: rows.find((row) => row.id === state.selectedId) ?? rows[0],
+            ...workspaceView(state.draft.rows, state.selectedId),
             results: templateResults(exercises, state),
           };
           entry.view = { state, exercises, snapshot };
@@ -297,7 +303,10 @@ export function createLibraryDrafts({
         },
         subscribe,
         change(update: (draft: WorkoutTemplateDraft) => WorkoutTemplateDraft) {
-          if (!entry.state.busy) publish(entry, { draft: update(entry.state.draft) });
+          const { busy, draft, selectedId } = entry.state;
+          // A change can move rows; the exercise on screen stays on screen.
+          if (!busy)
+            publish(entry, { draft: update(draft), selectedId: keepShown(draft.rows, selectedId) });
         },
         /** Appends a search result to the order and shows it. */
         add(exercise: ExerciseDefinition) {
@@ -306,8 +315,8 @@ export function createLibraryDrafts({
         },
         select: (selectedId: string) => publish(entry, { selectedId }),
         showSettings: (settingsOpen: boolean) => publish(entry, { settingsOpen }),
-        search: (query: string) => publish(entry, { query, limit: resultPage }),
-        showMore: () => publish(entry, { limit: entry.state.limit + resultPage }),
+        search: (query: string) => publish(entry, librarySearch(query)),
+        showMore: () => publish(entry, moreResults(entry.state)),
         showNotes: (notesId: string | null) => publish(entry, { notesId }),
         async save() {
           if (entry.state.busy) return false;

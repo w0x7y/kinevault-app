@@ -29,6 +29,8 @@ export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDef
   toolbar,
   exercises,
   selected,
+  previous,
+  next,
   onSelect,
   notesId,
   onShowNotes,
@@ -53,6 +55,9 @@ export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDef
   exercises: readonly Row[];
   /** The exercise row on screen. */
   selected: Row | undefined;
+  /** The rows Back and Next show. */
+  previous: Row | undefined;
+  next: Row | undefined;
   onSelect: (id: string) => void;
   /** The row whose notes show. */
   notesId: string | null;
@@ -85,12 +90,7 @@ export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDef
     footer: (
       <View style={{ gap: spacing.sm }}>
         {selected && (
-          <ExerciseSteps
-            exercises={exercises}
-            selected={selected}
-            onSelect={onSelect}
-            busy={busy}
-          />
+          <ExerciseSteps previous={previous} next={next} onSelect={onSelect} busy={busy} />
         )}
         {primary}
       </View>
@@ -186,21 +186,18 @@ export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDef
   );
 }
 
-/** Back and Next: the exercise before and after `selected`. */
-function ExerciseSteps<Row extends { id: string }>({
-  exercises,
-  selected,
+/** Back and Next: the exercise before and after the one on screen. */
+function ExerciseSteps({
+  previous,
+  next,
   onSelect,
   busy,
 }: {
-  exercises: readonly Row[];
-  selected: Row;
+  previous: { id: string } | undefined;
+  next: { id: string } | undefined;
   onSelect: (id: string) => void;
   busy: boolean;
 }) {
-  const index = exercises.indexOf(selected);
-  const previous = exercises[index - 1],
-    next = index < 0 ? undefined : exercises[index + 1];
   return (
     <ButtonRow testID="exercise-step-buttons">
       <AppButton

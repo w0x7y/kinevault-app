@@ -289,8 +289,6 @@ test("a template draft keeps its selected exercise, builder and search when its 
   assert.equal(remounted.settingsOpen, true);
   assert.equal(remounted.query, "lun");
   assert.equal(remounted.selectedId, "lunge");
-  // An ID the template doesn't hold shows its first exercise.
-  assert.equal(remounted.selected?.id, "squat");
   // Every handle the tab hands out reads the same snapshot until the draft changes.
   assert.equal(f.drafts.template(f.token(), template).getSnapshot(), remounted);
   await f.tab.requestView({ kind: "workout" });
@@ -313,6 +311,31 @@ test("a template draft keeps its result limit and open notes; a new search shows
   assert.equal(remounted.notesId, "squat");
   draft.search("s");
   assert.equal(draft.getSnapshot().limit, 20);
+});
+
+test("moving a template's exercises keeps the one on screen, even when it showed for being first", async () => {
+  const f = await fixture();
+  const [a, b, c] = ["a", "b", "c"].map((id) => ({ ...squat, id, name: id.toUpperCase() }));
+  const saved = {
+    id: "abc",
+    name: "ABC",
+    exercises: [a!, b!, c!],
+    setCounts: { a: 1, b: 1, c: 1 },
+  };
+  await f.tab.requestView({ kind: "workout", workout: saved });
+  const draft = f.drafts.template(f.token(), saved);
+  draft.change((value) => value.remove("a"));
+  assert.equal(draft.getSnapshot().selected?.id, "b");
+  draft.change((value) => value.move(0, 1));
+  assert.deepEqual(
+    draft.getSnapshot().draft.rows.map((row) => row.id),
+    ["c", "b"],
+  );
+  assert.equal(draft.getSnapshot().selected?.id, "b");
+  assert.deepEqual(
+    [draft.getSnapshot().previous?.id, draft.getSnapshot().next?.id],
+    ["c", undefined],
+  );
 });
 
 test("a template draft's search lists library exercises it doesn't hold; adding one shows it", async () => {
