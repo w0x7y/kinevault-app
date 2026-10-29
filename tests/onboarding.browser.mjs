@@ -2370,7 +2370,7 @@ test("completed workout widgets render coherent totals and their exercise rows",
     for (const value of ["1,300 kg", "30 min", "7", "69"])
       assert.equal(await widget.getByText(value, { exact: true }).count(), 1);
   }
-  await exercise.getByText("10 reps", { exact: true }).waitFor();
+  await exercise.getByText("4 exercises · 10 reps per set on average", { exact: true }).waitFor();
   for (const [name, sets, reps, weight] of [
     ["Squat", 2, 18, "40–60 kg"],
     ["Press", 1, 12, "30 kg"],
