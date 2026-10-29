@@ -6,6 +6,7 @@ import {
   removeOwnedMedia,
 } from "../profile/media-ownership.ts";
 import { profileStorageKey } from "../profile/persistence.ts";
+import { stepsLogStorageKey } from "../steps/persistence.ts";
 import { accountTrackingDocuments } from "./tracking-documents.ts";
 import {
   createPartitionedLocalStorage,
@@ -137,6 +138,12 @@ function parseEnvelope(raw: string | null): Envelope | null {
     dirty: value.dirty,
   };
 }
+// Builds before Logged steps synced saved them as a bare document. Read one as an unsynced edit.
+function parseStoredEnvelope(key: string, raw: string | null): Envelope | null {
+  if (key === stepsLogStorageKey && raw !== null && JSON.parse(raw)?.payload === undefined)
+    return { version: 1, payload: raw, revision: 0, dirty: true, sequence: 1 };
+  return parseEnvelope(raw);
+}
 function checkedCloud(row: CloudDocument): CloudDocument {
   if (
     !accountDocumentKeys.includes(row.document_key) ||
@@ -210,7 +217,7 @@ export function createAccountStorage({
     for (const listener of listeners) listener();
   }
   async function read(key: string) {
-    const envelope = parseEnvelope(await local.getItem(scoped(key)));
+    const envelope = parseStoredEnvelope(key, await local.getItem(scoped(key)));
     if (envelope && cache.get(key)?.payload !== envelope.payload)
       envelope.payload = canonical(key, envelope.payload);
     if (envelope) cache.set(key, envelope);
@@ -456,7 +463,8 @@ export function createAccountStorage({
       await checkWritable();
       // A validated replacement or reset needs revision metadata, not valid
       // prior answers. Damaged payloads must remain recoverable by replacement.
-      const previous = parseEnvelope(
+      const previous = parseStoredEnvelope(
+        key,
         isHistoryKey(key)
           ? await readHistoryEnvelopeMetadata(local, scoped(key))
           : await local.getItem(scoped(key)),
@@ -671,7 +679,9 @@ export function createAccountStorage({
       if (pendingWrites) await pendingWrites;
       const target = userId === null ? await guestKey(key) : scoped(key);
       const raw = await local.getItem(target);
-      return userId !== null && documentParsers[key] ? (parseEnvelope(raw)?.payload ?? null) : raw;
+      return userId !== null && documentParsers[key]
+        ? (parseStoredEnvelope(key, raw)?.payload ?? null)
+        : raw;
     },
     setItem: (key: string, value: string) => mutate(key, value),
     removeItem: (key: string) => mutate(key, null),

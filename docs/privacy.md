@@ -4,10 +4,10 @@
 
 Track keeps an account-scoped local copy so logging works offline. Tracking
 records use AsyncStorage on iOS and Android, and browser storage in the web
-preview. This includes profile body measurements, goals, food, water, and
-workout history. These records are not encrypted by Track. Device account
-namespaces prevent one signed-in account from seeing another account's records
-through the app; they are not an encryption boundary.
+preview. This includes profile body measurements, goals, food, water, logged
+steps, and workout history. These records are not encrypted by Track. Device
+account namespaces prevent one signed-in account from seeing another account's
+records through the app; they are not an encryption boundary.
 
 Native authentication tokens use Expo SecureStore separately. In the web
 preview, authentication tokens use browser localStorage. Passwords are not saved
@@ -69,22 +69,25 @@ for the day it shows, on the device, while Home shows it. It never uploads,
 syncs or saves phone steps, and it reads nothing else from Core Motion or Health
 Connect. It doesn't use HealthKit.
 
-Steps logged by hand are stored in the signed-in account's local storage on this
-device (`kinevault-track.steps-log.v1`), unencrypted like other tracking. They
-are not uploaded or synced to other devices, and the account export doesn't
-include them yet. Account deletion's local cleanup removes them with the rest of
-the account's device records; uninstalling the app or clearing its storage loses
-them.
+Steps logged by hand are Account tracking (`kinevault-track.steps-log.v1`). They
+are stored in the signed-in account's local storage on this device, unencrypted
+like other tracking, and sync to the account's private Supabase documents like
+the water log, so the account's other devices see them. The account export
+includes their local and cloud copies with the other tracking documents. Account
+deletion removes the cloud copy with the account and the local copy with the
+rest of the account's device records. Only the hand-entered amounts are
+uploaded. Phone steps are never stored or uploaded.
 
 ## Proposed privacy-policy text
 
 > To support offline logging, KineVault Track stores a local copy of your
-> profile, goals, food, water, and workout records on your device. These records
-> and locally saved profile photos are not encrypted by the app. Native sign-in
-> tokens are stored separately in the device's secure storage. The web preview
-> stores sign-in tokens in browser storage. Signing out hides your account's
-> local tracking and keeps pending changes for your next sign-in. Your synced
-> tracking is associated with your account; profile photos stay on this device.
+> profile, goals, food, water, logged steps, and workout records on your
+> device. These records and locally saved profile photos are not encrypted by
+> the app. Native sign-in tokens are stored separately in the device's secure
+> storage. The web preview stores sign-in tokens in browser storage. Signing
+> out hides your account's local tracking and keeps pending changes for your
+> next sign-in. Your synced tracking is associated with your account; profile
+> photos stay on this device.
 > When you import a workout shared from Tracked, the iOS and Android app
 > downloads the shared page directly from Tracked; only the workout ID is sent,
 > without your KineVault account details. On the web, your browser sends the
@@ -92,8 +95,8 @@ them.
 > and does not keep it. Reminders are scheduled on your device and are not
 > uploaded. If you allow it, the app reads your daily step count from your
 > phone's motion data (iOS) or Health Connect (Android) to show it on Home; that
-> count stays on your device. Steps you log by hand are saved only on this
-> device and are not uploaded.
+> count stays on your device and is never uploaded. Steps you log by hand are
+> synced to your account with the rest of your tracking.
 
 This is the storage disclosure for the current implementation. The published
 policy still needs the product's actual operator, contact details and retention

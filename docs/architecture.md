@@ -90,14 +90,16 @@ creation per account scope, subscription, start and stop, and the context guard.
 The tabs mount the documents they read through `AccountTrackingProvider`, and
 `TrackingRefreshNotices` renders their refresh notices from the same list; Profile
 mounts above them with the account scope. Adding a synced document means a domain key constant, a provider from the
-factory and one registry entry.
+factory, one registry entry and a reviewed migration that adds the key to
+`track_documents_allowed_key`. Older builds fail every download once the cloud holds
+a key they don't know, so the rollout needs every device updated (see
+[Logged steps sync](supabase-setup.md#logged-steps-sync)).
 
-Logged steps (`kinevault-track.steps-log.v1`) are a device-only document: their
-provider comes from the same factory and mounts with the others, but the key is
-not in the registry, so account storage keeps it under the account's local prefix
-without syncing it, and account deletion cleanup removes it with the rest of that
-prefix. Syncing it would need the cloud `track_documents` key allowlist to accept
-the key first. Phone steps never reach storage: `src/steps/device-steps.ts`
+Logged steps (`kinevault-track.steps-log.v1`) are a registered document like
+Manual water. Builds before they synced saved a bare document under the account's
+local prefix; account storage reads one as an unsynced edit, so it uploads on the
+next sync or becomes a Cloud conflict if another device already saved steps.
+Phone steps never reach storage: `src/steps/device-steps.ts`
 (Core Motion on iOS, Health Connect on Android, nothing on web) is read for the
 Selected day while Home shows it.
 

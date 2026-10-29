@@ -11,10 +11,11 @@ and docs/ describe behavior and link here instead of repeating status.
 
 ## Steps
 
-- [x] Count phone steps on Home (Core Motion on iOS, Health Connect on Android) and log missed steps by hand. Logged steps stay on the device.
+- [x] Count phone steps on Home (Core Motion on iOS, Health Connect on Android) and log missed steps by hand. Phone steps stay on the device.
 - [ ] Verify phone steps on a physical iPhone and Android phone: the permission prompts, denied and re-enabled access, Health Connect install on Android 8–13, the count for today and earlier days (iOS keeps 7 days), and Logged steps adding to it.
-- [ ] Sync Logged steps across devices. The hosted `track_documents` table only accepts its listed document keys, so `kinevault-track.steps-log.v1` needs a reviewed migration before it can join the Account tracking document registry.
-- [ ] Include Logged steps in the account JSON export.
+- [x] Sync Logged steps across devices as an Account tracking document ("Logged steps"), with migration `20261029120000_track_documents_steps_log.sql`.
+- [ ] Apply migration `20261029120000` to the hosted project before installing a build that syncs Logged steps, then update every device on an account before logging steps there. Older builds fail every cloud download once the account holds a steps row. Apply, verify and rollback steps are in docs/supabase-setup.md.
+- [x] Include Logged steps in the account JSON export (in `documents`, with local and cloud copies).
 - [ ] Declare Health Connect step access in the Play Console and add a privacy policy page for its permission screen before any Google Play release; the link currently just opens the app.
 
 ## Exercise

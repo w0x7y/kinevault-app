@@ -58,7 +58,8 @@ recovery stays visible. Home opens the menu in Exercise for the selected day.
 An empty menu says “No workout found. Create a workout to get started.” The sessions and exercise
 library widgets are removed. Steps shows the phone's count for the selected day (Core
 Motion on iOS, Health Connect on Android, none on the web) plus steps logged by hand in
-its Log steps sheet. Logged steps stay on the device.
+its Log steps sheet. Logged steps sync with the account; the phone's count is never
+uploaded.
 Workout creation searches available exercises above the ordered list. Selecting
 a saved workout shows a compact card with Start workout, Log completed workout and
 Workout settings. Templates and pre-start Workout settings can set exercise counts from 0 to 100; new
@@ -238,12 +239,11 @@ never enter profile storage. Drafts resume at their saved question, and signed-i
 editing bypasses the account screen. A saved profile with an age under 18 reopens at
 the age question; Set up later there keeps its other answers.
 
-Goals, custom exercises, workout templates, full sessions, food and water logs sync
-to private account storage. Pending edits survive offline restarts; conflicting
-device edits require choosing a copy. Existing device data is imported once, and
+Goals, custom exercises, workout templates, full sessions, food and water logs and
+logged steps sync to private account storage. Pending edits survive offline restarts;
+conflicting device edits require choosing a copy. Existing device data is imported once, and
 accounts have isolated local caches. Membership plans/status are server-managed,
-default to Free/active, and have no payment processing. Photos and logged steps stay
-on the device.
+default to Free/active, and have no payment processing. Photos stay on the device.
 
 English and metric are the supported interface formats. See
 [language and units](docs/language-and-units.md) for the recorded decision and

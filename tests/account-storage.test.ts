@@ -14,6 +14,8 @@ const exerciseKey = "kinevault-track.exercise.v1";
 const mediaKey = "kinevault-track.profile-media.v1";
 const profileKey = "kinevault-track.profile.v1";
 const recoveryKey = "kinevault-track.recovered-setup.v1";
+const stepsKey = "kinevault-track.steps-log.v1";
+const steps = (days: Record<string, number>) => JSON.stringify({ version: 1, days });
 const goal = (dailyMl: number) => JSON.stringify({ version: 1, dailyMl });
 const profile = (name: string) => {
   const document = parseProfile(null);
@@ -935,4 +937,47 @@ test("an edit queued behind a background cloud replacement becomes a conflict in
   assert.equal(await store.getItem(goalKey), goal(2100));
   assert.equal(await store.resolveConflict(goalKey, "local"), true);
   assert.equal(cloud.rows.get(goalKey)?.payload, goal(2100));
+});
+
+test("Logged steps entered while signed out join the account and reach its other devices", async () => {
+  const phone = memory({ [stepsKey]: steps({ "2026-10-27": 4000 }) }),
+    cloud = server();
+  const a = createAccountStorage({ userId: "a", local: phone.storage, remote: cloud.remote });
+  await a.start();
+  assert.equal(cloud.rows.get(stepsKey)?.payload, steps({ "2026-10-27": 4000 }));
+  await a.setItem(stepsKey, steps({ "2026-10-27": 4000, "2026-10-28": 9000 }));
+  await a.retry();
+  assert.equal(cloud.rows.get(stepsKey)?.revision, 2);
+  const tablet = createAccountStorage({
+    userId: "a",
+    local: memory().storage,
+    remote: cloud.remote,
+  });
+  await tablet.start();
+  assert.equal(await tablet.getItem(stepsKey), steps({ "2026-10-27": 4000, "2026-10-28": 9000 }));
+});
+
+test("Logged steps an older build kept on the device upload once, or wait as a conflict", async () => {
+  // Older builds saved the bare document under the account's key, without sync metadata.
+  const scopedSteps = "kinevault-track.account.a.kinevault-track.steps-log.v1";
+  const phone = memory({ [scopedSteps]: steps({ "2026-10-26": 5000 }) }),
+    cloud = server();
+  const first = createAccountStorage({ userId: "a", local: phone.storage, remote: cloud.remote });
+  assert.equal(await first.getItem(stepsKey), steps({ "2026-10-26": 5000 }));
+  await first.start();
+  assert.equal(first.getSnapshot().state, "idle");
+  assert.deepEqual(cloud.rows.get(stepsKey), {
+    document_key: stepsKey,
+    payload: steps({ "2026-10-26": 5000 }),
+    revision: 1,
+  });
+  assert.equal(JSON.parse(phone.values.get(scopedSteps)!).revision, 1);
+  const tablet = memory({ [scopedSteps]: steps({ "2026-10-26": 7000 }) });
+  const second = createAccountStorage({ userId: "a", local: tablet.storage, remote: cloud.remote });
+  await second.start();
+  assert.deepEqual(second.getSnapshot().conflicts, [stepsKey]);
+  assert.equal(await second.getItem(stepsKey), steps({ "2026-10-26": 7000 }));
+  assert.equal(cloud.rows.get(stepsKey)?.payload, steps({ "2026-10-26": 5000 }));
+  await second.resolveConflict(stepsKey, "local");
+  assert.equal(cloud.rows.get(stepsKey)?.payload, steps({ "2026-10-26": 7000 }));
 });
