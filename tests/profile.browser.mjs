@@ -1153,6 +1153,8 @@ test("Profile Back dismisses dropdown before returning to its source tab, or Hom
   const page = await open(t, { developmentRuntime: true });
   await installHardwareBackBoundary(page);
   await page.getByRole("tab", { name: "Food", exact: true }).click();
+  // Open Profile only once Food is the route, so Back has a source tab to return to.
+  await page.waitForURL("**/food");
   await profile(page);
   await button(page, "Profile menu").click();
   assert.equal(await hardwareBack(page), true);
