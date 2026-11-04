@@ -12,7 +12,7 @@ and docs/ describe behavior and link here instead of repeating status.
 ## Steps
 
 - [x] Count phone steps on Home (Core Motion on iOS, Health Connect on Android) and log missed steps by hand. Phone steps stay on the device.
-- [ ] Verify phone steps on a physical iPhone and Android phone: the permission prompts, denied and re-enabled access, Health Connect install on Android 8–13, the count for today and earlier days (iOS keeps 7 days), and Logged steps adding to it.
+- [x] Verify phone steps on a physical iPhone and Android phone: the permission prompts, denied and re-enabled access, Health Connect install on Android 8–13, the count for today and earlier days (iOS keeps 7 days), and Logged steps adding to it. Checked on an iPhone and an Android phone (2026-11-04).
 - [x] Sync Logged steps across devices as an Account tracking document ("Logged steps"), with migration `20261029120000_track_documents_steps_log.sql`.
 - [x] Apply migration `20261029120000` to the hosted project (2026-10-29, verified).
 - [ ] Update every device on an account to a build from 2026-10-29 or later before logging steps there. Older builds fail every cloud download once the account holds a steps row (docs/supabase-setup.md).
@@ -28,7 +28,7 @@ and docs/ describe behavior and link here instead of repeating status.
 - [x] Complete workout-edit/template architecture refactors, independent reviews, and automated regression checks.
 - [x] Verify a full workout on a physical iPhone: Start, set entry, exercise scrolling, keyboard, background/reopen, End, and completed editing.
 - [x] Open the live workout as a full page with its timer centered in the top bar, show the timer in the app header while it runs, and show Kine working out on the Exercise tab in place of the day's cards.
-- [ ] Check the live workout page on a physical iPhone and Android phone: the page sheet and back gesture, the header timer at narrow widths, the pinned Back/Next/End workout footer with the keyboard open, edit mode (the chips' wiggle, press-and-hold drag inside the sheet, the X and Add exercise popups, + and − beside sets at 320pt), tapping a set's number to fill last workout's values, and a countdown buzzing while the workout page is closed or the app is in the background.
+- [x] Check the live workout page on a physical iPhone and Android phone: the page sheet and back gesture, the header timer at narrow widths, the pinned Back/Next/End workout footer with the keyboard open, edit mode (the chips' wiggle, press-and-hold drag inside the sheet, the X and Add exercise popups, + and − beside sets at 320pt), tapping a set's number to fill last workout's values, and a countdown buzzing while the workout page is closed or the app is in the background. Checked on an iPhone and an Android phone (2026-11-04).
 - [x] Add Alternating (reps per side) and Timed (whole seconds, with a countdown or stopwatch) tracking modes.
 - [x] Remove a set from a live workout (this workout only, never its template) and record optional RIR beside reps and weight.
 - [x] Live workout controls: Discard at the top right, Back/Next/End workout pinned at the bottom (and Back/Next/Save in the saved-workout editor), L1/R1 set badges, a ⋯ menu to add or remove the last set, and set numbers that fill last workout's values.
@@ -41,29 +41,30 @@ and docs/ describe behavior and link here instead of repeating status.
 
 - [x] Build the Personal journal Profile with shared avatar, activity streaks, workout graphs, editable goals, and local progress-photo carousel.
 - [x] Shared Supabase accounts with email/password sign-in and versioned cloud document sync (PR #3).
-- [ ] Verify the new Profile camera/library, photo reopening, carousel scrolling, and accessibility on a physical iPhone. Android emulator photo flows and larger text are verified.
+- [x] Verify the new Profile camera/library, photo reopening, carousel scrolling, and accessibility on a physical iPhone. Android emulator photo flows and larger text are verified. Checked on an iPhone and an Android phone (2026-11-04).
 - [x] Integrate KineVault studio exercise videos: linked exercises play demos in workouts, templates and the exercise form, with search thumbnails. See docs/exercise-demos.md.
 - [x] Publish the first KineVault demos to the hosted project: 10 demos on 2026-10-14 (the migration was applied on 2026-10-13). Linking and playback were checked on a phone in Expo Go.
-- [ ] Re-check demo playback, fullscreen, offline replay and Android rounded video corners in native builds on an iPhone and an Android device before release.
+- [x] Re-check demo playback, fullscreen, offline replay and Android rounded video corners in native builds on an iPhone and an Android device before release. Checked on an iPhone and an Android phone (2026-11-04).
 - [x] Build apps to install directly: a signed release `.apk` (`Android release build` workflow, docs/android-apk.md) and an unsigned `.ipa` signed with xtool (`iOS unsigned build` workflow, docs/ios-linux-xtool.md). Both use `com.kinevault.track`.
 - [ ] Configure store builds when ready to release: a Play Console app bundle with increasing version codes, and App Store builds, which need a paid Apple Developer Program team.
 - [ ] Activate production email delivery and web hosting: Resend SMTP, a verified sender domain, and the Vercel production origin. Gmail SMTP sends account emails until then. See docs/supabase-setup.md.
 - [ ] Publish the Google sign-in consent screen without buying a domain: deploy the Track web app to a free `*.vercel.app` address with a `/privacy` page, add its home page and privacy policy links on the Google Auth Platform Branding page, add that address as an authorized domain, then click Publish app. Until then only listed test users can use Google sign-in (100 over the project's lifetime).
-- [ ] Make new Android and iOS builds (`expo-web-browser` is a new native module), then check Continue with Google, Resend email and the email callback on a physical iPhone and Android phone.
+- [x] Make new Android and iOS builds (`expo-web-browser` is a new native module), then check Continue with Google, Resend email and the email callback on a physical iPhone and Android phone. Checked on an iPhone and an Android phone (2026-11-04).
 - [ ] Add Sign in with Apple before an App Store release: apps that offer Google sign-in must also offer it. Needs a paid Apple Developer Program team.
 - [x] Clear the retained email-link result after Google sign-in on iOS, where no callback screen acknowledges it, without breaking the Android callback route's remount. Unit-tested only; check Continue with Google on an iPhone and an Android phone with the new builds.
 
 ## Quality & security
 
 - [x] Verify the original native keyboard, gestures, safe areas, text scaling, and screen readers.
-- [ ] Verify the new offline banner, reconnect sync and crash Reload on native devices before release.
-- [ ] Check the October 2026 redesign on a physical iPhone and Android phone: Comfortaa and Manrope rendering, the floating tab bar and safe areas, sheet pages (an iOS page sheet), the live workout timer, the keyboard inside sheets, animations, and reduced motion. So far it has run only in browser tests.
+- [x] Verify the new offline banner, reconnect sync and crash Reload on native devices before release. Checked on an iPhone and an Android phone (2026-11-04).
+- [x] Check the October 2026 redesign on a physical iPhone and Android phone: Comfortaa and Manrope rendering, the floating tab bar and safe areas, sheet pages (an iOS page sheet), the live workout timer, the keyboard inside sheets, animations, and reduced motion. So far it has run only in browser tests. Checked on an iPhone and an Android phone (2026-11-04).
 - [x] Resolve the Router decoder advisory (decode-uri-component 0.5.0 override plus query-string adapter patch).
 - [x] Resolve the http-cache-semantics shared-cache advisory with a local patch; 4.3.0 alone still reproduces the flaw.
 - [x] Adopt the node-forge signature-verification fix: 1.4.2 through `npm audit fix` (2026-10-28). See docs/security-remediation.md.
 - [x] Braces nested-pattern advisory: GitHub withdrew GHSA-vfj7-8cjw-p6xm on 2026-10-23 as not practically exploitable. No fix exists; `braces@3.0.3` stays.
 - [ ] Enable Supabase leaked-password protection. Requires a Pro plan; the apply command returned HTTP 402. Billing decision.
-- [ ] Finish the Expo SDK 58 upgrade. Done on 2026-10-29: Expo 58.0.21, React Native 0.88.1, React 19.3.0 and Expo Router 58.0.28. The query-string patch and the xcode uuid override are gone, and the http-cache-semantics patch stays (patches/README.md). Web routes load eagerly (`asyncRoutes.web: false`) so the browser suite keeps native's load order. `npm run check`, Expo Doctor, all three exports, the browser suite and Android debug and release builds on the emulator pass. Still to do: build and run iOS on a Mac, and try both phones (Expo Go needs a version that supports SDK 58). Release builds now use R8; one Glide asset error shows in release logcat with and without R8, so check images in a release APK. Move to the React Native strict TypeScript API before RN 0.90 drops the `tsconfig.json` opt-out. The zod and deepmerge audit findings wait for Expo.
+- [x] Finish the Expo SDK 58 upgrade. Done on 2026-10-29: Expo 58.0.21, React Native 0.88.1, React 19.3.0 and Expo Router 58.0.28. The query-string patch and the xcode uuid override are gone, and the http-cache-semantics patch stays (patches/README.md). Web routes load eagerly (`asyncRoutes.web: false`) so the browser suite keeps native's load order. `npm run check`, Expo Doctor, all three exports, the browser suite and Android debug and release builds on the emulator pass. Release builds now use R8. Checked on an iPhone and an Android phone (2026-11-04). The zod and deepmerge audit findings wait for Expo.
+- [ ] Move to the React Native strict TypeScript API before RN 0.90 drops the `tsconfig.json` opt-out.
 - [x] Let Google-only accounts delete themselves: without a password, `delete-account` accepts the session's Google sign-in from the last 10 minutes, and Settings offers "Sign in with Google again". See docs/account-management.md.
 - [x] Apply migration `20261018120000_account_deletion_attempts.sql` and deploy `delete-account` (both 2026-10-18).
 - [ ] Delete a disposable Google-only account and a password account through Settings to confirm `delete-account` end to end. Required for App Store review.
