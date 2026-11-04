@@ -12,6 +12,7 @@ import {
   type WorkoutSession,
 } from "../src/exercise/model.ts";
 import { summarizeSessions } from "../src/exercise/summary.ts";
+import { fakeTime } from "./helpers/fake-time.ts";
 
 const tick = async () => {
   for (let i = 0; i < 30; i++) await Promise.resolve();
@@ -1452,24 +1453,14 @@ async function timedFixture() {
       ],
     },
   ]);
-  const time = { now: 5_000_000 };
-  // The fake ticker: `tick` runs it once, and `ticking` says whether the edits keep one running.
-  let ticker: (() => void) | null = null;
+  // `tick` runs the edits' one ticker once, and `ticking` says whether it runs.
+  const { time, options, tick, ticking } = fakeTime();
   const buzzes = { count: 0 };
   const tab = createExerciseTabView({
     store: f.store,
     date: "2026-10-04",
     importSources: [],
-    clocks: {
-      now: () => time.now,
-      every: (_ms, tick) => {
-        ticker = tick;
-        return () => {
-          ticker = null;
-        };
-      },
-      onCountdownEnd: () => buzzes.count++,
-    },
+    clocks: { ...options, onCountdownEnd: () => buzzes.count++ },
   });
   tab.start();
   await tab.requestView({ kind: "session", id: "log" });
@@ -1487,8 +1478,8 @@ async function timedFixture() {
     time,
     seconds,
     buzzes,
-    tick: () => ticker?.(),
-    ticking: () => ticker !== null,
+    tick,
+    ticking,
   };
 }
 
@@ -1598,4 +1589,32 @@ test("the Rest timer shows on the Active workout's page, buzzes once and stops w
   f.time.now += 200_000;
   f.tick();
   assert.equal(f.buzzes.count, 1);
+});
+
+test("a rest and a Set clock share the ticker and both keep time", async () => {
+  const f = await timedFixture();
+  f.edit().toggleClock("stretch-row", "open");
+  f.edit().toggleRest();
+  f.time.now += 20_000;
+  f.tick();
+  assert.equal(f.edit().getSnapshot().shownClock?.seconds, 20);
+  assert.equal(f.edit().getSnapshot().rest?.left, 70);
+  f.edit().toggleRest();
+  assert.equal(f.ticking(), true, "the running clock keeps the ticker");
+  f.time.now += 5_000;
+  f.tick();
+  assert.equal(f.edit().getSnapshot().shownClock?.seconds, 25);
+  // A detached tab stops the ticker for both; they pick up on return.
+  f.edit().toggleRest();
+  f.tab.stop();
+  assert.equal(f.ticking(), false);
+  f.time.now += 30_000;
+  f.tab.start();
+  f.tick();
+  assert.equal(f.edit().getSnapshot().shownClock?.seconds, 55);
+  assert.equal(f.edit().getSnapshot().rest?.left, 60);
+  f.edit().toggleClock("stretch-row", "open");
+  assert.equal(f.ticking(), true, "the running rest keeps the ticker");
+  f.edit().toggleRest();
+  assert.equal(f.ticking(), false);
 });

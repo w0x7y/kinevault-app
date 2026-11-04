@@ -5,28 +5,17 @@ import {
   parseRestLength,
   type RestLengthStorage,
 } from "../src/exercise/rest-timer.ts";
+import { fakeTime } from "./helpers/fake-time.ts";
 
 const flush = async () => {
   for (let i = 0; i < 10; i++) await Promise.resolve();
 };
 /** A Rest timer on fake time; `tick` runs its ticker once, and `ends` counts `onEnd` calls. */
 function fixture(storage?: RestLengthStorage) {
-  const time = { now: 1_000_000 };
-  let ticker: (() => void) | null = null;
+  const time = fakeTime();
   const ends = { count: 0 };
-  const rest = createRestTimer({
-    now: () => time.now,
-    every: (ms, tick) => {
-      assert.equal(ms, 250);
-      ticker = tick;
-      return () => {
-        ticker = null;
-      };
-    },
-    onEnd: () => ends.count++,
-    storage,
-  });
-  return { rest, time, ends, tick: () => ticker?.(), ticking: () => ticker !== null };
+  const rest = createRestTimer({ ticker: time.ticker(), onEnd: () => ends.count++, storage });
+  return { ...time, rest, ends };
 }
 
 test("a rest counts down its length and ends once with onEnd", () => {
@@ -87,13 +76,10 @@ test("adjusting changes the length within 15 s to 10 min and moves a running res
   assert.equal(f.ticking(), false);
 });
 
-test("a detached tab keeps no ticker; the rest picks up on return", () => {
+test("a rest keeps its end time between ticks, however late the next one comes", () => {
   const f = fixture();
   f.rest.toggle();
-  f.rest.detach();
-  assert.equal(f.ticking(), false);
   f.time.now += 45_000;
-  f.rest.attach();
   f.tick();
   assert.equal(f.rest.getSnapshot().left, 45);
 });

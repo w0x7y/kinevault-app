@@ -1,3 +1,5 @@
+import type { Ticker } from "./ticker.ts";
+
 /** Rest lengths change by this many seconds, from 15 seconds to 10 minutes. */
 export const restStep = 15;
 export const shortestRest = 15;
@@ -8,12 +10,6 @@ export const defaultRestSeconds = 90;
 export type RestLengthStorage = {
   load(): Promise<string | null>;
   save(value: string): Promise<void>;
-};
-/** What the rest timer reads and how it ticks; the device's clock and timers by default. */
-type RestTime = {
-  now?: () => number;
-  /** Calls `tick` every `ms` until the returned stop. */
-  every?: (ms: number, tick: () => void) => () => void;
 };
 export type RestSnapshot = {
   /** The chosen rest length in seconds. */
@@ -34,28 +30,26 @@ export function parseRestLength(value: string | null): number | null {
     : null;
 }
 
-const deviceTimer = (ms: number, tick: () => void) => {
-  const timer = setInterval(tick, ms);
-  return () => clearInterval(timer);
-};
-
 /**
  * The Rest timer: a countdown of the chosen length between sets, which calls `onEnd` (to buzz)
- * when it runs out. Its ticker runs while a rest does and the tab is attached. The length starts
- * at 90 seconds and follows `storage` once loaded, unless changed first; each change is saved.
+ * when it runs out. It holds a tick of `ticker` while a rest runs. The length starts at 90
+ * seconds and follows `storage` once loaded, unless changed first; each change is saved.
  */
 export function createRestTimer({
-  now = Date.now,
-  every = deviceTimer,
+  ticker,
   onEnd,
   storage,
-}: RestTime & { onEnd: () => void; storage?: RestLengthStorage }) {
+}: {
+  ticker: Pick<Ticker, "now" | "hold">;
+  onEnd: () => void;
+  storage?: RestLengthStorage;
+}) {
+  const { now } = ticker;
   const listeners = new Set<() => void>();
   let length = defaultRestSeconds,
     endsAt: number | null = null,
     changed = false,
-    attached = true,
-    stopTicker: (() => void) | null = null,
+    release: (() => void) | null = null,
     snapshot: RestSnapshot = { length, left: null };
   function publish() {
     const left = endsAt === null ? null : Math.max(0, Math.ceil((endsAt - now()) / 1000));
@@ -64,11 +58,10 @@ export function createRestTimer({
     for (const listener of listeners) listener();
   }
   function syncTicker() {
-    const ticking = attached && endsAt !== null;
-    if (ticking && !stopTicker) stopTicker = every(250, tick);
-    else if (!ticking && stopTicker) {
-      stopTicker();
-      stopTicker = null;
+    if (endsAt !== null && !release) release = ticker.hold(tick);
+    else if (endsAt === null && release) {
+      release();
+      release = null;
     }
   }
   function end() {
@@ -126,14 +119,6 @@ export function createRestTimer({
       void storage?.save(String(length)).catch(() => {});
       if (endsAt !== null && endsAt <= now()) end();
       else publish();
-    },
-    attach() {
-      attached = true;
-      syncTicker();
-    },
-    detach() {
-      attached = false;
-      syncTicker();
     },
   };
 }

@@ -223,13 +223,14 @@ The set table renders a mode's columns and sends the edit field changes and, in 
 set additions and removals, never a set of its own; removing a set changes this log only, and Workout
 templates keep their planned counts. A set's `kind` is its exercise's mode, so the exercise model only checks
 that they match. Workout edits also own the Set clock, so it survives the table unmounting.
-Behind them, `set-clock.ts` owns the clock and its ticker, one clock per Workout log, reading
-the time and timer the edits are given (`clocks`). The ticker runs while a clock does and the
-tab is attached. It moves the snapshot's `shownClock` on each second and hands over a countdown
-that ran out. The edit logs it once it isn't busy, which buzzes (`onCountdownEnd`). Workout
+Behind them, `set-clock.ts` owns the clocks, one per Workout log. `ticker.ts` owns the time
+and the one 250 ms timer, built from the time the edits are given (`clocks`): the timer runs
+while a Set clock or the Rest timer holds a tick and the tab is attached (the edits' `start`
+and `stop`). The Set clock moves the snapshot's `shownClock` on each second and hands over a
+countdown that ran out. The edit logs it once it isn't busy, which buzzes (`onCountdownEnd`). Workout
 edits also own the one Rest timer (`rest-timer.ts`): its length, kept through the
 `restLength` storage the edits are given (the tab hook passes a device AsyncStorage key), and
-the running rest with its own ticker on the same time and attach rules. Only the Active
+the running rest, which holds the same ticker while it runs. Only the Active
 workout's snapshot carries it (`rest`), `toggleRest` and `adjustRest` on the edit drive it,
 a rest that runs out buzzes through the same `onCountdownEnd`, and a document without an
 Active workout stops it quietly. The tab view hands every Workout log it shows its edit, compact cards
