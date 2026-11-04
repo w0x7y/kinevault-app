@@ -1,4 +1,4 @@
-import type { WorkoutSession } from "./model.ts";
+import { exerciseHistoryKey, type SessionExercise, type WorkoutSession } from "./model.ts";
 import { setMeasurements, type Lift } from "./tracking.ts";
 
 /** A Personal record: the lift and its estimated one-rep max. */
@@ -10,18 +10,20 @@ export function estimatedOneRepMax({ reps, weightKg }: Lift): number {
 }
 
 /**
- * The Personal records set on `date`, keyed like the Exercise summary's rows
- * (`[session id, row id]` as JSON). A Completed workout's exercise row sets one when its best
- * weighted lift by estimated one-rep max beats every earlier Completed workout with the same
- * exercise and Tracking mode: on an earlier date, or earlier in the document on the same date. An
- * exercise's first workout has nothing to beat, so it sets none.
+ * The Personal records set on `date`, by the exercise row that set each. A Completed workout's
+ * row sets one when its best weighted lift by estimated one-rep max beats every earlier Completed
+ * workout with the same exercise history (`exerciseHistoryKey`): on an earlier date, or earlier
+ * in the document on the same date. An exercise's first workout has nothing to beat, so it sets
+ * none. A day without a Completed workout reads no history.
  */
 export function personalRecords(
   sessions: readonly WorkoutSession[],
   date: string,
-): ReadonlyMap<string, PersonalRecord> {
-  const best = new Map<string, number>(),
-    records = new Map<string, PersonalRecord>();
+): ReadonlyMap<SessionExercise, PersonalRecord> {
+  const records = new Map<SessionExercise, PersonalRecord>();
+  if (!sessions.some((session) => session.status === "completed" && session.date === date))
+    return records;
+  const best = new Map<string, number>();
   // A stable sort keeps the document order within a date.
   const history = sessions
     .filter((session) => session.status === "completed" && session.date <= date)
@@ -36,12 +38,11 @@ export function personalRecords(
             top = { ...lift, oneRepMaxKg };
         }
       if (!top) continue;
-      const key = JSON.stringify([row.exercise.id, row.exercise.tracking]);
+      const key = exerciseHistoryKey(row.exercise);
       const previous = best.get(key);
       if (previous !== undefined && top.oneRepMaxKg <= previous) continue;
       best.set(key, top.oneRepMaxKg);
-      if (previous !== undefined && session.date === date)
-        records.set(JSON.stringify([session.id, row.id]), top);
+      if (previous !== undefined && session.date === date) records.set(row, top);
     }
   }
   return records;

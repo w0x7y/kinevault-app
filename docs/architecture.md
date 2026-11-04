@@ -338,10 +338,13 @@ fails typecheck in both.
 
 Completed Workout totals derive from persisted Workout sessions and their valid
 sets. Personal records (`src/exercise/records.ts`) derive from them too: `personalRecords`
-walks the Completed workouts up to a day in date and document order and returns that day's
-records keyed like the summary's rows, and `estimatedOneRepMax` is the one Epley rule. Daily
-activity reads them only for a day with a Completed workout and words each record's parts
-and accessible name for the Workout card. The Exercise summary (`src/exercise/summary.ts`) owns the completed workout's
+walks the Completed workouts up to a day in date and document order (reading nothing for a day
+without one) and returns that day's records by the exercise row that set each, and
+`estimatedOneRepMax` is the one Epley rule. `summarizeSessions` takes those records and gives
+each completed exercise its `record`, so Daily activity only passes the whole history in and
+words each record's parts and accessible name for the Workout card. `exerciseHistoryKey` in the
+exercise model is the one rule for which logs share a history (the same Exercise definition in
+the same Tracking mode), for the Workout graph and Personal records. The Exercise summary (`src/exercise/summary.ts`) owns the completed workout's
 type and reads each set through `setMeasurements`; Daily activity words its exercise
 rows (counts and the weight or time) and the detailed card's line under the total ("4
 exercises · 10 reps per set on average", with no average on a Timed-only day), so the

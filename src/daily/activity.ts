@@ -139,13 +139,14 @@ export function interpretDayActivity({
     ),
     workout: workoutTile(
       source(exercise),
-      summarizeSessions(sessions),
+      summarizeSessions(
+        sessions,
+        exercise.state.kind === "ready"
+          ? personalRecords(exercise.state.document.sessions, date)
+          : undefined,
+      ),
       active && (active.name || "Active workout"),
       date === today,
-      // Records read the whole history, so only a day with a Completed workout looks.
-      exercise.state.kind === "ready" && sessions.some((session) => session.status === "completed")
-        ? personalRecords(exercise.state.document.sessions, date)
-        : new Map(),
     ),
     water: {
       total,
@@ -381,7 +382,7 @@ type WorkoutExerciseRow = {
    */
   record: { parts: string[]; label: string } | null;
 };
-function recordLine(record: PersonalRecord | undefined): WorkoutExerciseRow["record"] {
+function recordLine(record: PersonalRecord | null): WorkoutExerciseRow["record"] {
   if (!record) return null;
   const { reps, weightKg, oneRepMaxKg } = record;
   const weight = `${weightKg.toLocaleString()} kg`;
@@ -416,8 +417,6 @@ function workoutTile(
   completed: CompletedWorkout,
   activeName: string | null,
   today: boolean,
-  /** The day's Personal records by summary row ID. */
-  records: ReadonlyMap<string, PersonalRecord>,
 ): { retry: () => void; summary: string | null } & (
   | { kind: "loading" }
   | { kind: "error" }
@@ -473,7 +472,7 @@ function workoutTile(
         ? `${exerciseCount} · ${completed.averageRepsPerSet} reps per set on average`
         : exerciseCount,
     exercises: completed.exercises.map((exercise) => ({
-      record: recordLine(records.get(exercise.id)),
+      record: recordLine(exercise.record),
       id: exercise.id,
       name: exercise.name,
       // A timed exercise counts its sets; its time is its amount.
