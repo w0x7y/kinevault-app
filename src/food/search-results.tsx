@@ -1,5 +1,5 @@
-import { IconButton } from "../components/button";
 import { useMemo, useState } from "react";
+import { ResultPager } from "../components/result-pager";
 import { StyleSheet, View, type ViewProps } from "react-native";
 import { AppText, Overline, Panel } from "../components/ui";
 import { useTheme } from "../theme/provider";
@@ -72,38 +72,7 @@ export function FoodSearchResults({
             </View>
           ))}
         </View>
-        {result.pageCount > 1 && (
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: spacing.sm,
-              paddingTop: spacing.sm,
-              borderTopWidth: StyleSheet.hairlineWidth,
-              borderColor: colors.border,
-            }}
-          >
-            <AppText variant="caption" muted style={{ flex: 1, fontVariant: ["tabular-nums"] }}>
-              Showing {result.page * foodPageSize + 1} to{" "}
-              {Math.min((result.page + 1) * foodPageSize, result.total)} of{" "}
-              {result.total.toLocaleString()}
-            </AppText>
-            <IconButton
-              appearance="secondary"
-              icon="chevron-left"
-              label="Previous food results"
-              disabled={result.page === 0}
-              onPress={() => changePage(result.page - 1)}
-            />
-            <IconButton
-              appearance="secondary"
-              icon="chevron-right"
-              label="Next food results"
-              disabled={result.page + 1 >= result.pageCount}
-              onPress={() => changePage(result.page + 1)}
-            />
-          </View>
-        )}
+        <ResultPager result={result} size={foodPageSize} noun="food" onPage={changePage} />
       </Panel>
       {databaseRows && (
         <AppText

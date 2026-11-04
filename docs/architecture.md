@@ -250,7 +250,7 @@ gives it the rows Back and Next show. `workspace-page.ts` holds the page rules b
 share, while each keeps the state in its own entry: the row on screen is the selected one or
 else the first, it stays on screen when rows move, and a new library search starts on its
 first page, with Show more adding a page of `exerciseResultPage`. The tab's search pages by
-that size too. Library drafts own Exercise
+that size too, through the shared `pagedResults` and ResultPager (see Shared controls). Library drafts own Exercise
 definition (including its KineVault search, where linking or unlinking a demo changes the
 fields and the search in one step), Workout template (including its selected
 exercise, builder disclosure, search and its results, result limit and open notes), Saved workouts
@@ -299,7 +299,8 @@ the food log's write error. The route keeps the AppState adapter that feeds the 
 presence, scroll and keyboard effects, and the entry's fade.
 
 Catalog selection's logging search takes the food log document and ranks foods logged on
-any day first, counting once per document. Search results render its rows and pager.
+any day first, counting once per document, and pages them with `pagedResults`. Search
+results render its rows and a ResultPager.
 
 A Logging attempt is built from the food-log persistence, the Custom food
 persistence and the Meal destination. It derives whether it can submit from them
@@ -482,6 +483,14 @@ are SheetPages: a full page with a back-button header, whose nested pages take
 over its header instead of stacking another sheet. The water and steps entries
 share the round ± Stepper (`src/components/stepper.tsx`), whose accessible name
 carries the amount and unit.
+
+Exercise and Food search show their results a page at a time. `pagedResults`
+(`src/components/paging.ts`) is the one paging rule: a page of the given size, with the page
+clamped to the pages there are, so a list that shrinks under its pager shows its last page.
+ResultPager (`src/components/result-pager.tsx`) draws the row under the results: "Showing 21
+to 40 of 41" and the previous and next buttons, named for the results ("Next food results"),
+and nothing when everything fits on one page. A screen keeps the page in its own state and
+resets it by remounting on a new query. The ingredient search keeps its own compact pager.
 
 Popovers (the header calendar, the profile menu and the journal's choice lists)
 use `usePopover` for dismissal: Escape returns focus to the trigger, Android Back

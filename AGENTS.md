@@ -39,8 +39,8 @@ Don't update them to match today's code.
 
 - Build UI from the shared controls in `src/components` (Tappable, AppButton,
   IconButton, DeleteButton, SegmentedControl, Chip, TextField, InlineMessage,
-  LoadFailure, ModalSheet, popover, SheetPage, IconWell, ViewHeader, Stepper). Don't add
-  another pressable, field or sheet; extend the shared one. `docs/architecture.md` lists
+  LoadFailure, ModalSheet, popover, SheetPage, IconWell, ViewHeader, Stepper,
+  ResultPager). Don't add another pressable, field or sheet; extend the shared one. `docs/architecture.md` lists
   the few places a raw `Pressable` is allowed.
 - Colors, spacing, radii and fonts come from `src/theme/tokens.ts`.
 - Reanimated on native needs `cubicBezier()` easing objects. A CSS timing string such as
