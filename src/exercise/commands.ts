@@ -216,6 +216,24 @@ export function createExerciseCommands({
     removeWorkout(document: ExerciseDocument, id: string): ExerciseChange<true> {
       return { document: { ...document, workouts: remove(document.workouts, id) }, value: true };
     },
+    /**
+     * Saves a copy of a Workout template right after it, with its exercises and planned sets,
+     * named "Leg day copy" (then "Leg day copy 2", …) so it never shares a name.
+     */
+    duplicateWorkout(document: ExerciseDocument, id: string): ExerciseChange<string> {
+      const index = document.workouts.findIndex((item) => item.id === id);
+      const workout = document.workouts[index];
+      if (!workout) throw new Error("This workout is no longer available.");
+      const names = new Set(document.workouts.map((item) => item.name.trim()));
+      // Room for " copy" and a number within the 400-character name limit.
+      const base = `${workout.name.trim().slice(0, 380).trim()} copy`;
+      let copyName = base;
+      for (let number = 2; names.has(copyName); number++) copyName = `${base} ${number}`;
+      const copy = { ...workout, id: createId(), name: copyName };
+      const workouts = [...document.workouts];
+      workouts.splice(index + 1, 0, copy);
+      return { document: { ...document, workouts }, value: copy.id };
+    },
     planWorkout(document: ExerciseDocument, input: PlanWorkoutInput): ExerciseChange<string> {
       const workout = document.workouts.find((item) => item.id === input.workoutId);
       if (!workout) throw new Error("This workout is no longer available.");

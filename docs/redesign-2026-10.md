@@ -382,3 +382,16 @@ curves). Press feedback belongs to `Tappable`, the segment fill to
   bottom sheet: the phone's count or its connect state, and a hero field for
   logged steps between round -500 and +500 steppers (the water entry's
   stepper, now a shared control).
+
+## 9. Rest timer, records and Duplicate (November 4, 2026)
+
+- **Rest timer:** under the shown exercise's sets on the live workout page, a
+  row of round − and + buttons around a full-width "Rest 1:30" button. While a
+  rest runs the button turns primary and counts down ("Rest 1:12"); tapping it
+  stops the rest. The label has no icon so it stays on one line at 320pt.
+- **Personal records:** the Exercise tab's Workout card adds a success-green
+  line under a record-setting exercise's counts: a trophy, "New record", the
+  lift and the estimated one-rep max, wrapping between those parts like the
+  counts above it. Home's card doesn't show records.
+- **Duplicate:** Saved workouts rows gain a compact Duplicate button after Edit,
+  with the copy icon; at 320pt it wraps to a second line of the row's actions.

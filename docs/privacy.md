@@ -60,6 +60,12 @@ is no push server and no push token. Signing out cancels the scheduled
 notifications and removes reminders already shown in the notification list, and
 the next sign-in schedules that account's reminders again.
 
+## Rest timer
+
+The Rest timer's length (`kinevault-track.rest-seconds`, a number of seconds) is a
+device setting like the appearance. It isn't tied to an account, isn't uploaded and
+stays on the device after signing out. A running rest isn't saved.
+
 ## Steps
 
 Home's step count comes from the phone, with the user's permission: Core Motion

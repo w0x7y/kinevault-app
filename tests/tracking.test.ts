@@ -89,7 +89,7 @@ test("measurements count both sides of an alternating set and each side of a lef
   assert.deepEqual(setMeasurements({ ...single, kind: "alternating" }), {
     reps: 16,
     volume: 320,
-    weights: [20],
+    lifts: [{ reps: 8, weightKg: 20 }],
     left: null,
     right: null,
     seconds: 0,
@@ -97,7 +97,7 @@ test("measurements count both sides of an alternating set and each side of a lef
   assert.deepEqual(setMeasurements(sides), {
     reps: 8,
     volume: 80,
-    weights: [10],
+    lifts: [{ reps: 8, weightKg: 10 }],
     left: 10,
     right: null,
     seconds: 0,

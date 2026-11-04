@@ -187,13 +187,18 @@ function measurement(value: SetSide, zeroAllowed: boolean) {
     throw new Error("Enter reps in reserve as a whole number from 0 to 10, or leave it blank.");
   return { reps, weightKg: decimal(value.weightKg, 0) };
 }
+/** Repetitions at one weight: one line of a set. */
+export type Lift = { reps: number; weightKg: number };
 type SetMeasurements = {
   /** Every repetition, both sides counted: an alternating set of 10 reps per side is 20. */
   reps: number;
   /** Kilograms times repetitions. */
   volume: number;
-  /** The weights lifted, one per side that has repetitions. */
-  weights: number[];
+  /**
+   * Each side's lift that has repetitions: its reps (per side for an alternating set) and
+   * kilograms. A single-weight or alternating set has one.
+   */
+  lifts: Lift[];
   /** A left/right set's weight per side; null for a side without repetitions or another mode. */
   left: number | null;
   right: number | null;
@@ -213,7 +218,7 @@ export function timedSeconds(set: ExerciseSet): number | null {
 
 /** A completed set's numbers; throws the message to show for an invalid one. */
 export function setMeasurements(set: ExerciseSet): SetMeasurements {
-  const none = { reps: 0, volume: 0, weights: [], left: null, right: null, seconds: 0 };
+  const none = { reps: 0, volume: 0, lifts: [], left: null, right: null, seconds: 0 };
   if (set.kind === "time") {
     const seconds = timedSeconds(set);
     if (seconds === null)
@@ -223,7 +228,7 @@ export function setMeasurements(set: ExerciseSet): SetMeasurements {
   if (set.kind !== "sides") {
     const { reps, weightKg } = measurement(set, false);
     const count = set.kind === "alternating" ? reps * 2 : reps;
-    return { ...none, reps: count, volume: count * weightKg, weights: [weightKg] };
+    return { ...none, reps: count, volume: count * weightKg, lifts: [{ reps, weightKg }] };
   }
   const left = measurement(set.left, true),
     right = measurement(set.right, true);
@@ -234,7 +239,7 @@ export function setMeasurements(set: ExerciseSet): SetMeasurements {
     ...none,
     reps: left.reps + right.reps,
     volume: left.reps * left.weightKg + right.reps * right.weightKg,
-    weights: [left, right].filter((side) => side.reps > 0).map((side) => side.weightKg),
+    lifts: [left, right].filter((side) => side.reps > 0),
     left: sideWeight(left),
     right: sideWeight(right),
   };

@@ -10,7 +10,7 @@ the expo companion to [KineVault](https://github.com/arielhagay10-ui/KineVault),
 
 ~ **home**: calories left, macros, water, steps and the day's workout\
 ~ **food**: 5,431 offline usda foods, barcode scanning, custom foods and meals\
-~ **exercise**: saved workouts, a live workout timer, and KineVault demo videos\
+~ **exercise**: saved workouts, a live workout timer with a rest timer, personal records, and KineVault demo videos\
 ~ **profile**: weight history, progress photos and streaks\
 ~ **settings**: reminders, light and dark, export and delete your account
 

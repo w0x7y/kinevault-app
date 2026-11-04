@@ -145,9 +145,18 @@ or the workout's page is away (a countdown that runs out still logs and buzzes),
 Save, Log, End and Cancel log it first. It is not
 saved, so closing the app loses it.
 
+**Rest timer**: A countdown between sets on the Active workout's page, under the shown
+exercise's sets. It starts at the chosen rest length (90 seconds until changed), and its
+− and + make the length 15 seconds shorter or longer, from 15 seconds to 10 minutes, moving
+a running rest with it. A rest that runs out buzzes, even with the page away; stopping it or
+ending the workout doesn't. The length is a device setting kept between launches; the rest
+itself isn't saved.
+
 **Workout template**: A named, ordered exercise list with optional planned set
 counts per exercise. Reps, weights and optional RIR are entered while logging. New templates
-default to three sets per exercise; legacy templates retain their existing data.
+default to three sets per exercise; legacy templates retain their existing data. Duplicating
+one saves a copy right after it, with its exercises and planned sets, named "Leg day copy"
+(then "Leg day copy 2", and so on); its logs stay with the original.
 
 **Workout log**: A record created from a saved workout on the Selected day.
 Several logs may belong to a day. A workout draft becomes active through Start
@@ -250,6 +259,17 @@ retrying the saved data or confirming a fresh start.
 
 **Workout volume**: Total kilograms lifted across completed sets, counting
 weight multiplied by repetitions for each set.
+
+**Estimated one-rep max**: The most weight a lift suggests could be lifted once, by
+Epley's formula: kilograms × (1 + reps ÷ 30), or the weight itself for one rep. An
+Alternating set uses its reps per side and a Side set each side on its own.
+
+**Personal record**: A Completed workout's exercise whose best weighted lift, by Estimated
+one-rep max, beats every earlier Completed workout with the same Exercise definition and
+Tracking mode: on an earlier date, or earlier on the same date. The Exercise tab's Workout
+card marks it under the exercise with the lift and its estimate. An exercise's first
+workout, a tie, a bodyweight lift and a Timed set set none. Records are worked out from the
+saved logs, so editing or deleting a log changes them; nothing about them is saved.
 
 **Daily activity**: Food, workout, step, and water records for the Selected day.
 Saved food contributes to that day's calorie and macro totals. Home water combines

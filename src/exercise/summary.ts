@@ -48,7 +48,7 @@ export function summarizeSessions(sessions: readonly WorkoutSession[]): Complete
         rowReps += measured.reps;
         rowVolume += measured.volume;
         rowSeconds += measured.seconds;
-        for (const weight of measured.weights) {
+        for (const { weightKg: weight } of measured.lifts) {
           minKg = Math.min(minKg, weight);
           maxKg = Math.max(maxKg, weight);
         }

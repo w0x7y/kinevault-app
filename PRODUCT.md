@@ -181,8 +181,15 @@ Cardio, coaching notes and the broader KineVault program integration remain futu
 The agreed strength/bodyweight Exercise v1 is implemented. The user confirmed
 physical-iPhone verification, including keyboard, exercise scrolling,
 background/reopen, completion, and completed editing; that check predates the
-October 2026 redesign. Workout duplication and a rest timer are optional
-ideas, not scheduled requirements. See [TODO.md](TODO.md) for outstanding work.
+October 2026 redesign. The live workout page has a Rest timer under the
+shown exercise's sets: Rest starts a countdown of the chosen length (90 seconds
+until changed), − and + change it by 15 seconds between 15 seconds and 10 minutes,
+and a rest that runs out buzzes. The length is kept on the device. Saved workouts
+can be duplicated: Duplicate saves "Leg day copy" right after "Leg day" with the
+same exercises and planned sets. The Exercise tab's Workout card marks each
+Personal record: an exercise whose best lift by estimated one-rep max (Epley)
+beats every earlier completed workout with it, shown as "New record · 100 kg × 5
+· est. 1RM 117 kg". See [TODO.md](TODO.md) for outstanding work.
 
 Profile uses the selected Personal journal layout with Overview, Goals, and
 Photos sections. It opens from the existing avatar menu, preserves the four

@@ -47,6 +47,7 @@ const outline: Partial<Record<IconName, keyof typeof ionGlyphMap>> = {
   cloud: "cloud-outline",
   comment: "chatbubble-outline",
   compass: "compass-outline",
+  copy: "copy-outline",
   desktop: "desktop-outline",
   droplet: "water-outline",
   dumbbell: "barbell-outline",

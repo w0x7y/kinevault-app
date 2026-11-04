@@ -32,6 +32,8 @@ and docs/ describe behavior and link here instead of repeating status.
 - [x] Add Alternating (reps per side) and Timed (whole seconds, with a countdown or stopwatch) tracking modes.
 - [x] Remove a set from a live workout (this workout only, never its template) and record optional RIR beside reps and weight.
 - [x] Live workout controls: Discard at the top right, Back/Next/End workout pinned at the bottom (and Back/Next/Save in the saved-workout editor), L1/R1 set badges, a ⋯ menu to add or remove the last set, and set numbers that fill last workout's values.
+- [x] Add a Rest timer under the live workout's sets, Personal records (best lift by estimated one-rep max) on the Exercise tab's Workout card, and Duplicate in Saved workouts. None adds a document field or value, so older builds keep loading and re-saving these workouts.
+- [ ] Check the Rest timer on a physical iPhone and Android phone: the buzz when a rest runs out with the workout page away and with the app in the background, the −/+ row at 320pt, and the length kept after restarting the app. So far it has run only in unit and browser tests.
 - [ ] Update every installed build before marking an exercise Alternating or Timed or entering RIR: older builds stop loading workouts that hold the new modes, and drop RIR when they re-save a workout.
 - [ ] Add cardio with duration/distance in a future phase.
 

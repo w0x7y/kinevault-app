@@ -160,7 +160,8 @@ export function workoutGraph(input: {
         const measured = setMeasurements(set);
         if (input.metric === "volume") week.total = (week.total ?? 0) + measured.volume;
         else {
-          for (const weight of measured.weights) week.total = positiveMaximum(week.total, weight);
+          for (const lift of measured.lifts)
+            week.total = positiveMaximum(week.total, lift.weightKg);
           if (set.kind === "sides") {
             week.left = positiveMaximum(week.left, measured.left ?? 0);
             week.right = positiveMaximum(week.right, measured.right ?? 0);

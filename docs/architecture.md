@@ -216,8 +216,9 @@ differ from the saved log's copy at write time. Other saved logs keep their own 
 exercise created from Add exercise joins its workout through `addExercise` on the edits.
 `tracking.ts` owns what each Tracking mode means: its name and tag, the columns its set
 lines hold, its empty set, the blank rule, entering one value (`withSetValue`), the hint
-a set takes from another set in any mode, the measurements a completed set counts, and
-which seconds a Timed set's clock counts down from (`timedSeconds`).
+a set takes from another set in any mode, the measurements a completed set counts (its
+reps, volume and each side's lift, `lifts`), and which seconds a Timed set's clock counts
+down from (`timedSeconds`).
 The set table renders a mode's columns and sends the edit field changes and, in edit mode,
 set additions and removals, never a set of its own; removing a set changes this log only, and Workout
 templates keep their planned counts. A set's `kind` is its exercise's mode, so the exercise model only checks
@@ -225,7 +226,13 @@ that they match. Workout edits also own the Set clock, so it survives the table 
 Behind them, `set-clock.ts` owns the clock and its ticker, one clock per Workout log, reading
 the time and timer the edits are given (`clocks`). The ticker runs while a clock does and the
 tab is attached. It moves the snapshot's `shownClock` on each second and hands over a countdown
-that ran out. The edit logs it once it isn't busy, which buzzes (`onCountdownEnd`). The tab view hands every Workout log it shows its edit, compact cards
+that ran out. The edit logs it once it isn't busy, which buzzes (`onCountdownEnd`). Workout
+edits also own the one Rest timer (`rest-timer.ts`): its length, kept through the
+`restLength` storage the edits are given (the tab hook passes a device AsyncStorage key), and
+the running rest with its own ticker on the same time and attach rules. Only the Active
+workout's snapshot carries it (`rest`), `toggleRest` and `adjustRest` on the edit drive it,
+a rest that runs out buzzes through the same `onCountdownEnd`, and a document without an
+Active workout stops it quietly. The tab view hands every Workout log it shows its edit, compact cards
 included; an edit keeps one handle per origin, so a card's effects don't restart on each
 publish. The edit's snapshot leaves out the saved log and the selected row ID it keeps
 inside.
@@ -246,7 +253,8 @@ that size too. Library drafts own Exercise
 definition (including its KineVault search, where linking or unlinking a demo changes the
 fields and the search in one step), Workout template (including its selected
 exercise, builder disclosure, search and its results, result limit and open notes), Saved workouts
-(its templates and the menu day's logs) and
+(its templates and the menu day's logs, plus Add to day, Duplicate and deleting a log;
+the `duplicateWorkout` command names the copy and places it after the original) and
 Workout import state per panel, so the sheet can unmount when the tab
 loses focus without losing input; their durable success closes the originating
 panel through the same panel seam as Workout edits. Exercise persistence returns
@@ -328,7 +336,11 @@ steps sheet's `phoneStepsStatus` each word it in an exhaustive switch, so a new 
 fails typecheck in both.
 
 Completed Workout totals derive from persisted Workout sessions and their valid
-sets. The Exercise summary (`src/exercise/summary.ts`) owns the completed workout's
+sets. Personal records (`src/exercise/records.ts`) derive from them too: `personalRecords`
+walks the Completed workouts up to a day in date and document order and returns that day's
+records keyed like the summary's rows, and `estimatedOneRepMax` is the one Epley rule. Daily
+activity reads them only for a day with a Completed workout and words each record's parts
+and accessible name for the Workout card. The Exercise summary (`src/exercise/summary.ts`) owns the completed workout's
 type and reads each set through `setMeasurements`; Daily activity words its exercise
 rows (counts and the weight or time) and the detailed card's line under the total ("4
 exercises · 10 reps per set on average", with no average on a Timed-only day), so the

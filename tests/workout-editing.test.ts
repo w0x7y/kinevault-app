@@ -1318,6 +1318,7 @@ test("each log mode allows its own controls, and the mode follows the open panel
       addResults,
       removing,
       shownClock,
+      rest: restTimer,
       selected,
       previous,
       next,
@@ -1578,4 +1579,23 @@ test("starting another set's clock logs the running one; ending the workout logs
     stretch.map((set) => (set.kind === "time" ? set.seconds : null)),
     ["12", "15"],
   );
+});
+
+test("the Rest timer shows on the Active workout's page, buzzes once and stops with the workout", async () => {
+  const f = await timedFixture();
+  assert.deepEqual(f.edit().getSnapshot().rest, { length: 90, left: null });
+  f.edit().toggleRest();
+  f.edit().adjustRest(15);
+  assert.deepEqual(f.edit().getSnapshot().rest, { length: 105, left: 105 });
+  f.time.now += 105_000;
+  f.tick();
+  assert.equal(f.buzzes.count, 1);
+  assert.deepEqual(f.edit().getSnapshot().rest, { length: 105, left: null });
+  // A rest running when the workout ends stops without buzzing.
+  f.edit().toggleRest();
+  assert.equal(await f.edit().run("complete"), true);
+  assert.equal(f.tab.edits.edit("log").getSnapshot().rest, null, "only the live page has one");
+  f.time.now += 200_000;
+  f.tick();
+  assert.equal(f.buzzes.count, 1);
 });

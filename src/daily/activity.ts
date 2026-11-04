@@ -14,6 +14,7 @@ import {
   type CompletedWorkout,
 } from "../exercise/summary.ts";
 import { activeWorkout, formatElapsed } from "../exercise/model.ts";
+import { personalRecords, type PersonalRecord } from "../exercise/records.ts";
 import type { ProfileSnapshot } from "../profile/persistence.ts";
 import { calorieState } from "../profile/calories.ts";
 import { macroTargets } from "../profile/macros.ts";
@@ -141,6 +142,10 @@ export function interpretDayActivity({
       summarizeSessions(sessions),
       active && (active.name || "Active workout"),
       date === today,
+      // Records read the whole history, so only a day with a Completed workout looks.
+      exercise.state.kind === "ready" && sessions.some((session) => session.status === "completed")
+        ? personalRecords(exercise.state.document.sessions, date)
+        : new Map(),
     ),
     water: {
       total,
@@ -370,7 +375,23 @@ type WorkoutExerciseRow = {
   amount: string;
   /** The amount's accessible name, e.g. "weight 40 kg". */
   amountLabel: string;
+  /**
+   * A Personal record this exercise set: "New record", its lift and, past one rep, its estimated
+   * one-rep max, e.g. ["New record", "100 kg × 5", "est. 1RM 117 kg"].
+   */
+  record: { parts: string[]; label: string } | null;
 };
+function recordLine(record: PersonalRecord | undefined): WorkoutExerciseRow["record"] {
+  if (!record) return null;
+  const { reps, weightKg, oneRepMaxKg } = record;
+  const weight = `${weightKg.toLocaleString()} kg`;
+  // A single rep is its own one-rep max.
+  const max = reps === 1 ? null : `${Math.round(oneRepMaxKg).toLocaleString()} kg`;
+  return {
+    parts: ["New record", `${weight} × ${reps}`, ...(max ? [`est. 1RM ${max}`] : [])],
+    label: `New record, ${weight} for ${reps === 1 ? "1 rep" : `${reps} reps`}${max ? `, estimated one-rep max ${max}` : ""}`,
+  };
+}
 function loadAmount(load: CompletedLoad): Pick<WorkoutExerciseRow, "amount" | "amountLabel"> {
   const weight = (amount: string) => ({ amount, amountLabel: `weight ${amount}` });
   switch (load.kind) {
@@ -395,6 +416,8 @@ function workoutTile(
   completed: CompletedWorkout,
   activeName: string | null,
   today: boolean,
+  /** The day's Personal records by summary row ID. */
+  records: ReadonlyMap<string, PersonalRecord>,
 ): { retry: () => void; summary: string | null } & (
   | { kind: "loading" }
   | { kind: "error" }
@@ -450,6 +473,7 @@ function workoutTile(
         ? `${exerciseCount} · ${completed.averageRepsPerSet} reps per set on average`
         : exerciseCount,
     exercises: completed.exercises.map((exercise) => ({
+      record: recordLine(records.get(exercise.id)),
       id: exercise.id,
       name: exercise.name,
       // A timed exercise counts its sets; its time is its amount.

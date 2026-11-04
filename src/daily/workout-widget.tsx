@@ -218,6 +218,31 @@ export function WorkoutWidget({
                     </View>
                   ))}
                 </View>
+                {exercise.record && (
+                  // Wraps between its parts, like the counts above it.
+                  <View
+                    accessible
+                    accessibilityLabel={`${exercise.name}, ${exercise.record.label}`}
+                    style={{
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      columnGap: 5,
+                      marginTop: 2,
+                    }}
+                  >
+                    <Icon name="trophy" size={14} color={colors.success} />
+                    {exercise.record.parts.map((part, position) => (
+                      <AppText
+                        key={position}
+                        variant="caption"
+                        style={{ color: colors.success, fontFamily: fonts.bold }}
+                      >
+                        {position > 0 ? `· ${part}` : part}
+                      </AppText>
+                    ))}
+                  </View>
+                )}
               </View>
               <AppText
                 variant="label"

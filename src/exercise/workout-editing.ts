@@ -32,6 +32,7 @@ import {
   type ShownClock,
   type StoppedClock,
 } from "./set-clock.ts";
+import { createRestTimer, type RestLengthStorage, type RestSnapshot } from "./rest-timer.ts";
 import { exerciseRowLabel } from "./short-name.ts";
 import type { ExercisePanels, WorkoutView } from "./tab-view.ts";
 import {
@@ -50,8 +51,10 @@ import {
 export type WorkoutLogMode = "compact" | "active" | "manual" | "completed";
 type WorkoutFields = { name: string; exercises: SessionExercise[]; minutes: string };
 type SetClocks = SetClockTime & {
-  /** A countdown ran out, e.g. to buzz. */
+  /** A countdown or rest ran out, e.g. to buzz. */
   onCountdownEnd?: () => void;
+  /** Where the Rest timer keeps its length; for this run only without one. */
+  restLength?: RestLengthStorage;
 };
 type WorkoutEditState = {
   session: WorkoutSession;
@@ -232,6 +235,8 @@ type WorkoutEditSnapshot = Readonly<
       durationCaption: string;
       /** The running set clock as of the ticker's last move. */
       shownClock: ShownClock | null;
+      /** The Rest timer, on the Active workout's page only. */
+      rest: RestSnapshot | null;
       /**
        * Add exercise's results: the library's matches for its search, or the whole library
        * before one, a page at a time.
@@ -333,7 +338,7 @@ export function createWorkoutEditing(
   panels: Pick<ExercisePanels, "panel" | "origin" | "leave">,
   /** The tab's view request, which saves the logs it leaves before opening `content`. */
   requestView: (content: WorkoutView) => Promise<boolean>,
-  { onCountdownEnd = () => {}, ...time }: SetClocks = {},
+  { onCountdownEnd = () => {}, restLength, ...time }: SetClocks = {},
 ) {
   const entries = new Map<string, Entry>(),
     listeners = new Set<() => void>();
@@ -353,6 +358,9 @@ export function createWorkoutEditing(
     },
   });
   clocks.subscribe(emit);
+  // One Rest timer for the Active workout; it stops when that workout ends or goes.
+  const rest = createRestTimer({ ...time, onEnd: onCountdownEnd, storage: restLength });
+  rest.subscribe(emit);
   /** Publishes a clock change, logging a stopped clock's seconds into its set. */
   function logClock(id: string, stopped: StoppedClock | null) {
     if (stopped && stopped.seconds > 0)
@@ -395,11 +403,13 @@ export function createWorkoutEditing(
   function view(id: string, entry: Entry): WorkoutEditSnapshot {
     const { state } = entry,
       mode = modeOf(entry),
-      shownClock = clocks.shown(id);
+      shownClock = clocks.shown(id),
+      shownRest = mode === "active" ? rest.getSnapshot() : null;
     if (
       entry.view?.state === state &&
       entry.view.snapshot.mode === mode &&
-      entry.view.snapshot.shownClock === shownClock
+      entry.view.snapshot.shownClock === shownClock &&
+      entry.view.snapshot.rest === shownRest
     )
       return entry.view.snapshot;
     const { session, selectedId, counts, ...shown } = state;
@@ -417,6 +427,7 @@ export function createWorkoutEditing(
       hints: selected ? setHints(document()?.sessions ?? [], session, selected) : [],
       durationCaption: durationCaption(minutes),
       shownClock,
+      rest: shownRest,
       addResults: state.adding && addResults(document()?.exercises ?? [], state.adding),
       removing: removal(exercises, state.removingId),
     };
@@ -435,6 +446,7 @@ export function createWorkoutEditing(
     const next = document();
     if (!next || next === lastDocument) return;
     lastDocument = next;
+    if (!activeWorkout(next.sessions)) rest.stop();
     for (const [id, entry] of entries) {
       const session = next.sessions.find((value) => value.id === id);
       if (!session) {
@@ -817,6 +829,10 @@ export function createWorkoutEditing(
         if (set?.kind === "time") logClock(id, clocks.toggle(id, rowId, setId, timedSeconds(set)));
         else settleClock(id, entry);
       },
+      /** Starts a rest of the chosen length, or stops the running one. */
+      toggleRest: rest.toggle,
+      /** Lengthens or shortens the rest by `delta` seconds, the running one included. */
+      adjustRest: rest.adjust,
       select(rowId: string) {
         if (current(id, entry) && entry.state.selectedId !== rowId)
           publish(entry, { selectedId: rowId });
@@ -895,9 +911,15 @@ export function createWorkoutEditing(
       if (exercise && document()?.sessions.some((session) => session.id === id))
         edit(id).change({ kind: "add-exercise", exercise });
     },
-    /** Set clocks tick while the tab is attached. */
-    start: clocks.attach,
-    stop: clocks.detach,
+    /** Set clocks and the Rest timer tick while the tab is attached. */
+    start() {
+      clocks.attach();
+      rest.attach();
+    },
+    stop() {
+      clocks.detach();
+      rest.detach();
+    },
   };
 }
 export type WorkoutEditing = ReturnType<typeof createWorkoutEditing>;
