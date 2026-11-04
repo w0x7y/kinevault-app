@@ -1,44 +1,44 @@
 # Crash recovery, reporting and offline sync
 
-The root `AppErrorBoundary` wraps the theme, connectivity, account and document providers. Its fallback uses platform text and controls, hides the startup splash, shows a fixed message, and provides an accessible Reload button. Reload remounts the providers without modifying persisted tracking. On web, after two failed remount attempts, Reload refreshes the page. Native recovery remounts the application subtree. A JavaScript boundary catches render/lifecycle failures, not every event-handler error or a native process crash.
+## Error boundary
 
-## Optional Sentry reporting
+The root `AppErrorBoundary` wraps the theme, connectivity, account and document providers. On a crash it shows a fixed message and a Reload button, which remounts the providers without touching saved tracking. On web, after two failed remounts, Reload refreshes the page. It catches render and lifecycle errors, not every event-handler error or a native crash.
 
-Reporting is disabled when `EXPO_PUBLIC_SENTRY_DSN` is absent or empty. To configure it, create a Sentry React Native project and put its **public DSN** into your local/deployment environment:
+## Sentry reporting
+
+Reporting is off unless `EXPO_PUBLIC_SENTRY_DSN` holds a Sentry React Native project's public DSN:
 
 ```dotenv
 EXPO_PUBLIC_SENTRY_DSN=https://public-key@your-sentry-host/project-id
 ```
 
-Restart Metro or rebuild/export after setting it; Expo public environment variables are included at build time. A Sentry authentication token must never be an `EXPO_PUBLIC_` variable or committed to the repository. Having the SDK installed does not mean production crash reporting is active. Confirm an event arrives in the intended project in a staging build before relying on reporting.
+Restart Metro or rebuild after setting it. Never put a Sentry auth token in an `EXPO_PUBLIC_` variable or commit it. Confirm an event reaches the right project from a staging build before relying on it. Track's project is in [Sentry verification](sentry-verification.md).
 
-`initializeCrashReporting` initializes the SDK in the root module when configured. It retains JavaScript runtime error handlers and reports caught render crashes via `captureException`. `beforeSend` rebuilds each error event from a strict allowlist:
+`beforeSend` rebuilds every error event from this allowlist:
 
-- Known JavaScript exception names and a fixed replacement message.
-- Numeric stack locations and recognized bundle filenames without URL queries or fragments.
-- A valid event ID, numeric timestamp, and fixed platform/severity.
-- A constant `user.ip_address` of `0.0.0.0`, which prevents ingestion from inferring the sender's real IP and location. The original user object is never copied.
+- known JavaScript exception names (others become `Error`) and a fixed message;
+- numeric stack locations and bundle filenames, without queries or fragments;
+- the event ID, timestamp, platform and severity;
+- `user.ip_address` set to `0.0.0.0`, so Sentry can't infer the sender's IP and location.
 
-Names, emails, account identifiers, health records, food/workout entries, tokens, passwords, requests, user objects, breadcrumbs, tags, extra fields, source snippets, local paths, stack function names and arbitrary contexts are removed. Unknown error names become `Error`. Non-error events are dropped. Error messages are intentionally omitted even when they would improve diagnostics.
+Everything else is dropped, including identities, health and tracking data, tokens, passwords, requests, breadcrumbs, local paths and error messages. So are non-error events. Default PII, sessions, logs, tracing, profiling, replay and native reporting are off; native crash files would bypass `beforeSend`. Also turn on project-side IP and geographic scrubbing ([guidance](https://docs.sentry.io/security-legal-pii/scrubbing/server-side-scrubbing/#geographic-information)).
 
-Default PII collection, native reporting, session tracking, logs, tracing, profiling and replay are disabled. The SDK integrations are restricted to runtime handlers, deduplication and frame rewriting. Native reporting remains disabled because native crash files can bypass the JavaScript `beforeSend` filter; this setup reports JavaScript crashes only. No account identity is attached to Sentry.
+Source maps aren't set up. The local npm policy blocks the Sentry CLI's postinstall download. To add them, install an approved CLI, set the secret `SENTRY_AUTH_TOKEN` in the build environment, and follow the [Expo Sentry guide](https://docs.expo.dev/guides/using-sentry/).
 
-Removing the user field alone is insufficient: Sentry can infer IP/location from the ingestion request. The constant address replaces that inference without retaining identity. Sentry can still add delivery metadata such as trace/event identifiers. The network service receives the request as part of delivery; this application filter controls the event contents, not the vendor's network infrastructure. Project-side IP and geographic scrubbing provide additional protection. See [Sentry's geographic scrubbing guidance](https://docs.sentry.io/security-legal-pii/scrubbing/server-side-scrubbing/#geographic-information) and the [live verification record](sentry-verification.md).
+## Offline sync
 
-The public DSN controls JavaScript runtime reporting; it does not require a Sentry auth token. The native/source-map Expo plugin is intentionally absent while native reporting is disabled. Source map uploads are a separate build-service step. The local npm policy blocks the Sentry CLI postinstall binary download. If source map uploads are needed, configure an approved CLI installation and secret `SENTRY_AUTH_TOKEN` in the build environment, then follow the [Expo Sentry setup guide](https://docs.expo.dev/guides/using-sentry/) for the Expo plugin, project/organization and Metro/source map configuration. Source map upload and native symbolication have not been configured or verified here. Bundle-only frame locations are retained; arbitrary source paths are stripped.
+| NetInfo state | When                                                                   |
+| ------------- | ---------------------------------------------------------------------- |
+| `unknown`     | No firm reading yet, including a null initial reachability. No warning |
+| `offline`     | An explicit disconnected or unreachable reading                        |
+| `online`      | Connected, with internet reachability confirmed                        |
 
-## Connectivity and account ownership
+Saves always go to the durable account cache, and pending changes stay on the device when the network fails. Going `online` retries cloud sync once storage has initialized, and clears an initial account-load failure. Reconnecting still downloads cloud revisions first, and conflicts still need the user's choice. Being online doesn't mean the account service works, so a failed sync shows its own recovery state. Native auth refresh pauses while offline or in the background.
 
-NetInfo drives three states: `unknown`, `offline` and `online`. `offline` requires an explicit disconnected or unreachable reading; nullable initial reachability never displays an offline warning. `online` requires both a connection and confirmed internet reachability. The root warning and account settings explain confirmed offline operation. A network reading does not guarantee the account service is available; failed sync still shows its own recovery state.
-
-Domain saves continue using the existing durable account cache. Pending changes remain local on a network failure. Each account storage owner installs its own reconnect listener; a transition into confirmed online retries cloud sync after storage initialization settles. Successful reconnect also clears an initial account-load failure. Signing out, switching owners, retrying hydration or unmounting removes that listener before stopping storage. Old initialization and retry completions cannot publish into the replacement provider. Duplicate online notifications do not schedule duplicate retries. Native authentication refresh pauses during confirmed offline/background operation and resumes on reconnection while active.
-
-Connectivity does not bypass cloud conflict handling: reconnect downloads cloud revisions, and conflicting copies still require the user's existing explicit choice.
-
-## Verification
+## Tests
 
 ```sh
 node --experimental-strip-types --test tests/error-boundary.test.ts tests/crash-reporting.test.ts tests/connectivity.test.ts
 ```
 
-These tests cover private error-text exclusion, hostile thrown values, reload escalation, telemetry payload scrubbing, reporting opt-in, unknown reachability, delayed hydration, listener cleanup and retry failures. Device/native behavior and delivery to a configured Sentry project require a staging build and project credentials.
+Native behavior and delivery to a real Sentry project need a staging build.

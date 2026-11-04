@@ -1,88 +1,42 @@
-# Tracking data on this device
+# Privacy
 
-## Storage decision
+Track keeps a local copy of each account's tracking so logging works offline.
 
-Track keeps an account-scoped local copy so logging works offline. Tracking
-records use AsyncStorage on iOS and Android, and browser storage in the web
-preview. This includes profile body measurements, goals, food, water, logged
-steps, and workout history. These records are not encrypted by Track. Device
-account namespaces prevent one signed-in account from seeing another account's
-records through the app; they are not an encryption boundary.
+| Data                                                                                                                                      | On the device                                                 | Uploaded                                                    |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------- |
+| Tracking: profile, body measurements, goals, food, water, hand-logged steps (`kinevault-track.steps-log.v1`), workouts, imported workouts | AsyncStorage on native, browser storage on web. Not encrypted | When signed in, to the account's private Supabase documents |
+| Sign-in tokens                                                                                                                            | Expo SecureStore on native, localStorage on web               | No                                                          |
+| Passwords                                                                                                                                 | Never saved                                                   | No                                                          |
+| Profile photos and their metadata                                                                                                         | The app's private file directory on native. Not encrypted     | No                                                          |
+| Reminders                                                                                                                                 | The account's local storage                                   | No                                                          |
+| Rest timer length (`kinevault-track.rest-seconds`)                                                                                        | A device setting, kept after sign-out                         | No                                                          |
+| Phone step count                                                                                                                          | Not stored                                                    | No                                                          |
 
-Native authentication tokens use Expo SecureStore separately. In the web
-preview, authentication tokens use browser localStorage. Passwords are not saved
-in tracking documents. Profile photos and their metadata remain on the device;
-native photos use the app's private file directory. Track does not apply its own
-encryption to photo files either.
-
-For the current offline implementation, retain this storage approach and state
-it plainly. Moving arbitrary history blobs into SecureStore would misuse token
-storage and would not protect photo files. App-level encryption would require
-an authenticated encryption format, a per-device key in native secure storage,
-crash-safe migration, recovery and key-loss rules, and a separate web design.
-That work should be evaluated against a defined threat model before changing
-saved user data. Never describe account namespacing as encryption or claim that
-web localStorage provides native token protection.
-
-Logging out hides the account's local records. It retains pending cloud saves
-for the next login; it does not erase the device copy. Clearing browser storage
-or uninstalling the app can lose local-only records and pending changes. Synced
-tracking is stored in the account's private Supabase documents. Photos are not
-included in cloud document sync.
-
-## Workout import
-
-On iOS and Android, importing a Tracked share link fetches the public share
-page directly from `app.tracked.gg`; no KineVault server relays the request. The
-request URL carries only the workout ID from the pasted link, the request sends
-no cookies, and no KineVault account data is attached. Tracked receives it like
-any other page visit from the device's network address.
-
-Browsers can't read Tracked's pages, so on the web the workout ID passes through
-KineVault's `tracked-workout` Supabase Edge Function. The browser sends the ID
-and the signed-in session token to the function. The function checks the
-session, fetches the share page from Tracked without cookies or account data,
-and returns the page to the browser, which reads it as the apps do. The function
-doesn't store or log the workout ID, the page or the token. The ID travels in
-the request body, not the URL. Tracked sees the request coming from Supabase's
-network instead of the device.
-
-Imported exercises and workout templates are then saved like other Account
-tracking: in the local copy and, when signed in, the account's private Supabase
-documents. See [workout import](workout-import.md).
-
-## Reminders
-
-Reminders are device settings, not Account tracking. They are stored in the
-signed-in account's local storage on this device and are never uploaded.
-Notifications are scheduled locally by the device's notification system; there
-is no push server and no push token. Signing out cancels the scheduled
-notifications and removes reminders already shown in the notification list, and
-the next sign-in schedules that account's reminders again.
-
-## Rest timer
-
-The Rest timer's length (`kinevault-track.rest-seconds`, a number of seconds) is a
-device setting like the appearance. It isn't tied to an account, isn't uploaded and
-stays on the device after signing out. A running rest isn't saved.
+- Account namespaces only stop one account from seeing another's records in the app. Never call them encryption, or say web localStorage protects tokens like native secure storage.
+- Signing out hides the account's local records and keeps pending saves for the next sign-in. It doesn't erase them. Clearing browser storage or uninstalling can lose local-only records and pending changes.
+- Don't move history into SecureStore. It's for tokens and wouldn't cover photos. App-level encryption needs a threat model and a key, migration and recovery design before it touches saved data.
 
 ## Steps
 
-Home's step count comes from the phone, with the user's permission: Core Motion
-on iOS (the Motion & Fitness permission; Apple keeps the last 7 days) and Health
-Connect on Android (the read-steps permission). Track reads only the step total
-for the day it shows, on the device, while Home shows it. It never uploads,
-syncs or saves phone steps, and it reads nothing else from Core Motion or Health
-Connect. It doesn't use HealthKit.
+With permission, Home reads the day's step total on the device: Core Motion on iOS (Motion & Fitness; Apple keeps 7 days) and Health Connect on Android (read steps). Track reads nothing else from them, doesn't use HealthKit, and never saves, syncs or uploads phone steps. Hand-logged steps sync like the water log. The export includes them, and account deletion removes both copies.
 
-Steps logged by hand are Account tracking (`kinevault-track.steps-log.v1`). They
-are stored in the signed-in account's local storage on this device, unencrypted
-like other tracking, and sync to the account's private Supabase documents like
-the water log, so the account's other devices see them. The account export
-includes their local and cloud copies with the other tracking documents. Account
-deletion removes the cloud copy with the account and the local copy with the
-rest of the account's device records. Only the hand-entered amounts are
-uploaded. Phone steps are never stored or uploaded.
+## Workout import
+
+On iOS and Android, Track fetches the share page straight from `app.tracked.gg`. It sends only the workout ID, with no cookies or account data, and Tracked sees the device's network address.
+
+On web, the browser sends the workout ID, in the request body, and the session token to the `tracked-workout` Edge Function. The function checks the session, fetches the page without cookies or account data, and returns it. It doesn't store or log the ID, the page or the token. Tracked sees Supabase's network. See [workout import](workout-import.md).
+
+## Reminders
+
+The device's notification system schedules reminders. There's no push server or push token. Signing out cancels them and clears ones already shown; the next sign-in schedules that account's reminders again.
+
+## Export and deletion
+
+Settings exports tracking data and local photos. Deletion runs through the `delete-account` endpoint and removes the account's local records and photos on this device. Other devices have to be cleaned up on those devices. See [account management](account-management.md).
+
+## Error reporting
+
+Crash reports follow [the reporting setup](resilience.md). They carry no identity, food or workout payloads, request bodies or auth links, and use a constant `0.0.0.0` IP so Sentry can't infer location. Turn reporting on only with the configured destination, and put the vendor's retention settings in the published policy. Only local delivery is verified ([Sentry verification](sentry-verification.md)).
 
 ## Proposed privacy-policy text
 
@@ -104,15 +58,4 @@ uploaded. Phone steps are never stored or uploaded.
 > count stays on your device and is never uploaded. Steps you log by hand are
 > synced to your account with the rest of your tracking.
 
-This is the storage disclosure for the current implementation. The published
-policy still needs the product's actual operator, contact details and retention
-rules. Settings now exports tracking data and local photos; account deletion runs through the deployed `delete-account` server endpoint. Confirmed deletion removes the current owner's local records and owned photos on this device; other devices' local copies require cleanup on those devices. See [account management](account-management.md). Release work is tracked in
-[TODO.md](../TODO.md).
-
-## Error reporting
-
-Crash reporting must follow [the reporting setup](resilience.md): no user
-identity, food/workout payloads, request bodies, or auth links in reports. Enable
-it only with the configured reporting destination. A reporting vendor's
-retention settings belong in the published policy when the service is enabled.
-New reports carry a constant `0.0.0.0` IP sentinel to prevent inferred user location. Local delivery has been verified; deployed staging and native verification remain pending. See [Sentry verification](sentry-verification.md).
+The published policy still needs the operator, contact details and retention rules. Release work is in [TODO.md](../TODO.md).
