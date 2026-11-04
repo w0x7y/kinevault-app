@@ -179,6 +179,26 @@ test("Add to day opens the new log only once it is saved on the menu's day", asy
   assert.equal(f.tab.getSnapshot().panel?.content.kind, "library");
 });
 
+test("Duplicate saves a copy of a template and keeps the menu open", async () => {
+  const f = await fixture();
+  await f.tab.requestView({ kind: "library", date: "2026-10-04" });
+  const menu = f.drafts.savedWorkouts(f.token(), "2026-10-04");
+  f.fail();
+  assert.equal(await menu.duplicate("legs"), false);
+  assert.equal(menu.getSnapshot().error, "Couldn't duplicate this workout. Try again.");
+  f.restore();
+  assert.equal(await menu.duplicate("legs"), true);
+  assert.equal(menu.getSnapshot().error, null);
+  assert.deepEqual(
+    menu.getSnapshot().workouts.map((workout) => [workout.name, workout.setCounts]),
+    [
+      ["Leg day", { squat: 2 }],
+      ["Leg day copy", { squat: 2 }],
+    ],
+  );
+  assert.equal(f.tab.getSnapshot().panel?.content.kind, "library");
+});
+
 test("Saved workouts shows the templates and only its own day's logs", async () => {
   const f = await fixture();
   await f.tab.requestView({ kind: "library", date: "2026-10-03" });

@@ -1,41 +1,25 @@
-# Connection troubleshooting
+# Troubleshooting
 
 ## iPhone connection
 
-For a timeout such as “This is taking much longer than it should”:
+If Expo Go times out ("This is taking much longer than it should"), use a tunnel. It needs internet access.
 
 ```sh
 npx expo login
 npm run start:tunnel
 ```
 
-Sign into the same Expo account in Expo Go on the iPhone. Physical iOS devices
-check the developer account ([Expo CLI authentication](https://docs.expo.dev/more/expo-cli/#authentication)).
-This app uses SDK 58, so Expo Go needs a version that supports SDK 58. Update it
-from the App Store if necessary.
-Scan the new terminal QR with the Camera; pasting `exp://` into a browser search
-does not open the app. The tunnel bypasses local Wi-Fi routing and firewall
-restrictions. The tunnel address changes between sessions.
+1. Sign in to the same Expo account in Expo Go. Physical iPhones check it ([Expo CLI authentication](https://docs.expo.dev/more/expo-cli/#authentication)).
+2. Update Expo Go from the App Store if it doesn't support SDK 58.
+3. Scan the new QR code with the Camera app. Pasting `exp://` into a browser doesn't open the app. The address changes every session.
 
-For local Wi-Fi, use `npm run start:lan` and allow Expo Go's Local Network access
-in iOS Settings. Check whether the server is reachable by opening its printed
-`http://<computer-IP>:8081/status` address in Safari. A response of
-`packager-status:running` confirms connectivity from the phone.
+| Command                     | Use                                                                                                                                                                           |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run start:lan`         | Local Wi-Fi. Allow Expo Go's Local Network access in iOS Settings. Open the printed `http://<computer-IP>:8081/status` in Safari; it should show `packager-status:running`.   |
+| `npm run doctor:connection` | Shows the advertised iOS bundle address, runtime, network addresses and Expo sign-in. Pass another port with `-- 8082`.                                                       |
+| `npm run start:cloudflare`  | Use when ngrok fails with `remote gone away` or `session closed`. Needs [cloudflared](https://developers.cloudflare.com/tunnel/downloads/). Pass another port with `-- 8083`. |
 
-Run `npm run doctor:connection` to inspect the advertised iOS bundle address,
-runtime, available network addresses, and Expo sign-in status. Pass a different
-port if necessary: `npm run doctor:connection -- 8082`.
-
-The checked-in tunnel dependency makes the command usable after `npm ci`.
-Internet access is needed for tunnel mode.
-
-If ngrok fails with `remote gone away` or `session closed`, use the Cloudflare
-fallback. Install [cloudflared](https://developers.cloudflare.com/tunnel/downloads/),
-then run `npm run start:cloudflare`. The launcher starts both servers, verifies the
-public iOS manifest, and prints a secure `exps://` QR code. Keep the terminal open;
-Ctrl+C stops both processes. The address is temporary and changes on each launch.
-The QR is also saved at `.expo/connection-qr.svg`. You can pass another port with
-`npm run start:cloudflare -- 8083` or set `CLOUDFLARED_BIN` to a custom binary path.
+`start:cloudflare` starts both servers, checks the public iOS manifest and prints an `exps://` QR code, also saved at `.expo/connection-qr.svg`. Keep the terminal open; Ctrl+C stops both. The address changes on each launch. Set `CLOUDFLARED_BIN` to use another cloudflared binary.
 
 ## Android emulator keyboard
 
@@ -45,17 +29,11 @@ If tapping a field shows no keyboard, boot the emulator and run:
 npm run android:keyboard
 ```
 
-This enables the on-screen keyboard alongside computer keyboard input and turns
-off stylus handwriting on Android 14+ emulators. A virtual stylus can put Gboard
-in handwriting mode and hide the keypad. Tap the field again after running the
-command. These settings persist on the emulator; physical phones are untouched.
-The command uses `adb` from your Android SDK or PATH.
+Then tap the field again. It turns on the on-screen keyboard and turns off stylus handwriting on Android 14+ emulators. The settings stay on the emulator and never touch physical phones. It uses `adb` from your Android SDK or `PATH`.
 
 ## Web preview shows old code
 
-The Expo web dev server can keep serving a stale bundle after source edits, so
-the browser and `npm run test:browser` see the previous code. Stop the server
-and start it again with a cleared cache:
+The web dev server can keep serving a stale bundle, so the browser and `npm run test:browser` see old code. Restart it with a cleared cache:
 
 ```sh
 npx expo start --web --port 8081 --clear

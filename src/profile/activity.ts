@@ -1,5 +1,9 @@
 import { addDays, parseDay } from "../calendar/dates.ts";
-import type { ExerciseDefinition, WorkoutSession } from "../exercise/model.ts";
+import {
+  exerciseHistoryKey as exerciseKey,
+  type ExerciseDefinition,
+  type WorkoutSession,
+} from "../exercise/model.ts";
 import { setMeasurements, trackingMode } from "../exercise/tracking.ts";
 import type { FoodLogDocument } from "../food/log-model.ts";
 import type { WaterLogDocument } from "../water/model.ts";
@@ -84,10 +88,6 @@ export function profileStreak(input: {
   return { current, longest, days, week };
 }
 
-function exerciseKey(exercise: WorkoutSession["exercises"][number]["exercise"]): string {
-  return JSON.stringify([exercise.id, exercise.tracking]);
-}
-
 function workoutExerciseOptions(
   sessions: readonly WorkoutSession[],
   today: string,
@@ -160,7 +160,8 @@ export function workoutGraph(input: {
         const measured = setMeasurements(set);
         if (input.metric === "volume") week.total = (week.total ?? 0) + measured.volume;
         else {
-          for (const weight of measured.weights) week.total = positiveMaximum(week.total, weight);
+          for (const lift of measured.lifts)
+            week.total = positiveMaximum(week.total, lift.weightKg);
           if (set.kind === "sides") {
             week.left = positiveMaximum(week.left, measured.left ?? 0);
             week.right = positiveMaximum(week.right, measured.right ?? 0);

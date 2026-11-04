@@ -14,6 +14,7 @@ import {
   type CompletedWorkout,
 } from "../exercise/summary.ts";
 import { activeWorkout, formatElapsed } from "../exercise/model.ts";
+import { personalRecords, type PersonalRecord } from "../exercise/records.ts";
 import type { ProfileSnapshot } from "../profile/persistence.ts";
 import { calorieState } from "../profile/calories.ts";
 import { macroTargets } from "../profile/macros.ts";
@@ -138,7 +139,12 @@ export function interpretDayActivity({
     ),
     workout: workoutTile(
       source(exercise),
-      summarizeSessions(sessions),
+      summarizeSessions(
+        sessions,
+        exercise.state.kind === "ready"
+          ? personalRecords(exercise.state.document.sessions, date)
+          : undefined,
+      ),
       active && (active.name || "Active workout"),
       date === today,
     ),
@@ -370,7 +376,23 @@ type WorkoutExerciseRow = {
   amount: string;
   /** The amount's accessible name, e.g. "weight 40 kg". */
   amountLabel: string;
+  /**
+   * A Personal record this exercise set: "New record", its lift and, past one rep, its estimated
+   * one-rep max, e.g. ["New record", "100 kg × 5", "est. 1RM 117 kg"].
+   */
+  record: { parts: string[]; label: string } | null;
 };
+function recordLine(record: PersonalRecord | null): WorkoutExerciseRow["record"] {
+  if (!record) return null;
+  const { reps, weightKg, oneRepMaxKg } = record;
+  const weight = `${weightKg.toLocaleString()} kg`;
+  // A single rep is its own one-rep max.
+  const max = reps === 1 ? null : `${Math.round(oneRepMaxKg).toLocaleString()} kg`;
+  return {
+    parts: ["New record", `${weight} × ${reps}`, ...(max ? [`est. 1RM ${max}`] : [])],
+    label: `New record, ${weight} for ${reps === 1 ? "1 rep" : `${reps} reps`}${max ? `, estimated one-rep max ${max}` : ""}`,
+  };
+}
 function loadAmount(load: CompletedLoad): Pick<WorkoutExerciseRow, "amount" | "amountLabel"> {
   const weight = (amount: string) => ({ amount, amountLabel: `weight ${amount}` });
   switch (load.kind) {
@@ -450,6 +472,7 @@ function workoutTile(
         ? `${exerciseCount} · ${completed.averageRepsPerSet} reps per set on average`
         : exerciseCount,
     exercises: completed.exercises.map((exercise) => ({
+      record: recordLine(exercise.record),
       id: exercise.id,
       name: exercise.name,
       // A timed exercise counts its sets; its time is its amount.

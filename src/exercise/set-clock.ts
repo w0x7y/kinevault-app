@@ -1,3 +1,5 @@
+import type { Ticker } from "./ticker.ts";
+
 /**
  * A Timed set's running clock: a stopwatch from `startedAt`, or with a `target` a countdown from
  * the seconds the set held when it started.
@@ -7,39 +9,29 @@ type SetClock = { rowId: string; setId: string; startedAt: number; target: numbe
 export type ShownClock = { rowId: string; setId: string; seconds: number; countdown: boolean };
 /** A stopped clock and the whole seconds it ran, for its set to log. */
 export type StoppedClock = { rowId: string; setId: string; seconds: number };
-/** What set clocks read and how they tick; the device's clock and timers by default. */
-export type SetClockTime = {
-  now?: () => number;
-  /** Calls `tick` every `ms` until the returned stop. */
-  every?: (ms: number, tick: () => void) => () => void;
-};
-const deviceTimer = (ms: number, tick: () => void) => {
-  const timer = setInterval(tick, ms);
-  return () => clearInterval(timer);
-};
-
 /**
  * The Set clocks of Workout edits, one per Workout log, so a clock survives the set table
- * unmounting and keeps running while its page is away. One ticker runs while any clock does and
- * the tab is attached. Each second it moves the shown clocks on and tells subscribers, and hands a
+ * unmounting and keeps running while its page is away. They hold a tick of `ticker` while any
+ * clock runs. Each second they move the shown clocks on and tell subscribers, and hand a
  * countdown that ran out to `onDue` on each tick until the edit settles it.
  * Starting, settling and forgetting notify no one: the edit publishes those changes itself.
  */
 export function createSetClock({
-  now = Date.now,
-  every = deviceTimer,
+  ticker,
   onDue,
-}: SetClockTime & { onDue: (logId: string) => void }) {
+}: {
+  ticker: Pick<Ticker, "now" | "hold">;
+  onDue: (logId: string) => void;
+}) {
+  const { now } = ticker;
   const running = new Map<string, { clock: SetClock; shown: ShownClock }>(),
     listeners = new Set<() => void>();
-  let attached = true,
-    stopTicker: (() => void) | null = null;
+  let release: (() => void) | null = null;
   function syncTicker() {
-    const ticking = attached && running.size > 0;
-    if (ticking && !stopTicker) stopTicker = every(250, tick);
-    else if (!ticking && stopTicker) {
-      stopTicker();
-      stopTicker = null;
+    if (running.size > 0 && !release) release = ticker.hold(tick);
+    else if (running.size === 0 && release) {
+      release();
+      release = null;
     }
   }
   function clockSeconds(clock: SetClock, at = now()) {
@@ -111,14 +103,5 @@ export function createSetClock({
     },
     settle,
     forget,
-    /** The ticker runs only while the tab is attached; clocks keep their start times meanwhile. */
-    attach() {
-      attached = true;
-      syncTicker();
-    },
-    detach() {
-      attached = false;
-      syncTicker();
-    },
   };
 }

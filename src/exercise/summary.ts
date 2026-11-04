@@ -1,4 +1,5 @@
-import type { WorkoutSession } from "./model.ts";
+import type { SessionExercise, WorkoutSession } from "./model.ts";
+import type { PersonalRecord } from "./records.ts";
 import { setMeasurements } from "./tracking.ts";
 
 /** An exercise row's load: its weights, or the total time of a timed exercise. */
@@ -15,6 +16,8 @@ type CompletedExercise = {
   readonly sets: number;
   readonly reps: number;
   readonly load: CompletedLoad;
+  /** The Personal record this exercise row set, from the records given to the summary. */
+  readonly record: PersonalRecord | null;
 };
 
 export type CompletedWorkout = {
@@ -28,7 +31,14 @@ export type CompletedWorkout = {
   readonly exercises: readonly CompletedExercise[];
 };
 
-export function summarizeSessions(sessions: readonly WorkoutSession[]): CompletedWorkout {
+/**
+ * The Completed workouts among `sessions` (usually one day's), with each exercise row's Personal
+ * record from `records` (see `personalRecords`).
+ */
+export function summarizeSessions(
+  sessions: readonly WorkoutSession[],
+  records: ReadonlyMap<SessionExercise, PersonalRecord> = new Map(),
+): CompletedWorkout {
   const completed = sessions.filter((session) => session.status === "completed");
   const exercises: CompletedWorkout["exercises"][number][] = [];
   let volume = 0,
@@ -48,7 +58,7 @@ export function summarizeSessions(sessions: readonly WorkoutSession[]): Complete
         rowReps += measured.reps;
         rowVolume += measured.volume;
         rowSeconds += measured.seconds;
-        for (const weight of measured.weights) {
+        for (const { weightKg: weight } of measured.lifts) {
           minKg = Math.min(minKg, weight);
           maxKg = Math.max(maxKg, weight);
         }
@@ -67,6 +77,7 @@ export function summarizeSessions(sessions: readonly WorkoutSession[]): Complete
               : minKg === maxKg
                 ? { kind: "weight", weightKg: minKg }
                 : { kind: "range", minKg, maxKg },
+        record: records.get(row) ?? null,
       });
       volume += rowVolume;
       sets += row.sets.length;

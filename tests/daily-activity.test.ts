@@ -400,6 +400,7 @@ test("the Workout tile covers every state, with one minutes rule for the title a
         counts: ["1 set", "5 reps"],
         amount: "40 kg",
         amountLabel: "weight 40 kg",
+        record: null,
       },
     ],
     stats: stats("30 min"),
@@ -427,6 +428,7 @@ test("the Workout tile covers every state, with one minutes rule for the title a
     counts: ["2 sets"],
     amount: "1:15",
     amountLabel: "time 1:15",
+    record: null,
   });
   // A Timed-only day has no reps to average.
   assert.equal(timed.kind === "done" && timed.detail, "1 exercise");
@@ -459,6 +461,30 @@ test("the Workout tile covers every state, with one minutes rule for the title a
   assert.equal(twoSets.summary, "2 sets");
   assert.deepEqual(twoSets.kind === "done" && twoSets.stats, stats("0 min", 2, 10));
   assert.equal(tile([{ ...completed, durationSeconds: 3600 * 2 }]).summary, `200 kg · 120 min`);
+
+  // A lift that beats an earlier day's estimated one-rep max is a new record on its row.
+  const earlier = { ...completed, id: "earlier", date: otherDate };
+  const heavier = tile([
+    earlier,
+    { ...completed, exercises: [{ ...completed.exercises[0], sets: [set("50")] }] },
+  ]);
+  assert.deepEqual(heavier.kind === "done" && heavier.exercises[0]!.record, {
+    parts: ["New record", "50 kg × 5", "est. 1RM 58 kg"],
+    label: "New record, 50 kg for 5 reps, estimated one-rep max 58 kg",
+  });
+  const single = tile([
+    earlier,
+    {
+      ...completed,
+      exercises: [{ ...completed.exercises[0], sets: [{ ...set("60"), reps: "1" }] }],
+    },
+  ]);
+  assert.deepEqual(single.kind === "done" && single.exercises[0]!.record, {
+    parts: ["New record", "60 kg × 1"],
+    label: "New record, 60 kg for 1 rep",
+  });
+  const same = tile([earlier, completed]);
+  assert.equal(same.kind === "done" && same.exercises[0]!.record, null);
 });
 
 test("each saved source reports its own availability and retries only itself", () => {

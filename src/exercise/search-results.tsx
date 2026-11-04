@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { Keyboard, StyleSheet, View, type ViewProps } from "react-native";
-import { IconButton } from "../components/button";
+import { Keyboard, View, type ViewProps } from "react-native";
 import { Icon } from "../components/icon";
+import { pagedResults } from "../components/paging";
+import { ResultPager } from "../components/result-pager";
 import { Tappable } from "../components/tappable";
 import { AppText, Overline, Panel } from "../components/ui";
 import { useTheme } from "../theme/provider";
@@ -76,12 +77,12 @@ export function ExerciseSearchResults({
   onLayout: ViewProps["onLayout"];
   onNavigate: () => void;
 }) {
-  const { colors } = useTheme();
   const [page, setPage] = useState(0);
-  const matches = useMemo(() => matchingExercises(exercises, query), [exercises, query]);
-  const pageCount = Math.ceil(matches.length / pageSize);
-  const resultPage = Math.min(page, Math.max(0, pageCount - 1));
-  if (page !== resultPage) setPage(resultPage);
+  const result = useMemo(
+    () => pagedResults(matchingExercises(exercises, query), page, pageSize),
+    [exercises, query, page],
+  );
+  if (page !== result.page) setPage(result.page);
   function select(exercise: ExerciseDefinition) {
     Keyboard.dismiss();
     onSelect(exercise);
@@ -99,53 +100,20 @@ export function ExerciseSearchResults({
       <View style={{ gap: 2 }}>
         <Overline accessibilityRole="header">Exercise library</Overline>
         <AppText variant="caption" muted accessibilityLiveRegion="polite">
-          {matches.length
-            ? `${matches.length.toLocaleString()} matching exercises.`
+          {result.total
+            ? `${result.total.toLocaleString()} matching exercises.`
             : "No exercises found. Try a simpler name or different equipment."}
         </AppText>
       </View>
       <View>
-        {matches
-          .slice(resultPage * pageSize, (resultPage + 1) * pageSize)
-          .map((exercise, index) => (
-            <View key={exercise.id}>
-              {index > 0 && <Hairline />}
-              <ExerciseResult exercise={exercise} onSelect={() => select(exercise)} />
-            </View>
-          ))}
+        {result.items.map((exercise, index) => (
+          <View key={exercise.id}>
+            {index > 0 && <Hairline />}
+            <ExerciseResult exercise={exercise} onSelect={() => select(exercise)} />
+          </View>
+        ))}
       </View>
-      {pageCount > 1 && (
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: spacing.sm,
-            paddingTop: spacing.sm,
-            borderTopWidth: StyleSheet.hairlineWidth,
-            borderColor: colors.border,
-          }}
-        >
-          <AppText variant="caption" muted style={{ flex: 1, fontVariant: ["tabular-nums"] }}>
-            Showing {resultPage * pageSize + 1} to{" "}
-            {Math.min((resultPage + 1) * pageSize, matches.length)} of{" "}
-            {matches.length.toLocaleString()}
-          </AppText>
-          <IconButton
-            appearance="secondary"
-            icon="chevron-left"
-            label="Previous exercise results"
-            disabled={resultPage === 0}
-            onPress={() => changePage(resultPage - 1)}
-          />
-          <IconButton
-            appearance="secondary"
-            icon="chevron-right"
-            label="Next exercise results"
-            disabled={resultPage + 1 >= pageCount}
-            onPress={() => changePage(resultPage + 1)}
-          />
-        </View>
-      )}
+      <ResultPager result={result} size={pageSize} noun="exercise" onPage={changePage} />
     </Panel>
   );
 }

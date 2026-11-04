@@ -1,9 +1,17 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useIsFocused } from "expo-router";
 import { useLayoutEffect, useState, useSyncExternalStore } from "react";
 import { Vibration } from "react-native";
 import { workoutImportSources } from "./import/sources";
 import { useExercisePersistence } from "./provider";
 import { createExerciseTabView } from "./tab-view";
+
+/** The Rest timer's length, a device setting like the appearance. */
+const restLengthKey = "kinevault-track.rest-seconds";
+const restLength = {
+  load: () => AsyncStorage.getItem(restLengthKey),
+  save: (value: string) => AsyncStorage.setItem(restLengthKey, value),
+};
 
 /** The Exercise tab view for the Selected day, with its Workout edits and Library drafts. */
 export function useExerciseTabView(date: string) {
@@ -13,8 +21,8 @@ export function useExerciseTabView(date: string) {
       store,
       date,
       importSources: workoutImportSources,
-      // A countdown that runs out buzzes, whichever page shows.
-      clocks: { onCountdownEnd: () => Vibration.vibrate() },
+      // A countdown or rest that runs out buzzes, whichever page shows.
+      clocks: { onCountdownEnd: () => Vibration.vibrate(), restLength },
     }),
   );
   const view = useSnapshot(tab);

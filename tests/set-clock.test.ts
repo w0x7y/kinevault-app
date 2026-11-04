@@ -1,24 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createSetClock } from "../src/exercise/set-clock.ts";
+import { fakeTime } from "./helpers/fake-time.ts";
 
 /** A Set clock on fake time; `tick` runs its ticker once, and `due` records `onDue` calls. */
 function fixture() {
-  const time = { now: 5_000_000 };
-  let ticker: (() => void) | null = null;
+  const time = fakeTime();
   const due: string[] = [];
-  const clock = createSetClock({
-    now: () => time.now,
-    every: (ms, tick) => {
-      assert.equal(ms, 250);
-      ticker = tick;
-      return () => {
-        ticker = null;
-      };
-    },
-    onDue: (logId) => due.push(logId),
-  });
-  return { clock, time, due, tick: () => ticker?.(), ticking: () => ticker !== null };
+  const clock = createSetClock({ ticker: time.ticker(), onDue: (logId) => due.push(logId) });
+  return { ...time, clock, due };
 }
 
 test("a stopwatch counts up with the ticker and never runs out", () => {
@@ -108,25 +98,13 @@ test("clocks in different logs are independent", () => {
   assert.equal(f.ticking(), true, "the ticker runs while any clock does");
 });
 
-test("the ticker stops on detach and with no clocks, and restarts on attach", () => {
+test("clocks hold the ticker while one runs", () => {
   const f = fixture();
   assert.equal(f.ticking(), false);
   f.clock.toggle("log", "row", "open", null);
   assert.equal(f.ticking(), true);
-  f.clock.detach();
-  assert.equal(f.ticking(), false);
-  f.time.now += 42_000;
-  f.clock.attach();
-  assert.equal(f.ticking(), true);
-  f.tick();
-  assert.equal(f.clock.shown("log")?.seconds, 42, "the clock kept running while detached");
   f.clock.settle("log");
   assert.equal(f.ticking(), false);
-  f.clock.detach();
-  f.clock.toggle("log", "row", "open", null);
-  assert.equal(f.ticking(), false, "a clock started while detached waits for attach");
-  f.clock.attach();
-  assert.equal(f.ticking(), true);
 });
 
 test("forget drops a clock without logging it", () => {

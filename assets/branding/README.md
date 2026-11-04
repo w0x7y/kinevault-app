@@ -1,68 +1,41 @@
 # Kine app branding
 
-The launcher icon uses a large close-up of the blue Kine mascot, with its cream
-antenna tips, navy eyes, and smile. The supplied Duolingo icon guided the face
-framing. The iOS splash reuses the exact supplied waving mascot, with a wordmark
-set in Comfortaa 700. The app loads Comfortaa 600 and Manrope 400–800, and draws
-UI icons from the Ionicons outline set with Font Awesome 6 as a fallback.
-Launcher/splash branding is separate from the nameless compact in-app top bar,
-whose right slot shows the saved avatar or initials. The twelve in-app WebP poses
-stay in `../mascot/2d/`; their mappings and size limits are recorded in the
-[mascot guide](../mascot/README.md).
+Launcher icons and splash screens. The icon is a close-up of Kine's face. The iOS splash is the waving Kine with a "KineVault" wordmark in Comfortaa 700. In-app poses are in the [mascot guide](../mascot/README.md).
 
 ## Assets
 
-| File | Use |
-| --- | --- |
-| `icon.png` | Opaque 1024px iOS icon and Android legacy icon; OS applies corners |
-| `adaptive-foreground.png` | Transparent 1024px Android foreground with mask-safe inset |
-| `adaptive-monochrome.png` | Android themed icon; eyes and smile are transparent cutouts |
-| `notification-icon.png` | 96px white Android notification icon; the head fills 84px of it |
-| `favicon.png` | 48px web favicon |
-| `splash-light.png` | Transparent 720px square iOS launch lockup with navy wordmark |
-| `splash-dark.png` | Same layout with cream wordmark for dark mode |
-| `splash-android.png` | Transparent 720px head mark for Android's square launch container |
+| File                      | Use                                                               |
+| ------------------------- | ----------------------------------------------------------------- |
+| `icon.png`                | Opaque 1024px iOS icon and Android legacy icon; the OS rounds it  |
+| `adaptive-foreground.png` | Transparent 1024px Android foreground with a mask-safe inset      |
+| `adaptive-monochrome.png` | Android themed icon; eyes and smile are transparent cutouts       |
+| `notification-icon.png`   | 96px white Android notification icon; the head fills 84px         |
+| `favicon.png`             | 48px web favicon                                                  |
+| `splash-light.png`        | Transparent 720px square iOS splash with a navy wordmark          |
+| `splash-dark.png`         | The same with a cream wordmark for dark mode                      |
+| `splash-android.png`      | Transparent 720px head mark for Android's square launch container |
 
-[app.json](../../app.json) configures these assets. Splash backgrounds match the app's
-page colors in [theme tokens](../../src/theme/tokens.ts): light `#eef2f6` and dark `#10161c`.
-Notifications tint `notification-icon.png` with the brand blue `#3a6a96`. The Android adaptive
-background is cream `#f8f2e3`. The head is exported within a 580px bounding box; its visible
-pixels fit inside the 626px safe circle of a 1024px adaptive layer.
-All three splash exports are square to match Expo's native image view.
-The Android splash uses a separate head mark
-to avoid clipping the tall wordmark inside the platform's launch icon container.
+[app.json](../../app.json) wires them up.
 
-## Source and regeneration
+| Setting                     | Value                                         |
+| --------------------------- | --------------------------------------------- |
+| Splash background           | `#eef2f6` light, `#10161c` dark (page colors) |
+| Notification tint           | `#3a6a96` (Kine blue)                         |
+| Android adaptive background | `#f8f2e3` (cream)                             |
+| Adaptive head               | 580px box, inside the 626px safe circle       |
 
-The two PNGs in `source/` were generated with the built-in `image_gen` tool.
-Exact prompts and reference roles are recorded in `prompts.json`. The waving
-mascot comes from `../mascot/2d/source/kine-welcome.png`, which is byte-identical
-to the user's uploaded `kine-welcome.png`.
+All three splash files are square to match Expo's native image view. Android gets a head mark instead of the wordmark, which its launch container would clip.
 
-To resize and export these source images, install ImageMagick and use the
-project's installed Comfortaa 700 font. Run from `Application/` after `npm ci`:
+## Regenerate
+
+`source/` holds the two generated source PNGs; `prompts.json` has their prompts. The waving Kine comes from `../mascot/2d/source/kine-welcome.png`. Install ImageMagick, then run from `Application/` after `npm ci`:
 
 ```sh
 node scripts/export-branding.mjs
 ```
 
-The script only writes this directory's exported PNGs. It does not regenerate
-artwork, call an API, or change mascot poses. Source PNGs are not referenced by
-the app config or imported by application code.
+It only resizes and exports the PNGs in this folder. To preview them, see [design previews](../../design/README.md).
 
-Open `../../design/branding.html` through a local HTTP server for a visual review
-of the actual exported assets at launcher sizes and in splash layouts.
+Icon and splash changes need a new native build. Expo Go can't show the native splash, so check it in an installed release build. The [startup code](../../src/app/_layout.tsx) holds the splash until theme and profile load and the fonts (Comfortaa, Manrope, Font Awesome 6, Ionicons) load or fail.
 
-## Native verification
-
-Icon and native splash changes require a new native binary. Expo Go cannot show
-the final native splash: verify the launch screen in an installed release build.
-The [startup code](../../src/app/_layout.tsx) holds the splash until theme and
-profile loading finish and font loading either succeeds or reports an error.
-The root loads Comfortaa, Manrope, Font Awesome 6 and Ionicons before rendering the
-normal app.
-The splash artwork does not change daily layouts, the calendar, or logging
-placeholders; those are documented in [DESIGN.md](../../DESIGN.md).
-
-References: [Expo SDK 57 splash screen](https://docs.expo.dev/versions/v57.0.0/sdk/splash-screen/)
-and [Expo icons and splash guide](https://docs.expo.dev/develop/user-interface/splash-screen-and-app-icon/).
+References: [Expo SDK 57 splash screen](https://docs.expo.dev/versions/v57.0.0/sdk/splash-screen/), [icons and splash guide](https://docs.expo.dev/develop/user-interface/splash-screen-and-app-icon/).

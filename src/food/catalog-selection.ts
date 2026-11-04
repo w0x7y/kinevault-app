@@ -1,3 +1,4 @@
+import { pagedResults } from "../components/paging.ts";
 import { foodKey, foodPageSize, type CatalogFood } from "./catalog.ts";
 import type { CustomFood } from "./custom-model.ts";
 import type { FoodLogDocument } from "./log-model.ts";
@@ -67,29 +68,16 @@ export function createFoodSelection({
         purpose === "ingredient"
           ? ranked.filter((match) => match.food.per100g !== undefined)
           : ranked;
-      const total = eligible.length;
-      const pageCount = Math.ceil(total / foodPageSize);
-      const currentPage = Math.min(
-        Number.isFinite(page) ? Math.max(0, Math.floor(page)) : 0,
-        Math.max(0, pageCount - 1),
-      );
-      const rows: FoodSelectionRow[] = eligible
-        .slice(currentPage * foodPageSize, (currentPage + 1) * foodPageSize)
-        .map((match) => ({
-          food: match.food,
-          kind:
-            match.food.customId === undefined
-              ? "food"
-              : (saved.get(match.food.customId)?.kind ?? "food"),
-          genericMatch: match.genericDrink,
-        }));
-      return {
-        rows,
-        total,
-        page: currentPage,
-        pageCount,
-        exclusions: { volumeOnly: ranked.length - total },
-      };
+      const { items, ...paging } = pagedResults(eligible, page, foodPageSize);
+      const rows: FoodSelectionRow[] = items.map((match) => ({
+        food: match.food,
+        kind:
+          match.food.customId === undefined
+            ? "food"
+            : (saved.get(match.food.customId)?.kind ?? "food"),
+        genericMatch: match.genericDrink,
+      }));
+      return { rows, ...paging, exclusions: { volumeOnly: ranked.length - paging.total } };
     },
   };
 }

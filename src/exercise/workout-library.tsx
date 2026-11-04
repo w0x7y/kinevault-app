@@ -58,6 +58,14 @@ export function WorkoutLibrary({
                   onPress={() => onEdit(workout)}
                   disabled={busy}
                 />
+                <AppButton
+                  size="compact"
+                  icon="copy"
+                  label="Duplicate"
+                  accessibilityLabel={`Duplicate workout ${workout.name}`}
+                  onPress={() => void actions.duplicate(workout.id)}
+                  disabled={busy}
+                />
               </LibraryRow>
             </View>
           ))}

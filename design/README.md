@@ -1,38 +1,28 @@
 # Design previews
 
+Standalone HTML previews. They don't read or change app data. Run the servers from `Application/`.
+
 ## Profile layouts
 
-`profile-prototype.html` is a standalone comparison of three Profile layouts.
-Version 3, Personal journal, is the selected design and opens by default.
-Values and photo placeholders are illustrative. It does not
-read or modify app data. This records the initial layout exploration. Later
-production revisions use a Sunday-first streak week, inline name pencil,
-automatic earliest/latest Progress comparison, and a horizontal photo carousel;
-the prototype’s Edit profile and comparison controls are historical references.
-It also predates the October 2026 redesign, so its colors, Font Awesome icons and
-bottom bar are not the current look.
-
-From `Application/`, run:
+`profile-prototype.html` compares three Profile layouts. Version 3, Personal journal, is the chosen one and opens by default. Values and photos are placeholders. It predates the October 2026 redesign and later Profile changes, so its colors, icons, bottom bar, Edit profile and comparison controls are out of date.
 
 ```sh
 python3 -m http.server 8091 --bind 127.0.0.1
 ```
 
-Open `http://localhost:8091/design/profile-prototype.html` for Personal journal;
-use `?variant=all` to compare all three.
-Use the floating controls or arrow keys to switch layouts. Individual links use
-`?variant=A`, `?variant=B`, and `?variant=C`; add `&theme=dark` for dark mode.
-The chart metric/range controls, Journal tabs, and photo-comparison viewer are
-visual demos. Camera, editing, and logging actions do not change saved data.
+Open `http://localhost:8091/design/profile-prototype.html`.
+
+| Query          | Shows                     |
+| -------------- | ------------------------- |
+| `?variant=all` | All three layouts         |
+| `?variant=A`   | One layout: `A`, `B`, `C` |
+| `&theme=dark`  | Dark mode                 |
+
+Floating controls or the arrow keys switch layouts. Charts, Journal tabs and the photo viewer are visual demos.
 
 ## Branding
 
-`branding.html` previews the app's exported launcher icons and splash screens.
-It runs independently of the Expo app. Its phone and tile backgrounds use the same
-splash colors as `app.json`.
-
-From `Application/`, start a local server with the repository root available so
-the preview can load images and the installed Comfortaa font:
+`branding.html` previews the exported launcher icons and splash screens on the splash colors from `app.json`. Serving from `Application/` lets it load the images and the installed Comfortaa font.
 
 ```sh
 python3 -m http.server 8090
@@ -40,7 +30,4 @@ python3 -m http.server 8090
 
 Open `http://localhost:8090/design/branding.html`.
 
-The [branding guide](../assets/branding/README.md) records source artwork and
-regeneration. The [mascot guide](../assets/mascot/README.md) documents the current
-2D page poses, their mappings, and size limits. The app's layouts are documented
-in [DESIGN.md](../DESIGN.md).
+More: [branding guide](../assets/branding/README.md), [mascot guide](../assets/mascot/README.md), [DESIGN.md](../DESIGN.md).

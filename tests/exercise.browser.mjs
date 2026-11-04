@@ -2017,3 +2017,72 @@ test("a tile dragged into the end of the exercise bar scrolls it that way", asyn
     [...names.slice(1), "Squat"],
   );
 });
+
+test("the live workout's rest counts down and adjusts; a beaten lift shows a record; Duplicate copies a saved workout", async (t) => {
+  const set = (id, reps, weightKg) => ({ id, kind: "single", reps, weightKg });
+  const earlier = {
+    id: "earlier",
+    date: "2026-10-01",
+    name: "Leg day",
+    status: "completed",
+    startedAt: null,
+    durationSeconds: 1800,
+    exercises: [{ id: "earlier-row", exercise: single, sets: [set("earlier-set", "5", "100")] }],
+  };
+  const active = {
+    id: "running",
+    date,
+    name: "Leg day",
+    status: "active",
+    startedAt: time.getTime() - 60000,
+    durationSeconds: null,
+    exercises: [{ id: "squat-row", exercise: single, sets: [set("open", "", "")] }],
+  };
+  const page = await open(t, {
+    freeze: true,
+    document: {
+      ...empty(),
+      exercises: [single],
+      workouts: [{ id: "legs", name: "Leg day", exercises: [single], setCounts: { squat: 2 } }],
+      sessions: [earlier, active],
+    },
+  });
+  await button(page, "Open live workout").click();
+  const workout = page.getByTestId("active-workout");
+  await button(workout, "Start 1:30 rest").click();
+  await page.clock.runFor(30000);
+  await button(workout, "Stop rest, 1:00 left").waitFor();
+  await button(workout, "Lengthen rest by 15 seconds").click();
+  await button(workout, "Stop rest, 1:15 left").click();
+  // The length stays 1:45 for the next rest, on this device.
+  await button(workout, "Start 1:45 rest").waitFor();
+  assert.equal(
+    await page.evaluate(() => localStorage.getItem("kinevault-track.rest-seconds")),
+    "105",
+  );
+
+  // 120 kg × 5 beats 100 kg × 5 from October 1, so the day's card shows a record.
+  await field(workout, "Squat set 1 reps").fill("5");
+  await field(workout, "Squat set 1 weight (kg)").fill("120");
+  await button(workout, "End workout").click();
+  const card = page.getByTestId("exercise-workout");
+  await card
+    .getByLabel("Squat, New record, 120 kg for 5 reps, estimated one-rep max 140 kg", {
+      exact: true,
+    })
+    .waitFor();
+  await card.getByText("· est. 1RM 140 kg", { exact: true }).waitFor();
+
+  await button(page, "Saved workouts").click();
+  const menu = page.getByTestId("workout-library");
+  await button(menu, "Duplicate workout Leg day").click();
+  await button(menu, "Edit workout Leg day copy").waitFor();
+  const saved = await storedWhen(page, (document) => document.workouts.length === 2);
+  assert.deepEqual(
+    saved.workouts.map((workout) => [workout.name, workout.setCounts]),
+    [
+      ["Leg day", { squat: 2 }],
+      ["Leg day copy", { squat: 2 }],
+    ],
+  );
+});

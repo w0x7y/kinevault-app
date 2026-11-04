@@ -1,21 +1,9 @@
-# Language and measurement formats
+# Language and units
 
-The current interface is English and uses metric measurements. The user chose
-to keep that scope on October 8, 2026. Settings identifies these as the supported
-formats; it does not offer a language or unit selector.
+The interface is English and metric only, by choice (2026-10-08). Settings has no language or unit picker.
 
-Open Food Facts can return a product's original name in another language,
-including Hebrew. Source product names are user-reviewable food data, not an
-indication that the app interface has been translated. Keep that fallback so a
-Hebrew-labeled product can still be imported when it has no English name.
+Open Food Facts may return a product name in another language, such as Hebrew. Keep that fallback, so a product with no English name can still be imported. Don't infer the interface language from a product's language.
 
-Hebrew interface support is future work. Implement it as a complete interface
-feature: extracted message keys, Hebrew translations,
-locale-aware number/date formatting, and right-to-left layout. Check navigation,
-calendar order, charts, numeric inputs, mixed-language product names, text
-scaling, and screen-reader labels on native devices. Do not infer the interface
-language from the language of a scanned product.
+Hebrew support, when it comes, needs extracted message keys, translations, locale-aware numbers and dates, and right-to-left layout, tested on real devices.
 
-Imperial display units are also future work. Keep canonical persisted values in
-grams, kilograms, centimeters, and milliliters, and convert at display/input
-boundaries when a real preference is introduced.
+Imperial units, when they come, should convert only at display and input. Saved values stay in grams, kilograms, centimeters and milliliters.

@@ -3,7 +3,8 @@ import { AppText, Overline, Panel } from "../components/ui";
 import { ButtonRow, AppButton, IconButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
 import { spacing } from "../theme/tokens";
-import type { SessionExercise } from "./model";
+import { formatElapsed, type SessionExercise } from "./model";
+import { longestRest, restStep, shortestRest, type RestSnapshot } from "./rest-timer";
 import { useSnapshot } from "./use-exercise-tab-view";
 import type { WorkoutEdit } from "./workout-editing";
 import { InlineMessage } from "../components/inline-message";
@@ -40,6 +41,7 @@ export function SessionEditor({
     addResults,
     removing,
     shownClock,
+    rest,
     durationCaption,
     settingsOpen,
     detailsOpen,
@@ -102,6 +104,7 @@ export function SessionEditor({
             onPress={() => edit.change({ kind: "add-set", rowId: row.id })}
           />
         )}
+        {rest && <RestControl rest={rest} edit={edit} />}
       </>
     );
   }
@@ -345,5 +348,47 @@ export function SessionEditor({
         )}
       </ModalSheet>
     </Panel>
+  );
+}
+
+/**
+ * The Rest timer under the Active workout's sets: start or stop a rest, and make it 15 seconds
+ * shorter or longer. A running rest counts down in place of its length.
+ */
+function RestControl({ rest: { length, left }, edit }: { rest: RestSnapshot; edit: WorkoutEdit }) {
+  const running = left !== null;
+  return (
+    <View
+      testID="rest-timer"
+      style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}
+    >
+      <IconButton
+        appearance="secondary"
+        icon="minus"
+        label={`Shorten rest by ${restStep} seconds`}
+        disabled={length <= shortestRest}
+        onPress={() => edit.adjustRest(-restStep)}
+      />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <AppButton
+          fill
+          tone={running ? "primary" : "secondary"}
+          label={`Rest ${formatElapsed(running ? left : length)}`}
+          accessibilityLabel={
+            running
+              ? `Stop rest, ${formatElapsed(left)} left`
+              : `Start ${formatElapsed(length)} rest`
+          }
+          onPress={edit.toggleRest}
+        />
+      </View>
+      <IconButton
+        appearance="secondary"
+        icon="plus"
+        label={`Lengthen rest by ${restStep} seconds`}
+        disabled={length >= longestRest}
+        onPress={() => edit.adjustRest(restStep)}
+      />
+    </View>
   );
 }

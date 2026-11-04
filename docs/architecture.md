@@ -1,534 +1,224 @@
 # Track module ownership
 
-Domain terms live in [CONTEXT.md](../CONTEXT.md). This document records where
-current behavior belongs; the older design specs describe earlier increments.
+Which module owns each behavior, and the rule to keep when you change it. Terms are defined in [CONTEXT.md](../CONTEXT.md). This file describes today's code; the older design specs describe earlier increments.
 
 ## Accounts and entry
 
-The Account controller owns session restoration, request exclusion, recovery,
-email-delivery feedback and email-link completion. Its interface returns stable
-snapshots and account intentions. Supabase Auth and the Google sign-in browser
-(`openAuthSession`) are adapters injected when the controller is created, next to
-`redirectTo`, so tests exercise the same seam as the account screens. One Google
-browser runs at a time, and only a PKCE code it returns completes the sign-in. The account
-context passes the controller's actions on unchanged, without its lifecycle methods.
+| Module                               | Owns                                                                                                                                               |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/account/controller.ts`          | Session restore, sign-in, recovery, email delivery and email links. Supabase Auth and the Google browser (`openAuthSession`) are injected adapters |
+| `src/account/entry-policy.ts`        | `entryDecision`: whether a route renders, waits or redirects. Also reminder taps and where Onboarding exits                                        |
+| `src/account/management-attempts.ts` | Export and account deletion in Settings. See [account management](account-management.md)                                                           |
+| `src/navigation/track-tabs.ts`       | The tabs, the hidden Personal journal tab, Back, the Selected day and calendar, and the route requests                                             |
+| `src/onboarding/flow.ts`             | The Onboarding flow: validation, staged answers, navigation and save order                                                                         |
 
-The app retains one controller per stable auth adapter across root-layout remounts. Mounted providers attach and detach its lifecycle; request generations still retire abandoned work. Deletion feedback survives a remount, while a replacement identity clears the previous account's feedback.
+Sign-in:
 
-Server rendering does not create the app's Supabase client or its session refresh
-timers. The browser and native runtimes retain their existing client and refresh
-ownership.
+- Only a PKCE code completes a sign-in or email link. `parseAuthLink` (`src/account/auth-links.ts`) treats token-hash and session-token links as invalid, since they don't prove this device started the flow.
+- `completeAuthLink` is the only entry point.
+- One Google browser runs at a time. On iOS no callback screen runs after Google, so the controller drops the result itself (`oauthRedirectOpensCallback: false`).
+- Signing up with an email that already has a confirmed account shows an error that says to log in. This tells anyone whether an email has an account.
+- Resend stops after three confirmation emails, sign-up included, to one address in an hour on this device. Supabase's email rate limits are the server guard.
+- An identity change clears the previous owner's feedback and recovery. Only the active email-link result survives.
+- Server rendering doesn't create the Supabase client or its refresh timers.
 
-Signing up with an email that already has a confirmed account shows an error that
-says to log in: Auth sends no email then and returns a stand-in user without
-identities. This tells anyone whether an email has an account.
-Email verification feedback carries its purpose and normalized recipient. Screens
-do not infer a successful signup from arbitrary notice text or a mutable input.
-A confirmation delivery also counts its resends. Each successful resend publishes a new
-delivery, so its text survives a remount and changes with every send; Android and the
-web read it from the panel's live region, and iOS gets an announcement. Resend stops
-once three confirmation emails, sign-up included, went to an address in the past hour
-on this device (signing up again isn't blocked); Supabase's email rate limits are the
-server guard.
-An identity change invalidates request feedback and recovery from the prior owner.
-Only the active email-link result survives an owner replacement, allowing the
-callback screen to resume after the account-owned subtree changes. On iOS the Google
-browser session keeps its redirect and no callback screen runs, so the controller
-drops a finished Google result itself (`oauthRedirectOpensCallback: false`); Android
-also opens the callback route for that redirect and keeps the result for it.
-`completeAuthLink` is the only entry point: a cleaned callback URL that matches the
-retained link resumes its in-flight or settled result, while a URL that still carries
-a code, token or error is processed as a new link. Only a PKCE code completes a link:
-`parseAuthLink` reads token-hash and session-token links as invalid, because they
-carry no proof that this device started the flow.
+Entry and deletion:
 
-Account management attempts own Settings action exclusion, owner/caller lifetime, confirmation fields, export delivery and action feedback. The React adapter supplies current account/connectivity readings and platform delivery; rendering submits intentions. Rejected deletion feedback is scoped to its caller, while confirmed deletion and its notice remain with the auth owner. Account management owns logical export assembly and the authenticated deletion sequence. The `delete-account` Edge Function confirms the password or, for an account created with Google, a Google sign-in from the last 10 minutes, and allows five attempts per account an hour. Settings renders those intentions; file download/sharing and server requests are adapters. Deletion freezes the owner's storage before server work, then commits a tombstone and scoped cleanup after confirmed success. Session storage performs owner-conditional clearing so a delayed deletion cannot remove a replacement account. See [account management](account-management.md).
-
-The entry policy permits sign-in and email-link routes independently of Profile
-loading or failure. Once someone signs in on the sign-in screen, it waits for the
-account's first download like the guarded routes, so it never acts on the new
-account's empty Profile before setup answers from this device are imported. A signed-in Account with a damaged Profile sees Profile
-recovery and can log out without deleting its saved data. Tracking still requires
-an authenticated Account and a completed Profile.
-
-The entry policy module (`src/account/entry-policy.ts`) holds that rule. Its
-input is the route class (`auth` for the email-link and password-reset screens,
-`account` for sign-in, `onboarding`, `tracking`, `other`) and the Account, storage
-and Profile readings; its output is one decision:
-render, loading, wait, redirect, Profile recovery or storage failure. It also says
-whether a reminder tap waits, opens or is dropped, and where a saved Onboarding flow
-exits. The app evaluates the rule in layers because each layer's readings exist only
-below the one above it: AccountDataProvider (`sessionGate`, then `storageGate`), the
-root navigator (`navigatorGate`: theme, fonts, Profile) and each route
-(`routeDecision`). Those are adapters that render the
-decision through `EntryGate`; `entryDecision` composes the layers, and its unit test
-covers every route and reading combination.
-
-The Track tabs module (`src/navigation/track-tabs.ts`) owns the tab list, the hidden
-Personal journal tab after it and the navigator's `initialRoute` Back, so native Back
-returns Home and never selects the journal. It also decides which screens show the
-Selected day and calendar, the originating tab the journal's Back returns to, which
-header popover survives a route change, and the route requests (`workoutMenu`,
-`liveWorkout`, `workoutImport`, `section`): their builders, and the parsers
-`useRouteRequest` applies before a screen sees a value. The tab layout and the app
-header are adapters over it.
+- `entryDecision` composes the layers `sessionGate`, `storageGate`, `navigatorGate` and `routeDecision`, and `EntryGate` renders the result. Its unit test covers every route and reading combination.
+- Sign-in and email-link routes render whatever state the Profile is in. Tracking needs a signed-in Account and a completed Profile.
+- After sign-in, the sign-in screen waits for the account's first download, so it never acts on an empty Profile before this device's setup answers are imported.
+- A damaged Profile shows Profile recovery, which can log out without deleting saved data.
+- An Onboarding save that finishes after the route loses focus can't advance or navigate the flow.
+- Native Back returns Home, never the journal. `useRouteRequest` parses route requests (`workoutMenu`, `liveWorkout`, `workoutImport`, `section`) before a screen sees them.
+- The `delete-account` Edge Function confirms the password, or a Google sign-in from the last 10 minutes for a Google account. It allows five attempts per account an hour.
+- Deletion freezes the owner's storage before the server call and cleans up only after the server confirms. Session storage clears only for the same owner, so a late deletion can't remove a replacement account.
 
 ## Account tracking storage
 
-Account storage owns device namespaces, legacy onboarding import, durable pending
-saves, cloud revisions, deletion records, conflicts and synchronization lifecycle.
-Its interface exposes ordinary key-based reads and writes, synchronization
-intentions, snapshots and key-specific external-change subscriptions. Device
-storage and the Supabase document transport are adapters at this seam.
+| Module                                  | Owns                                                                                                               |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `src/account/storage.ts`                | Device namespaces, legacy onboarding import, pending saves, cloud revisions, deletion records, conflicts and sync  |
+| `src/account/tracking-documents.ts`     | The registry: every synced document once, with its storage key, parser and Settings name                           |
+| `src/persistence/document-provider.tsx` | `createDocumentProvider`: one store per account scope, subscription, start and stop                                |
+| `src/account/tracking-provider.tsx`     | `AccountTrackingProvider` mounts the documents the tabs read. `TrackingRefreshNotices` shows their refresh notices |
+| `src/account/history-partitions.ts`     | Monthly partitions behind food and exercise history. See [history storage](account-history-storage.md)             |
 
-The Account tracking document registry (`src/account/tracking-documents.ts`)
-lists every synced document once, with its storage key, parser and Settings name.
-Account storage, Cloud conflict names and the history partitions read keys from it
-or from the domain key constants it uses, so each key is written in one place.
-Each document's provider comes from `createDocumentProvider`, which owns store
-creation per account scope, subscription, start and stop, and the context guard.
-The tabs mount the documents they read through `AccountTrackingProvider`; Profile
-mounts above them with the account scope and its notice. `TrackingRefreshNotices`
-renders a map of refresh notices keyed by document key, typed so that every registered
-document except Profile needs one. A document whose cloud refresh failed refuses writes
-until that notice's retry reads it, so a missing notice would block saving.
+- Each storage key is written in one place: the registry or the domain key constant it uses. Changing a key orphans saved data.
+- Every registered document except Profile needs a notice in `TrackingRefreshNotices`; typecheck fails without it. A document whose cloud refresh failed refuses writes until that notice's retry reads it.
+- Downloads skip cloud rows with an unregistered key, such as a newer build's document, and cloud export keeps them unparsed. A registered key is strict: a bad revision or payload, or one its parser rejects, fails the whole download.
+- An edit queued behind a cloud replacement keeps the revision it was built on, so its upload becomes a Cloud conflict instead of overwriting the download.
+- Startup reads this device first. A completed local Profile opens the Account at once and syncs in the background. Anything else, an onboarding draft included, waits for the first sync.
+- Cloud sync notifies only the changed key, after it's durable. Don't remount tracking to reload it: a Water goal update would erase an unrelated Workout edit. Replacing the account does remount, for privacy.
+- The account scope removes its reconnect subscription before it stops storage.
+- Crash recovery sits outside the providers and remounts them without clearing saved records. See [resilience](resilience.md).
+- The telemetry SDK loads only when reporting is on in an app runtime. Don't import it from server rendering: its import-time timers keep rendered bundles alive.
+- Logged steps (`kinevault-track.steps-log.v1`) is a registered document. Builds from before it synced saved a bare document under the account's local prefix. Storage reads that as an unsynced edit, so it uploads on the next sync or becomes a Cloud conflict.
+- Phone steps never reach storage. `src/steps/device-steps.ts` reads them (Core Motion on iOS, Health Connect on Android, nothing on web) for the Selected day while Home shows it.
 
-Cloud rows are checked by key first. Downloads skip a row whose key isn't registered,
-such as a newer build's document, and the rest still sync. Cloud export keeps such a
-row unparsed as a cloud-only entry rather than drop it. A registered key stays strict:
-a bad revision or payload, or one its parser rejects, fails the whole download, and a
-save result for any other key is an error.
+To add a synced document:
 
-Adding a synced document means a domain key constant, a provider from the factory, one
-registry entry, its provider and refresh notice in `src/account/tracking-provider.tsx`
-(typecheck fails without the notice) and a reviewed migration that adds the key to
-`track_documents_allowed_key` (`scripts/track-documents-steps-log.test.mjs` fails
-without it). Builds installed before downloads skipped unknown keys fail every download
-once the cloud holds a key they don't know, so the rollout still needs every device
-updated (see [Logged steps sync](supabase-setup.md#logged-steps-sync)).
+1. Add a domain key constant and a provider from `createDocumentProvider`.
+2. Add one registry entry.
+3. Add its provider and refresh notice in `src/account/tracking-provider.tsx`.
+4. Write a reviewed migration that adds the key to `track_documents_allowed_key`. `scripts/track-documents-steps-log.test.mjs` fails without it.
+5. Plan the rollout. Builds from before downloads skipped unknown keys fail every download once the cloud holds a key they don't know, so every device needs the update. See [Logged steps sync](supabase-setup.md#logged-steps-sync).
 
-Logged steps (`kinevault-track.steps-log.v1`) are a registered document like
-Manual water. Builds before they synced saved a bare document under the account's
-local prefix; account storage reads one as an unsynced edit, so it uploads on the
-next sync or becomes a Cloud conflict if another device already saved steps.
-Phone steps never reach storage: `src/steps/device-steps.ts`
-(Core Motion on iOS, Health Connect on Android, nothing on web) is read for the
-Selected day while Home shows it.
+## Exercise
 
-Food and exercise history have physical monthly partitions behind that logical
-document interface. Local copy-on-write manifests publish a whole replacement
-only after its changed fragments are durable. The optional cloud transport
-commits changed fragments and one logical revision atomically. Providers keep
-their existing v1 documents and explicit conflict choices. Migration, rollout,
-and remaining full-history assembly costs are described in
-[history storage](account-history-storage.md).
+### Tab view
 
-Synchronization reserves its current operation before publishing feedback. A
-stopped lifecycle cannot start another adapter request or publish an abandoned
-request's result. Restarting does not wait for an abandoned network read; device
-mutations remain serialized because they cannot be canceled once started.
+`src/exercise/tab-view.ts` (`createExerciseTabView`) owns the tab's panel, query and focus, and the `workoutMenu`, `workoutImport` and `liveWorkout` route requests. It subscribes to the exercise store directly. `openLibrary` opens Saved workouts on the Selected day.
 
-Startup reads this device's documents first. If they hold a completed Profile, the
-Account opens at once and the first cloud sync runs in the background; otherwise,
-including an onboarding draft, entry waits for that sync. An edit queued behind a
-cloud replacement keeps the revision it was built on, so its upload becomes a Cloud
-conflict instead of overwriting the downloaded change.
+- Before a panel changes, it asks Workout edits to save the logs it leaves. It stays put if one can't save.
+- Its snapshot places every Workout log and panel. Compact cards stay on the tab; every other panel, the Active workout's page included, is a sheet. The route only switches on the page kind.
+- `activeWorkout` (`src/exercise/model.ts`) is the one lookup of the Active workout. The app header opens its page through `liveWorkout`.
 
-Cloud hydration notifies only the changed tracking key, after that value is
-durable. A failed upload after successful hydration still notifies the changed
-data. An unchanged sync emits no document refresh. Settings does not remount
-tracking to reload it, so a Water goal update cannot erase an unrelated Workout
-edit. Account replacement still remounts the owner scope for privacy.
+### Workout edits
 
-Connectivity owns reachability observations, while each account scope owns its
-reconnect retry subscription. It removes that subscription before stopping
-storage. Root crash recovery sits outside the providers and can remount them
-without clearing persisted records. Optional JavaScript reporting sanitizes
-errors independently of the recovery UI; see [resilience](resilience.md).
+`src/exercise/workout-editing.ts` (`createWorkoutEditing`) owns each Workout log's edit state: the selected exercise, disclosures, notes, edit mode with its Add exercise search, and pending row removals.
 
-The telemetry SDK loads only when reporting is enabled in an app runtime.
-Server rendering and disabled reporting do not import it: its import-time timers
-otherwise retain rendered bundles even without SDK initialization. Crash recovery
-remains independent of telemetry startup or capture failures.
+- `workoutLogControls` is the one table of the controls each log mode allows (Back, the main action, Discard, Start, Details, Link demo, Retry). The compact card and the editor render it.
+- `leave` saves first and stays put if the save fails.
+- Update and complete give the library only the notes that differ from the saved log's copy. Other saved logs keep their copy.
+- Exercise persistence returns saved, rejected with a reason, or unavailable. Edits and Library drafts show the reason and offer Retry only when nothing was written.
 
-## Editing and summaries
+Rules in `src/exercise/model.ts`:
 
-The Onboarding flow owns validation, staged answers, navigation and save ordering.
-Route focus starts and stops its lifecycle. A started durable save can finish after
-blur, but its result cannot advance the abandoned flow or navigate. Restarting
-keeps staged answers and excludes another save until the pending write settles.
+| Function               | Rule                                                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `parsePlannedSetCount` | Planned counts, for Workout edits and Workout templates                                                            |
+| `resizeSets`           | Changing a row's set count: cut from the end, add empty sets. Also for adding a saved workout to a day             |
+| `minutesText`          | Writes a duration as the minutes text that `durationMinutes` reads back                                            |
+| `setHints`             | Each blank set's Previous sets hint                                                                                |
+| `matchingExercises`    | Library search, given the typed query. `exerciseResultPage` is its page size                                       |
+| `exerciseHistoryKey`   | Which logs share a history: same Exercise definition and Tracking mode. For the Workout graph and Personal records |
 
-Catalog drafts own save validation, attempt feedback, write exclusion and retirement
-through the existing Custom food persistence interface. `catalogWriteState` is the one
-write rule for the drafts and the forms: Saving belongs to the session's own write, and a
-refresh, another write or an unloaded catalog only locks Save. Food and meal forms submit
-intentions and render the session snapshot. Retained drafts keep their own failure
-message across unrelated storage operations. A completed save cannot discard fields
-changed while it was pending, close a replacement editor or deliver its result to
-that editor. Save completion is delivered before retirement notifications can
-detach the submitting form. Successful deletion retires only the deleted item's
-retained edit; callers cannot bypass durability to retire an edit themselves.
-Catalog drafts receive the Custom food persistence when created and also own
-saved-item deletion feedback, scoped to the caller that requested it, and the Meal
-destination that Logging attempts read and write.
+### Set clock, ticker and Rest timer
 
-The Exercise tab view owns the tab's panel and the tokens that keep late results
-local to the panel they began on, follows the exercise store directly (it subscribes
-while started, so tests and the app use the same store), the query, focus and the `workoutMenu`,
-`workoutImport` and `liveWorkout` route requests, which it receives as intents.
-Workout edits and Library drafts reach the panel through its panel seam; before a
-panel changes, the view asks Workout edits to save the logs it leaves and stays put
-if one can't save. Its snapshot decides where every Workout log and panel goes: compact
-cards stay on the tab, and every other panel, the Active workout's page included, is
-a sheet with its title, back name and test ID. The sheet carries its page with the
-owner attached (the exercise or Workout template draft, the Saved workouts actions, the
-import flow or the Workout edit) and a `close` bound to its own panel, so the route only
-switches on the page kind. The snapshot also says whether the document is loaded and
-lists the library's exercises for search, and `openLibrary` opens Saved workouts on the
-Selected day. On the default view the Active
-workout is a Live workout card that opens its page; when that workout ends, the
-snapshot marks the day's card that replaces it to fade in. Workout edits open that page
-after a Start from the day, keep the edit when its back button leaves it (the
-`leave` action saves first and stays put if the save fails), and don't save a
-workout before opening its own page. `activeWorkout` in the exercise model is the one
-lookup of the Active workout. The app header reads the Active workout from
-the exercise store and opens the page through the `liveWorkout` route request. Workout edits own the selected exercise, the Details
-disclosure, the open notes and the planned-set settings disclosure, which reopens when a
-planned count is invalid, edit mode with its Add exercise search (the library before a
-search, a page of `exerciseResultPage` at a time) and the row whose removal awaits
-confirmation, with the question's wording, and
-the same log mode drives planned-count validation. The edit's snapshot carries that
-mode and the controls it allows from one table, `workoutLogControls`: whether Back
-leaves or cancels and its name, the main action (Save, complete, or on a compact card
-`manual`, which opens the manual page) and its label, Discard, Start,
-Details, the workout's name, Link demo, Retry and the overline; the compact card and the editor render them. The tab
-view keeps each log page's sheet title and test ID. The snapshot also resolves the row on screen, its
-Previous sets hints and the duration caption. The tab passes its view request in when it
-creates the edits, so an edit opens its own manual page and its "Link demo" trip, which
-returns to the workout's page. `parsePlannedSetCount` in the exercise model is the one planned-count
-rule for Workout edits and Workout templates. `resizeSets` there is the one rule for
-changing a row's set count (cut from the end, add empty sets), for planned counts and for
-adding a saved workout to a day; `minutesText` writes a duration as the minutes text the commands
-read back (`durationMinutes` on update and complete). `setHints` gives each blank set its
-Previous sets hint, and `matchingExercises` is the one library search rule; it takes the typed query.
-A log's update and complete commands give the library the notes the log edited: those that
-differ from the saved log's copy at write time. Other saved logs keep their own copy. An
-exercise created from Add exercise joins its workout through `addExercise` on the edits.
-`tracking.ts` owns what each Tracking mode means: its name and tag, the columns its set
-lines hold, its empty set, the blank rule, entering one value (`withSetValue`), the hint
-a set takes from another set in any mode, the measurements a completed set counts, and
-which seconds a Timed set's clock counts down from (`timedSeconds`).
-The set table renders a mode's columns and sends the edit field changes and, in edit mode,
-set additions and removals, never a set of its own; removing a set changes this log only, and Workout
-templates keep their planned counts. A set's `kind` is its exercise's mode, so the exercise model only checks
-that they match. Workout edits also own the Set clock, so it survives the table unmounting.
-Behind them, `set-clock.ts` owns the clock and its ticker, one clock per Workout log, reading
-the time and timer the edits are given (`clocks`). The ticker runs while a clock does and the
-tab is attached. It moves the snapshot's `shownClock` on each second and hands over a countdown
-that ran out. The edit logs it once it isn't busy, which buzzes (`onCountdownEnd`). The tab view hands every Workout log it shows its edit, compact cards
-included; an edit keeps one handle per origin, so a card's effects don't restart on each
-publish. The edit's snapshot leaves out the saved log and the selected row ID it keeps
-inside.
-`short-name.ts` owns both row labels: the accessible "Squat exercise 2" and the chip label
-(at most three characters; the bar shows the row's number above it). `WorkoutWorkspace` is
-the page of a Workout edit and a Workout template draft alike: the exercise bar and, for the
-row on screen, its heading, notes toggle, notes (a field in edit mode) and demo. The exercise
-bar (`exercise-bar.tsx`) owns the chips, their edge fades and edit mode's tiles: the wiggle, the
-remove badge, press-and-hold drag with its scrolling at either end, and the add tile; it
-reports removals, moves and Add to the caller. It pins Back and Next on top of the
-caller's main action under the sheet's page, and the caller's `trailing` control to the
-header's right (`useSheetControls`); the caller draws the row's sets or planned count, and
-gives it the rows Back and Next show. `workspace-page.ts` holds the page rules both callers
-share, while each keeps the state in its own entry: the row on screen is the selected one or
-else the first, it stays on screen when rows move, and a new library search starts on its
-first page, with Show more adding a page of `exerciseResultPage`. The tab's search pages by
-that size too. Library drafts own Exercise
-definition (including its KineVault search, where linking or unlinking a demo changes the
-fields and the search in one step), Workout template (including its selected
-exercise, builder disclosure, search and its results, result limit and open notes), Saved workouts
-(its templates and the menu day's logs) and
-Workout import state per panel, so the sheet can unmount when the tab
-loses focus without losing input; their durable success closes the originating
-panel through the same panel seam as Workout edits. Exercise persistence returns
-each write's outcome: saved with its value, rejected with its command's reason, or
-unavailable when storage failed, a refresh blocked it or the document isn't loaded.
-Workout edits and Library drafts show that reason after their own lead ("Couldn't
-start.") and offer a retry only when nothing was written. A Workout template draft checks
-only its planned counts; the save command's reason covers a missing name or exercise. The sheet page owns its
-header overrides and scroll positioning: pages claim the back button with
-`useSheetBack`, request a scroll target with `useSheetScrollTarget`, and a new
-`page` starts at the top. A page can replace its centered title with `center`, as
-the live workout does with its timer.
+Workout edits own all three, so they survive the set table unmounting.
 
-Demo link (`src/exercise/demo/demo-link.ts`) picks the demo a template or log
-exercise shows (the library's current link, else the saved copy's), turns catalog and
-clip readings into one status, and maps that status to its notice and the Retry target
-(`demoNotice`: the catalog or the clip). It also holds the player's attempt state as a
-reducer (`demoPlayback`): poster, starting and playing; a start timeout fails only a
-clip that never started, and losing focus returns it to the poster. `exercise-demo.tsx`
-keeps the expo-video adapter, focus and timers. The exercise form's KineVault search is a
-second reducer (`demoPicker`): the query, whether a linked demo is being changed, and the
-control that takes focus after Change, Keep, Unlink or a chosen result; `demoSearchStatus`
-words its status line. The exercise draft holds that state; `demo-picker.tsx` renders it.
+| File                                | Owns                                                                                                                    |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `set-clock.ts` (`createSetClock`)   | One clock per Workout log. Moves the snapshot's `shownClock` each second                                                |
+| `ticker.ts` (`createTicker`)        | The time and the one 250 ms timer. It runs while a clock or rest holds a tick and the tab is attached (`start`, `stop`) |
+| `rest-timer.ts` (`createRestTimer`) | The one Rest timer. Its length persists through `restLength`, a device AsyncStorage key                                 |
 
-The Food tab view owns the Food tab's query, its page over the log and the owners
-behind that page (a Logging attempt, a Product import flow). Catalog views
-(creation, resumed drafts, import, a created item, an open catalog editor) survive
-a day change and follow the new day; other views return to the new day's log and
-reset the Meal destination. Leaving the tab hides the page without discarding it:
-the scanner closes, a pending lookup is interrupted, and saves that finish while
-hidden still route their page. It also owns removing a Logged food entry: one open
-confirmation, the removal, and its failure. From confirmation until the write settles, the
-entry's fade included, the removal counts as a write, so other entries, search and resuming
-stay locked. A logged entry's details and Daily macros show only over a loaded food log.
-It keeps the known entry ids per Selected day and publishes the fresh ones, which rise into
-their meal: entries logged while the food log shows, or from a search covering it once the
-log shows again. Entries found on first load or after a day change, or logged while the tab
-was away, aren't fresh. Fresh entries settle after the render that shows them, so their
-meal card rejoins later reflows. It also publishes whether the Custom food status shows and
-the food log's write error. The route keeps the AppState adapter that feeds the view's
-presence, scroll and keyboard effects, and the entry's fade.
+- A finished countdown or rest buzzes through `onCountdownEnd`. The edit logs a finished countdown once it isn't busy.
+- Only the Active workout's snapshot carries `rest`, driven by `toggleRest` and `adjustRest`. A document without an Active workout stops it quietly.
 
-Catalog selection's logging search takes the food log document and ranks foods logged on
-any day first, counting once per document. Search results render its rows and pager.
+### Workout page
 
-A Logging attempt is built from the food-log persistence, the Custom food
-persistence and the Meal destination. It derives whether it can submit from them
-and follows the live saved item; only its own pending write reads as saving, and
-a save started during a food-log refresh waits for the refresh, then writes the
-preparation that is current at that point, since the day or food may have changed.
-It also owns how a solid food's amount is entered: by Weight, or by Servings when an added
-gram food has portions (`setAmountBy`, `setServings`, `choosePortion`). Its snapshot's
-`amount` carries the mode, the serving chips with the chosen one and the "each = total"
-caption; counting servings only computes grams, and the entry still saves grams.
-`isFoodGrams` in `src/food/catalog.ts` is the one solid-amount rule (more than 0, up to
-10,000 g) for typed amounts, Logged food, Custom food servings and Custom meal ingredients
-and totals, as `isDrinkMl` is for drinks.
+| File                            | Owns                                                                                                                         |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `workout-workspace.tsx`         | `WorkoutWorkspace`, the page for both a Workout edit and a Workout template draft                                            |
+| `exercise-bar.tsx`              | Chips and edit mode tiles: remove badge, drag and add. Pins Back and Next over the caller's main action (`useSheetControls`) |
+| `workspace-page.ts`             | Shared page rules: the row on screen is the selected one or the first, and stays on screen when rows move                    |
+| `short-name.ts`                 | Row labels: the accessible "Squat exercise 2" and the chip label (three characters at most)                                  |
+| `src/components/sheet-page.tsx` | Header overrides and scroll: `useSheetBack`, `useSheetScrollTarget`, `center`. A new `page` starts at the top                |
 
-Daily activity (`src/daily/activity.ts`) reads one day from every saved source: the
-food log, Manual water and the Water goal, workouts, and Phone steps plus Logged steps.
-Each source reports its own availability and retry, and the activity owns the Home Steps,
-Water and Workout tile wording (Workout covers loading, error, empty, live and done, plus
-the Exercise title's one-line summary), so Home, Exercise and the Personal journal read it
-instead of the providers.
-It also computes the day's nutrition progress beside its targets (eaten, left or over,
-percentage and each macro's share of the calorie ring, rounded to whole kcal and grams to
-one decimal) and writes the figures the screens show ("eaten / target unit", the Food
-title and the ring's left, over or eaten caption), so the Home ring and macros, the Food
-title, Daily macros and the journal only draw it. A missing calorie or macro target shows as "—" and is read as "unset", and
-"Set your goals" is one link that pages close before following. While the food log isn't
-loaded, `unavailableNutrition` gives the journal each target against an unavailable figure,
-and the water total carries the journal's figure and label too, so it builds no figures of
-its own.
-`useDayActivity` is its React adapter; only Home asks it to read Phone steps. The journal's
-streak comes from the same activity and is counted once per change of its sources.
-`phoneStepsKind` (`src/steps/summary.ts`) is the one classification of the phone's reading:
-counted, loading, error, connect, denied, install or unavailable. The Home Steps tile and the
-steps sheet's `phoneStepsStatus` each word it in an exhaustive switch, so a new access value
-fails typecheck in both.
+### Library drafts
 
-Completed Workout totals derive from persisted Workout sessions and their valid
-sets. The Exercise summary (`src/exercise/summary.ts`) owns the completed workout's
-type and reads each set through `setMeasurements`; Daily activity words its exercise
-rows (counts and the weight or time) and the detailed card's line under the total ("4
-exercises · 10 reps per set on average", with no average on a Timed-only day), so the
-Workout card only lays them out. Daily
-activity and test fixtures use the same Exercise summary interface; there is no
-separate workout interpreter or fixture-only measurement model.
+`src/exercise/library-drafts.ts` keeps per-panel state for Exercise definition (with its KineVault demo search), Workout template, Saved workouts and Workout import. The sheet can unmount when the tab loses focus without losing input. A durable save closes the panel it came from.
 
-`workoutGraph` (`src/profile/activity.ts`) returns the weeks the Workout graph draws:
-weekly buckets ending today, the exercise options with the resolved selection, the
-latest week and the pending message (fewer than two weeks with measurements);
-`workoutWeekLabel` captions a selected week. `workout-chart.tsx` only scales the axes,
-draws and maps touches.
+- A Workout template draft checks only planned counts. The save command's reason covers a missing name or exercise.
+- `duplicateWorkout` names the copy and places it after the original. Linking or unlinking a demo changes the fields and the search in one step.
 
-Barcode lookup owns provider validation, cancellation, request budgets and its
-bounded cache. Responses are limited to 1 MiB of UTF-8 data before JSON parsing
-or caching. Web streams stop reading and cancel when oversized or abandoned.
-Native fetch buffers internally; its fallback checks decoded response size
-before parsing, so the limit does not bound native transport buffering.
+### Tracking modes
 
-Food catalogs retain their original membership and build the search index once,
-on the first eligible query. Construction, food-by-ID lookup and empty queries
-do not tokenize the catalog or build an index during server rendering.
+`src/exercise/tracking.ts` owns what each Tracking mode means: its columns, empty set, blank rule, `withSetValue`, hints, what a completed set counts (`setMeasurements`) and a Timed set's countdown (`timedSeconds`).
 
-## Durable domain documents
+- The set table renders a mode's columns and sends changes. It never builds a set itself. Removing a set changes this log only; Workout templates keep their planned counts.
+- A set's `kind` is its exercise's mode. The model only checks they match.
 
-Profile, Exercise, Food log, Custom foods, Manual water, Logged steps, Water goal
-and Reminders persistence share the durable-write module's lifecycle. Their own modules retain validation,
-mutations and domain-specific results. Callers do not coordinate storage ordering,
-write exclusion, subscriber cancellation or stale read generations themselves.
+### Demos
 
-Optional key-specific subscriptions refresh the relevant durable document through
-the same interface. A notification during a write is deferred until the write
-settles. Draft owners remain mounted and merge their chosen fields into the latest
-saved document when the user saves. Tests cross the domain interface instead of
-depending on private lifecycle state.
+`src/exercise/demo/demo-link.ts` picks the demo (the library's current link, else the saved copy's) and turns catalog and clip readings into one notice and Retry target (`demoNotice`). It also holds the reducers `demoPlayback` (the player) and `demoPicker` (the KineVault search). `exercise-demo.tsx` is the expo-video adapter; `demo-picker.tsx` renders the picker.
 
-Manual water and Logged steps are both day amount documents (`{ version: 1, days:
-{ date: amount } }`, a whole amount from zero per date) built from
-`src/persistence/day-amount-log.ts`. It owns their parsing, the durable
-`set({ date, amount })` that replaces one date's amount, and the edit whose `adjust`
-keeps the draft between zero and the safe maximum. `DayAmountSheet`
-(`src/persistence/day-amount-sheet.tsx`) is the one entry sheet for both; the steps sheet
-adds its phone panel, whose status, count and offered fix `phoneStepsStatus` decides. Each
-domain keeps its own storage key, parser and messages.
+### Summary and Personal records
 
-`stepFields` in `src/profile/answers.ts` is the one map of which Answers fields each step
-owns. The Onboarding flow uses it to decide which errors block Continue; focused Profile
-edits use it to split errors between the section's Question and the editor's inline
-messages, and to save only the section's fields (Body also applies the estimate policy). `answerSummary` beside it writes each answer as one line ("Not set" while
-unanswered) for the journal's Details & goals rows, its section chooser and the Onboarding
-review. `isCalorieTarget` in `src/profile/calories.ts` is the one calorie-target range
-(whole kcal from 1,200 to 10,000) for the estimate, a custom target and the macro targets.
-Answers require age 18 or older, so there is no separate under-18 calorie path.
+| File                      | Owns                                                                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/exercise/summary.ts` | `summarizeSessions`: Completed workout totals from saved sessions and valid sets, with each exercise's `record`                      |
+| `src/exercise/records.ts` | `personalRecords`: a day's records, from Completed workouts in date and document order. `estimatedOneRepMax` is the one Epley rule   |
+| `src/profile/activity.ts` | `workoutGraph`: weekly buckets ending today and the pending message (fewer than two weeks with data). `workout-chart.tsx` only draws |
 
-Manual water, Logged steps, Water goal and focused Profile edits share the
-document-edit module.
-It owns the draft's seeding (fill once or follow until typed), save exclusion,
-write reservation before observers run, stale-completion handling,
-persistence-failure feedback and load state with retry. Domains supply the seed,
-the draft parser (section merge for Profile) and the write command. Editors read
-load state and retry from the edit; one React adapter mounts every edit.
-Body-weight and Profile media edits keep their own modules: their attempts open and
-close by command, and media has a separate two-phase lifecycle.
+- Daily activity and test fixtures use the same summary interface. Don't add a separate workout interpreter or a fixture-only measurement model.
 
-External refresh keeps the last ready document visible while validating its
-replacement. A failed refresh carries a typed `refreshError` and retry action,
-retains draft owners, and blocks stale writes until a valid replacement is read.
-Normal save failures remain separate from failed refreshes. The durable snapshot
-reports `refreshing` while a background refresh validates; `saving` still excludes
-writes during it, and editors label "Saving…" only for a running write.
+## Food
 
-Body-weight entries are optional history within the existing Profile document. The weight model owns dated entry validation and trend coordinates; the body-weight edit module owns raw drafts, validation, replacement guidance and save/delete feedback. The journal renders that snapshot, and Profile persistence owns durable mutations. Leaving the journal retires its edit; an older completion cannot change a replacement edit. Logging a measurement preserves goal answers and does not recalculate calorie or macro targets.
+| Module                          | Owns                                                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `src/food/tab-view.ts`          | `createFoodTabView`: the query, the page over the log and its owners, and removing a Logged food entry |
+| `src/food/logging-attempt.ts`   | The Logging attempt: whether it can submit, its saving state and amount entry                          |
+| `src/food/catalog-drafts.ts`    | Custom food and meal drafts: validation, feedback, write exclusion and the Meal destination            |
+| `src/food/catalog-selection.ts` | The logging search                                                                                     |
+| `src/food/product-provider.ts`  | Barcode lookup: validation, cancellation, request budgets and a bounded cache                          |
 
-Profile media keeps its own module: importing an image, committing its metadata
-and cleaning up owned files is a distinct two-phase workflow. The media ownership module interprets metadata and ownership ledgers once for reservation, retirement and confirmed Account cleanup. Account storage supplies immutable namespaces, its local transaction gate and freeze/drain coordination; persistence uses the required ownership interface instead of a separate fallback policy. It shares Account
-privacy but does not synchronize image files. Cancellation is checked before
-starting adapter work, and committed metadata keeps its owned image after a
-lifecycle change.
+- Catalog views survive a day change. Other views return to the new day's log and reset the Meal destination.
+- Leaving the tab hides the page without discarding it. Saves that finish while hidden still route their page.
+- Removing an entry counts as a write from confirmation until it settles, fade included. Other entries, search and resuming stay locked.
+- Entries logged while the log shows, or from a search over it, are fresh and rise into their meal. Entry details and Daily macros show only over a loaded food log.
+- `catalogWriteState` is the one write rule for drafts and forms. Saving means the session's own write; a refresh, another write or an unloaded catalog only locks Save.
+- A completed save never discards fields changed while it was pending and never reaches a replacement editor. Deleting an item retires only its own retained edit.
+- A Logging attempt shows saving only for its own write. A save started during a food-log refresh waits, then writes the preparation that's current at that point. Servings (`setAmountBy`, `setServings`, `choosePortion`) only compute grams; the entry still saves grams.
+- `isFoodGrams` (`src/food/catalog.ts`: more than 0, up to 10,000 g) is the one solid-amount rule. `isDrinkMl` is the drink rule.
+- The logging search ranks foods logged on any day first, counting once per document, and pages them with `pagedResults`.
+- Barcode responses are capped at 1 MiB before parsing or caching. On native, the fallback checks the decoded size, so the cap doesn't bound native transport buffering.
+- The food catalog builds its search index once, on the first real query. Construction, lookup by ID and empty queries don't build it, so server rendering never does.
 
-The Profile media edit owns picker state, shared persistence readiness and busy
-state, and feedback for its current save attempt. Avatar and Progress photo
-callers render that snapshot. Canceling or replacing an edit does not carry an
-earlier durable failure into the new editor.
+## Daily activity
 
-This ownership gives locality to lifecycle fixes and leverage to all document
-callers without adding another public abstraction layer.
+`src/daily/activity.ts` reads one day from every source: the food log, Manual water and the Water goal, workouts, Phone steps and Logged steps. Each source reports its own availability and retry. Home, Exercise and the Personal journal read it, not the providers. `useDayActivity` is its React adapter; only Home asks it for Phone steps.
+
+- It owns the wording of the Home Steps, Water and Workout tiles, the Exercise title's summary and the Workout card's rows and records.
+- It computes nutrition progress against the targets (whole kcal, grams to one decimal) and writes the figures. Screens only draw them.
+- A missing target shows "—" and reads "unset". "Set your goals" is one link, and pages close before following it.
+- While the food log isn't loaded, `unavailableNutrition` gives the journal its figures. The journal's streak comes from the same activity.
+- `phoneStepsKind` (`src/steps/summary.ts`) classifies the phone's reading: counted, loading, error, connect, denied, install or unavailable. The Home Steps tile and `phoneStepsStatus` word it in exhaustive switches, so a new value fails typecheck in both.
+
+## Durable documents and edits
+
+| Module                                 | Owns                                                                                                                    |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `src/persistence/durable-write.ts`     | `createDurableWrite`: the write lifecycle for every durable document                                                    |
+| `src/persistence/document-edit.ts`     | `createDocumentEdit`: draft seeding, save exclusion, stale completions, failure feedback, load state and retry          |
+| `src/persistence/day-amount-log.ts`    | Manual water and Logged steps (`{ version: 1, days: { date: amount } }`): parsing, `set({ date, amount })` and the edit |
+| `src/persistence/day-amount-sheet.tsx` | `DayAmountSheet`, the entry sheet for both. The steps sheet adds its phone panel                                        |
+| `src/profile/answers.ts`               | `stepFields`: which Answers fields each step owns. `answerSummary`: one line per answer                                 |
+| `src/profile/calories.ts`              | `isCalorieTarget`: whole kcal from 1,200 to 10,000. Answers require age 18 or older                                     |
+
+- `createDurableWrite` serves Profile, Exercise, Food log, Custom foods, Manual water, Logged steps, Water goal and Reminders. Domain modules keep their validation, mutations and results. Callers don't coordinate storage order, write exclusion or stale reads.
+- A notification during a write waits until the write settles. Drafts merge their fields into the latest saved document on save.
+- A refresh keeps the last ready document visible while it validates the replacement. A failed refresh carries `refreshError` and a retry, keeps drafts, and blocks writes until a valid replacement is read. `refreshing` is separate from `saving`; editors show "Saving…" only for a running write.
+- `createDocumentEdit` serves Manual water, Logged steps, Water goal and focused Profile edits. `use-document-edit.ts` is its one React adapter.
+- A day amount edit's `adjust` keeps the draft between zero and the safe maximum. Each domain keeps its own storage key, parser and messages.
+- Body weight lives in the Profile document, edited through `src/profile/weight-editing.ts`. Logging a measurement keeps goal answers and doesn't recalculate calorie or macro targets.
+- Profile media (`src/profile/media-editing.ts`) is two-phase: import the image, then commit its metadata. Image files don't sync. Committed metadata keeps its image after a lifecycle change.
 
 ## Shared controls
 
-Every pressable control is a Tappable. It owns the accessible role, name and
-state, the keyboard-only focus ring, the pressed state with its one press
-feedback (a 0.97 scale that reduced motion drops, or the accent fill for rows and
-links), the single disabled fade (`disabledOpacity`, which SegmentedControl also applies
-to its raised fill) and the 44 pt minimum target; callers only draw
-the control. AppButton is the one button on top of it, with a tone (primary,
-secondary, danger, destructive, link) and a size (regular, compact, small).
-DeleteButton is the one delete control (button, pill or icon) and arms, then
-confirms, on the same node. There are no area-specific button variants.
+| Control                        | File in `src/components`           | Use it for                                                                                                  |
+| ------------------------------ | ---------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Tappable                       | `tappable.tsx`                     | Every pressable. Owns role, name, state, focus ring, press feedback, `disabledOpacity` and the 44 pt target |
+| AppButton, IconButton          | `button.tsx`                       | Buttons. No area-specific variants                                                                          |
+| DeleteButton                   | `delete-button.tsx`                | Deleting. Arms, then confirms, on the same node                                                             |
+| SegmentedControl               | `segmented-control.tsx`            | An exclusive choice between a few options                                                                   |
+| Chip                           | `chip.tsx`                         | Pill choices: a button, radio or checkbox                                                                   |
+| TextField                      | `text-field.tsx`                   | Every text field, with `aria-invalid` and exactly one alert for its error                                   |
+| InlineMessage                  | `inline-message.tsx`               | Feedback next to a control                                                                                  |
+| LoadFailure                    | `load-failure.tsx`                 | A source that couldn't be read: one alert and a Retry                                                       |
+| ModalSheet                     | `modal-sheet.tsx`                  | Small modal tasks. A bottom sheet on phones, a dialog on wide windows                                       |
+| SheetPage                      | `sheet-page.tsx`                   | Flows that leave the day view. Nested pages take over its header                                            |
+| Stepper                        | `stepper.tsx`                      | The round ± for water and steps                                                                             |
+| `usePopover`, `PopoverSurface` | `popover.tsx`                      | Popover dismissal, and its surface and entrance                                                             |
+| Screen                         | `ui.tsx`                           | A tab's scrolling page. Scrolls to the top on a tab switch, not when a page opens over it                   |
+| `pagedResults`, ResultPager    | `paging.ts`, `result-pager.tsx`    | Search results a page at a time                                                                             |
+| IconWell, ViewHeader           | `icon-well.tsx`, `view-header.tsx` | Leading icons in rows and cards; a sub-view's title block                                                   |
+| Motion                         | `motion.tsx`                       | `MotionProvider`, `useReducedMotion`, the shared curves and durations                                       |
 
-An exclusive choice between a few options is a SegmentedControl. Callers give a
-group label, the options (value, label, optional short label and icon), the value
-and onChange, and pick what assistive technology hears: pressed-state buttons, a
-radio group or tabs. The control owns the sunken track, the raised fill that
-slides to the chosen option and its reduced-motion fallback, short labels on
-narrow tracks and each segment's Tappable behavior. The floating tab bar reuses its
-`Indicator` for the one highlight that slides between tabs (`FloatingTabBar` in
-`src/app/(tabs)/_layout.tsx`); the active route's icon measures itself into the bar
-through the `TabHighlight` context, there is no highlight while Profile shows, and under
-reduced motion or before measuring each icon draws its own fill. Pill choices (meal and serving
-pills, reminder days and kinds, a workout's exercise chips) are Chips: a button,
-radio or checkbox whose fill eases in when chosen, with an optional `caption` line above
-the label and a `minWidth` that keeps a row of short labels one size.
-
-`Screen` (`src/components/ui.tsx`) is a tab's scrolling page. It scrolls back to the top
-when you switch to another tab, but not when a page opens over the tabs, and hands its
-ScrollView to callers through `scrollRef`.
-
-Every text field is a TextField. It owns the label and accessible name, the
-sunken surface with its focused and invalid looks, the keyboard and autofill for
-its kind, length limits, the unit suffix, optional numeric filtering and invalid
-semantics: `aria-invalid` and exactly one alert for its error. Feedback next to a
-control is an InlineMessage (an error alert, or a success or info status). A
-source that could not be read shows a LoadFailure: its message as one alert and a
-Retry that stays busy until the retry settles. Only the exercise set cell, the
-search boxes and the Profile name field draw their own inputs.
-
-Small modal tasks (editing water, logging steps, the profile photo, progress
-photos, weight entries, the details chooser) are ModalSheets: a bottom sheet on phones and a
-centered dialog on wider windows. The caller only says whether it is open. The
-sheet owns the backdrop, the entrance, the exit for every way of closing (holding
-the last content while it leaves), reduced motion, Escape and Android Back, and
-moving focus in and back out on web. A caller that acts after the sheet has gone,
-such as opening a picker, does it in `onClosed`. Flows that leave the day view
-are SheetPages: a full page with a back-button header, whose nested pages take
-over its header instead of stacking another sheet. The water and steps entries
-share the round ± Stepper (`src/components/stepper.tsx`), whose accessible name
-carries the amount and unit.
-
-Popovers (the header calendar, the profile menu and the journal's choice lists)
-use `usePopover` for dismissal: Escape returns focus to the trigger, Android Back
-closes, and light-dismiss popovers also close on an outside press or when focus
-leaves. They draw on `PopoverSurface`, which owns the raised surface, the one
-popover shadow and the entrance. The journal's choice lists also close when their
-tab loses focus, so their listeners don't outlive the screen.
-
-The only raw Pressables left are the error screen's Reload button, which renders
-outside the theme, and tap areas that are deliberately not accessible (the header
-title area and popover backdrops). A Tappable with `href` is a route link, an
-anchor on web. Leading icons in rows and cards sit in an IconWell (regular for
-rows, large for a card's lead), and a sub-view's title block is a ViewHeader.
-`motion.tsx` keeps the motion policy (MotionProvider, useReducedMotion), the
-shared curves and durations, and the entrance, layout, progress and step helpers.
-
-## Verification
-
-The October 17, 2026 final check removed unused props (AppButton `iconPlacement`,
-Icon `solid`, FoodLogStatus `fill` and `testIDPrefix` on the Home calorie and
-nutrition widgets) and exported `disabledOpacity` for SegmentedControl. In the same
-pass, food logging writes the current preparation after waiting for a food-log
-refresh, the workout settings disclosure toggles and reopens on a count error, the
-live timer ticks on whole seconds and its accessibility label includes the time,
-food entries stay disabled while another entry's removal fade runs, and Settings
-shows account action errors in one place. All 1160 unit tests passed. The
-full browser run had 206 passes, one skip and one profile-menu failure; reverting
-the change that caused it fixed it, and that file then passed 7/7.
-
-The October 16, 2026 architecture pass (tab views, Logging attempt, Catalog and
-Library drafts, document edits, shared controls and the Account tracking document
-registry) passed lint, formatting, TypeScript, all 1158 unit and script tests and
-207 browser tests, with one optional screenshot case skipped. One earlier full
-run had a single water-goal layout check fail under load; it passed alone, in
-two parallel runs of its file and in the next full run.
-
-The [October 9 final-check record](final-check-2026-10-09-ui.md) covers the complete
-UI diff and repository security review, including the barcode response limit,
-its regressions, current dependency advisories and final verification.
-
-The October 9, 2026 control follow-up passed lint, formatting, TypeScript, all
-874 unit/script tests and 169 browser tests, with one optional screenshot case
-skipped. Web, iOS and Android exports succeeded. Regressions cover chart-menu
-blur, Back/Escape dismissal, outside focus/pointer dismissal, keyboard activation
-and disclosure state through the real Profile and Workout screens. Native
-exports verify bundling; the Back regression uses the browser's injected event
-adapter rather than an installed device.
-
-The October 8, 2026 implementation concentrates Profile media ownership,
-Account management attempts and body-weight editing. See the
-[final-check record](final-check-2026-10-08-architecture.md) for review coverage,
-regression fixes and remaining release gates, and [TODO.md](../TODO.md) for the
-latest integrated results.
-
-The October 5, 2026 architecture follow-up passed TypeScript, all 739 automated
-unit and script tests, and 159 browser tests. One optional screenshot export case
-was skipped. Expo Doctor passed all 21 checks. Web, iOS and Android exports
-succeeded; native exports verify bundling, not installed-device behavior.
-
-Regressions cover stopped and reentrant lifecycles, stale account and recovery
-results, email confirmation after a screen remount, damaged Profile access and
-reset, partial sync failure, external refresh retries, and retained Workout,
-Profile and Water goal drafts. New regressions cover abandoned Onboarding saves,
-media error isolation, Catalog validation and save ownership, and persisted
-Workout summaries. Browser tests use the real screens with injected account
-transport fixtures. This follow-up did not change the remote schema.
+- Raw `Pressable` is allowed only for the error screen's Reload button, which renders outside the theme, and for tap areas that are deliberately not accessible: the header title area and popover backdrops.
+- A Tappable with `href` is a route link. Only the exercise set cell, the search boxes and the Profile name field draw their own inputs.
+- A ModalSheet caller only says whether it's open. Anything that runs after the sheet is gone, such as opening a picker, goes in `onClosed`.
+- `pagedResults` clamps the page, so a list that shrinks under its pager shows its last page. A screen resets the page by remounting on a new query. The ingredient search keeps its own compact pager.
+- Popovers: Escape returns focus to the trigger and Android Back closes. Light-dismiss popovers also close on an outside press or when focus leaves. The journal's choice lists close when their tab loses focus.
+- The floating tab bar (`FloatingTabBar` in `src/app/(tabs)/_layout.tsx`) reuses SegmentedControl's `Indicator` for its sliding highlight.

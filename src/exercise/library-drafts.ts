@@ -74,6 +74,7 @@ type Store = Pick<
   | "removeExercise"
   | "saveWorkout"
   | "removeWorkout"
+  | "duplicateWorkout"
   | "planWorkout"
   | "removeSession"
   | "importWorkoutPlan"
@@ -133,6 +134,7 @@ const failures = {
   saveWorkout: ["Couldn't save.", "Try again; your fields are still here."],
   removeWorkout: ["Couldn't delete this workout.", "Try again."],
   plan: ["Couldn't add this workout.", "Try again."],
+  duplicate: ["Couldn't duplicate this workout.", "Try again."],
   removeLog: ["Couldn't delete this workout.", "Try again."],
 } as const;
 
@@ -371,6 +373,14 @@ export function createLibraryDrafts({
             () => store.planWorkout({ date, workoutId }),
             failures.plan,
             (id) => panels.replaceView(token, { kind: "session", id }),
+          ),
+        /** Saves a copy of the template under the original; the menu stays open. */
+        duplicate: (workoutId: string) =>
+          attempt(
+            entry,
+            () => store.duplicateWorkout(workoutId),
+            failures.duplicate,
+            () => {},
           ),
         removeLog: (id: string) =>
           attempt(

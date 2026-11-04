@@ -284,6 +284,13 @@ export function parseExerciseDocument(raw: string | null): ExerciseDocument {
       : {}),
   };
 }
+/**
+ * Which history a logged exercise belongs to: its Exercise definition in its Tracking mode, so a
+ * mode change starts a new one. The Workout graph and Personal records read history by it.
+ */
+export function exerciseHistoryKey(exercise: Pick<ExerciseDefinition, "id" | "tracking">): string {
+  return JSON.stringify([exercise.id, exercise.tracking]);
+}
 /** The Active workout: the one log with a running timer, whatever its date. */
 export function activeWorkout(sessions: readonly WorkoutSession[]): WorkoutSession | null {
   return sessions.find((session) => session.status === "active") ?? null;

@@ -153,6 +153,7 @@ export function createExercisePersistence({
     removeExercise: (id: string) => queue((document) => commands.removeExercise(document, id)),
     saveWorkout: (input: SaveWorkoutInput) => capture(input, commands.saveWorkout),
     removeWorkout: (id: string) => queue((document) => commands.removeWorkout(document, id)),
+    duplicateWorkout: (id: string) => queue((document) => commands.duplicateWorkout(document, id)),
     planWorkout: (input: PlanWorkoutInput) => capture(input, commands.planWorkout),
     updateSession: (input: UpdateSessionInput) => capture(input, commands.updateSession, input.id),
     startSession: (id: string) => queue((document) => commands.startSession(document, id)),

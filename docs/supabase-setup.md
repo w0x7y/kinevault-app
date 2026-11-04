@@ -1,153 +1,76 @@
-# Shared KineVault accounts
+# Supabase setup
 
-KineVault Track uses Supabase Auth and account-owned tracking documents in project
-`kkywpvkckxniriatelta`. Users sign in with email and password, or with Google, before entering Track.
-Onboarding answers stay on the device until sign-in. Credentials belong to Supabase Auth, never to the tracking
-documents.
+Track and KineVault share accounts in Supabase project `kkywpvkckxniriatelta`. Users sign in with email and password, or with Google. Onboarding answers stay on the device until sign-in. Credentials live in Supabase Auth, never in tracking documents.
 
-## Application configuration
+## App config
 
-Create an ignored `.env.local` with:
+Create `.env.local` (Git ignores it):
 
 ```dotenv
 EXPO_PUBLIC_SUPABASE_URL=https://kkywpvkckxniriatelta.supabase.co
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<project publishable key>
 ```
 
-Use the publishable key from the project's API Keys page. These values are included
-in the application bundle. Never put a service-role key, secret key, database
-password or SMTP password in an `EXPO_PUBLIC_*` variable.
+The key is on the project's API Keys page. Restart Expo after editing. Builds need the same values in their build environment. Without them, account features show as unavailable.
 
-Restart Expo after editing the environment. A build requires these values in its
-build environment as well. Account features report unavailable configuration when
-the values are missing or invalid.
+These values ship inside the app. Never put a service-role key, secret key, database password or SMTP password in an `EXPO_PUBLIC_*` variable.
 
 ## Database
 
-The migration in `supabase/migrations/20261005150934_account_cloud_storage.sql`
-creates four tables:
+`supabase/migrations/20261005150934_account_cloud_storage.sql` creates four tables:
 
-| Table             | Purpose                                    | Signed-in client access               |
-| ----------------- | ------------------------------------------ | ------------------------------------- |
-| `profiles`        | Shared account name and identity           | Read own row; update own display name |
-| `roles`           | Shared `user`, `reviewer`, or `admin` role | Read own row                          |
-| `subscriptions`   | Server-managed membership                  | Read own row                          |
-| `track_documents` | Versioned tracking documents               | Read and write own documents          |
+| Table             | Holds                            | Signed-in client can                  |
+| ----------------- | -------------------------------- | ------------------------------------- |
+| `profiles`        | Shared account name and identity | Read own row; update own display name |
+| `roles`           | `user`, `reviewer` or `admin`    | Read own row                          |
+| `subscriptions`   | Server-managed membership        | Read own row                          |
+| `track_documents` | Versioned tracking documents     | Read and write own documents          |
 
-Signup creates a profile, a `user` role and a free active membership. Paid plan
-names are reserved for future server-managed membership. There is no payment
-provider or purchase flow. Clients cannot promote their role or edit a subscription.
+- Signup creates a profile, a `user` role and a free active membership. There is no payment flow. Clients can't change their role or subscription.
+- Every table has row-level security and explicit grants. Signed-out callers get no table access.
+- Review grants and RLS together. New public tables no longer get Data API access by default ([grant change](https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically), [RLS docs](https://supabase.com/docs/guides/database/postgres/row-level-security)).
+- The save RPC checks the client's account against the current Auth user, so a delayed save can't write account A's data into account B.
+- Saves use compare-and-swap revisions. A stale revision returns no row, and the app shows a conflict instead of overwriting.
+- Deleting a document writes a SQL `NULL` tombstone and bumps the revision.
+- Accepted keys are profile, exercise, food log, custom foods, water log, water goal and [Logged steps](#logged-steps-sync). Progress photos don't sync.
 
-All tables enable row-level security and explicit grants. Signed-out callers have
-no table access. Each document belongs to an Auth user. The save RPC also checks the
-account captured by the client against the current Auth user, so a delayed request
-cannot save account A's tracking after the session changes to account B.
+| Migration                                        | Adds                                                         | Applied                                                               |
+| ------------------------------------------------ | ------------------------------------------------------------ | --------------------------------------------------------------------- |
+| `20261005152713_track_role_assignment_index.sql` | Index on the role assignment foreign key                     | Yes                                                                   |
+| `20261008041229_bounded_history_partitions.sql`  | `track_document_partitions` and monthly history RPCs         | No, see [monthly cloud history rollout](history-migration-rollout.md) |
+| `20261013120000_exercise_demo_catalog.sql`       | Public `catalog_exercises` table and `exercise-demos` bucket | 2026-10-13, see [exercise demos](exercise-demos.md)                   |
+| `20261018120000_account_deletion_attempts.sql`   | Per-account attempt limit for `delete-account`               | 2026-10-18, and recorded in the migration history                     |
+| `20261029120000_track_documents_steps_log.sql`   | The Logged steps key                                         | 2026-10-29                                                            |
 
-Document saves use compare-and-swap revisions. A stale revision returns no row,
-which the application treats as a conflict instead of overwriting newer tracking.
-Deleting a document writes a SQL `NULL` tombstone and advances its revision. Only
-the six legacy profile, exercise, food log, custom-food, water log and water-goal
-document keys are accepted, plus the Logged steps key once its migration is applied
-(see [Logged steps sync](#logged-steps-sync)). Payloads remain versioned JSON
-objects understood by the existing application parsers. Profile progress-photo
-documents and image files are outside this document sync.
+Don't run `supabase db push`. It would also apply the history partitions migration.
 
-Five later migrations are in `supabase/migrations/`:
-
-- `20261005152713_track_role_assignment_index.sql` indexes the role assignment
-  foreign key. It is applied.
-- `20261008041229_bounded_history_partitions.sql` adds
-  `track_document_partitions` and the monthly history RPCs. It is not applied;
-  see [monthly cloud history rollout](history-migration-rollout.md).
-- `20261013120000_exercise_demo_catalog.sql` adds the public `catalog_exercises`
-  table and the `exercise-demos` storage bucket. It was applied on 2026-10-13;
-  see [exercise demos](exercise-demos.md).
-- `20261018120000_account_deletion_attempts.sql` adds the per-account attempt limit
-  that `delete-account` checks. It was applied on 2026-10-18, before the function
-  was deployed. It was added to the migration history on 2026-10-29, so
-  `supabase db push` won't run it again.
-- `20261029120000_track_documents_steps_log.sql` lets `track_documents` accept
-  `kinevault-track.steps-log.v1`. It was applied on 2026-10-29; see
-  [Logged steps sync](#logged-steps-sync).
-
-The migration was applied to the inspected empty project. Verification passed for
-account isolation, anonymous denial, subscription/role write denial, signup defaults,
-revision conflicts and the account-switch guard. Live password login and document
-REST calls also passed, and temporary test users were removed. Database security
-checks found no RLS or privilege problems. Supabase Auth's optional leaked-password
-protection was disabled during the original review. Use the security-only command
-below to enable and verify it before public release. The follow-up
-[security remediation](security-remediation.md) records dependency fixes and
-remaining findings. Grants and RLS must be reviewed together, because
-new public tables no longer receive consistent default API access. See
-[Supabase's Data API grant change](https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically)
-and [row-level security documentation](https://supabase.com/docs/guides/database/postgres/row-level-security).
+Supabase's leaked-password protection is still off; see [Email and redirects](#email-and-redirects). Open dependency findings are in [security remediation](security-remediation.md).
 
 ## Logged steps sync
 
-`supabase/migrations/20261029120000_track_documents_steps_log.sql` adds
-`kinevault-track.steps-log.v1` to the `track_documents_allowed_key` check, so Logged
-steps sync like the water log. It adds no table, grant, policy or function. History
-partitions stay food and exercise only. Deleting the Auth user still removes the row
-through the existing foreign key cascade, and the account export reads it with the
-other documents. Phone steps have no key and are never uploaded.
+`20261029120000_track_documents_steps_log.sql` adds `kinevault-track.steps-log.v1` to the `track_documents_allowed_key` check, so Logged steps sync like the water log. It adds no table, grant, policy or function. History partitions stay food and exercise only. Account deletion and export include the row. Phone steps have no key and never upload.
 
-It was applied to the hosted project on 2026-10-29 with the steps below. The checks
-after matched: the constraint gained the steps key, the history lists
-`20261029120000`, and every key's row count and highest revision were unchanged.
-Before that, on 2026-10-29, it passed against a
-throwaway Supabase Postgres 17.11 container: existing rows stayed byte for byte, the
-steps key saved through `save_track_document`, an unknown key was still rejected,
-another account couldn't read the row, the migration reran cleanly, and the rollback
-below restored the original constraint. `scripts/track-documents-steps-log.test.mjs`
-repeats the main checks in PGlite on every `npm test`. It also runs every migration and
-checks that each key in the document registry saves.
+`scripts/track-documents-steps-log.test.mjs` runs every migration in PGlite on each `npm test` and checks that every registered key saves.
 
 ### Older builds
 
-Builds from 2026-10-05 until the unknown-key skip below reject a cloud document key
-they don't know (`checkedCloud` in `src/account/storage.ts`). Once an account has a
-Logged steps row, an older build signed in to that account:
+Builds from 2026-10-05 that lack the unknown-key skip (`unknownCloud` in `src/account/storage.ts`) reject a cloud key they don't know (`checkedCloud`). An account gets a Logged steps row the first time an updated device syncs Logged steps, including steps saved before the update or while signed out. From then on, an older build signed in to it:
 
-- Fails every download, on app start, Try again and reconnect, with "Cloud sync
-  couldn't finish". It gets no changes from other devices, for any document.
-- Still uploads its own edits to documents no other device changed. An edit to a
-  document another device changed fails with the same error instead of showing a
-  Cloud conflict, and stays saved on the device.
-- Can't open the account on a device with no saved Profile for it, such as a new
-  install or a first sign-in. It shows "Couldn't load this account's saved data."
-- Can't export with cloud copies. Export device copy still works.
+- Fails every download with "Cloud sync couldn't finish" and gets no changes from other devices.
+- Still uploads edits to documents no other device changed. An edit to a changed document fails with the same error instead of a Cloud conflict, and stays on the device.
+- Can't open the account on a device with no saved Profile for it, such as a new install. It shows "Couldn't load this account's saved data."
+- Can't export cloud copies. Export device copy still works.
 
-Nothing is lost: pending edits stay on the device and sync after the update. The
-account gets a Logged steps row the first time an updated device syncs any Logged
-steps, including steps saved on that device before the update or while signed out.
-Accounts that never log steps aren't affected.
-
-The other way around, an older build keeps its Logged steps on the device. After the
-update they upload if the cloud has none. If another device already saved some,
-Settings shows a Logged steps Cloud conflict and the user keeps one copy. Days aren't
-merged.
-
-Newer builds skip a cloud document key they don't know (`unknownCloud` in
-`src/account/storage.ts`). Their downloads sync every other document, and cloud export
-keeps the unknown row as a cloud-only entry. That protects them from the next new
-document. Builds already installed don't have the skip and still fail as described
-above, so the rollout rule still holds.
+Nothing is lost, and accounts that never log steps aren't affected. Pending edits sync after the update. Steps logged on an older build upload after the update if the cloud has none. Otherwise Settings shows a Logged steps Cloud conflict and the user keeps one copy. Days aren't merged.
 
 Rollout rule:
 
-1. Apply the migration before installing a build with this change anywhere. Against
-   the old constraint, a new build can't save Logged steps, and every sync on that
-   device ends with "Cloud sync couldn't finish".
-2. Update every device signed in to an account, the web preview included, before
-   logging steps on any of them. An older device left behind stops downloading until
-   it's updated.
+1. Apply the migration before installing a build with Logged steps sync anywhere. Against the old constraint, every sync on that device fails.
+2. Update every device on an account, web preview included, before logging steps on any of them.
 
 ### Apply
 
-Don't use `supabase db push`: it would also apply the unapplied history migration.
-Run these in bash from `Application/`, with the Management API token from
-`.env.auth.local` exported as `SUPABASE_ACCESS_TOKEN`:
+Run in bash from `Application/`, with the Management API token from `.env.auth.local` exported as `SUPABASE_ACCESS_TOKEN`:
 
 ```bash
 project=https://api.supabase.com/v1/projects/kkywpvkckxniriatelta
@@ -160,40 +83,30 @@ query() {
 }
 ```
 
-Before applying, record the current state. The constraint lists six keys, the
-history has no `20261029120000`, and the counts are the baseline for the check after:
+1. Record the baseline. The constraint lists six keys, the history has no `20261029120000`, and note the counts:
 
-```bash
-query "select pg_get_constraintdef(oid) from pg_constraint where conname = 'track_documents_allowed_key'" /read-only
-curl -sS "$project/database/migrations" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"; echo
-query "select document_key, count(*) as rows, max(revision) as max_revision from public.track_documents group by document_key order by document_key" /read-only
-```
+   ```bash
+   query "select pg_get_constraintdef(oid) from pg_constraint where conname = 'track_documents_allowed_key'" /read-only
+   curl -sS "$project/database/migrations" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"; echo
+   query "select document_key, count(*) as rows, max(revision) as max_revision from public.track_documents group by document_key order by document_key" /read-only
+   ```
 
-Apply the file and record it in the migration history in one transaction:
+2. Apply the file and record it in one transaction:
 
-```bash
-jq -n --rawfile migration supabase/migrations/20261029120000_track_documents_steps_log.sql \
-  --arg record "insert into supabase_migrations.schema_migrations (version, name) values ('20261029120000', 'track_documents_steps_log');" \
-  '{query: "begin;\n\($migration)\n\($record)\ncommit;"}' |
-  curl -sS --fail-with-body "$project/database/query" \
-    -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
-    -H "Content-Type: application/json" --data-binary @-
-```
+   ```bash
+   jq -n --rawfile migration supabase/migrations/20261029120000_track_documents_steps_log.sql \
+     --arg record "insert into supabase_migrations.schema_migrations (version, name) values ('20261029120000', 'track_documents_steps_log');" \
+     '{query: "begin;\n\($migration)\n\($record)\ncommit;"}' |
+     curl -sS --fail-with-body "$project/database/query" \
+       -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+       -H "Content-Type: application/json" --data-binary @-
+   ```
 
-### Verify
-
-Run the three checks from before again. The constraint now ends with
-`'kinevault-track.steps-log.v1'::text`, the history lists `20261029120000`
-`track_documents_steps_log`, and the counts match the baseline. Then sign in to a test
-account on a build with this change, log steps, and check that Settings says "All
-changes saved to your account." and that another device on the same build shows them.
+3. Verify. Rerun the three baseline checks. The constraint ends with `'kinevault-track.steps-log.v1'::text`, the history lists `20261029120000` `track_documents_steps_log`, and the counts match. Then log steps on a test account and check that Settings says "All changes saved to your account." and another device shows them.
 
 ### Roll back
 
-Roll back only before any build with this change is installed. The statement deletes
-every account's cloud copy of Logged steps. A device whose Logged steps already synced
-then fails every sync, because its saved copy expects the cloud row, so after release
-fix forward instead.
+Roll back only before any build with Logged steps sync is installed. This deletes every account's cloud copy of Logged steps, and a device that already synced them then fails every sync. After release, fix forward.
 
 ```bash
 query "begin;
@@ -210,113 +123,64 @@ commit;"
 
 ## Edge Functions
 
-| Function          | Purpose                                                        | Status                                                                                                        |
-| ----------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `delete-account`  | Deletes the signed-in account                                  | Deployed 2026-10-18 with `verify_jwt = true`. See [account management](account-management.md#server-rollout). |
-| `tracked-workout` | Downloads Tracked share pages for the web app's workout import | Deployed 2026-10-13 with `verify_jwt = true`                                                                  |
+| Function          | Does                                               | Status                                                                                             |
+| ----------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `delete-account`  | Deletes the signed-in account                      | Deployed with `verify_jwt = true`. See [account management](account-management.md#server-rollout). |
+| `tracked-workout` | Fetches Tracked share pages for the web app import | Deployed with `verify_jwt = true`                                                                  |
 
-`tracked-workout` exists because browsers can't read Tracked's pages. It needs no
-secrets and no service-role key: it uses the platform's `SUPABASE_URL` and
-`SUPABASE_ANON_KEY` only to check the caller's session with Auth. Keep
-`verify_jwt = true` from `supabase/config.toml`. Deploy it from `Application/`
-with the Supabase CLI:
+Keep `verify_jwt = true` from `supabase/config.toml`. `tracked-workout` needs no secrets or service-role key. It uses the platform's `SUPABASE_URL` and `SUPABASE_ANON_KEY` only to check the caller's session. Deploy from `Application/`:
 
 ```bash
 npx supabase functions deploy tracked-workout --project-ref kkywpvkckxniriatelta --use-api
 ```
 
-Until it's deployed, link import on the web says it isn't set up for the web yet
-(or, in most browsers, that it isn't available right now), and the iOS and
-Android apps keep importing directly from Tracked. After deploying, import a
-share link in the web app while signed in. A request whose bearer token is the
-project's legacy anon key passes the platform's JWT check but has no user, so it
-should get a 401 reply that includes `"service": "tracked-workout"`. An anonymous
-sign-in gets the same reply. A 401
-without that field comes from the platform, before the function runs. See
-[workout import](workout-import.md#web) for the request and reply format.
+To test, import a share link in the web app while signed in. A request with the legacy anon key, or an anonymous sign-in, should get a 401 that includes `"service": "tracked-workout"`. A 401 without that field comes from the platform. Without the function, web link import says it isn't available, and the phone apps import from Tracked directly. See [workout import](workout-import.md#web).
 
-## Email delivery and redirects
+## Email and redirects
 
-Leaked-password protection can be configured independently of email delivery.
-Put only `SUPABASE_ACCESS_TOKEN` in ignored `.env.auth.local`, then run the
-commands below. `metro.config.cjs` hides root `.env*` files other than Expo's
-standard names from Metro; without it, development bundles would include this
-token.
+### Leaked-password protection
+
+It's off. It needs a Supabase Pro plan, and the last try failed with HTTP 402. After upgrading, run these. They need only `SUPABASE_ACCESS_TOKEN` in `.env.auth.local`, which Git ignores.
 
 ```bash
-node --env-file=.env.auth.local scripts/configure-auth.mjs --security-only
-node --env-file=.env.auth.local scripts/configure-auth.mjs --security-only --apply
+node --env-file=.env.auth.local scripts/configure-auth.mjs --security-only           # preview
+node --env-file=.env.auth.local scripts/configure-auth.mjs --security-only --apply   # enable and read back
 ```
 
-The first command previews the change. The second enables protection and reads it
-back to verify. It changes only `password_hibp_enabled`, so shared website and SMTP
-settings are preserved. Supabase requires a Pro plan or above for this feature.
-The follow-up attempt was rejected with HTTP 402 because the current plan does
-not include it; a read-back confirmed protection is still disabled. The local
-Management API token is ready for a retry after upgrading the organization.
+It changes only `password_hibp_enabled`. `metro.config.cjs` hides root `.env*` files other than Expo's standard names from Metro, which keeps this token out of development bundles.
 
-Account emails currently go through Gmail SMTP (`smtp.gmail.com`, sender
-`kinevault.track@gmail.com`, name "KineVault"), set by hand in the project's Auth
-settings. Gmail caps how many messages an account sends a day, so Resend SMTP with a
-verified sender domain is still the plan before a public release. Use Vercel for the
-exported Track web app.
-`vercel.json` defines the static build and clean routes. Create the Vercel project
-from `Application/`, add the two public Supabase environment variables (and
-`EXPO_PUBLIC_SENTRY_DSN` if you use Sentry), and use its
-actual production origin for the web callback. No production URL has been reserved
-or deployed yet.
+### Email delivery
 
-`vercel.json` also sets a Content-Security-Policy. `script-src` allows the bundle
-from the same origin plus Expo Router's one inline script by its SHA-256 hash
-(`tests/web-headers.test.ts` fails if an Expo Router upgrade changes that script).
-`connect-src` allows the Supabase project, Open Food Facts and the Sentry ingest host
-`o4512218785120256.ingest.de.sentry.io`; a DSN for another Sentry organization or
-region needs its host added. Images, video, styles and fonts aren't restricted.
+Account emails go through Gmail SMTP (`smtp.gmail.com`, sender `kinevault.track@gmail.com`, name "KineVault"), set by hand in Auth settings. Gmail caps daily sends. Switch to Resend with a verified sender domain you own before a public release.
 
-Neither Resend nor Vercel credentials are connected in this workspace. The full
-configuration script below replaces the Gmail SMTP settings with Resend's. Public email
-delivery also requires a verified sender domain that you own. Once those are ready,
-the prepared configuration script appends callbacks and leaves the Site URL and
-existing redirects as they are. Put server credentials in an ignored
-`.env.auth.local`, separate from the client `.env.local`:
+1. Put server credentials in `.env.auth.local`, never in `.env.local`:
 
-```dotenv
-SUPABASE_ACCESS_TOKEN=<Supabase account Management API token>
-RESEND_API_KEY=<Resend sending key>
-KINEVAULT_AUTH_EMAIL_FROM=<verified sender email>
-# Optional until the web app is deployed; native email callbacks work independently.
-KINEVAULT_TRACK_WEB_URL=<actual HTTPS Vercel production origin>
-```
+   ```dotenv
+   SUPABASE_ACCESS_TOKEN=<Supabase account Management API token>
+   RESEND_API_KEY=<Resend sending key>
+   KINEVAULT_AUTH_EMAIL_FROM=<verified sender email>
+   # Optional until the web app is deployed; native email callbacks work without it.
+   KINEVAULT_TRACK_WEB_URL=<actual HTTPS Vercel production origin>
+   ```
 
-```bash
-node --env-file=.env.auth.local scripts/configure-auth.mjs
-node --env-file=.env.auth.local scripts/configure-auth.mjs --apply
-```
+2. Preview, then apply:
 
-The first command shows the proposed settings without credentials. The second
-applies Resend SMTP and the additive redirect list, and sets the server password
-minimum to at least 10 characters while preserving stricter existing settings. It
-hasn't been run, so Resend isn't applied yet. The server password minimum was set
-to 10 by itself through the Management API on 2026-10-28.
-The native and localhost callbacks listed below were added to the redirect allowlist
-by hand on 2026-10-18. Before that the list was empty, so confirmation links fell back
-to the default Site URL, `http://localhost:3000`.
+   ```bash
+   node --env-file=.env.auth.local scripts/configure-auth.mjs
+   node --env-file=.env.auth.local scripts/configure-auth.mjs --apply
+   ```
 
-Keep email confirmation enabled. Configure a custom SMTP provider in the project's
-Auth email settings before inviting users outside the project team. Supabase's
-default mail service restricts recipients and sending volume and is intended for
-evaluation. Store SMTP credentials in the Supabase dashboard. See
-[custom SMTP setup](https://supabase.com/docs/guides/auth/auth-smtp).
+The script replaces Gmail SMTP with Resend, appends redirect URLs without touching the Site URL or existing redirects, and sets the password minimum to at least 10 characters. It hasn't been run. The password minimum is already 10.
 
-Add Track's callback URLs to Auth's redirect allowlist. Preserve existing redirects
-and the shared Site URL. Add exact production URLs and narrowly scoped
-development URLs rather than replacing the shared project's configuration. A native
-deep link needs the installed application's registered scheme. Expo Go needs its
-own development callback URL and is not a stable production email target. See
-[redirect URL configuration](https://supabase.com/docs/guides/auth/redirect-urls).
+- Keep email confirmation on.
+- Store SMTP credentials only in the Supabase dashboard ([custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp)).
+- Keep `{{ .ConfirmationURL }}` in the confirmation and reset templates. A hardcoded link to the KineVault website sends Track users to the wrong app.
+- The app accepts only PKCE codes. It refuses token-hash links and links with session tokens; see [security remediation](security-remediation.md#token-hash-email-links-on-a-guest-device).
+- Before release, open real confirmation and reset emails in the installed app and the deployed web app. A successful send request doesn't prove delivery.
 
-The application uses `/auth/callback` for confirmation and recovery. Add both
-confirmation and recovery variants for the environments you use:
+### Redirect URLs
+
+Add these to Auth's redirect allowlist. Don't replace the shared Site URL or existing redirects ([redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls)). The native and localhost ones are already there.
 
 ```text
 kinevaulttrack://auth/callback
@@ -327,55 +191,33 @@ http://localhost:8081/auth/callback
 http://localhost:8081/auth/callback?flow=recovery
 ```
 
-Adjust the localhost port to the running Expo server. Expo Go uses
-`exp://YOUR-DEV-HOST:PORT/--/auth/callback` and its `?flow=recovery` variant instead
-of the standalone scheme. Add those only for devices and development hosts you
-actually use. Recovery continues to the application's `/auth/reset-password` screen.
+Match the localhost port to the running Expo server. Expo Go uses `exp://YOUR-DEV-HOST:PORT/--/auth/callback` and its `?flow=recovery` variant. Add those only for hosts you use. Recovery opens `/auth/reset-password`.
 
-Keep the confirmation and reset templates' `{{ .ConfirmationURL }}` link. A
-hardcoded redirect to the friend's website would send Track's users to the wrong
-application. The application uses PKCE and accepts only a PKCE code. It refuses
-token-hash links and links that carry session tokens, because anyone can take one
-from their own account's email; see
-[security remediation](security-remediation.md#token-hash-email-links-on-a-guest-device).
+## Web hosting
 
-Test confirmation and password reset through links sent to a real inbox. Open each
-link in both the installed app and the deployed web app before releasing. A successful
-email-request response alone does not verify delivery or deep-link handling.
+The web app goes on Vercel. `vercel.json` defines the build and routes. It isn't deployed yet.
+
+1. Create the Vercel project from `Application/`.
+2. Add `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and, for Sentry, `EXPO_PUBLIC_SENTRY_DSN`.
+3. Use the production origin for the web callback URLs above.
+
+`vercel.json` also sets a Content-Security-Policy:
+
+- `script-src` allows same-origin scripts and Expo Router's inline script by SHA-256 hash. `tests/web-headers.test.ts` fails if an Expo Router upgrade changes that script.
+- `connect-src` allows the Supabase project, Open Food Facts and `o4512218785120256.ingest.de.sentry.io`. A DSN for another Sentry organization or region needs its host added.
 
 ## Google sign-in
 
-"Continue with Google" opens Supabase's Google OAuth page in an in-app browser
-session (`expo-web-browser`) and returns to the same `/auth/callback` URLs as email
-links, so the redirect allowlist above already covers it. The web app follows the
-redirect in the same tab. Supabase links a Google login to an existing account
-with the same verified email.
+"Continue with Google" opens Supabase's Google OAuth page with `expo-web-browser` and returns to the same `/auth/callback` URLs. Supabase links it to an existing account with the same verified email.
 
-1. In [Google Cloud Console](https://console.cloud.google.com/), create a project and
-   configure the OAuth consent screen as External, with only the `openid`, `email`
-   and `profile` scopes. Publish it, or add each tester while it stays in Testing.
-2. Create an OAuth client ID of type Web application. Add
-   `https://kkywpvkckxniriatelta.supabase.co/auth/v1/callback` as an authorized
-   redirect URI.
-3. In Supabase, enable Authentication → Sign In / Providers → Google and paste the
-   client ID and secret.
+1. In [Google Cloud Console](https://console.cloud.google.com/), set the OAuth consent screen to External with only the `openid`, `email` and `profile` scopes. Publish it, or add each tester while it's in Testing.
+2. Create a Web application OAuth client ID with redirect URI `https://kkywpvkckxniriatelta.supabase.co/auth/v1/callback`.
+3. In Supabase, enable Authentication > Sign In / Providers > Google and paste the client ID and secret.
 
-`expo-web-browser` is a native module, so the change needs a new Android and iOS
-build. Sign in with Apple needs a paid Apple Developer Program team; the free
-Personal Team used for iPhone installs can't enable it. Add it before an App Store
-release: apps that offer Google sign-in must also offer a privacy-focused login
-service, which in practice means Sign in with Apple.
+`expo-web-browser` is native, so this needs new Android and iOS builds. Before an App Store release, add Sign in with Apple. Apps with Google sign-in must also offer a privacy-focused login, and in practice that means Apple's. It needs a paid Apple Developer Program team; the free Personal Team can't enable it.
 
-## Connecting the friend's KineVault program
+## KineVault accounts
 
-The shared `profiles`, `roles` and `app_role` definitions use the identifiers in
-`arielhagay10-ui/KineVault`. Both applications must use the same Supabase project to
-share accounts. Each application has its own local session, so signing into one
-does not automatically sign into the other.
+`profiles`, `roles` and `app_role` match `arielhagay10-ui/KineVault`. Both apps must use the same Supabase project. Each app has its own session, so signing in to one doesn't sign in to the other.
 
-Do not apply the friend's entire migration history blindly. Its foundation scripts
-create core tables and the signup trigger that Track already provisions. Reconcile
-those objects and establish a shared migration baseline first. Keep the Track
-subscription provisioning when extending or replacing `private.handle_new_user`.
-The friend's exercise, moderation and workshop schema still needs its own reviewed
-migrations and integration.
+Don't apply KineVault's whole migration history. Its foundation scripts create core tables and the signup trigger that Track already has. Reconcile them and set a shared migration baseline first. Keep Track's subscription provisioning when changing `private.handle_new_user`. KineVault's exercise, moderation and workshop schema needs its own reviewed migrations.

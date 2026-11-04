@@ -125,6 +125,49 @@ test("a workout template needs a name of up to 400 characters and at least one e
   assert.ok(await value(f.store.saveWorkout({ name: "x".repeat(400), exerciseIds: [exerciseId] })));
 });
 
+test("duplicating a template saves a copy after it with a free name, its exercises and planned sets", async () => {
+  const f = await ready();
+  const { exerciseId, workoutId } = await planned(f, "Leg day");
+  await value(f.store.saveWorkout({ name: "Arms", exerciseIds: [exerciseId] }));
+  await value(
+    f.store.saveWorkout({
+      id: workoutId,
+      name: "Leg day",
+      exerciseIds: [exerciseId],
+      setCounts: { [exerciseId]: 5 },
+    }),
+  );
+  const first = await value(f.store.duplicateWorkout(workoutId));
+  const second = await value(f.store.duplicateWorkout(workoutId));
+  const workouts = doc(f.store).workouts;
+  assert.deepEqual(
+    workouts.map((workout) => [workout.id, workout.name]),
+    [
+      [workoutId, "Leg day"],
+      [second, "Leg day copy 2"],
+      [first, "Leg day copy"],
+      [workouts[3]!.id, "Arms"],
+    ],
+  );
+  const copy = workouts.find((workout) => workout.id === first)!;
+  assert.deepEqual(copy.exercises, workouts[0]!.exercises);
+  assert.deepEqual(copy.setCounts, { [exerciseId]: 5 });
+  // Logs of the original are untouched, and a copy of a 400-character name still fits.
+  assert.equal(doc(f.store).sessions.length, 1);
+  const long = await value(
+    f.store.saveWorkout({ name: "x".repeat(400), exerciseIds: [exerciseId] }),
+  );
+  const longCopy = await value(f.store.duplicateWorkout(long));
+  assert.equal(
+    doc(f.store).workouts.find((workout) => workout.id === longCopy)!.name,
+    `${"x".repeat(380)} copy`,
+  );
+  assert.deepEqual(
+    await f.store.duplicateWorkout("missing"),
+    rejected("This workout is no longer available."),
+  );
+});
+
 test("library and templates preserve history and resolve live definitions before retained snapshots", async () => {
   const f = await ready();
   const { exerciseId, sessionId } = await planned(f);

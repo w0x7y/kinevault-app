@@ -26,12 +26,9 @@ import {
   type SetLine,
 } from "./tracking.ts";
 import { writeFailure, type createExercisePersistence, type ExerciseWrite } from "./persistence.ts";
-import {
-  createSetClock,
-  type SetClockTime,
-  type ShownClock,
-  type StoppedClock,
-} from "./set-clock.ts";
+import { createSetClock, type ShownClock, type StoppedClock } from "./set-clock.ts";
+import { createTicker, type TickerTime } from "./ticker.ts";
+import { createRestTimer, type RestLengthStorage, type RestSnapshot } from "./rest-timer.ts";
 import { exerciseRowLabel } from "./short-name.ts";
 import type { ExercisePanels, WorkoutView } from "./tab-view.ts";
 import {
@@ -49,9 +46,11 @@ import {
  */
 export type WorkoutLogMode = "compact" | "active" | "manual" | "completed";
 type WorkoutFields = { name: string; exercises: SessionExercise[]; minutes: string };
-type SetClocks = SetClockTime & {
-  /** A countdown ran out, e.g. to buzz. */
+type SetClocks = TickerTime & {
+  /** A countdown or rest ran out, e.g. to buzz. */
   onCountdownEnd?: () => void;
+  /** Where the Rest timer keeps its length; for this run only without one. */
+  restLength?: RestLengthStorage;
 };
 type WorkoutEditState = {
   session: WorkoutSession;
@@ -232,6 +231,8 @@ type WorkoutEditSnapshot = Readonly<
       durationCaption: string;
       /** The running set clock as of the ticker's last move. */
       shownClock: ShownClock | null;
+      /** The Rest timer, on the Active workout's page only. */
+      rest: RestSnapshot | null;
       /**
        * Add exercise's results: the library's matches for its search, or the whole library
        * before one, a page at a time.
@@ -333,7 +334,7 @@ export function createWorkoutEditing(
   panels: Pick<ExercisePanels, "panel" | "origin" | "leave">,
   /** The tab's view request, which saves the logs it leaves before opening `content`. */
   requestView: (content: WorkoutView) => Promise<boolean>,
-  { onCountdownEnd = () => {}, ...time }: SetClocks = {},
+  { onCountdownEnd = () => {}, restLength, ...time }: SetClocks = {},
 ) {
   const entries = new Map<string, Entry>(),
     listeners = new Set<() => void>();
@@ -341,9 +342,11 @@ export function createWorkoutEditing(
   const emit = () => {
     for (const listener of listeners) listener();
   };
+  // Set clocks and the Rest timer share one ticker, which runs while the tab is attached.
+  const ticker = createTicker(time);
   // One clock per log, whichever page shows; a countdown that ran out logs once its edit is free.
   const clocks = createSetClock({
-    ...time,
+    ticker,
     onDue(id) {
       const entry = entries.get(id);
       if (!entry || entry.state.busy || !document()?.sessions.some((session) => session.id === id))
@@ -353,6 +356,9 @@ export function createWorkoutEditing(
     },
   });
   clocks.subscribe(emit);
+  // One Rest timer for the Active workout; it stops when that workout ends or goes.
+  const rest = createRestTimer({ ticker, onEnd: onCountdownEnd, storage: restLength });
+  rest.subscribe(emit);
   /** Publishes a clock change, logging a stopped clock's seconds into its set. */
   function logClock(id: string, stopped: StoppedClock | null) {
     if (stopped && stopped.seconds > 0)
@@ -386,6 +392,11 @@ export function createWorkoutEditing(
     entry.state = { ...entry.state, ...patch };
     emit();
   }
+  /** Drops log `id`'s edit with its running Set clock, which isn't logged. */
+  function release(id: string) {
+    entries.delete(id);
+    clocks.forget(id);
+  }
   function current(id: string, entry: Entry) {
     return entries.get(id) === entry;
   }
@@ -395,11 +406,13 @@ export function createWorkoutEditing(
   function view(id: string, entry: Entry): WorkoutEditSnapshot {
     const { state } = entry,
       mode = modeOf(entry),
-      shownClock = clocks.shown(id);
+      shownClock = clocks.shown(id),
+      shownRest = mode === "active" ? rest.getSnapshot() : null;
     if (
       entry.view?.state === state &&
       entry.view.snapshot.mode === mode &&
-      entry.view.snapshot.shownClock === shownClock
+      entry.view.snapshot.shownClock === shownClock &&
+      entry.view.snapshot.rest === shownRest
     )
       return entry.view.snapshot;
     const { session, selectedId, counts, ...shown } = state;
@@ -417,6 +430,7 @@ export function createWorkoutEditing(
       hints: selected ? setHints(document()?.sessions ?? [], session, selected) : [],
       durationCaption: durationCaption(minutes),
       shownClock,
+      rest: shownRest,
       addResults: state.adding && addResults(document()?.exercises ?? [], state.adding),
       removing: removal(exercises, state.removingId),
     };
@@ -435,13 +449,11 @@ export function createWorkoutEditing(
     const next = document();
     if (!next || next === lastDocument) return;
     lastDocument = next;
+    if (!activeWorkout(next.sessions)) rest.stop();
     for (const [id, entry] of entries) {
       const session = next.sessions.find((value) => value.id === id);
       if (!session) {
-        if (!entry.pending) {
-          entries.delete(id);
-          clocks.forget(id);
-        }
+        if (!entry.pending) release(id);
       } else {
         // Untouched fields follow a newer saved log, e.g. from an account refresh; entered fields never do.
         const fields = entry.revision === 0 && !entry.pending ? savedFields(session) : {};
@@ -748,10 +760,7 @@ export function createWorkoutEditing(
       if (kind === "cancel" || kind === "leave") {
         const success = await flush(id, entry);
         if (success && current(id, entry)) {
-          if (kind === "cancel") {
-            entries.delete(id);
-            clocks.forget(id);
-          }
+          if (kind === "cancel") release(id);
           panels.leave(originToken, origin);
         }
         return success;
@@ -786,8 +795,7 @@ export function createWorkoutEditing(
             // A card started from the day opens the Active workout's page; a page stays up.
             if (originToken === null) panels.leave(null, origin, { kind: "session", id });
           } else {
-            entries.delete(id);
-            clocks.forget(id);
+            release(id);
             panels.leave(originToken, origin);
             emit();
           }
@@ -817,6 +825,10 @@ export function createWorkoutEditing(
         if (set?.kind === "time") logClock(id, clocks.toggle(id, rowId, setId, timedSeconds(set)));
         else settleClock(id, entry);
       },
+      /** Starts a rest of the chosen length, or stops the running one. */
+      toggleRest: rest.toggle,
+      /** Lengthens or shortens the rest by `delta` seconds, the running one included. */
+      adjustRest: rest.adjust,
       select(rowId: string) {
         if (current(id, entry) && entry.state.selectedId !== rowId)
           publish(entry, { selectedId: rowId });
@@ -895,9 +907,9 @@ export function createWorkoutEditing(
       if (exercise && document()?.sessions.some((session) => session.id === id))
         edit(id).change({ kind: "add-exercise", exercise });
     },
-    /** Set clocks tick while the tab is attached. */
-    start: clocks.attach,
-    stop: clocks.detach,
+    /** Set clocks and the Rest timer tick while the tab is attached. */
+    start: ticker.attach,
+    stop: ticker.detach,
   };
 }
 export type WorkoutEditing = ReturnType<typeof createWorkoutEditing>;

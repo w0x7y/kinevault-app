@@ -12,6 +12,7 @@ import {
   type WorkoutSession,
 } from "../src/exercise/model.ts";
 import { summarizeSessions } from "../src/exercise/summary.ts";
+import { fakeTime } from "./helpers/fake-time.ts";
 
 const tick = async () => {
   for (let i = 0; i < 30; i++) await Promise.resolve();
@@ -1318,6 +1319,7 @@ test("each log mode allows its own controls, and the mode follows the open panel
       addResults,
       removing,
       shownClock,
+      rest: restTimer,
       selected,
       previous,
       next,
@@ -1451,24 +1453,14 @@ async function timedFixture() {
       ],
     },
   ]);
-  const time = { now: 5_000_000 };
-  // The fake ticker: `tick` runs it once, and `ticking` says whether the edits keep one running.
-  let ticker: (() => void) | null = null;
+  // `tick` runs the edits' one ticker once, and `ticking` says whether it runs.
+  const { time, options, tick, ticking } = fakeTime();
   const buzzes = { count: 0 };
   const tab = createExerciseTabView({
     store: f.store,
     date: "2026-10-04",
     importSources: [],
-    clocks: {
-      now: () => time.now,
-      every: (_ms, tick) => {
-        ticker = tick;
-        return () => {
-          ticker = null;
-        };
-      },
-      onCountdownEnd: () => buzzes.count++,
-    },
+    clocks: { ...options, onCountdownEnd: () => buzzes.count++ },
   });
   tab.start();
   await tab.requestView({ kind: "session", id: "log" });
@@ -1486,8 +1478,8 @@ async function timedFixture() {
     time,
     seconds,
     buzzes,
-    tick: () => ticker?.(),
-    ticking: () => ticker !== null,
+    tick,
+    ticking,
   };
 }
 
@@ -1578,4 +1570,51 @@ test("starting another set's clock logs the running one; ending the workout logs
     stretch.map((set) => (set.kind === "time" ? set.seconds : null)),
     ["12", "15"],
   );
+});
+
+test("the Rest timer shows on the Active workout's page, buzzes once and stops with the workout", async () => {
+  const f = await timedFixture();
+  assert.deepEqual(f.edit().getSnapshot().rest, { length: 90, left: null });
+  f.edit().toggleRest();
+  f.edit().adjustRest(15);
+  assert.deepEqual(f.edit().getSnapshot().rest, { length: 105, left: 105 });
+  f.time.now += 105_000;
+  f.tick();
+  assert.equal(f.buzzes.count, 1);
+  assert.deepEqual(f.edit().getSnapshot().rest, { length: 105, left: null });
+  // A rest running when the workout ends stops without buzzing.
+  f.edit().toggleRest();
+  assert.equal(await f.edit().run("complete"), true);
+  assert.equal(f.tab.edits.edit("log").getSnapshot().rest, null, "only the live page has one");
+  f.time.now += 200_000;
+  f.tick();
+  assert.equal(f.buzzes.count, 1);
+});
+
+test("a rest and a Set clock share the ticker and both keep time", async () => {
+  const f = await timedFixture();
+  f.edit().toggleClock("stretch-row", "open");
+  f.edit().toggleRest();
+  f.time.now += 20_000;
+  f.tick();
+  assert.equal(f.edit().getSnapshot().shownClock?.seconds, 20);
+  assert.equal(f.edit().getSnapshot().rest?.left, 70);
+  f.edit().toggleRest();
+  assert.equal(f.ticking(), true, "the running clock keeps the ticker");
+  f.time.now += 5_000;
+  f.tick();
+  assert.equal(f.edit().getSnapshot().shownClock?.seconds, 25);
+  // A detached tab stops the ticker for both; they pick up on return.
+  f.edit().toggleRest();
+  f.tab.stop();
+  assert.equal(f.ticking(), false);
+  f.time.now += 30_000;
+  f.tab.start();
+  f.tick();
+  assert.equal(f.edit().getSnapshot().shownClock?.seconds, 55);
+  assert.equal(f.edit().getSnapshot().rest?.left, 60);
+  f.edit().toggleClock("stretch-row", "open");
+  assert.equal(f.ticking(), true, "the running rest keeps the ticker");
+  f.edit().toggleRest();
+  assert.equal(f.ticking(), false);
 });
