@@ -151,3 +151,20 @@ test("an unanswered summary reads Not set and each figure keeps its unit on its 
   });
   assert.equal(answerSummary({ ...emptyAnswers, weight: "80" }, null).body, "80\u00a0kg");
 });
+
+test("Imperial reads height and weight answers in feet, inches and pounds; the answers stay metric", () => {
+  const answers = { ...emptyAnswers, height: "180", weight: "80.5" };
+  const summary = answerSummary(answers, null, "imperial");
+  assert.equal(summary.height, "5 ft 10.9 in");
+  assert.equal(summary.weight, "177.5 lb");
+  // Text that isn't a number still shows as saved.
+  assert.equal(answerSummary({ ...emptyAnswers, height: "." }, null, "imperial").height, ". cm");
+  // Limits stay metric but read in the chosen units.
+  const errors = validateAnswers({ ...adult, height: "99", weight: "351" }, "imperial");
+  assert.equal(errors.height, "Enter height between 3 ft 3.4 in and 8 ft 2.4 in.");
+  assert.equal(errors.weight, "Enter weight between 66.2 and 771.6 lb.");
+  assert.equal(
+    validateAnswers({ ...adult, height: "99", weight: "351" }).weight,
+    "Enter weight between 30 and 350 kg.",
+  );
+});

@@ -1,13 +1,12 @@
 import { type ReactNode } from "react";
 import { View } from "react-native";
-import Animated from "react-native-reanimated";
-import { useStateTransition } from "../components/motion";
 import { IconButton } from "../components/button";
 import { Chip } from "../components/chip";
 import type { IconName } from "../components/icon";
 import { IconWell } from "../components/icon-well";
 import { Tappable } from "../components/tappable";
 import { AppText } from "../components/ui";
+import { SwitchTrack } from "../account/settings-list";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import {
@@ -66,10 +65,7 @@ export function ReminderSwitch({
   disabled: boolean;
   onChange: (value: boolean) => void;
 }) {
-  const { colors, appearance } = useTheme();
-  // The thumb slides and the track tints, like the platform switch.
-  const trackTransition = useStateTransition(["backgroundColor"]);
-  const thumbTransition = useStateTransition(["transform", "backgroundColor"]);
+  const { colors } = useTheme();
   return (
     <Tappable
       role="switch"
@@ -110,39 +106,7 @@ export function ReminderSwitch({
           {` · ${days}`}
         </AppText>
       </View>
-      <Animated.View
-        style={[
-          {
-            width: 48,
-            height: 28,
-            padding: 3,
-            borderRadius: 14,
-            justifyContent: "center",
-            alignItems: "flex-start",
-            backgroundColor: value ? colors.primary : colors.input,
-          },
-          trackTransition,
-        ]}
-      >
-        <Animated.View
-          style={[
-            {
-              width: 22,
-              height: 22,
-              borderRadius: 11,
-              backgroundColor: value
-                ? colors.primaryForeground
-                : appearance === "dark"
-                  ? colors.mutedForeground
-                  : colors.card,
-              boxShadow: "0px 1px 2px rgba(0, 0, 0, 0.18)",
-              // 48 wide, less 3 padding each side and the 22 thumb.
-              transform: [{ translateX: value ? 20 : 0 }],
-            },
-            thumbTransition,
-          ]}
-        />
-      </Animated.View>
+      <SwitchTrack value={value} />
     </Tappable>
   );
 }

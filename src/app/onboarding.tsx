@@ -24,6 +24,7 @@ import { steps } from "../profile/answers";
 import type { ProfileDocument } from "../profile/model";
 import { calorieState } from "../profile/calories";
 import { createOnboardingFlow } from "../onboarding/flow";
+import { useUnits } from "../units/provider";
 import { useProfile, useProfilePersistence } from "../profile/provider";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
@@ -69,20 +70,25 @@ function OnboardingFlow({
   const { width, height } = useWindowDimensions();
   const { save } = useProfilePersistence();
   const { user } = useAccount();
+  const { units } = useUnits();
   const [flow] = useState<ReturnType<typeof createOnboardingFlow>>(() =>
-    createOnboardingFlow(initial, {
-      save,
-      exit: (destination) => {
-        // The flow exits only after saving. Account UI follows the final review.
-        const next = onboardingExit(destination, user !== null);
-        if (next.kind === "accountStep") {
-          router.setParams({ setupStage: "account" });
-          setShowAccount(true);
-          return;
-        }
-        router.replace(next.href);
+    createOnboardingFlow(
+      initial,
+      {
+        save,
+        exit: (destination) => {
+          // The flow exits only after saving. Account UI follows the final review.
+          const next = onboardingExit(destination, user !== null);
+          if (next.kind === "accountStep") {
+            router.setParams({ setupStage: "account" });
+            setShowAccount(true);
+            return;
+          }
+          router.replace(next.href);
+        },
       },
-    }),
+      units,
+    ),
   );
   useFocusEffect(
     useCallback(() => {

@@ -2,6 +2,7 @@ import { parseDay } from "../calendar/dates.ts";
 import {
   createEmptySet,
   decimal,
+  isWarmUp,
   setHint,
   setMeasurements,
   type SetLine,
@@ -16,23 +17,35 @@ export type ExerciseDefinition = {
   equipment: string;
   notes: string;
   /** The Tracking mode; see `tracking.ts`. */
-  tracking: "single" | "sides" | "alternating" | "time";
+  tracking: "single" | "sides" | "alternating" | "time" | "cardio";
   /** The KineVault exercise whose demonstration this exercise shows. */
   catalog?: CatalogLink;
 };
 /** `rir`, reps in reserve, is optional; sets saved before it have none. */
 export type SetSide = { reps: string; weightKg: string; rir?: string };
-/** A set's `kind` is its exercise's Tracking mode. */
+/**
+ * A set's `kind` is its exercise's Tracking mode. `warmUp` marks a Warm-up set. A Cardio set's
+ * `distanceMeters` holds whole meters, or a draft's text that isn't a distance (see `units.ts`).
+ */
 export type ExerciseSet =
-  | ({ id: string; kind: "single" | "alternating" } & SetSide)
-  | { id: string; kind: "sides"; left: SetSide; right: SetSide }
-  | { id: string; kind: "time"; seconds: string };
-export type SessionExercise = { id: string; exercise: ExerciseDefinition; sets: ExerciseSet[] };
+  | ({ id: string; kind: "single" | "alternating"; warmUp?: true } & SetSide)
+  | { id: string; kind: "sides"; left: SetSide; right: SetSide; warmUp?: true }
+  | { id: string; kind: "time"; seconds: string }
+  | { id: string; kind: "cardio"; seconds: string; distanceMeters: string };
+/** `superset` is the row's superset key; adjacent rows that share one form a Superset. */
+export type SessionExercise = {
+  id: string;
+  exercise: ExerciseDefinition;
+  sets: ExerciseSet[];
+  superset?: string;
+};
 export type WorkoutTemplate = {
   id: string;
   name: string;
   exercises: ExerciseDefinition[];
   setCounts?: Record<string, number>;
+  /** Each exercise's superset key, for exercises in a Superset. */
+  supersets?: Record<string, string>;
 };
 export type WorkoutSession = {
   id: string;
@@ -102,7 +115,8 @@ export function parseExerciseDefinition(value: unknown): ExerciseDefinition {
     item.tracking !== "single" &&
     item.tracking !== "sides" &&
     item.tracking !== "alternating" &&
-    item.tracking !== "time"
+    item.tracking !== "time" &&
+    item.tracking !== "cardio"
   )
     throw new Error("Invalid exercise tracking");
   const definition: ExerciseDefinition = {
@@ -131,14 +145,32 @@ function side(value: unknown): SetSide {
     ...(item.rir === undefined ? {} : { rir: text(item.rir, 32) }),
   };
 }
+function warmUp(item: Record<string, unknown>) {
+  if (item.warmUp === undefined) return {};
+  if (item.warmUp !== true) throw new Error("Invalid warm-up flag");
+  return { warmUp: true as const };
+}
 function parseSet(value: unknown): ExerciseSet {
   const item = record(value);
   if (item.kind === "single" || item.kind === "alternating")
-    return { id: id(item.id), kind: item.kind, ...side(item) };
+    return { id: id(item.id), kind: item.kind, ...side(item), ...warmUp(item) };
   if (item.kind === "sides")
-    return { id: id(item.id), kind: "sides", left: side(item.left), right: side(item.right) };
+    return {
+      id: id(item.id),
+      kind: "sides",
+      left: side(item.left),
+      right: side(item.right),
+      ...warmUp(item),
+    };
   if (item.kind === "time")
     return { id: id(item.id), kind: "time", seconds: text(item.seconds, 32) };
+  if (item.kind === "cardio")
+    return {
+      id: id(item.id),
+      kind: "cardio",
+      seconds: text(item.seconds, 32),
+      distanceMeters: text(item.distanceMeters, 32),
+    };
   throw new Error("Invalid exercise set kind");
 }
 export function parseSessionExercise(value: unknown): SessionExercise {
@@ -147,7 +179,12 @@ export function parseSessionExercise(value: unknown): SessionExercise {
   const sets = unique(list(item.sets, parseSet, 1000));
   if (sets.some((set) => set.kind !== exercise.tracking))
     throw new Error("Set does not match exercise tracking");
-  return { id: id(item.id), exercise, sets };
+  return {
+    id: id(item.id),
+    exercise,
+    sets,
+    ...(item.superset === undefined ? {} : { superset: id(item.superset) }),
+  };
 }
 
 export function durationFromMinutes(value: string | undefined): number | null {
@@ -201,6 +238,15 @@ export function plannedSetCount(workout: Pick<WorkoutTemplate, "setCounts">, exe
     ? workout.setCounts[exerciseId]!
     : 0;
 }
+/** A template exercise's superset key, if it's in a Superset. */
+export function templateSuperset(
+  workout: Pick<WorkoutTemplate, "supersets">,
+  exerciseId: string,
+): string | undefined {
+  return workout.supersets && Object.hasOwn(workout.supersets, exerciseId)
+    ? workout.supersets[exerciseId]
+    : undefined;
+}
 /** A typed planned set count: a whole number from 0 to `maxPlannedSets`, or null. */
 export function parsePlannedSetCount(raw: string): number | null {
   const text = raw.trim();
@@ -245,6 +291,18 @@ export function parseSetCounts(
     }),
   );
 }
+export function parseSupersets(
+  value: unknown,
+  exerciseIds: readonly string[],
+): Record<string, string> {
+  const allowed = new Set(exerciseIds);
+  return Object.fromEntries(
+    Object.entries(record(value)).map(([exerciseId, key]) => {
+      if (!allowed.has(exerciseId)) throw new Error("Supersets must hold selected exercises.");
+      return [exerciseId, id(key)];
+    }),
+  );
+}
 function template(value: unknown): WorkoutTemplate {
   const item = record(value);
   const exercises = unique(list(item.exercises, parseExerciseDefinition, 1000));
@@ -258,6 +316,14 @@ function template(value: unknown): WorkoutTemplate {
       : {
           setCounts: parseSetCounts(
             item.setCounts,
+            exercises.map((exercise) => exercise.id),
+          ),
+        }),
+    ...(item.supersets === undefined
+      ? {}
+      : {
+          supersets: parseSupersets(
+            item.supersets,
             exercises.map((exercise) => exercise.id),
           ),
         }),
@@ -349,7 +415,9 @@ function previousSets(
 export type SetHint = SetLine[];
 /**
  * The Previous sets hint for each set of `row`: the matching set from the latest other Completed
- * workout with this exercise on or before `session`'s day; none past that workout's sets.
+ * workout with this exercise on or before `session`'s day; none past that workout's sets. Warm-up
+ * sets match that workout's warm-ups in order, and other sets its other sets, so marking a
+ * warm-up never shifts the working sets' hints.
  */
 export function setHints(
   sessions: readonly WorkoutSession[],
@@ -357,5 +425,7 @@ export function setHints(
   row: SessionExercise,
 ): SetHint[] {
   const previous = previousSets(sessions, session, row.exercise.id);
-  return row.sets.map((set, index) => setHint(set, previous[index]));
+  const warmUps = previous.filter(isWarmUp),
+    working = previous.filter((set) => !isWarmUp(set));
+  return row.sets.map((set) => setHint(set, (isWarmUp(set) ? warmUps : working).shift()));
 }

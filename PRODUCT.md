@@ -14,7 +14,7 @@ React Native with Expo and TypeScript. iOS and Android, plus a web preview.
 
 A companion to KineVault for tracking food, calories and exercise. KineVault's exercise creation studio is a separate project in the sibling directory.
 
-The app is for ages 18 and up. It uses English copy and metric units ([language and units](docs/language-and-units.md)). Home, Food, Exercise and Settings are the four tabs, and Home, Food and Exercise share the selected day.
+The app is for ages 18 and up. It uses English copy and Metric or Imperial units ([language and units](docs/language-and-units.md)). Home, Food, Exercise and Settings are the four tabs, and Home, Food and Exercise share the selected day.
 
 ## Current scope
 
@@ -32,6 +32,7 @@ The app is for ages 18 and up. It uses English copy and metric units ([language 
 - Search covers an offline USDA catalog of 5,431 foods, custom foods, saved meals and saved barcode imports. It tolerates small typos, and foods the user has logged rank first.
 - Tiles open Scan barcode, Create food or meal, and Daily macros.
 - A solid food logs by Weight or by Servings, saved as grams. A drink logs one whole amount from 1 to 10,000 ml to Drinks and counts toward water.
+- Copy food from another day, under the meals, copies one meal or the whole day into the selected day. It starts from the day before, its arrows skip to days with food, and each meal shows its entries and kcal before the copy. Copied drinks count toward water.
 - Daily macros lists calories, macros and detailed nutrients (fat subtypes, fiber, sugars, sodium, cholesterol, potassium, calcium, iron, vitamin D, caffeine, alcohol). Missing source values show Not available.
 - Custom foods have a name, serving weight, calories and macros, plus optional detailed nutrients. Blank means unknown and zero is known.
 - Custom meals add up their ingredients. Any value can be overridden or restored.
@@ -40,17 +41,21 @@ The app is for ages 18 and up. It uses English copy and metric units ([language 
 
 ### Exercise
 
-- The Daily workout log shows the day's weight lifted and minutes in its title.
+- The Daily workout log shows the day's weight lifted, cardio distance and minutes in its title.
 - Tiles open Saved workouts, Create workout and Create exercise. Logging always starts from a saved workout.
-- Exercises have a name, optional muscle group, equipment, notes and a tracking mode: Single weight, Left and right, Alternating or Timed.
+- Exercises have a name, optional muscle group, equipment, notes and a tracking mode: Single weight, Left and right, Alternating, Timed or Cardio. Cardio logs a time and an optional distance in km or miles.
 - Saved workouts hold an ordered exercise list with planned sets (0 to 100, default 3). Duplicate makes a copy.
+- Adjacent exercises can form a superset, joined in a saved workout or in a workout's edit mode. The live workout goes through it in rounds: Next returns to its first exercise until every set in it is done, then moves on.
 - Start opens the live workout as a page with its timer in the top bar. While it runs, the app header shows the timer on every tab and the Exercise tab shows a Live workout card.
 - The live workout has a Rest timer (90 seconds by default, 15 seconds to 10 minutes, buzzes when done), optional RIR per set, and hints from the last workout in blank fields.
+- In edit mode, tapping a weighted set's number marks it as a warm-up (W). Warm-ups don't count toward totals, records or graphs.
+- Plates shows the plates per side for each set's weight, on a 20, 15 or 10 kg bar or none (45, 35 or 15 lb in Imperial). The device remembers the bar.
 - A saved workout can also be logged after the fact on any date, with an optional duration.
 - The Workout card marks Personal records by estimated one-rep max (Epley).
+- Share workout on the Exercise tab's Workout card shares a 1080 × 1350 PNG of the day's workouts: name, date, duration, sets, volume (or distance), each exercise's top set, records and Kine, always in the light palette. Phones only; the web preview hides it.
 - Exercises can link a published KineVault exercise to show its demo video ([exercise demos](docs/exercise-demos.md)).
 - Development builds seed Squat, Push-up and Dumbbell curl once. Production builds don't.
-- Not built yet: cardio, coaching notes and wider KineVault program integration.
+- Not built yet: coaching notes and wider KineVault program integration.
 
 ### Profile
 
@@ -59,12 +64,15 @@ The app is for ages 18 and up. It uses English copy and metric units ([language 
 - Workout graphs show volume, duration or one exercise's heaviest set over 4, 12 or 52 weeks.
 - Goals shows the calorie, macro and water targets against today's intake. Calories use the estimate or a custom number. Macros start at 50% carbs, 25% protein and 25% fat, with editable grams.
 - Body-weight entries are dated, editable and charted. They don't change the calorie or macro goals.
+- Body measurements sit below them: waist, chest, hips, arm and thigh in cm, any of them per dated entry, charted one at a time. They don't change goals either.
 - The avatar and progress photos come from the library or camera (file picker on web), with dates and notes. Overview compares the earliest and latest photo.
 - Photos stay on the device. There is no photo upload or cloud backup.
 
 ### Settings and reminders
 
-- Settings holds profile editing, the water goal, reminders, appearance (System, Light, Dark) and Import workouts.
+- Settings holds profile editing, the water goal, reminders, health saving, appearance (System, Light, Dark), units and Import workouts.
+- Units, Metric or Imperial, is a device setting. Imperial shows and takes pounds, feet and inches, miles, ounces and US fluid ounces everywhere; nutrients stay in grams. Saved values stay metric.
+- Save to Apple Health (iOS) or Save to Health Connect (Android), off by default, saves completed workouts that have a duration, body-weight entries and each day's water total. Edits update them and deletes remove them. Turning it on asks for write access. It's a device setting, hidden on web.
 - Reminders are device notifications at a chosen time on chosen weekdays: weigh-in, water, workout, food logging, progress photo or a custom note. Tapping one opens its screen.
 - Import workouts previews a workout shared as a Tracked link and saves it as a saved workout.
 - Export saves account tracking data and local photos as JSON.

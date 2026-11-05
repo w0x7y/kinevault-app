@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseFoodLog, entryForFood } from "../src/food/log-model.ts";
+import { parseFoodLog, entryForFood, foodCopyPreview } from "../src/food/log-model.ts";
 import {
   createFoodLogPersistence,
   foodLogStorageKey,
@@ -292,4 +292,89 @@ test("missing log edit and removal targets reject silently and clear previous fa
   assert.equal(log.getSnapshot().error, null);
   assert.equal(raw(), saved);
   assert.deepEqual(calls, ["read", "write"]);
+});
+
+test("a copy preview offers each Meal with food and skips to the nearest other days with food", () => {
+  const entry = (id: string, meal: "breakfast" | "lunch") => entryForFood({ ...input, id, meal });
+  const document = {
+    version: 1 as const,
+    days: {
+      "2026-10-05": [entry("target", "lunch")],
+      "2026-09-28": [entry("old", "breakfast")],
+      "2026-10-03": [entry("one", "lunch"), entry("two", "breakfast"), entry("three", "lunch")],
+      "2026-10-02": [],
+    },
+  };
+  const preview = foodCopyPreview(document, "2026-10-03", "2026-10-05");
+  assert.deepEqual(
+    preview.meals.map(({ meal, entries, calories }) => [meal, entries.length, calories]),
+    [
+      ["breakfast", 1, 48.5],
+      ["lunch", 2, 97],
+    ],
+  );
+  assert.equal(preview.day.calories, 145.5);
+  assert.equal(preview.previous, "2026-09-28");
+  assert.equal(preview.next, null, "the target day is never a source");
+  const empty = foodCopyPreview(document, "2026-10-04", "2026-10-05");
+  assert.deepEqual([empty.day.entries, empty.meals], [[], []]);
+  assert.deepEqual([empty.previous, empty.next], ["2026-10-03", null]);
+  assert.equal(foodCopyPreview(document, "2026-10-05", "2026-10-05").day.entries.length, 0);
+});
+
+test("copying a Meal or a whole day writes fresh entries with the same amounts, Meals and nutrition at once", async () => {
+  const { log, calls, raw } = await ready();
+  const target = "2026-10-02";
+  await log.add({ ...input, meal: "lunch", grams: 120 });
+  await log.add(drinkInput);
+  await log.add(input);
+  await log.add({ ...input, date: target, meal: "dinner" });
+  const source = documentOf(log).days[input.date]!;
+  calls.length = 0;
+
+  assert.equal(await log.copy({ from: input.date, to: target, meal: "lunch" }), true);
+  assert.deepEqual(calls, ["write"]);
+  assert.deepEqual(documentOf(log).days[target]!.at(-1), { ...source[0], id: "food-5" });
+
+  calls.length = 0;
+  assert.equal(await log.copy({ from: input.date, to: target, meal: null }), true);
+  assert.deepEqual(calls, ["write"], "a whole day is one write");
+  const copies = parseFoodLog(raw()).days[target]!.slice(2);
+  assert.deepEqual(
+    copies,
+    source.map((entry, index) => ({ ...entry, id: `food-${6 + index}` })),
+  );
+  assert.equal(copies[1]!.measurement, "volume");
+  assert.equal(copies[1]!.drinkMl, 250, "a copied drink still counts toward water");
+  assert.deepEqual(documentOf(log).days[input.date], source, "the source day is unchanged");
+
+  calls.length = 0;
+  for (const copy of [
+    { from: "2026-09-30", to: target, meal: null },
+    { from: input.date, to: target, meal: "snacks" },
+    { from: input.date, to: input.date, meal: null },
+    { from: "2026-02-30", to: target, meal: null },
+  ] as const)
+    assert.equal(await log.copy(copy), false);
+  assert.deepEqual(calls, [], "nothing to copy never writes");
+});
+
+test("a failed copy keeps nothing and its retry copies every entry once", async () => {
+  const { log, storage, raw } = await ready();
+  await log.add(input);
+  await log.add({ ...input, meal: "dinner" });
+  const before = raw();
+  const write = storage.setItem;
+  storage.setItem = async () => {
+    throw new Error("disk full");
+  };
+  const copy = { from: input.date, to: "2026-11-01", meal: null };
+  assert.equal(await log.copy(copy), false);
+  assert.equal(raw(), before);
+  assert.equal(documentOf(log).days["2026-11-01"], undefined);
+  assert.equal(log.getSnapshot().error, "Couldn't save your food log. Try again.");
+  storage.setItem = write;
+  assert.equal(await log.copy(copy), true);
+  assert.equal(parseFoodLog(raw()).days["2026-11-01"]?.length, 2);
+  assert.equal(log.getSnapshot().error, null);
 });

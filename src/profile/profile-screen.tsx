@@ -10,6 +10,8 @@ import { ProfileControls, type ProfileSection } from "./profile-controls";
 import { ProfileStreak } from "./profile-streak";
 import { WorkoutChart } from "./workout-chart";
 import { WeightJournal } from "./weight-journal";
+import { MeasurementJournal } from "./measurement-journal";
+import { useUnits } from "../units/provider";
 import { ProfileGoals, TodayNutrition, type ProfileEditorInstance } from "./profile-goals";
 import { ProgressPhotos } from "./progress-photos";
 import type { ProfileEditSection } from "./section-editing";
@@ -19,6 +21,7 @@ export function ProfileScreen() {
   const [section, setSection] = useState<ProfileSection>("Overview");
   const [editor, setEditor] = useState<ProfileEditorInstance | null>(null);
   const nextEditorId = useRef(0);
+  const { units } = useUnits();
   // Sections are peers, so switching fades the new section in rather than sliding.
   const appear = useAppear("fade");
   // `/profile?section=photos` opens a section, e.g. from a Progress photo reminder.
@@ -54,7 +57,9 @@ export function ProfileScreen() {
           <>
             <ProfileStreak today={today} />
             <WorkoutChart today={today} />
-            <WeightJournal />
+            {/* Each edit words its messages in the units it starts with. */}
+            <WeightJournal key={`weight-${units}`} />
+            <MeasurementJournal key={`measurements-${units}`} />
             <TodayNutrition today={today} onPress={() => select("Goals")} />
             <ProgressPhotos today={today} recent openPhotos={() => select("Photos")} />
           </>

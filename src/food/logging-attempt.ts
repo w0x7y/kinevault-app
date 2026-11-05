@@ -14,6 +14,7 @@ import {
   type Serving,
 } from "./logging-preparation.ts";
 import { nutritionAmountText } from "./number-input.ts";
+import { measureText, type UnitSystem } from "../units/units.ts";
 
 type FoodLog = Pick<
   ReturnType<typeof createFoodLogPersistence>,
@@ -33,7 +34,8 @@ export type FoodLoggingAttemptSnapshot = Readonly<{
     servingsAvailable: boolean;
     /** Serving size chips, the 100 g one first; empty unless adding a gram-measured food. */
     portions: readonly (Serving & { chosen: boolean })[];
-    /** By servings, what one is and the total, e.g. "1 medium (118 g) each = 236 g". */
+    /** By servings, what one is and the total in the chosen units, e.g. "1 medium (118 g) each =
+     * 236 g". */
     caption: string;
   }>;
   /** The saved Custom food or meal behind the target: the current one, or as opened once deleted. */
@@ -68,19 +70,21 @@ function savedItem(catalog: Catalog, customId: string | undefined): SavedCatalog
 // its save. It follows the Selected day it is given, the live saved item, food-log
 // readiness and catalog writes. Adding reads and writes the shared Meal destination;
 // editing keeps the logged entry's own meal. Closing drops a save that finishes later;
-// a failure keeps every field.
+// a failure keeps every field. Fields hold saved grams and milliliters in any units.
 export function createFoodLoggingAttempt({
   target: original,
   date,
   log,
   catalog,
   destination,
+  units: shownUnits = "metric",
 }: {
   target: FoodSaveTarget;
   date: string;
   log: FoodLog;
   catalog: Catalog;
   destination: MealDestination;
+  units?: UnitSystem;
 }) {
   const listeners = new Set<() => void>();
   const customId = original.kind === "add" ? original.food.customId : original.entry.customId;
@@ -88,6 +92,7 @@ export function createFoodLoggingAttempt({
   // A deleted saved item keeps showing what was opened until the view returns.
   const opened = sources.item;
   let day = date;
+  let units = shownUnits;
   let fields: FoodLoggingFields = {
     grams:
       original.kind === "edit"
@@ -128,16 +133,19 @@ export function createFoodLoggingAttempt({
       fields,
       findFood: log.findFood,
       catalogItem: sources.item?.food,
+      units,
     });
     const grams = preparation.measurement === "grams" ? preparation.amount : null;
     const portions =
       target.kind === "add" && preparation.measurement === "grams" ? target.food.portions : [];
     const serving = resolveServing(portions, fields.serving);
     const by = serving && fields.amountBy === "servings" ? "servings" : "grams";
+    // A serving named by its grams ("100 g") reads as its weight alone.
+    const weight = serving && measureText("food", serving.grams, units);
     const each =
       serving && serving.label !== `${decimal(serving.grams)} g`
-        ? `${serving.label} (${decimal(serving.grams)} g)`
-        : serving?.label;
+        ? `${serving.label} (${weight})`
+        : weight;
     const submittable =
       active && !saving && sources.ready && !sources.catalogBusy && preparation.status === "ready";
     return {
@@ -155,7 +163,9 @@ export function createFoodLoggingAttempt({
               }))
             : [],
         caption:
-          by === "servings" ? `${each} each${grams === null ? "" : ` = ${decimal(grams)} g`}` : "",
+          by === "servings"
+            ? `${each} each${grams === null ? "" : ` = ${measureText("food", grams, units)}`}`
+            : "",
       },
       item,
       noun:
@@ -230,6 +240,12 @@ export function createFoodLoggingAttempt({
     setDate(date: string) {
       if (date === day) return;
       day = date;
+      publish();
+    },
+    /** Words the caption and messages in the chosen units; the fields stay metric. */
+    setUnits(next: UnitSystem) {
+      if (next === units) return;
+      units = next;
       publish();
     },
     /** A saved catalog edit restarts the amount from the edited item's serving.

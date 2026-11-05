@@ -183,3 +183,92 @@ test("invalid dates and failed local saves keep drafts and saved weight history 
   await page.getByTestId("weight-entry-2026-10-01").waitFor({ state: "detached" });
   assert.deepEqual((await stored(page)).weightEntries, [{ date: "2026-10-08", kg: 80 }]);
 });
+
+test("body measurements log any subset, chart one measurement, edit, keep failed saves and delete", async (t) => {
+  const { page } = await open(t, true);
+  const journal = page.getByTestId("profile-measurement-journal");
+  const field = (name) => page.getByRole("textbox", { name, exact: true });
+  const row = (date) => page.getByTestId(`measurement-entry-${date}`);
+  assert.match(await journal.innerText(), /No measurements yet/);
+  await button(page, "Log measurements").click();
+  await page.getByRole("dialog", { name: "Log measurements", exact: true }).waitFor();
+  assert.equal(await field("Measurement date (YYYY-MM-DD)").inputValue(), "2026-10-07");
+  await button(page, "Save measurements").click();
+  await page.getByRole("alert").filter({ hasText: "Enter at least one measurement." }).waitFor();
+  await field("Waist (cm)").fill("82,5");
+  await field("Hips (cm)").fill("98");
+  await field("Arm (cm)").fill("5");
+  await button(page, "Save measurements").click();
+  await page.getByRole("alert").filter({ hasText: "between 10 and 300 cm" }).waitFor();
+  await field("Arm (cm)").fill("");
+  await field("Measurement date (YYYY-MM-DD)").fill("2026-10-01");
+  await button(page, "Save measurements").click();
+  await row("2026-10-01").waitFor();
+  assert.match(await row("2026-10-01").innerText(), /Waist\s82\.5\scm · Hips\s98\scm/);
+  await button(page, "Log measurements").click();
+  await field("Waist (cm)").fill("81");
+  await field("Thigh (cm)").fill("57.5");
+  await button(page, "Save measurements").click();
+  await row("2026-10-07").waitFor();
+
+  const chart = (name) => page.getByRole("img", { name: new RegExp(`^${name} trend`) });
+  assert.match(
+    await chart("Waist").getAttribute("aria-label"),
+    /2 measurements\. 2026-10-01: 82\.5 cm; 2026-10-07: 81 cm$/,
+  );
+  await button(page, "Choose measurement").click();
+  await button(page, "Thigh").click();
+  assert.match(await chart("Thigh").getAttribute("aria-label"), /2026-10-07: 57\.5 cm$/);
+  assert.match(await journal.innerText(), /57\.5\s*cm/);
+
+  // The selected day already has measurements, so Log opens them instead of replacing them.
+  await button(page, "Log measurements").click();
+  await page.getByRole("dialog", { name: "Edit measurements", exact: true }).waitFor();
+  assert.equal(await field("Waist (cm)").inputValue(), "81");
+  await field("Arm (cm)").fill("34");
+  await button(page, "Save measurements").click();
+  await page.getByRole("dialog").waitFor({ state: "detached" });
+  assert.match(
+    await row("2026-10-07").innerText(),
+    /Waist\s81\scm · Arm\s34\scm · Thigh\s57\.5\scm/,
+  );
+  const saved = await stored(page);
+  assert.deepEqual(saved.bodyMeasurements, [
+    { date: "2026-10-01", cm: { waist: 82.5, hips: 98 } },
+    { date: "2026-10-07", cm: { waist: 81, arm: 34, thigh: 57.5 } },
+  ]);
+  assert.deepEqual(saved.answers, answers);
+  assert.equal(saved.weightEntries, undefined);
+
+  await button(page, "Edit measurements 2026-10-01").click();
+  await field("Chest (cm)").fill("101");
+  await page.evaluate(() => {
+    window.__weightWriteFailure = true;
+  });
+  await button(page, "Save measurements").click();
+  await page.getByRole("alert").filter({ hasText: "Couldn't save your measurements" }).waitFor();
+  assert.equal(await field("Chest (cm)").inputValue(), "101");
+  assert.deepEqual((await stored(page)).bodyMeasurements, saved.bodyMeasurements);
+  await page.evaluate(() => {
+    window.__weightWriteFailure = false;
+  });
+  await button(page, "Save measurements").click();
+  await page.getByRole("dialog").waitFor({ state: "detached" });
+  assert.match(
+    await row("2026-10-01").innerText(),
+    /Waist\s82\.5\scm · Chest\s101\scm · Hips\s98\scm/,
+  );
+
+  await page.reload();
+  await row("2026-10-01").waitFor();
+  await button(page, "Delete measurements 2026-10-01").click();
+  await button(page, "Delete measurements").click();
+  await row("2026-10-01").waitFor({ state: "detached" });
+  assert.deepEqual((await stored(page)).bodyMeasurements, [
+    { date: "2026-10-07", cm: { waist: 81, arm: 34, thigh: 57.5 } },
+  ]);
+  assert.match(
+    await chart("Waist").getAttribute("aria-label"),
+    /1 measurements\. 2026-10-07: 81 cm$/,
+  );
+});

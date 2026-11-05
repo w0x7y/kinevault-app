@@ -1,4 +1,5 @@
 import { parseDay } from "../calendar/dates.ts";
+import { limitText, unitName, type UnitSystem } from "../units/units.ts";
 
 export type WeightEntry = { date: string; kg: number };
 export type SaveWeightInput = WeightEntry & { previousDate?: string };
@@ -25,25 +26,63 @@ export function validateWeightEntry(date: unknown, kg: unknown): WeightEntry {
   return { date: validateWeightDate(date), kg: validateWeightKg(kg) };
 }
 
-export function weightFromInput(value: string): number {
+/** Saved kilogram text as a Body-weight measurement; messages name the limits in `units`. */
+export function weightFromInput(value: string, units: UnitSystem = "metric"): number {
   const text = value.trim();
   if (text.length > 16 || !/^\d+(?:[.,]\d{1,2})?$/.test(text))
-    throw new Error("Enter a weight in kg with up to two decimal places.");
-  return validateWeightKg(Number(text.replace(",", ".")));
+    throw new Error(
+      units === "metric"
+        ? "Enter a weight in kg with up to two decimal places."
+        : "Enter a weight in lb with up to one decimal place.",
+    );
+  const kg = Number(text.replace(",", "."));
+  if (kg < 1 || kg > 500)
+    throw new Error(
+      `Enter a weight between ${limitText("bodyWeight", 1, units, "min")} and ${limitText("bodyWeight", 500, units, "max")} ${unitName("bodyWeight", units)}.`,
+    );
+  return validateWeightKg(kg);
 }
 
-export function parseWeightEntries(value: unknown): WeightEntry[] {
-  if (!Array.isArray(value) || value.length > 50000) throw new Error("Invalid weight history");
+/** A dated history read by `read`, at most one entry per date, oldest first. */
+export function parseDatedEntries<T extends { date: string }>(
+  value: unknown,
+  read: (entry: object) => T,
+): T[] {
+  if (!Array.isArray(value) || value.length > 50000) throw new Error("Invalid measurement history");
   const dates = new Set<string>();
   const entries = value.map((entry: unknown) => {
-    if (typeof entry !== "object" || entry === null || !("date" in entry) || !("kg" in entry))
-      throw new Error("Invalid weight measurement");
-    const parsed = validateWeightEntry(entry.date, entry.kg);
-    if (dates.has(parsed.date)) throw new Error("Duplicate weight measurement date");
+    if (typeof entry !== "object" || entry === null) throw new Error("Invalid measurement");
+    const parsed = read(entry);
+    if (dates.has(parsed.date)) throw new Error("Duplicate measurement date");
     dates.add(parsed.date);
     return parsed;
   });
   return entries.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export function parseWeightEntries(value: unknown): WeightEntry[] {
+  return parseDatedEntries(value, (entry) => {
+    if (!("date" in entry) || !("kg" in entry)) throw new Error("Invalid weight measurement");
+    return validateWeightEntry(entry.date, entry.kg);
+  });
+}
+
+/** Saves `next` on its date, replacing any entry there and the one at `previousDate`. */
+export function saveDatedEntry<T extends { date: string }>(
+  entries: readonly T[],
+  next: T,
+  previousDate: string | undefined,
+  parse: (value: unknown) => T[],
+): T[] {
+  if (previousDate !== undefined) {
+    parseDay(previousDate);
+    if (!entries.some((entry) => entry.date === previousDate))
+      throw new Error("This measurement changed. Reopen it to edit.");
+  }
+  return parse([
+    ...entries.filter((entry) => entry.date !== next.date && entry.date !== previousDate),
+    next,
+  ]);
 }
 
 export function saveWeightEntry(
@@ -51,18 +90,13 @@ export function saveWeightEntry(
   input: SaveWeightInput,
 ): WeightEntry[] {
   const next = validateWeightEntry(input.date, input.kg);
-  if (input.previousDate !== undefined) {
-    parseDay(input.previousDate);
-    if (!entries.some((entry) => entry.date === input.previousDate))
-      throw new Error("This measurement changed. Reopen it to edit.");
-  }
-  return parseWeightEntries([
-    ...entries.filter((entry) => entry.date !== next.date && entry.date !== input.previousDate),
-    next,
-  ]);
+  return saveDatedEntry(entries, next, input.previousDate, parseWeightEntries);
 }
 
-export function removeWeightEntry(entries: readonly WeightEntry[], date: string): WeightEntry[] {
+export function removeDatedEntry<T extends { date: string }>(
+  entries: readonly T[],
+  date: string,
+): T[] {
   parseDay(date);
   if (!entries.some((entry) => entry.date === date))
     throw new Error("This measurement changed. Reopen your history.");
@@ -77,13 +111,14 @@ function calendarNumber(day: string): number {
   return utc.getTime() / 86400000;
 }
 
-export function weightTrend(entries: readonly WeightEntry[]) {
-  const ordered = parseWeightEntries(entries);
+/** Chart points for dated values, spaced by calendar day. */
+export function measurementTrend(entries: readonly { date: string; value: number }[]) {
+  const ordered = [...entries].sort((a, b) => a.date.localeCompare(b.date));
   if (!ordered.length) return { points: [], minimum: 0, maximum: 1, change: null };
   const first = ordered[0]!;
   const latest = ordered.at(-1)!;
-  const low = Math.min(...ordered.map((entry) => entry.kg));
-  const high = Math.max(...ordered.map((entry) => entry.kg));
+  const low = Math.min(...ordered.map((entry) => entry.value));
+  const high = Math.max(...ordered.map((entry) => entry.value));
   const padding = Math.max(0.5, (high - low) * 0.15);
   const minimum = Math.max(0, low - padding),
     maximum = high + padding;
@@ -93,10 +128,10 @@ export function weightTrend(entries: readonly WeightEntry[]) {
     points: ordered.map((entry) => ({
       ...entry,
       x: span ? (calendarNumber(entry.date) - start) / span : 0.5,
-      y: (entry.kg - minimum) / (maximum - minimum),
+      y: (entry.value - minimum) / (maximum - minimum),
     })),
     minimum,
     maximum,
-    change: ordered.length > 1 ? Math.round((latest.kg - first.kg) * 100) / 100 : null,
+    change: ordered.length > 1 ? Math.round((latest.value - first.value) * 100) / 100 : null,
   };
 }

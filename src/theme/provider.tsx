@@ -86,6 +86,16 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   );
 }
 
+/** Draws `children` in the light palette whatever the app theme, as the share image does. */
+export function LightTheme({ children }: PropsWithChildren) {
+  const theme = useTheme();
+  return (
+    <ThemeContext.Provider value={{ ...theme, colors: lightColors, appearance: "light" }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
 export function useTheme() {
   const theme = useContext(ThemeContext);
   if (!theme) throw new Error("useTheme must be used inside ThemeProvider");

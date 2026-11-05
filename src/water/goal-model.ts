@@ -1,7 +1,13 @@
+import { limitText, unitName, type UnitSystem } from "../units/units.ts";
+
 export type WaterGoalDocument = { version: 1; dailyMl: number };
 
 export const defaultWaterGoalMl = 1500;
-export const waterGoalRangeMessage = "Enter a whole number from 1 to 10,000 ml.";
+/** What an invalid Water goal says, with its limits in `units`. */
+export function waterGoalMessage(units: UnitSystem): string {
+  return `Enter a whole number from ${limitText("fluid", 1, units, "min")} to ${limitText("fluid", 10000, units, "max")} ${unitName("fluid", units)}.`;
+}
+export const waterGoalRangeMessage = waterGoalMessage("metric");
 
 export function isWaterGoal(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 1 && value <= 10000;

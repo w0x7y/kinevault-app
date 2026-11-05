@@ -13,12 +13,18 @@ import { ModalSheet } from "../components/modal-sheet";
 import { useDocumentEdit } from "../persistence/use-document-edit";
 import { useProfile, useProfilePersistence } from "./provider";
 import { createWeightEdit } from "./weight-editing";
-import { WeightChart, weightDateLabel, weightLabel } from "./weight-chart";
+import { WeightChart, weightDateLabel } from "./weight-chart";
+import { useUnits } from "../units/provider";
+import { measureFigure, measureText, unitName } from "../units/units";
 
 export function WeightJournal() {
   const profile = useProfile();
   const persistence = useProfilePersistence();
-  const { edit, attempt, busy, replacing } = useDocumentEdit(() => createWeightEdit(persistence));
+  const { units } = useUnits();
+  // The Personal journal keys this by units, so the edit's messages follow them.
+  const { edit, attempt, busy, replacing } = useDocumentEdit(() =>
+    createWeightEdit(persistence, units),
+  );
   const { selectedDay } = useSelectedDay();
   const { colors } = useTheme();
   const [visible, setVisible] = useState(10);
@@ -59,7 +65,7 @@ export function WeightJournal() {
           />
         </View>
       )}
-      <WeightChart entries={entries} />
+      <WeightChart entries={entries.map(({ date, kg }) => ({ date, value: kg }))} />
       {history.length > 0 && (
         <View testID="body-weight-history" style={{ marginTop: spacing.xs }}>
           <Overline style={{ marginBottom: spacing.xs }}>History</Overline>
@@ -81,9 +87,9 @@ export function WeightJournal() {
                 {weightDateLabel(entry.date)}
               </AppText>
               <AppText variant="label" numeric style={{ fontSize: 15, marginRight: spacing.xs }}>
-                {weightLabel(entry.kg)}
+                {measureFigure("bodyWeight", entry.kg, units)}
                 <AppText variant="caption" muted>
-                  {" kg"}
+                  {` ${unitName("bodyWeight", units)}`}
                 </AppText>
               </AppText>
               <IconButton
@@ -126,7 +132,8 @@ export function WeightJournal() {
               disabled={busy}
             />
             <TextField
-              label="Body weight (kg)"
+              label={`Body weight (${unitName("bodyWeight", units)})`}
+              quantity="bodyWeight"
               value={draft.weight}
               onChange={(value) => edit.change("weight", value)}
               error={fields.weight}
@@ -168,7 +175,8 @@ export function WeightJournal() {
         {deleting && (
           <>
             <AppText muted>
-              Delete {weightLabel(deleting.kg)} kg recorded on {weightDateLabel(deleting.date)}?
+              Delete {measureText("bodyWeight", deleting.kg, units)} recorded on{" "}
+              {weightDateLabel(deleting.date)}?
             </AppText>
             {error && <InlineMessage>{error}</InlineMessage>}
             <ButtonRow>

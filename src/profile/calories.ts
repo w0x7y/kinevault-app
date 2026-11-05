@@ -6,6 +6,7 @@ import {
   type Answers,
   type FieldErrors,
 } from "./answers.ts";
+import { heightText, limitText, unitName, type UnitSystem } from "../units/units.ts";
 
 /** A daily calorie target the app accepts, estimated or custom: whole kcal from 1,200 to 10,000. */
 export function isCalorieTarget(value: number | null): value is number {
@@ -44,7 +45,8 @@ export function estimateCalories(answers: Answers) {
   return { resting, maintenance, adjustment, target };
 }
 
-export function validateAnswers(answers: Answers): FieldErrors {
+/** Each invalid answer's message; height and weight name their limits in `units`. */
+export function validateAnswers(answers: Answers, units: UnitSystem = "metric"): FieldErrors {
   const errors: FieldErrors = {};
   const needsEstimate = calorieState(answers).kind === "estimate";
   if (answers.name.length > 40) errors.name = "Use 40 characters or fewer.";
@@ -59,6 +61,12 @@ export function validateAnswers(answers: Answers): FieldErrors {
     { key: "height", min: 100, max: 250, label: "height", unit: "cm" },
     { key: "weight", min: 30, max: 350, label: "weight", unit: "kg" },
   ] as const;
+  const range = (key: (typeof metrics)[number]["key"], min: number, max: number, unit: string) =>
+    units === "metric" || key === "age"
+      ? `${min} and ${max} ${unit}`
+      : key === "height"
+        ? `${heightText(min, units)} and ${heightText(max, units)}`
+        : `${limitText("bodyWeight", min, units, "min")} and ${limitText("bodyWeight", max, units, "max")} ${unitName("bodyWeight", units)}`;
   for (const { key, min, max, label, unit } of metrics) {
     if (key !== "age" && !answers[key].trim() && !needsEstimate) continue;
     const value = numericValue(answers[key]);
@@ -69,7 +77,7 @@ export function validateAnswers(answers: Answers): FieldErrors {
       (key === "age" && !Number.isInteger(value))
     ) {
       errors[key] =
-        `Enter ${label} between ${min} and ${max} ${unit}${key === "age" ? " in whole years" : ""}.`;
+        `Enter ${label} between ${range(key, min, max, unit)}${key === "age" ? " in whole years" : ""}.`;
     }
   }
   if (needsEstimate) {

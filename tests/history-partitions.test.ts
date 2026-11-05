@@ -345,3 +345,58 @@ test("the public food log persists edits by month and removes only the deleted e
   assert.equal(restored.days["2026-10-01"][0].calories, 48.5);
   restarted.stop();
 });
+
+test("copying food from another month commits only the target month, all or nothing", async () => {
+  const local = memory(),
+    account = createAccountStorage({ userId: "a", local, remote: null });
+  await account.start();
+  let sequence = 0;
+  const log = createFoodLogPersistence({ storage: account, createId: () => `entry-${++sequence}` });
+  log.start();
+  for (let index = 0; index < 50; index++) await Promise.resolve();
+  const food = {
+    fdcId: 2709224,
+    name: "Banana",
+    category: "Fruit",
+    per100g: { calories: 97, carbs: 22.7, protein: 0.74, fat: 0.28 },
+    portions: [],
+  };
+  assert.equal(await log.add({ date: "2026-10-31", food, grams: 100, meal: "dinner" }), true);
+  assert.equal(await log.add({ date: "2026-10-31", food, grams: 50, meal: "snacks" }), true);
+  const root = [...local.values.keys()].find((key) => key.endsWith(foodKey))!;
+  const october = [...local.values.keys()].find((key) => key.includes("2026-10"))!;
+  const copy = { from: "2026-10-31", to: "2026-11-01", meal: null };
+
+  local.failNext(root);
+  assert.equal(await log.copy(copy), false);
+  assert.equal(log.getSnapshot().error, "Couldn't save your food log. Try again.");
+  assert.equal(
+    [...local.values.keys()].some((key) => key.includes("2026-11")),
+    false,
+    "a failed commit leaves no November fragment",
+  );
+
+  local.writes.length = 0;
+  assert.equal(await log.copy(copy), true);
+  assert.equal(local.writes.length, 2);
+  assert.match(local.writes[0]!, /2026-11/);
+  assert.equal(local.writes[1], root);
+  assert.ok(local.values.has(october), "October is not rewritten");
+  log.stop();
+  account.stop();
+  const restarted = createAccountStorage({ userId: "a", local, remote: null });
+  await restarted.start();
+  const restored = JSON.parse((await restarted.getItem(foodKey))!);
+  assert.deepEqual(
+    restored.days["2026-11-01"].map((entry: { meal: string; grams: number }) => [
+      entry.meal,
+      entry.grams,
+    ]),
+    [
+      ["dinner", 100],
+      ["snacks", 50],
+    ],
+  );
+  assert.equal(restored.days["2026-10-31"].length, 2);
+  restarted.stop();
+});

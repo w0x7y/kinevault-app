@@ -19,9 +19,12 @@ import {
 import {
   createEmptySet,
   isBlankSet,
+  isWarmUp,
   timedSeconds,
+  trackingMode,
   withHintValues,
   withSetValue,
+  withWarmUp,
   type SetField,
   type SetLine,
 } from "./tracking.ts";
@@ -30,6 +33,7 @@ import { createSetClock, type ShownClock, type StoppedClock } from "./set-clock.
 import { createTicker, type TickerTime } from "./ticker.ts";
 import { createRestTimer, type RestLengthStorage, type RestSnapshot } from "./rest-timer.ts";
 import { exerciseRowLabel } from "./short-name.ts";
+import { linkToNext, moveRow, validGroups } from "./supersets.ts";
 import type { ExercisePanels, WorkoutView } from "./tab-view.ts";
 import {
   keepShown,
@@ -72,8 +76,8 @@ type WorkoutEditState = {
   /** The exercise row whose notes show. */
   notesId: string | null;
   /**
-   * Edit mode: each set gets add and remove buttons, and the exercise bar removes, reorders and
-   * adds exercises.
+   * Edit mode: each set gets add and remove buttons, a weighted set's number marks it as a
+   * warm-up, and the exercise bar removes, reorders and adds exercises.
    */
   editing: boolean;
   /** Edit mode's open Add exercise: its library search and how many results show. */
@@ -94,6 +98,8 @@ type Change =
   /** Removes an exercise row from this log only; templates and the library keep it. */
   | { kind: "remove-exercise"; rowId: string }
   | { kind: "move-exercise"; rowId: string; to: number }
+  /** Joins a row and the one after it into a Superset, or splits them. */
+  | { kind: "superset"; rowId: string; linked: boolean }
   /** An exercise's notes, in every row of it; the save command also gives them to the library. */
   | { kind: "notes"; rowId: string; value: string }
   | SetChange;
@@ -107,6 +113,8 @@ type SetChange =
   | { kind: "remove-set"; rowId: string; setId?: string }
   /** Copies a set line's Previous sets hint into its blank fields (pressing the set's number). */
   | { kind: "fill"; rowId: string; setId: string; side: SetLine["side"] }
+  /** Marks a set as a warm-up, or not (pressing its number in edit mode). */
+  | { kind: "warm-up"; rowId: string; setId: string }
   | {
       kind: "set";
       rowId: string;
@@ -305,6 +313,10 @@ function removal(exercises: readonly SessionExercise[], id: string | null) {
   };
 }
 
+/** A Superset goes in rounds until every one of its exercises' sets is entered. */
+function setsDone(row: SessionExercise) {
+  return row.sets.every((set) => !isBlankSet(set));
+}
 function shownCount(row: SessionExercise, counts: Record<string, string>) {
   return counts[row.id] ?? String(row.sets.length);
 }
@@ -417,7 +429,12 @@ export function createWorkoutEditing(
       return entry.view.snapshot;
     const { session, selectedId, counts, ...shown } = state;
     const { exercises, minutes } = state.fields;
-    const { selected, previous, next } = workspaceView(exercises, selectedId);
+    // The live workout goes through a Superset in rounds.
+    const { selected, previous, next } = workspaceView(
+      exercises,
+      selectedId,
+      mode === "active" ? setsDone : undefined,
+    );
     // Hints read other logs too; a newer document always replaces the state (see refreshDocument).
     const snapshot: WorkoutEditSnapshot = {
       ...shown,
@@ -638,6 +655,13 @@ export function createWorkoutEditing(
             ? row.sets
             : row.sets.map((value) => (value === set ? filled! : value));
         }
+        case "warm-up": {
+          const set = row.sets.find((value) => value.id === input.setId);
+          const marked = set && withWarmUp(set, !isWarmUp(set));
+          return marked === set
+            ? row.sets
+            : row.sets.map((value) => (value === set ? marked! : value));
+        }
         case "set":
           return row.sets.map((set) =>
             set.id === input.setId ? withSetValue(set, input.side, input.field, input.value) : set,
@@ -682,7 +706,7 @@ export function createWorkoutEditing(
       } else if (input.kind === "remove-exercise") {
         const exercises = fields.exercises.filter((value) => value.id !== input.rowId);
         if (exercises.length === fields.exercises.length) return;
-        fields = { ...fields, exercises };
+        fields = { ...fields, exercises: validGroups(exercises) };
         removingId = null;
       } else if (input.kind === "notes") {
         const row = fields.exercises.find((value) => value.id === input.rowId);
@@ -697,18 +721,17 @@ export function createWorkoutEditing(
           ),
         };
       } else if (input.kind === "move-exercise") {
-        const row = fields.exercises.find((value) => value.id === input.rowId);
-        const exercises = fields.exercises.filter((value) => value !== row);
-        if (
-          !row ||
-          fields.exercises[input.to] === row ||
-          !(input.to >= 0 && input.to <= exercises.length)
-        )
+        const from = fields.exercises.findIndex((value) => value.id === input.rowId);
+        if (from < 0 || from === input.to || !(input.to >= 0 && input.to < fields.exercises.length))
           return;
-        exercises.splice(input.to, 0, row);
         // The exercise on screen stays on screen, even when it was only shown for being first.
         selectedId = keepShown(fields.exercises, selectedId) ?? null;
-        fields = { ...fields, exercises };
+        fields = { ...fields, exercises: moveRow(fields.exercises, from, input.to) };
+      } else if (input.kind === "superset") {
+        const index = fields.exercises.findIndex((value) => value.id === input.rowId);
+        const exercises = linkToNext(fields.exercises, index, input.linked);
+        if (exercises === fields.exercises) return;
+        fields = { ...fields, exercises: [...exercises] };
       } else {
         const row = fields.exercises.find((value) => value.id === input.rowId);
         if (!row) return;
@@ -814,7 +837,8 @@ export function createWorkoutEditing(
       change,
       run,
       /**
-       * Starts a timed set's clock: a countdown from its seconds, or a stopwatch on a blank set.
+       * Starts a Timed or Cardio set's clock: a countdown from its seconds, or a stopwatch on a
+       * blank set.
        * On the running set it stops and logs the seconds it ran; another running clock stops first.
        */
       toggleClock(rowId: string, setId: string) {
@@ -822,7 +846,8 @@ export function createWorkoutEditing(
         const set = entry.state.fields.exercises
           .find((row) => row.id === rowId)
           ?.sets.find((value) => value.id === setId);
-        if (set?.kind === "time") logClock(id, clocks.toggle(id, rowId, setId, timedSeconds(set)));
+        if (set && trackingMode(set.kind).clock)
+          logClock(id, clocks.toggle(id, rowId, setId, timedSeconds(set)));
         else settleClock(id, entry);
       },
       /** Starts a rest of the chosen length, or stops the running one. */

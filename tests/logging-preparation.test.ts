@@ -169,6 +169,31 @@ test("volume input only accepts whole millilitres from 1 through 10,000", () => 
     assertReady(prepare({ kind: "add", food: cola }, { drinkMl }));
 });
 
+test("amount messages name their limits in the chosen units; the fields stay metric", () => {
+  const imperial = (target: FoodSaveTarget, changes: Partial<FoodLoggingFields>) =>
+    prepareFoodLogging({
+      target,
+      date,
+      fields: { ...fields, ...changes },
+      findFood,
+      units: "imperial",
+    });
+  const drink = imperial({ kind: "add", food: cola }, { drinkMl: "0" });
+  assert.ok(drink.status !== "ready");
+  assert.equal(drink.message, "Enter a whole drink amount from 1 to 338 fl oz.");
+  const food = imperial({ kind: "add", food: banana }, { grams: "20000" });
+  assert.ok(food.status !== "ready");
+  assert.equal(food.message, "Enter an amount greater than 0 and up to 352.7 oz.");
+  const metric = prepare({ kind: "add", food: banana }, { grams: "20000" });
+  assert.ok(metric.status !== "ready");
+  assert.equal(metric.message, "Enter an amount greater than 0 and up to 10,000 g.");
+  // The same saved grams prepare the same write in either units.
+  assert.deepEqual(
+    imperial({ kind: "add", food: banana }, {}),
+    prepare({ kind: "add", food: banana }),
+  );
+});
+
 const legacy = {
   id: "legacy",
   name: milk.name,

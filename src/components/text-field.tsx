@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useUnitField } from "../units/provider";
+import type { Quantity } from "../units/units";
 import { TextInput, View, type TextInputProps, type TextStyle } from "react-native";
 import { Icon } from "./icon";
 import { InlineMessage } from "./inline-message";
@@ -112,6 +114,8 @@ const sizes: Record<"regular" | "large" | "figure" | "hero", TextStyle> = {
  *   value. Without it the owner validates the text and explains a bad value.
  * - `unit` and `trailing` (e.g. a show-password toggle) sit inside the surface; `action` (e.g. a
  *   Remove button) sits beside it.
+ * - `quantity` makes `value` and `onChange` saved metric text (kilograms, grams and so on) that
+ *   the field shows and takes in the chosen units.
  * - `layout="inline"` puts a short figure beside its label, e.g. a set count.
  * - `autoFocus` focuses on mount, or as soon as a field that starts disabled becomes editable.
  */
@@ -130,6 +134,7 @@ export function TextField({
   hint,
   description,
   unit,
+  quantity,
   trailing,
   action,
   revealable = false,
@@ -163,6 +168,7 @@ export function TextField({
   /** Muted guidance under the input. */
   description?: string;
   unit?: string;
+  quantity?: Quantity;
   trailing?: ReactNode;
   action?: ReactNode;
   /** A `password` field gets a Show/Hide password toggle inside the surface; clearing the
@@ -183,6 +189,7 @@ export function TextField({
   testID?: string;
 }) {
   const { colors } = useTheme();
+  const shown = useUnitField(quantity, value, onChange);
   const [focused, setFocused] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [lastValue, setLastValue] = useState(value);
@@ -218,10 +225,10 @@ export function TextField({
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={error ?? hint}
       aria-invalid={invalidNow}
-      value={value}
+      value={shown.value}
       onChangeText={(text) => {
         if (filter && numeric && !accepts[kind].test(text)) return;
-        onChange(text);
+        shown.onChange(text);
       }}
       editable={!disabled}
       {...keyboard}

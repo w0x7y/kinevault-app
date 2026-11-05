@@ -397,6 +397,7 @@ const lift = (id: string, reps: string, weightKg: string): ExerciseSet => ({
   weightKg,
 });
 const blank = (id: string) => lift(id, "", "");
+const warm = (set: ExerciseSet) => ({ ...set, warmUp: true }) as ExerciseSet;
 function log(
   id: string,
   date: string,
@@ -605,4 +606,127 @@ test("alternating and timed logs parse, and a set must match its exercise's mode
       () => parseExerciseDocument(mismatched(timed, { id: "s", kind: "time", seconds })),
       /seconds/,
     );
+});
+
+test("cardio logs and warm-up flags round-trip; a warm-up flag is true or absent", () => {
+  const run: ExerciseDefinition = { ...exercise, id: "run", name: "Run", tracking: "cardio" };
+  const logged = document([
+    {
+      ...session,
+      exercises: [
+        {
+          id: "run-row",
+          exercise: run,
+          sets: [{ id: "r", kind: "cardio", seconds: "1800", distanceMeters: "5250" }],
+        },
+        {
+          id: "squat-row",
+          exercise: squat,
+          sets: [warm(lift("w", "5", "40")), lift("s", "5", "100")],
+        },
+        {
+          ...session.exercises[0]!,
+          sets: [warm(session.exercises[0]!.sets[0]!)],
+        },
+      ],
+    },
+  ]);
+  assert.deepEqual(parse(logged), logged);
+  const sets = (value: unknown) =>
+    document([
+      {
+        ...session,
+        exercises: [{ id: "squat-row", exercise: squat, sets: [value as ExerciseSet] }],
+      },
+    ]);
+  for (const warmUp of [false, "true", 1])
+    assert.throws(() => parse(sets({ ...lift("w", "5", "40"), warmUp })), /warm-up/);
+  // A completed cardio set needs its seconds and a valid distance.
+  const runSet = (distanceMeters: string, seconds = "60") =>
+    document([
+      {
+        ...session,
+        exercises: [
+          {
+            id: "run-row",
+            exercise: run,
+            sets: [{ id: "r", kind: "cardio", seconds, distanceMeters }],
+          },
+        ],
+      },
+    ]);
+  assert.throws(() => parse(runSet("5255")), /distance/);
+  assert.throws(() => parse(runSet("", "")), /seconds/);
+  assert.equal(parse(runSet("")).sessions[0]!.exercises[0]!.sets[0]!.kind, "cardio");
+});
+
+test("warm-up sets count toward no totals; cardio adds its time and distance", () => {
+  const run: ExerciseDefinition = { ...exercise, id: "run", name: "Run", tracking: "cardio" };
+  const day: WorkoutSession = {
+    ...session,
+    exercises: [
+      {
+        id: "squat-row",
+        exercise: squat,
+        sets: [
+          warm(lift("w1", "10", "20")),
+          warm(lift("w2", "5", "60")),
+          lift("s1", "5", "100"),
+          lift("s2", "5", "100"),
+        ],
+      },
+      // Only warm-ups: the row counts toward nothing.
+      {
+        id: "bench-row",
+        exercise: { ...squat, id: "bench" },
+        sets: [warm(lift("b", "5", "40"))],
+      },
+      {
+        id: "run-row",
+        exercise: run,
+        sets: [
+          { id: "r1", kind: "cardio", seconds: "1200", distanceMeters: "4000" },
+          { id: "r2", kind: "cardio", seconds: "600", distanceMeters: "" },
+        ],
+      },
+    ],
+  };
+  const summary = summarizeSessions([day]);
+  assert.equal(summary.sets, 4);
+  assert.equal(summary.reps, 10);
+  assert.equal(summary.volume, 1000);
+  assert.equal(summary.meters, 4000);
+  // Cardio sets have no reps, so they don't dilute the average.
+  assert.equal(summary.averageRepsPerSet, 5);
+  assert.deepEqual(
+    summary.exercises.map((row) => [row.name, row.sets, row.load, row.top]),
+    [
+      ["Squat", 2, { kind: "weight", weightKg: 100 }, { reps: 5, weightKg: 100 }],
+      ["Run", 2, { kind: "cardio", seconds: 1800, meters: 4000 }, null],
+    ],
+  );
+});
+
+test("warm-ups hint from last workout's warm-ups, and working sets from its working sets", () => {
+  const sessions = [
+    log("old", "2026-10-03", [
+      warm(lift("a", "10", "20")),
+      warm(lift("b", "5", "60")),
+      lift("c", "5", "100"),
+      lift("d", "4", "100"),
+    ]),
+  ];
+  // Fresh sets are working sets, so they hint from the working sets.
+  assert.deepEqual(hints(sessions, [blank("x"), blank("y")]), [hint("5", "100"), hint("4", "100")]);
+  // Marking the first set as a warm-up gives it the first warm-up's hint; the rest keep theirs.
+  assert.deepEqual(hints(sessions, [warm(blank("w")), blank("x"), blank("y"), blank("z")]), [
+    hint("10", "20"),
+    hint("5", "100"),
+    hint("4", "100"),
+    hint(),
+  ]);
+  // A warm-up with no earlier warm-up to match has no hint.
+  assert.deepEqual(hints([log("old", "2026-10-03", [lift("c", "5", "100")])], [warm(blank("w"))]), [
+    hint(),
+  ]);
 });

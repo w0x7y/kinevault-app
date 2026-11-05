@@ -6,7 +6,15 @@ import { AppText } from "../components/ui";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
 import type { CatalogFood, Nutrition } from "./catalog.ts";
-import { previewMeal, type CustomMeal, type MealDraft } from "./meal-model.ts";
+import {
+  ingredientAmountMessage,
+  mealWeightMessage,
+  previewMeal,
+  type CustomMeal,
+  type MealDraft,
+} from "./meal-model.ts";
+import { useUnits } from "../units/provider";
+import { measureText, unitName } from "../units/units";
 import { defaultAmount } from "./logging-attempt.ts";
 import { useCustomFoods } from "./custom-provider";
 import { InlineMessage } from "../components/inline-message";
@@ -34,6 +42,14 @@ export function CreateMealForm({
 }) {
   const foods = useCustomFoods();
   const { colors } = useTheme();
+  const { units } = useUnits();
+  // The draft's amounts are grams; its two weight messages read in the chosen units.
+  const worded = (message: string | undefined) =>
+    message === ingredientAmountMessage("metric")
+      ? ingredientAmountMessage(units)
+      : message === mealWeightMessage("metric")
+        ? mealWeightMessage(units)
+        : message;
   const drafts = useFoodDrafts();
   const { draft, existing, handle, errors, error } = session;
   const sequence = useRef(0);
@@ -99,9 +115,10 @@ export function CreateMealForm({
                 }}
               >
                 <TextField
-                  label={`Amount for ${ingredient.food.name} (g)`}
+                  label={`Amount for ${ingredient.food.name} (${unitName("food", units)})`}
+                  quantity="food"
                   value={ingredient.amount}
-                  error={errors.amounts?.[ingredient.id]}
+                  error={worded(errors.amounts?.[ingredient.id])}
                   kind="decimal"
                   disabled={busy}
                   onChange={(amount) =>
@@ -135,13 +152,13 @@ export function CreateMealForm({
             ))}
           </View>
         )}
-        {errors.ingredients && <InlineMessage>{errors.ingredients}</InlineMessage>}
+        {errors.ingredients && <InlineMessage>{worded(errors.ingredients)}</InlineMessage>}
         <IngredientSearch onAdd={add} disabled={busy} />
       </Section>
       <Section
         title="Nutrition for the whole meal"
         titleRole="header"
-        description={`${calculated ? `${numberText(calculated.grams)} g in total. ` : ""}Calculated from ingredients. Edit any value to override it.`}
+        description={`${calculated ? `${units === "metric" ? `${numberText(calculated.grams)} g` : measureText("food", calculated.grams, units)} in total. ` : ""}Calculated from ingredients. Edit any value to override it.`}
       >
         <NutritionFields
           values={values}

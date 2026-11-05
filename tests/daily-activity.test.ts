@@ -5,13 +5,20 @@ import { interpretDayActivity } from "../src/daily/activity.ts";
 import type { FoodEntry } from "../src/daily/model.ts";
 import type { CatalogFood } from "../src/food/catalog.ts";
 import { entryForFood } from "../src/food/log-model.ts";
-import type { WorkoutSession } from "../src/exercise/model.ts";
+import type { ExerciseDefinition, WorkoutSession } from "../src/exercise/model.ts";
 import { emptyAnswers } from "../src/profile/answers.ts";
 import type { PhoneStepsReading } from "../src/steps/summary.ts";
 import { parseWaterGoal } from "../src/water/goal-model.ts";
 
 const date = "2026-10-01";
 const otherDate = "2026-09-30";
+/** `date` in the device's words: "Thursday, October 1, 2026" in US English. */
+const longDate = new Date(2026, 9, 1).toLocaleDateString(undefined, {
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+});
 const drink: FoodEntry = {
   id: "drink",
   fdcId: 1,
@@ -392,6 +399,7 @@ test("the Workout tile covers every state, with one minutes rule for the title a
     name: "Morning",
     status: "Done",
     lifted: "200",
+    liftedUnit: "kg",
     detail: "1 exercise · 5 reps per set on average",
     exercises: [
       {
@@ -404,6 +412,17 @@ test("the Workout tile covers every state, with one minutes rule for the title a
       },
     ],
     stats: stats("30 min"),
+    share: {
+      name: "Morning",
+      date: longDate,
+      stats: [
+        { label: "Duration", value: "30 min" },
+        { label: "Sets", value: "1" },
+        { label: "Volume", value: "200 kg" },
+      ],
+      exercises: { lines: [{ name: "Squat", figure: "40 kg × 5" }], more: null },
+      records: { lines: [], more: null },
+    },
   });
   // A timed exercise counts its sets and shows its total time instead of reps and weight.
   const stretch = { ...definition, id: "stretch", name: "Stretch", tracking: "time" as const };
@@ -487,6 +506,237 @@ test("the Workout tile covers every state, with one minutes rule for the title a
   assert.equal(same.kind === "done" && same.exercises[0]!.record, null);
 });
 
+test("the Workout tile adds cardio distance and leaves warm-up sets out", () => {
+  const squat = {
+    id: "squat",
+    name: "Squat",
+    muscleGroup: "",
+    equipment: "",
+    notes: "",
+    tracking: "single" as const,
+  };
+  const run = { ...squat, id: "run", name: "Run", tracking: "cardio" as const };
+  const day = (exercises: WorkoutSession["exercises"]): WorkoutSession => ({
+    id: "day",
+    date,
+    name: "Morning",
+    status: "completed",
+    startedAt: null,
+    durationSeconds: 1800,
+    exercises,
+  });
+  const runRow = (distanceMeters: string) => ({
+    id: "run-row",
+    exercise: run,
+    sets: [{ id: "r", kind: "cardio" as const, seconds: "1500", distanceMeters }],
+  });
+  const tile = (session: WorkoutSession) =>
+    interpretDayActivity({
+      ...sources,
+      exercise: source({
+        kind: "ready" as const,
+        document: { ...noExercise, sessions: [session] },
+      }),
+    }).workout;
+  const cardio = tile(day([runRow("5250")]));
+  assert.equal(cardio.summary, "5.25 km · 30 min");
+  assert.ok(cardio.kind === "done");
+  assert.deepEqual(cardio.exercises[0], {
+    id: JSON.stringify(["day", "run-row"]),
+    name: "Run",
+    counts: ["1 set", "5.25 km"],
+    amount: "25:00",
+    amountLabel: "time 25:00",
+    record: null,
+  });
+  // Without reps, the distance takes the reps column.
+  assert.deepEqual(cardio.stats, [
+    { label: "Duration", value: "30 min" },
+    { label: "Sets", value: "1" },
+    { label: "Distance", value: "5.25 km" },
+  ]);
+  // Without a distance, a cardio day reads like a timed one.
+  const noDistance = tile(day([runRow("")]));
+  assert.equal(noDistance.summary, "1 set · 30 min");
+  assert.ok(noDistance.kind === "done");
+  assert.deepEqual(noDistance.exercises[0]!.counts, ["1 set"]);
+  assert.deepEqual(noDistance.stats.at(-1), { label: "Reps", value: "0" });
+  // A warm-up set adds no sets, reps or kilograms.
+  const lift = (id: string, weightKg: string, warmUp = false) => ({
+    id,
+    kind: "single" as const,
+    reps: "5",
+    weightKg,
+    ...(warmUp ? { warmUp: true as const } : {}),
+  });
+  const mixed = tile(
+    day([
+      { id: "squat-row", exercise: squat, sets: [lift("w", "60", true), lift("s", "100")] },
+      runRow("3000"),
+    ]),
+  );
+  assert.equal(mixed.summary, "500 kg · 3 km · 30 min");
+  assert.ok(mixed.kind === "done");
+  // With reps too, the distance shows in the summary and on its exercise's row.
+  assert.deepEqual(mixed.stats, [
+    { label: "Duration", value: "30 min" },
+    { label: "Sets", value: "2" },
+    { label: "Reps", value: "5" },
+  ]);
+  assert.deepEqual(mixed.exercises[1]!.counts, ["1 set", "3 km"]);
+  assert.deepEqual(mixed.exercises[0]!.counts, ["1 set", "5 reps"]);
+  assert.equal(mixed.exercises[0]!.amount, "100 kg");
+  // Imperial reads the same saved sets in pounds and miles.
+  const imperial = interpretDayActivity({
+    ...sources,
+    units: "imperial",
+    exercise: source({
+      kind: "ready" as const,
+      document: {
+        ...noExercise,
+        sessions: [
+          day([{ id: "squat-row", exercise: squat, sets: [lift("s", "61.235")] }, runRow("4990")]),
+        ],
+      },
+    }),
+  }).workout;
+  assert.equal(imperial.summary, "675 lb · 3.1 mi · 30 min");
+  assert.ok(imperial.kind === "done");
+  assert.equal(imperial.lifted, "675");
+  assert.equal(imperial.liftedUnit, "lb");
+  assert.equal(imperial.exercises[0]!.amount, "135 lb");
+  assert.deepEqual(imperial.exercises[1]!.counts, ["1 set", "3.1 mi"]);
+  assert.deepEqual(imperial.share.stats.at(-1), { label: "Volume", value: "675 lb" });
+  assert.deepEqual(
+    imperial.share.exercises.lines.map((line) => line.figure),
+    ["135 lb × 5", "3.1 mi · 25:00"],
+  );
+});
+
+test("the share image lists each exercise's top set and the day's records", () => {
+  const definition = (id: string, name: string, tracking: ExerciseDefinition["tracking"]) => ({
+    id,
+    name,
+    muscleGroup: "",
+    equipment: "",
+    notes: "",
+    tracking,
+  });
+  const squat = definition("squat", "Squat", "single");
+  const lift = (id: string, weightKg: string, reps: string, warmUp = false) => ({
+    id,
+    kind: "single" as const,
+    reps,
+    weightKg,
+    ...(warmUp ? { warmUp: true as const } : {}),
+  });
+  const lifts = (exercise: ExerciseDefinition, ...sets: [string, string][]) => ({
+    id: `${exercise.id}-row`,
+    exercise,
+    sets: sets.map(([weightKg, reps], index) => lift(`${exercise.id}-${index}`, weightKg, reps)),
+  });
+  const workout = (
+    id: string,
+    day: string,
+    exercises: WorkoutSession["exercises"],
+    durationSeconds: number | null = 2700,
+  ): WorkoutSession => ({
+    id,
+    date: day,
+    name: "Leg day",
+    status: "completed",
+    startedAt: null,
+    durationSeconds,
+    exercises,
+  });
+  const share = (...sessions: WorkoutSession[]) => {
+    const tile = interpretDayActivity({
+      ...sources,
+      exercise: source({ kind: "ready" as const, document: { ...noExercise, sessions } }),
+    }).workout;
+    assert.ok(tile.kind === "done");
+    return tile.share;
+  };
+  const earlier = workout("earlier", otherDate, [lifts(squat, ["100", "5"])]);
+  const today = workout("today", date, [
+    // The top set is the heaviest lift; the record is the best estimated one-rep max. The
+    // warm-up counts toward neither.
+    {
+      ...lifts(squat, ["110", "1"], ["100", "8"]),
+      sets: [lift("w", "120", "1", true), ...lifts(squat, ["110", "1"], ["100", "8"]).sets],
+    },
+    lifts(definition("pushup", "Push-up", "single"), ["0", "12"], ["0", "15"]),
+    {
+      id: "plank-row",
+      exercise: definition("plank", "Plank", "time"),
+      sets: [
+        { id: "p1", kind: "time", seconds: "45" },
+        { id: "p2", kind: "time", seconds: "30" },
+      ],
+    },
+    {
+      id: "run-row",
+      exercise: definition("run", "Run", "cardio"),
+      sets: [{ id: "r", kind: "cardio", seconds: "1500", distanceMeters: "5250" }],
+    },
+  ]);
+  assert.deepEqual(share(earlier, today), {
+    name: "Leg day",
+    date: longDate,
+    stats: [
+      { label: "Duration", value: "45 min" },
+      { label: "Sets", value: "7" },
+      { label: "Volume", value: "910 kg" },
+    ],
+    exercises: {
+      lines: [
+        { name: "Squat", figure: "110 kg × 1" },
+        { name: "Push-up", figure: "15 reps" },
+        { name: "Plank", figure: "1:15" },
+        { name: "Run", figure: "5.25 km · 25:00" },
+      ],
+      more: null,
+    },
+    records: { lines: [{ name: "Squat", figure: "100 kg × 8 · est. 1RM 127 kg" }], more: null },
+  });
+
+  // A cardio day without volume shows its distance; an unknown duration is left out.
+  const run = share(workout("run", date, [today.exercises[3]!], null));
+  assert.deepEqual(run.stats, [
+    { label: "Sets", value: "1" },
+    { label: "Distance", value: "5.25 km" },
+  ]);
+
+  // Long lists end with a count of the rest: eight lines alone, five beside the records.
+  const many = Array.from({ length: 10 }, (_, index) =>
+    lifts(definition(`lift-${index}`, `Lift ${index}`, "single"), ["50", "5"]),
+  );
+  const long = share(workout("long", date, many));
+  assert.deepEqual([long.exercises.lines.length, long.exercises.more], [7, "+3 more exercises"]);
+  const beaten = share(
+    workout("before", otherDate, many),
+    workout(
+      "after",
+      date,
+      many.map((row) => ({ ...row, sets: [lift(`${row.id}-heavier`, "60", "5")] })),
+    ),
+  );
+  assert.deepEqual(beaten.records, {
+    lines: [{ name: "Lift 0", figure: "60 kg × 5 · est. 1RM 70 kg" }],
+    more: "+9 more records",
+  });
+  assert.deepEqual(
+    [beaten.exercises.lines.length, beaten.exercises.more],
+    [4, "+6 more exercises"],
+  );
+  const one = share(workout("before", otherDate, many.slice(0, 6)), {
+    ...workout("after", date, many.slice(0, 6)),
+    exercises: [{ ...many[0]!, sets: [lift("heavier", "60", "5")] }, ...many.slice(1, 6)],
+  });
+  assert.equal(one.records.lines.length, 1);
+  assert.deepEqual([one.exercises.lines.length, one.exercises.more], [4, "+2 more exercises"]);
+});
+
 test("each saved source reports its own availability and retries only itself", () => {
   const retried: string[] = [];
   const failing = <Name extends "food" | "water" | "goal" | "exercise">(name: Name) =>
@@ -513,6 +763,7 @@ test("the Water tile says what is missing and where to retry it", () => {
   const ready = interpretDayActivity(sources).water.tile;
   assert.deepEqual(ready, {
     value: (0.75).toLocaleString(),
+    unit: "L",
     status: null,
     progress: "50% of goal",
     captions: [`Goal: ${(1500).toLocaleString()} ml`, "Includes Drinks"],
@@ -550,6 +801,20 @@ test("the Water tile says what is missing and where to retry it", () => {
   const logLoading = interpretDayActivity({ ...sources, water: source({ kind: "loading" }) }).water
     .tile;
   assert.equal(logLoading.status, "loading...");
+
+  // Imperial reads the same milliliters in fluid ounces, on the tile and in the goal figure.
+  const imperial = interpretDayActivity({ ...sources, units: "imperial" }).water;
+  assert.deepEqual(imperial.tile, {
+    value: "25",
+    unit: "fl oz",
+    status: null,
+    progress: "50% of goal",
+    captions: ["Goal: 51 fl oz", "Includes Drinks"],
+    label: "Add water. 25 fl oz consumed of a 51 fl oz daily goal. 50% of goal.",
+  });
+  assert.equal(imperial.value, "25");
+  assert.equal(imperial.ofTarget, "/ 51 fl oz");
+  assert.equal(imperial.label, "25 fluid ounces consumed, water goal 51 fluid ounces");
 });
 
 test("the Steps tile adds logged steps to the phone's and says where the figure comes from", () => {

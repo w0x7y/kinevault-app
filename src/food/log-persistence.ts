@@ -6,11 +6,13 @@ import {
 import type { FindFood } from "./entry-nutrients.ts";
 import { parseDay } from "../calendar/dates.ts";
 import {
+  copiedFoodDay,
   editedFoodEntry,
   entryForFood,
   parseFoodLog,
   type AddFoodInput,
   type EditFoodInput,
+  type FoodCopyInput,
   type FoodLogDocument,
 } from "./log-model.ts";
 export const foodLogStorageKey = "kinevault-track.food-log.v1";
@@ -72,6 +74,10 @@ export function createFoodLogPersistence({
           },
         };
       });
+    },
+    /** Copies another day's entries into `to` in one write: all of them land or none do. */
+    copy(input: FoodCopyInput) {
+      return update((document) => copiedFoodDay(document, input, createId));
     },
     remove({ date, id }: { date: string; id: string }) {
       return update((document) => {

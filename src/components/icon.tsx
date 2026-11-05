@@ -27,6 +27,7 @@ const outline: Partial<Record<IconName, keyof typeof ionGlyphMap>> = {
   "apple-whole": "nutrition-outline",
   "arrow-left": "arrow-back",
   "arrow-right": "arrow-forward",
+  "arrow-up-from-bracket": "share-outline",
   barcode: "barcode-outline",
   bell: "notifications-outline",
   "bell-slash": "notifications-off-outline",

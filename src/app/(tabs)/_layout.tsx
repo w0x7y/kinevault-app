@@ -16,6 +16,7 @@ import { useProfile } from "../../profile/provider";
 import { DemoCatalogProvider } from "../../exercise/demo/provider";
 import { useAccount } from "../../account/provider";
 import { AccountTrackingProvider, TrackingRefreshNotices } from "../../account/tracking-provider";
+import { HealthWriteProvider } from "../../health/provider";
 import { routeDecision } from "../../account/entry-policy";
 import { EntryGate } from "../../account/entry-gate";
 import { journalTab, tabAnchor, tabNavigator, trackTabs } from "../../navigation/track-tabs";
@@ -46,63 +47,67 @@ export default function TabLayout() {
   if (access.kind !== "render") return <EntryGate decision={access} />;
   return (
     <AccountTrackingProvider>
-      <DemoCatalogProvider>
-        <DayProvider>
-          <FloatingTabBarInset value={tabBarHeight}>
-            <View style={{ flex: 1, backgroundColor: colors.background }}>
-              <View style={{ flex: 1, paddingTop: headerHeight }}>
-                <TrackingRefreshNotices />
-                <Tabs
-                  {...tabNavigator}
-                  tabBar={(props) => <FloatingTabBar {...props} onHeightChange={setTabBarHeight} />}
-                  screenOptions={{
-                    // Tabs are peers used dozens of times a day; switching is instant.
-                    animation: "none",
-                    headerShown: false,
-                    tabBarActiveTintColor: colors.primary,
-                    tabBarInactiveTintColor: colors.mutedForeground,
-                    tabBarStyle: {
-                      backgroundColor: "transparent",
-                      borderTopWidth: 0,
-                      elevation: 0,
-                      boxShadow: "none",
-                      height: 72,
-                      paddingTop: 8,
-                      paddingBottom: 8,
-                    },
-                    tabBarItemStyle: { minHeight: 48 },
-                    tabBarLabelStyle: {
-                      fontFamily: fonts.bold,
-                      fontSize: 11,
-                      lineHeight: 15,
-                      letterSpacing: 0.2,
-                      marginTop: 2,
-                      flexShrink: 0,
-                    },
-                    sceneStyle: { backgroundColor: colors.background },
-                  }}
-                >
-                  {trackTabs.map(({ name, title, icon }) => (
-                    <Tabs.Screen
-                      key={name}
-                      name={name}
-                      options={{
-                        title,
-                        tabBarIcon: ({ focused }) => (
-                          <TabIcon route={name} name={icon} focused={focused} />
-                        ),
-                      }}
-                    />
-                  ))}
-                  {/* Router 58 redirects away from an `href: null` tab; draw no button instead. */}
-                  <Tabs.Screen name={journalTab.name} options={{ tabBarButton: () => null }} />
-                </Tabs>
+      <HealthWriteProvider>
+        <DemoCatalogProvider>
+          <DayProvider>
+            <FloatingTabBarInset value={tabBarHeight}>
+              <View style={{ flex: 1, backgroundColor: colors.background }}>
+                <View style={{ flex: 1, paddingTop: headerHeight }}>
+                  <TrackingRefreshNotices />
+                  <Tabs
+                    {...tabNavigator}
+                    tabBar={(props) => (
+                      <FloatingTabBar {...props} onHeightChange={setTabBarHeight} />
+                    )}
+                    screenOptions={{
+                      // Tabs are peers used dozens of times a day; switching is instant.
+                      animation: "none",
+                      headerShown: false,
+                      tabBarActiveTintColor: colors.primary,
+                      tabBarInactiveTintColor: colors.mutedForeground,
+                      tabBarStyle: {
+                        backgroundColor: "transparent",
+                        borderTopWidth: 0,
+                        elevation: 0,
+                        boxShadow: "none",
+                        height: 72,
+                        paddingTop: 8,
+                        paddingBottom: 8,
+                      },
+                      tabBarItemStyle: { minHeight: 48 },
+                      tabBarLabelStyle: {
+                        fontFamily: fonts.bold,
+                        fontSize: 11,
+                        lineHeight: 15,
+                        letterSpacing: 0.2,
+                        marginTop: 2,
+                        flexShrink: 0,
+                      },
+                      sceneStyle: { backgroundColor: colors.background },
+                    }}
+                  >
+                    {trackTabs.map(({ name, title, icon }) => (
+                      <Tabs.Screen
+                        key={name}
+                        name={name}
+                        options={{
+                          title,
+                          tabBarIcon: ({ focused }) => (
+                            <TabIcon route={name} name={icon} focused={focused} />
+                          ),
+                        }}
+                      />
+                    ))}
+                    {/* Router 58 redirects away from an `href: null` tab; draw no button instead. */}
+                    <Tabs.Screen name={journalTab.name} options={{ tabBarButton: () => null }} />
+                  </Tabs>
+                </View>
+                <AppHeader onHeightChange={setHeaderHeight} />
               </View>
-              <AppHeader onHeightChange={setHeaderHeight} />
-            </View>
-          </FloatingTabBarInset>
-        </DayProvider>
-      </DemoCatalogProvider>
+            </FloatingTabBarInset>
+          </DayProvider>
+        </DemoCatalogProvider>
+      </HealthWriteProvider>
     </AccountTrackingProvider>
   );
 }

@@ -8,6 +8,7 @@ import { useWaterGoal } from "../water/goal-provider";
 import { useExercises } from "../exercise/provider";
 import { useStepsLog } from "../steps/provider";
 import { useDeviceSteps } from "../steps/use-device-steps";
+import { useUnits } from "../units/provider";
 
 /**
  * Daily activity from every saved source, each with its own retry. Defaults to the Selected
@@ -27,6 +28,7 @@ export function useDayActivity({
   const exercise = useExercises();
   const steps = useStepsLog();
   const phone = useDeviceSteps(phoneSteps ? day : null);
+  const { units } = useUnits();
   return useMemo(
     () =>
       interpretDayActivity({
@@ -39,6 +41,7 @@ export function useDayActivity({
         exercise: { state: exercise.state, retryLoad: exercise.retryLoad },
         phoneSteps: phone,
         loggedSteps: { state: steps.state, retryLoad: steps.retryLoad },
+        units,
       }),
     // Saving and refresh flags don't change the day; only each source's state and retry do.
     [
@@ -56,6 +59,7 @@ export function useDayActivity({
       phone,
       steps.state,
       steps.retryLoad,
+      units,
     ],
   );
 }

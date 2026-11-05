@@ -49,6 +49,7 @@ Carbs are honey, protein Kine blue and fat rose, everywhere. Icon wells, the act
 
 - A title row, "Daily food log" with eaten / goal kcal on the right, then search, then three quiet sunken tiles with the icon above the label: Scan barcode, Create food or meal, Daily macros.
 - One card per meal (Breakfast, Lunch, Dinner, Snacks, Drinks): icon well, meal name and kcal, entries split by hairlines. An empty meal says "No food has been logged yet". Entries show the amount, Edit and a named remove control. Drink rows show ml.
+- A quiet "Copy food from another day" button follows the meals. Its page shows the source day between round arrows with its entry count and kcal, then one row per meal with food (count, kcal, names and a small Copy), then a primary Copy whole day.
 - Search covers the offline USDA catalog, custom foods and saved meals. Foods from the user's log rank first, then [everyday foods](../src/food/common-foods.ts). Animal by-products such as feet or skin rank last unless typed. Filtering by logged name never replaces catalog results. Picking a result dismisses the keyboard.
 - Custom foods and meals show a Custom food category and a small person-and-pen icon.
 - Food details put the amount and serving choices before nutrition, then four meal destinations and a dated Log button. A food with servings gets a Weight / Servings switch. By Servings, the field takes a count, serving chips pick the serving and a caption shows "each = total" grams. Long serving lists show 100 g and two source servings first.
@@ -64,6 +65,7 @@ Carbs are honey, protein Kine blue and fat rose, everywhere. Icon wells, the act
 - The Workout card adds a Personal record line in success green under a record-setting exercise's counts: a trophy, "New record", the lift and the estimated one-rep max. It wraps between those parts like the counts above it.
 - Saved workouts rows list title, muted metadata and small action pills. Duplicate, with the copy icon, follows Edit and wraps to a second line at 320pt.
 - A completed workout shows total lifted as the hero, a stat row, and exercises as hairline rows.
+- Share workout, a secondary button at the end of the Exercise tab's Workout card, shares a 4:5 image: a white card on the page tone, the date overline and the Comfortaa name beside Kine's `review` pose on a brand disc, a stat row, top sets as hairline rows, records in success green with a trophy, and "KineVault Track" in Comfortaa below. It's always light.
 
 ### Live workout
 
@@ -72,8 +74,10 @@ Carbs are honey, protein Kine blue and fat rose, everywhere. Icon wells, the act
 - Back, Next and End workout are pinned to the bottom with `useSheetControls`. The saved-workout editor pins Back, Next and Save workout the same way.
 - Exercise chips are one size, at least 72pt, with the exercise's number above a short name: up to three initials, or a single word's first three letters, ignoring any parenthetical (`src/exercise/short-name.ts`). Accessible labels keep the full name.
 - Each set line starts with the set's number, L1 and R1 on a left/right set. Weighted modes add an optional RIR column. Gray italic hints come from the matching set of the last completed workout with that exercise; pressing the set's number fills them in.
+- A warm-up's number reads W (LW and RW on a left/right set). A Plates pill under weighted sets opens a sheet with each set's plates per side and a bar choice. Cardio sets add a Distance (km) field beside the seconds.
 - The Rest timer row sits under the shown exercise's sets: round minus and plus buttons around a full-width "Rest 1:30" button. While a rest runs, the button turns primary and counts down ("Rest 1:12"). Tapping it stops the rest. The label has no icon so it stays on one line at 320pt.
-- A pencil right of the notes toggles edit mode. Sets get plus and minus buttons. Chips wiggle, wear an X (removal asks first) and reorder by press-and-hold then drag; holding one at either end scrolls the bar. A final plus chip opens Add exercise, which searches or creates the exercise when nothing matches.
+- A superset's chips share a thin Kine-blue bracket underneath. In a saved workout and in edit mode, a "Superset with …" checkbox chip under the exercise's name joins it to the next one. Saved workouts and the planned card join a superset's names with "+".
+- A pencil right of the notes toggles edit mode. Sets get plus and minus buttons in place of the clock button, and a weighted set's number becomes its warm-up checkbox. Chips wiggle, wear an X (removal asks first) and reorder by press-and-hold then drag; holding one at either end scrolls the bar. A final plus chip opens Add exercise, which searches or creates the exercise when nothing matches.
 - Edit mode changes only that workout, except notes: they become a field that also saves to the library for later workouts.
 - A live workout doesn't offer "Link demo". Logged and manual workouts do.
 
@@ -92,8 +96,8 @@ Version 3, Personal journal, from [the prototype](../design/profile-prototype.ht
 
 - A grouped list: an overline title above one card of rows, with icon wells, hairline dividers and values on the right.
 - The account card comes first: avatar, email, plan badge and sync status.
-- Appearance is a three-segment control that is still a radio group.
-- Reminders are hidden on web.
+- Appearance is a three-segment control that is still a radio group. Units (Metric, Imperial) follows it the same way.
+- Reminders, then Health (a Save to Apple Health or Save to Health Connect switch row, with its status and fix below), are hidden on web.
 - Data & account (export, log out) comes last. Delete account sits apart below it in red. Confirming takes the current password and typed DELETE. A Google-only account signs in with Google again instead, which unlocks deletion for 10 minutes.
 - Language, units and version share one caption at the bottom.
 

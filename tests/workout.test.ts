@@ -51,6 +51,7 @@ test("completed workout totals and exercise rows describe the same saved sets", 
     volume: 1240,
     sets: 3,
     reps: 30,
+    meters: 0,
     averageRepsPerSet: 10,
     exercises: [
       {
@@ -60,6 +61,7 @@ test("completed workout totals and exercise rows describe the same saved sets", 
         sets: 2,
         reps: 18,
         load: { kind: "range", minKg: 40, maxKg: 60 },
+        top: { reps: 8, weightKg: 60 },
         record: null,
       },
       {
@@ -69,6 +71,7 @@ test("completed workout totals and exercise rows describe the same saved sets", 
         sets: 1,
         reps: 12,
         load: { kind: "weight", weightKg: 30 },
+        top: { reps: 12, weightKg: 30 },
         record: null,
       },
     ],
@@ -83,6 +86,7 @@ test("no saved session is empty and persisted completion requires a logged set",
     volume: 0,
     sets: 0,
     reps: 0,
+    meters: 0,
     averageRepsPerSet: 0,
     exercises: [],
   });
@@ -100,6 +104,30 @@ test("mixed bodyweight and weighted loads preserve actual kilograms", () => {
   ]);
   assert.equal(workout.volume, 60);
   assert.deepEqual(workout.exercises[0]!.load, { kind: "range", minKg: 0, maxKg: 10 });
+  assert.deepEqual(workout.exercises[0]!.top, { reps: 6, weightKg: 10 });
+});
+
+test("the top set is the heaviest lift, more reps breaking a tie", () => {
+  const workout = summarizeSessions([
+    session("Top sets", 300, [
+      row("squat", "Squat", [
+        [100, 3],
+        [100, 5],
+        [90, 10],
+      ]),
+      row("pushup", "Push-up", [
+        [0, 12],
+        [0, 15],
+      ]),
+    ]),
+  ]);
+  assert.deepEqual(
+    workout.exercises.map((exercise) => exercise.top),
+    [
+      { reps: 5, weightKg: 100 },
+      { reps: 15, weightKg: 0 },
+    ],
+  );
 });
 test("workout average weights exercises by completed set count", () => {
   const workout = summarizeSessions([

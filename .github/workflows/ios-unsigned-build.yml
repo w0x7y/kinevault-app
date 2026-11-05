@@ -79,6 +79,16 @@ jobs:
             echo "::error::EXPO_PUBLIC_SUPABASE_URL is not in main.jsbundle."
             exit 1
           fi
+          # xtool signs with the entitlements it finds in the app's signature, and an
+          # unsigned build has none. An ad-hoc signature carries the HealthKit one to
+          # it. Nested code is signed first so the app's seal can cover it.
+          codesign --force --deep --sign - "$app"
+          codesign --force --sign - \
+            --entitlements ios/KineVaultTrack/KineVaultTrack.entitlements "$app"
+          if ! codesign -d --entitlements - --xml "$app" 2>/dev/null | grep -q "com.apple.developer.healthkit"; then
+            echo "::error::The HealthKit entitlement isn't in the app's signature, so xtool won't sign it."
+            exit 1
+          fi
           mkdir -p ipa/Payload
           cp -R "$app" ipa/Payload/
           (cd ipa && zip -qry KineVaultTrack-unsigned.ipa Payload)

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { savedText } from "../src/units/units.ts";
 import { parseProfile } from "../src/profile/model.ts";
 import {
   createProfilePersistence,
@@ -13,7 +14,7 @@ import {
   saveWeightEntry,
   validateWeightEntry,
   weightFromInput,
-  weightTrend,
+  measurementTrend,
 } from "../src/profile/weight-model.ts";
 
 const complete = {
@@ -74,6 +75,16 @@ test("weight inputs validate real calendar dates and finite metric values", () =
   assert.equal(weightFromInput(" 80,25 "), 80.25);
   for (const value of ["", "Infinity", "80kg", "1e2", "80.123", "500.01", "0"])
     assert.throws(() => weightFromInput(value));
+  assert.throws(() => weightFromInput("500.01"), /^Error: Enter a weight between 1 and 500 kg\.$/);
+  // Pounds typed in Imperial save as kilograms; the messages name pounds.
+  const pounds = (text: string) =>
+    weightFromInput(savedText("bodyWeight", text, "imperial"), "imperial");
+  assert.equal(pounds("180.5"), 81.87);
+  assert.throws(
+    () => pounds("180.55"),
+    /^Error: Enter a weight in lb with up to one decimal place\.$/,
+  );
+  assert.throws(() => pounds("1200"), /^Error: Enter a weight between 2\.3 and 1,102\.3 lb\.$/);
 });
 
 test("date identity replaces duplicates and moves edits into chronological order", () => {
@@ -112,15 +123,15 @@ test("date identity replaces duplicates and moves edits into chronological order
 });
 
 test("trend uses calendar spacing, truthful missing dates, and stable empty/single/flat scales", () => {
-  assert.deepEqual(weightTrend([]), { points: [], minimum: 0, maximum: 1, change: null });
-  const single = weightTrend([{ date: "2026-10-08", kg: 80 }]);
+  assert.deepEqual(measurementTrend([]), { points: [], minimum: 0, maximum: 1, change: null });
+  const single = measurementTrend([{ date: "2026-10-08", value: 80 }]);
   assert.equal(single.points[0]!.x, 0.5);
   assert.equal(single.change, null);
   assert.ok(single.maximum > single.minimum);
-  const trend = weightTrend([
-    { date: "2026-10-11", kg: 80 },
-    { date: "2026-10-02", kg: 80 },
-    { date: "2026-10-01", kg: 80 },
+  const trend = measurementTrend([
+    { date: "2026-10-11", value: 80 },
+    { date: "2026-10-02", value: 80 },
+    { date: "2026-10-01", value: 80 },
   ]);
   assert.deepEqual(
     trend.points.map((point) => point.x),
@@ -133,9 +144,9 @@ test("trend uses calendar spacing, truthful missing dates, and stable empty/sing
   assert.equal(trend.change, 0);
   assert.ok(trend.points.every((point) => Number.isFinite(point.y)));
   assert.equal(
-    weightTrend([
-      { date: "2026-10-01", kg: 80.3 },
-      { date: "2026-10-02", kg: 80.1 },
+    measurementTrend([
+      { date: "2026-10-01", value: 80.3 },
+      { date: "2026-10-02", value: 80.1 },
     ]).change,
     -0.2,
   );

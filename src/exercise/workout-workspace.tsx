@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import { AppButton, ButtonRow, IconButton } from "../components/button";
+import { Chip } from "../components/chip";
 import { useSheetControls } from "../components/sheet-page";
 import { TextField } from "../components/text-field";
 import { AppText, Overline } from "../components/ui";
@@ -22,7 +23,9 @@ export type WorkspaceEditing = ExerciseBarEditing & {
  * main action under the page, where they stay put; `children` draws what the caller logs or
  * plans for the exercise.
  */
-export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDefinition }>({
+export function WorkoutWorkspace<
+  Row extends { id: string; exercise: ExerciseDefinition; superset?: string },
+>({
   name,
   overline,
   headerActions,
@@ -37,6 +40,7 @@ export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDef
   onLinkDemo,
   exerciseActions,
   editing,
+  onSuperset,
   empty,
   busy,
   testID,
@@ -71,6 +75,8 @@ export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDef
    * notes show as a field.
    */
   editing?: WorkspaceEditing;
+  /** Joins the exercise on screen and the one after it into a Superset, or splits them. */
+  onSuperset?: (id: string, linked: boolean) => void;
   /** What shows when there is no exercise. */
   empty: ReactNode;
   busy: boolean;
@@ -120,6 +126,8 @@ export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDef
   );
   function renderExercise(row: Row) {
     const label = exerciseRowLabel(exercises, row);
+    const after = exercises[exercises.indexOf(row) + 1];
+    const linked = row.superset !== undefined && row.superset === after?.superset;
     return (
       <View key={row.id} style={{ gap: spacing.layout, minWidth: 0 }}>
         <View
@@ -144,6 +152,19 @@ export function WorkoutWorkspace<Row extends { id: string; exercise: ExerciseDef
           />
           {exerciseActions}
         </View>
+        {onSuperset && after && (
+          <View style={{ flexDirection: "row" }}>
+            <Chip
+              role="checkbox"
+              icon="link"
+              label={`Superset with ${after.exercise.name}`}
+              accessibilityLabel={`Superset ${label} with ${exerciseRowLabel(exercises, after)}`}
+              selected={linked}
+              disabled={busy}
+              onPress={() => onSuperset(row.id, !linked)}
+            />
+          </View>
+        )}
         {children(row, label)}
         {editing ? (
           <TextField

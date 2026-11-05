@@ -1,5 +1,6 @@
 import { createDocumentEdit, type ParsedDraft } from "../persistence/document-edit.ts";
-import { waterGoalFromText, waterGoalRangeMessage } from "./goal-model.ts";
+import { waterGoalFromText, waterGoalMessage } from "./goal-model.ts";
+import type { UnitSystem } from "../units/units.ts";
 import type { createWaterGoalPersistence } from "./goal-persistence.ts";
 
 type WaterGoalStore = Pick<
@@ -9,7 +10,8 @@ type WaterGoalStore = Pick<
 
 // A Water goal edit owns its entered amount and save feedback. Until the user
 // types, the draft follows the saved goal, including another device's update.
-export function createWaterGoalEdit(goal: WaterGoalStore) {
+// The draft is saved milliliter text; `units` words its message.
+export function createWaterGoalEdit(goal: WaterGoalStore, units: UnitSystem = "metric") {
   return createDocumentEdit({
     document: goal,
     draft: "",
@@ -17,7 +19,7 @@ export function createWaterGoalEdit(goal: WaterGoalStore) {
     follow: true,
     parse(draft): ParsedDraft<number> {
       const ml = waterGoalFromText(draft);
-      return ml === null ? { error: waterGoalRangeMessage } : { value: ml };
+      return ml === null ? { error: waterGoalMessage(units) } : { value: ml };
     },
     write: (ml) => goal.setGoal(ml),
     failure: "Couldn't save your water goal. Try again.",

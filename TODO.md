@@ -7,6 +7,8 @@ This file is the single source of truth for project status. PRODUCT.md, README.m
 - [x] Count drinks toward water.
 - [x] Verify barcode scanning and drink/water logging on physical iOS and Android devices.
 - [x] Log a solid food by Weight or by Servings (saved as grams).
+- [x] Copy one meal or a whole day of food from another day into the selected day. It adds no document field or value, so older builds load and re-save the copies.
+- [ ] Check Copy food on an iPhone and an Android phone: the page sheet and its back gesture, the arrows and date at 320pt with large text, copies rising into their meals, and copied drinks in the water total. Only unit and browser tests so far.
 
 ## Steps
 
@@ -17,6 +19,7 @@ This file is the single source of truth for project status. PRODUCT.md, README.m
 - [ ] Update every device on an account to a build from 2026-10-29 or later before logging steps there. Older builds fail every cloud download once the account holds a steps row (docs/supabase-setup.md).
 - [x] Include Logged steps in the account JSON export.
 - [ ] Before any Google Play release, declare Health Connect step access in the Play Console and add a privacy policy page for its permission screen. The link currently just opens the app.
+- [ ] Also declare the Health Connect write access for exercise, weight and hydration in the Play Console, with the same privacy policy page.
 
 ## Exercise
 
@@ -34,11 +37,28 @@ This file is the single source of truth for project status. PRODUCT.md, README.m
 - [x] Add the Rest timer, Personal records and Duplicate in Saved workouts. None adds a document field or value, so older builds still load and re-save these workouts.
 - [ ] Check the Rest timer on an iPhone and an Android phone: the buzz with the workout page away and with the app in the background, the −/+ row at 320pt, and the length kept after a restart. Only unit and browser tests so far.
 - [ ] Update every installed build before using Alternating, Timed or RIR. Older builds stop loading workouts with the new modes and drop RIR when they re-save a workout.
-- [ ] Add cardio with duration and distance in a future phase.
+- [x] Add Cardio (a time and an optional distance, typed in km and saved as `distanceMeters`), Warm-up sets (a `warmUp` flag, marked from the set number in edit mode) and the Plate calculator (bar kept on the device).
+- [ ] Update every installed build before using Cardio or warm-up sets. Older builds stop loading workouts once an exercise uses the `cardio` mode, and drop `warmUp` flags when they re-save a workout. They can't load a Cardio set at all, so they never drop its distance.
+- [x] Add supersets: adjacent exercises joined in a saved workout or in edit mode (`supersets` on templates, `superset` on log rows), a bracket under their chips, "+" in workout lists and rounds in the live workout. Import adds none.
+- [ ] Update every installed build before using supersets. Older builds drop superset groups when they re-save a template or log.
+- [ ] Check supersets on an iPhone and an Android phone: the bracket under the chips, also while edit mode wiggles and drags them, the Superset checkbox at 320pt, and Next and Back going in rounds. Only unit and browser tests so far.
+- [x] Add Share workout: a 1080 × 1350 PNG of the day's Completed workouts from the Exercise tab's Workout card, captured with `react-native-view-shot` and shared with expo-sharing. Hidden on web. It adds no document field or value.
+- [ ] Make new Android and iOS builds for Share workout: `react-native-view-shot` is a new native module, so a build without it can't capture the image.
+- [ ] Check Share workout on an iPhone and an Android phone: share to Messages, WhatsApp and Photos (Save Image on iOS), and check the PNG is 1080 × 1350, light in dark mode, with Kine drawn and nothing cut off at large text sizes. Only unit tests and a web layout check so far.
+- [ ] Check Cardio, warm-ups and Plates on an iPhone and an Android phone: the km field keeps a typed decimal point, the Cardio stopwatch, the warm-up checkbox in edit mode at 320pt, the Plates sheet, and the bar kept after a restart. Only unit and browser tests so far.
 
 ## Profile & integrations
 
+- [x] Save completed workouts, body weight and daily water to Apple Health or Health Connect from a Settings switch (a device setting, off by default). Turning it on also saves the existing history. It adds no document field or value, so older builds load and re-save everything unchanged.
+- [ ] Make new Android and iOS builds for health saving: `@kingstinct/react-native-healthkit` and `react-native-nitro-modules` are new native modules, the Health Connect write permissions are new in the manifest, and the iOS workflow now ad-hoc signs the app so xtool carries the HealthKit entitlement. Expo Go and builds without them show the store as unavailable.
+- [ ] Check health saving on an iPhone: that the xtool install keeps HealthKit (turning it on shows Apple's permission sheet; without the entitlement Settings says Apple Health isn't available), the sheet's three write types, a timed and a manual workout in Health with the workout name, body weight, a day's water, an edit replacing and a delete removing each, a denial and Open settings reaching Health access, and a long first sync.
+- [ ] Check health saving on an Android phone: the Health Connect write dialog, the install flow on Android 8–13, repeated refusals and Open settings, a strength and a cardio-only workout, weight and water records, edits replacing and deletes removing them, and a first sync of a long history.
+- [x] Add a Units setting (Metric or Imperial) beside Appearance: pounds, feet and inches, miles, ounces and US fluid ounces on every tab, in fields and in the share image, with pound plates on the Plate calculator. It converts only at display and input, adds no document field or value and never syncs, so there is no rollout step (docs/language-and-units.md).
+- [ ] Check Imperial on an iPhone and an Android phone: the decimal pad (and a decimal comma) in the lb, oz, in and mi fields, the feet and inches row at 320pt with large text, Plates in pounds, and the share image in pounds and miles. Only unit and browser tests so far.
 - [x] Build the Personal journal Profile: avatar, streaks, workout graphs, editable goals and a local progress-photo carousel.
+- [x] Add Body measurements to the Personal journal: waist, chest, hips, arm and thigh in cm, saved in a new optional `bodyMeasurements` field of the Profile, charted with the body-weight chart and included in the JSON export.
+- [ ] Update every installed build before logging body measurements. Older builds load the Profile but drop `bodyMeasurements` when they re-save it (any goal, name or weight edit), and that copy then syncs to the other devices.
+- [ ] Check Body measurements on an iPhone and an Android phone: the six-field sheet with the keyboard open, a decimal comma, the measurement chooser, and the history rows at 320pt with large text. Only unit and browser tests so far.
 - [x] Shared Supabase accounts with email/password sign-in and versioned cloud sync (PR #3).
 - [x] Verify Profile camera and library, photo reopening, carousel scrolling and accessibility on an iPhone and an Android phone (2026-11-04). Android emulator photo flows and larger text were verified earlier.
 - [x] Show KineVault exercise videos in workouts, templates and the exercise form, with search thumbnails (docs/exercise-demos.md).
@@ -51,6 +71,33 @@ This file is the single source of truth for project status. PRODUCT.md, README.m
 - [x] Make new Android and iOS builds (`expo-web-browser` is a new native module) and check Continue with Google, Resend email and the email callback on an iPhone and an Android phone (2026-11-04).
 - [ ] Add Sign in with Apple before an App Store release. Apps that offer Google sign-in must offer it too, and it needs a paid Apple Developer Program team.
 - [x] Clear the retained email-link result after Google sign-in on iOS without breaking the Android callback route. Unit-tested only; check Continue with Google on an iPhone and an Android phone with the new builds.
+
+## Paid plans
+
+Membership already has `free`, `plus` and `pro` on the server (`public.subscriptions`), with no payments yet.
+
+Before charging:
+
+- [ ] Ship store builds first (Profile & integrations above). Subscriptions need a Play Console listing and a paid Apple Developer Program team. Sideloaded `.apk` and xtool `.ipa` builds can't take purchases.
+- [ ] Add store billing, for example RevenueCat (`react-native-purchases`) over StoreKit and Play Billing. A server webhook writes `public.subscriptions`; the app only reads it (`src/account/membership.ts`).
+- [ ] Check the plan on the server for anything that costs money to run (Storage policies, Edge Functions), not only in the UI.
+- [ ] Launch Plus alone first. Keep `pro` for later.
+- [ ] Keep logging, barcode scanning, sync, JSON export and account deletion free, and never move something Free accounts already have behind a plan.
+
+Plus:
+
+- [ ] Progression suggestions: the next weight and reps from the last session and its RIR.
+- [ ] Adaptive calorie target: estimate daily energy use each week from the body-weight trend and logged kcal, then adjust the goal. Needs careful wording and a safe cap on the weekly rate of change.
+- [ ] Weekly muscle volume map: sets per muscle on a body figure, from the muscle group or the linked KineVault exercise's muscles.
+- [ ] Progress photo cloud backup, and comparing any two dates. Photos are device-only today, and storage costs money.
+- [ ] Deeper trends: weekly micronutrient averages, all-time workout graphs and a smoothed body-weight trend line. The 4, 12 and 52-week graphs stay free.
+- [ ] Cosmetics: Kine outfits, app icons and accent colors.
+
+Pro, later:
+
+- [ ] AI food logging: a meal photo or a typed description becomes draft entries to review before saving. Rate-limit each account on the server.
+- [ ] KineVault programs: multi-week plans that schedule and progress saved workouts.
+- [ ] Coach sharing: a coach reads a client's logs and leaves notes.
 
 ## Quality & security
 

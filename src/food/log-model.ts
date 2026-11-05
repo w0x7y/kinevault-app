@@ -172,6 +172,48 @@ export function entryForFood(
   });
 }
 
+/** Entries copied from another day: one Meal's, or the whole day's for `null`. */
+export type FoodCopyInput = { from: string; to: string; meal: Meal | null };
+const calorieTotal = (entries: FoodEntry[]) => ({
+  entries,
+  calories: entries.reduce((sum, entry) => sum + entry.calories, 0),
+});
+/** What a copy from `from` into `to` offers: the day's entries, each Meal that has some, and
+ * the nearest earlier and later days with food. The target day is never a source. */
+export function foodCopyPreview(document: FoodLogDocument, from: string, to: string) {
+  const entries = from === to ? [] : (document.days[from] ?? []);
+  const days = Object.keys(document.days)
+    .filter((date) => date !== to && document.days[date]!.length > 0)
+    .sort();
+  return {
+    day: calorieTotal(entries),
+    meals: meals.flatMap(({ key }) => {
+      const meal = entries.filter((entry) => entry.meal === key);
+      return meal.length ? [{ meal: key, ...calorieTotal(meal) }] : [];
+    }),
+    previous: days.filter((date) => date < from).at(-1) ?? null,
+    next: days.find((date) => date > from) ?? null,
+  };
+}
+/** `to` with fresh copies of the source entries after its own: new IDs, the same amounts,
+ * Meals and nutrition snapshots. Null when there is nothing to copy. */
+export function copiedFoodDay(
+  document: FoodLogDocument,
+  { from, to, meal }: FoodCopyInput,
+  createId: () => string,
+): FoodLogDocument | null {
+  parseDay(from);
+  parseDay(to);
+  const copies = foodCopyPreview(document, from, to)
+    .day.entries.filter((entry) => meal === null || entry.meal === meal)
+    .map((entry) => ({ ...entry, id: createId() }));
+  if (!copies.length) return null;
+  return {
+    version: 1,
+    days: { ...document.days, [to]: [...(document.days[to] ?? []), ...copies] },
+  };
+}
+
 export function nutritionForEntry(entry: FoodEntry, grams: number): ServingNutrition {
   if (entry.measurement === "volume") throw new Error("Use drink volume for this entry");
   if (!isFoodGrams(grams)) throw new RangeError("Invalid food weight");

@@ -463,7 +463,13 @@ test("importing the same link again replaces its workout without duplicating exe
   const renamed = {
     ...first,
     workouts: first.workouts.map((workout) =>
-      workout.id === `tracked-${workoutId}` ? { ...workout, name: "My FB" } : workout,
+      workout.id === `tracked-${workoutId}`
+        ? {
+            ...workout,
+            name: "My FB",
+            supersets: { [workout.exercises[0]!.id]: "1", [workout.exercises[1]!.id]: "1" },
+          }
+        : workout,
     ),
   };
   const preview = previewWorkoutImport(renamed, plan);
@@ -481,6 +487,8 @@ test("importing the same link again replaces its workout without duplicating exe
       [`tracked-${workoutId}`, "FB"],
     ],
   );
+  // An import brings no supersets, even over a template that had them.
+  assert.equal("supersets" in second.document.workouts[1]!, false);
 });
 
 test("combines a repeated exercise into one template entry", () => {

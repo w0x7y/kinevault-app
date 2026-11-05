@@ -9,6 +9,8 @@ import { fonts, spacing } from "../theme/tokens";
 import type { FoodEntry } from "./model";
 import type { FoodEntryRemoval } from "../food/tab-view";
 import { InlineMessage } from "../components/inline-message";
+import { useUnits } from "../units/provider";
+import { measureText } from "../units/units";
 
 /** How long a removed entry takes to fade before its meal closes up. */
 const leaveDuration = 160;
@@ -40,6 +42,7 @@ export function FoodLogEntry({
   style?: StyleProp<ViewStyle>;
 }) {
   const reduced = useReducedMotion();
+  const { units } = useUnits();
   const motion = useLayoutMotion();
   const fadeOut = useStateTransition(["opacity"], leaveDuration);
   const armed = removal !== null;
@@ -104,10 +107,10 @@ export function FoodLogEntry({
             </AppText>
             <AppText variant="caption" muted selectable style={{ fontVariant: ["tabular-nums"] }}>
               {food.measurement === "volume"
-                ? `${food.drinkMl.toLocaleString()} ml`
+                ? measureText("fluid", food.drinkMl, units)
                 : food.meal === "drinks" && food.drinkMl !== undefined
-                  ? `${food.drinkMl.toLocaleString()} ml`
-                  : `${food.grams.toLocaleString(undefined, { maximumFractionDigits: 1 })} g`}{" "}
+                  ? measureText("fluid", food.drinkMl, units)
+                  : measureText("food", food.grams, units)}{" "}
               · {Math.round(food.calories).toLocaleString()} kcal
             </AppText>
           </View>

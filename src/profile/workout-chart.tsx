@@ -17,6 +17,7 @@ import { AppText, Panel } from "../components/ui";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { parseDay } from "../calendar/dates";
 import { workoutGraph, workoutWeekLabel, type WorkoutMetric, type WorkoutRange } from "./activity";
+import { useUnits } from "../units/provider";
 import { SourceStatus } from "./profile-controls";
 import { SegmentedControl } from "../components/segmented-control";
 import { JournalDisclosure, JournalFigure, JournalHeading } from "./journal-ui";
@@ -34,9 +35,10 @@ export function WorkoutChart({ today }: { today: string }) {
   const [width, setWidth] = useState(320);
   const pressX = useRef<number | null>(null);
   const sessions = exercise.state.kind === "ready" ? exercise.state.document.sessions : null;
+  const { units } = useUnits();
   const graph = useMemo(
-    () => workoutGraph({ today, weeks, metric, sessions: sessions ?? [], exerciseKey: key }),
-    [today, weeks, metric, sessions, key],
+    () => workoutGraph({ today, weeks, metric, sessions: sessions ?? [], exerciseKey: key, units }),
+    [today, weeks, metric, sessions, key, units],
   );
   if (exercise.state.kind !== "ready")
     return (

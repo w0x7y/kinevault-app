@@ -7,6 +7,7 @@ import { IconWell } from "../components/icon-well";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import type { DayActivity } from "./activity";
+import { WorkoutShare } from "./workout-share";
 
 /** "WORKOUT" with a small status chip on the right. */
 function WidgetTop({ status }: { status?: "Live" | "Done" }) {
@@ -134,7 +135,7 @@ export function WorkoutWidget({
             muted
             style={{ fontFamily: fonts.bold, fontSize: 18, letterSpacing: 0 }}
           >
-            {" kg"}
+            {` ${tile.liftedUnit}`}
           </AppText>
         </AppText>
         {detailed && (
@@ -255,6 +256,7 @@ export function WorkoutWidget({
           ))}
         </View>
       )}
+      {detailed && <WorkoutShare share={tile.share} />}
     </Panel>
   );
 }

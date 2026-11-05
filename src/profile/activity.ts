@@ -4,9 +4,10 @@ import {
   type ExerciseDefinition,
   type WorkoutSession,
 } from "../exercise/model.ts";
-import { setMeasurements, trackingMode } from "../exercise/tracking.ts";
+import { isWarmUp, setMeasurements, trackingMode } from "../exercise/tracking.ts";
 import type { FoodLogDocument } from "../food/log-model.ts";
 import type { WaterLogDocument } from "../water/model.ts";
+import { inUnits, unitName, type UnitSystem } from "../units/units.ts";
 
 export type WorkoutMetric = "volume" | "duration" | "weight";
 export type WorkoutRange = 4 | 12 | 52;
@@ -27,7 +28,8 @@ export type WorkoutWeek = {
 export type WorkoutGraph = {
   weeks: WorkoutWeek[];
   latest: WorkoutWeek;
-  unit: "kg x reps" | "min" | "kg";
+  /** "kg x reps", "min" or "kg", or the pound units in Imperial. */
+  unit: string;
   tracking: ExerciseDefinition["tracking"];
   options: WorkoutExerciseOption[];
   /** The chosen exercise, or the first option once the chosen one has no completed sets. */
@@ -118,7 +120,9 @@ export function workoutGraph(input: {
   metric: WorkoutMetric;
   sessions: readonly WorkoutSession[];
   exerciseKey?: string;
+  units?: UnitSystem;
 }): WorkoutGraph {
+  const units = input.units ?? "metric";
   // Weeks end on today, so the latest week is always the current one.
   const weeks: WorkoutWeek[] = Array.from({ length: input.weeks }, (_, index) => ({
     date: addDays(input.today, (index - input.weeks + 1) * 7),
@@ -156,7 +160,8 @@ export function workoutGraph(input: {
       continue;
     }
     for (const row of rows) {
-      for (const set of row.sets) {
+      // Warm-up sets stay off the graph.
+      for (const set of row.sets.filter((value) => !isWarmUp(value))) {
         const measured = setMeasurements(set);
         if (input.metric === "volume") week.total = (week.total ?? 0) + measured.volume;
         else {
@@ -170,18 +175,23 @@ export function workoutGraph(input: {
       }
     }
   }
-  if (input.metric === "duration") {
-    for (const week of weeks) {
+  for (const week of weeks) {
+    if (input.metric === "duration") {
       if (week.total !== null) week.total /= 60;
+    } else if (units !== "metric") {
+      for (const field of ["total", "left", "right"] as const)
+        if (week[field] !== null) week[field] = inUnits("weight", week[field], units);
     }
   }
+  const weight = unitName("weight", units);
   const measured = weeks.filter(
     (week) => week.total !== null || week.left !== null || week.right !== null,
   ).length;
   return {
     weeks,
     latest: weeks.at(-1)!,
-    unit: input.metric === "volume" ? "kg x reps" : input.metric === "duration" ? "min" : "kg",
+    unit:
+      input.metric === "volume" ? `${weight} x reps` : input.metric === "duration" ? "min" : weight,
     tracking: input.metric === "weight" ? (option?.tracking ?? "single") : "single",
     options,
     exerciseKey: selected,

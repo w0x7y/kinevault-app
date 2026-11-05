@@ -5,9 +5,11 @@ import {
   parseExerciseDefinition,
   parseSessionExercise,
   parseSetCounts,
+  parseSupersets,
   parseWorkoutSession,
   plannedSetCount,
   resizeSets,
+  templateSuperset,
   type ExerciseDefinition,
   type ExerciseDocument,
   type SessionExercise,
@@ -23,6 +25,8 @@ export type SaveWorkoutInput = {
   name: string;
   exerciseIds: string[];
   setCounts?: Record<string, number>;
+  /** Each exercise's superset key, for exercises in a Superset; none leaves the workout without. */
+  supersets?: Record<string, string>;
 };
 export type PlanWorkoutInput = { date: string; workoutId: string };
 /**
@@ -196,11 +200,14 @@ export function createExerciseCommands({
                 ]),
               ).filter(([id]) => input.exerciseIds.includes(id)),
             );
+      const supersets =
+        input.supersets === undefined ? {} : parseSupersets(input.supersets, input.exerciseIds);
       const workout = {
         id: input.id ?? createId(),
         name: name(input.name, "a workout"),
         exercises,
         ...(setCounts === undefined ? {} : { setCounts }),
+        ...(Object.keys(supersets).length ? { supersets } : {}),
       };
       return {
         document: {
@@ -217,8 +224,8 @@ export function createExerciseCommands({
       return { document: { ...document, workouts: remove(document.workouts, id) }, value: true };
     },
     /**
-     * Saves a copy of a Workout template right after it, with its exercises and planned sets,
-     * named "Leg day copy" (then "Leg day copy 2", …) so it never shares a name.
+     * Saves a copy of a Workout template right after it, with its exercises, planned sets and
+     * Supersets, named "Leg day copy" (then "Leg day copy 2", …) so it never shares a name.
      */
     duplicateWorkout(document: ExerciseDocument, id: string): ExerciseChange<string> {
       const index = document.workouts.findIndex((item) => item.id === id);
@@ -242,10 +249,12 @@ export function createExerciseCommands({
           ...(document.exercises.find((item) => item.id === retained.id) ?? retained),
         };
         const count = plannedSetCount(workout, retained.id);
+        const superset = templateSuperset(workout, retained.id);
         return {
           id: createId(),
           exercise,
           sets: resizeSets([], exercise.tracking, count, createId),
+          ...(superset === undefined ? {} : { superset }),
         };
       });
       const session = parseWorkoutSession({

@@ -3,7 +3,8 @@ import { View } from "react-native";
 import { AppText, Overline, Panel } from "../components/ui";
 import { fonts, spacing } from "../theme/tokens";
 import { shortDayLabel } from "../calendar/dates";
-import type { WorkoutTemplate } from "./model";
+import { templateSuperset, type WorkoutTemplate } from "./model";
+import { exerciseListText } from "./supersets";
 import { AppButton } from "../components/button";
 import { DeleteButton } from "../components/delete-button";
 import { InlineMessage } from "../components/inline-message";
@@ -37,10 +38,7 @@ export function WorkoutLibrary({
           {workouts.map((workout, index) => (
             <View key={workout.id}>
               {index > 0 && <Hairline />}
-              <LibraryRow
-                title={workout.name}
-                detail={`${workout.exercises.length} ${workout.exercises.length === 1 ? "exercise" : "exercises"} · ${workout.exercises.map((item) => item.name).join(", ")}`}
-              >
+              <LibraryRow title={workout.name} {...templateDetail(workout)}>
                 <AppButton
                   tone="primary"
                   size="compact"
@@ -122,14 +120,30 @@ export function WorkoutLibrary({
   );
 }
 
+/** A saved workout's exercise count and exercises, each Superset's joined by "+". */
+function templateDetail(workout: WorkoutTemplate) {
+  const count = `${workout.exercises.length} ${workout.exercises.length === 1 ? "exercise" : "exercises"}`;
+  const list = exerciseListText(
+    workout.exercises.map((item) => ({
+      name: item.name,
+      superset: templateSuperset(workout, item.id),
+    })),
+    ", ",
+  );
+  return { detail: `${count} · ${list.text}`, detailLabel: `${count}, ${list.label}` };
+}
+
 /** A list row: title, one muted line of detail and small actions underneath. */
 function LibraryRow({
   title,
   detail,
+  detailLabel,
   children,
 }: {
   title: string;
   detail: string;
+  /** The detail for screen readers, when its text doesn't say it all. */
+  detailLabel?: string;
   children: ReactNode;
 }) {
   return (
@@ -138,7 +152,7 @@ function LibraryRow({
         <AppText variant="label" style={{ fontSize: 16, lineHeight: 22, fontFamily: fonts.bold }}>
           {title}
         </AppText>
-        <AppText variant="caption" muted numberOfLines={2}>
+        <AppText variant="caption" muted numberOfLines={2} accessibilityLabel={detailLabel}>
           {detail}
         </AppText>
       </View>

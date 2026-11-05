@@ -5,6 +5,7 @@ import {
   parseWaterGoal,
   waterGoalFromText,
   waterGoalProgress,
+  waterGoalMessage,
   waterGoalRangeMessage,
 } from "../src/water/goal-model.ts";
 import {
@@ -153,6 +154,7 @@ test("invalid goal text shows the range message and never writes", async () => {
     assert.equal(edit.getSnapshot().error, waterGoalRangeMessage);
   }
   assert.deepEqual(calls, ["read"]);
+  assert.equal(waterGoalMessage("imperial"), "Enter a whole number from 1 to 338 fl oz.");
 });
 
 test("a failed goal save reports the water goal message and keeps the entered goal", async () => {

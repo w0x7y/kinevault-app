@@ -37,6 +37,14 @@ export function summarizeDay(day: Pick<FoodDay, "foods">) {
   return nutrition;
 }
 
+/** A day's Drinks in ml. The day's water is Manual water plus this. */
+export function drinksMl(foods: readonly FoodEntry[]): number {
+  return foods.reduce(
+    (sum, entry) => sum + (entry.meal === "drinks" ? (entry.drinkMl ?? 0) : 0),
+    0,
+  );
+}
+
 export function progressFraction(value: number, target: number | null) {
   if (target === null || target <= 0 || !Number.isFinite(target) || !Number.isFinite(value))
     return 0;

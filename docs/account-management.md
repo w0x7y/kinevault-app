@@ -4,7 +4,7 @@
 
 Settings → Data & account → **Export account data**. Web downloads a JSON file. iOS and Android open the share sheet, which needs the installed `expo-sharing` module, then delete the temporary file.
 
-The versioned `kinevault-track-account-export` file holds the account ID, export time, every tracking document (Logged steps and body-weight history included), local and cloud copies with their revisions and conflict flags, recovered setup answers, and photo metadata with base64 JPEG contents. It leaves out passwords, session tokens, auth storage, internal history fragments and other accounts' records.
+The versioned `kinevault-track-account-export` file holds the account ID, export time, every tracking document (Logged steps, body-weight history and body measurements included), local and cloud copies with their revisions and conflict flags, recovered setup answers, and photo metadata with base64 JPEG contents. It leaves out passwords, session tokens, auth storage, internal history fragments and other accounts' records.
 
 - Local and cloud copies stay separate, so unsynced edits are never replaced. A cloud document this build doesn't know is kept unparsed.
 - Online, any cloud failure fails the export. Offline, **Export device copy** marks cloud data as unchecked.

@@ -45,7 +45,7 @@ function session(
     exerciseId?: string;
     exerciseName?: string;
     sets?: ExerciseSet[];
-    tracking?: "single" | "sides";
+    tracking?: "single" | "sides" | "cardio";
     status?: WorkoutSession["status"];
     durationSeconds?: number | null;
   } = {},
@@ -309,6 +309,26 @@ test("exercise weight falls back to the first option when the chosen exercise ha
   });
   assert.equal(squat.exerciseKey, JSON.stringify(["squat", "single"]));
   assert.equal(squat.latest.total, 50);
+  assert.equal(squat.unit, "kg");
+  // Imperial draws the same kilograms in pounds.
+  const pounds = workoutGraph({
+    today: "2026-10-04",
+    weeks: 4,
+    metric: "weight",
+    exerciseKey: JSON.stringify(["squat", "single"]),
+    sessions,
+    units: "imperial",
+  });
+  assert.equal(pounds.unit, "lb");
+  assert.equal(Math.round(pounds.latest.total! * 10) / 10, 110.2);
+  const volume = workoutGraph({
+    today: "2026-10-04",
+    weeks: 4,
+    metric: "volume",
+    sessions,
+    units: "imperial",
+  });
+  assert.equal(volume.unit, "lb x reps");
 
   const none = workoutGraph({
     today: "2026-10-04",
@@ -582,4 +602,30 @@ test("duration sums recorded seconds before converting the weekly total to minut
     ],
   });
   assert.equal(graph.latest.total, 0.1);
+});
+
+test("warm-up sets stay off the graph, and cardio is never an exercise option", () => {
+  const sessions = [
+    session({
+      sets: [
+        { ...single("60", "5"), warmUp: true } as ExerciseSet,
+        { ...single("40", "5"), id: "set-2" },
+      ],
+    }),
+    session({
+      id: "run",
+      exerciseId: "run",
+      exerciseName: "Run",
+      tracking: "cardio",
+      sets: [{ id: "set-1", kind: "cardio", seconds: "1800", distanceMeters: "5000" }],
+    }),
+  ];
+  const weight = workoutGraph({ today: "2026-10-04", weeks: 4, metric: "weight", sessions });
+  assert.deepEqual(
+    weight.options.map((option) => option.key),
+    [pressKey],
+  );
+  assert.equal(weight.latest.total, 40);
+  const volume = workoutGraph({ today: "2026-10-04", weeks: 4, metric: "volume", sessions });
+  assert.equal(volume.latest.total, 200);
 });

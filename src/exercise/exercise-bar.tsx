@@ -39,6 +39,7 @@ import { Tappable } from "../components/tappable";
 import { useTheme } from "../theme/provider";
 import { radius, spacing } from "../theme/tokens";
 import { exerciseRowLabel, shortExerciseName, type WorkspaceExercise } from "./short-name";
+import { supersetSpan, type Grouped } from "./supersets";
 
 /** Edit mode on the bar: tiles ask to be removed, move to a new position, and end in Add. */
 export type ExerciseBarEditing = {
@@ -56,13 +57,15 @@ export function ExerciseBar({
   editing,
   busy,
 }: {
-  exercises: readonly WorkspaceExercise[];
+  exercises: readonly (WorkspaceExercise & Grouped)[];
   selectedId?: string;
   onSelect: (id: string) => void;
   editing?: ExerciseBarEditing;
   busy: boolean;
 }) {
+  const { colors } = useTheme();
   const { fade } = useLayoutMotion();
+  const spans = exercises.map((_, index) => supersetSpan(exercises, index));
   // The tile being dragged; the bar holds still under it.
   const [dragging, setDragging] = useState<string | null>(null);
   // Scrolling reports ~30 times a second; only the fades' flags re-render the chips.
@@ -133,14 +136,17 @@ export function ExerciseBar({
             gap: spacing.sm,
             alignItems: "stretch",
             paddingHorizontal: spacing.card,
-            // Room for the tiles' remove badges, which overhang their corners.
-            paddingVertical: editing ? spacing.sm + 2 : undefined,
+            // Room for the tiles' remove badges, which overhang their corners, and for the
+            // Superset brackets under the chips.
+            paddingTop: editing ? spacing.sm + 2 : undefined,
+            paddingBottom: editing ? spacing.sm + 2 : spans.some(Boolean) ? spacing.sm : undefined,
           }}
         >
           {/* Chips present when the bar opens are simply there; an exercise added later fades in. */}
           <LayoutAnimationConfig skipEntering>
             {exercises.map((row, index) => {
               const label = exerciseRowLabel(exercises, row);
+              const span = spans[index];
               // Screen readers move a tile with actions instead of dragging it.
               const moves = editing
                 ? [
@@ -176,7 +182,7 @@ export function ExerciseBar({
                     minWidth={72}
                     caption={String(index + 1)}
                     label={shortExerciseName(row.exercise.name)}
-                    accessibilityLabel={`Select exercise ${label}`}
+                    accessibilityLabel={`Select exercise ${label}${span ? `, superset ${index - span[0] + 1} of ${span[1] - span[0] + 1}` : ""}`}
                     selected={selectedId === row.id}
                     disabled={busy}
                     onPress={() => onSelect(row.id)}
@@ -185,6 +191,25 @@ export function ExerciseBar({
                       editing?.onMove(row.id, index + (name === "earlier" ? -1 : 1))
                     }
                   />
+                  {/* A Superset's chips share one bracket underneath, bridging the gaps. */}
+                  {span && (
+                    <View
+                      testID="superset-bracket"
+                      style={{
+                        position: "absolute",
+                        bottom: -6,
+                        left: index === span[0] ? spacing.md : 0,
+                        right: index === span[1] ? spacing.md : -spacing.sm,
+                        height: 3,
+                        borderTopLeftRadius: index === span[0] ? 2 : 0,
+                        borderBottomLeftRadius: index === span[0] ? 2 : 0,
+                        borderTopRightRadius: index === span[1] ? 2 : 0,
+                        borderBottomRightRadius: index === span[1] ? 2 : 0,
+                        backgroundColor: colors.brand,
+                        pointerEvents: "none",
+                      }}
+                    />
+                  )}
                 </BarTile>
               );
             })}

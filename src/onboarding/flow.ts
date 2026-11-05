@@ -9,6 +9,7 @@ import {
 } from "../profile/answers.ts";
 import { changeAnswers, validateAnswers, type AnswerChange } from "../profile/calories.ts";
 import type { ProfileDocument } from "../profile/model.ts";
+import type { UnitSystem } from "../units/units.ts";
 
 type Action = { kind: "next" | "back" | "skip" | "cancel" } | { kind: "edit"; step: EditableStep };
 type Effects = {
@@ -29,7 +30,12 @@ type Snapshot = {
 };
 
 // Callers submit intentions. This module owns validation, staged edits, and save ordering.
-export function createOnboardingFlow(initial: ProfileDocument, effects: Effects) {
+// Answers hold metric text; `units` words height and weight messages.
+export function createOnboardingFlow(
+  initial: ProfileDocument,
+  effects: Effects,
+  units: UnitSystem = "metric",
+) {
   const editing = initial.kind === "complete";
   let returnToReview = false;
   let acting = false;
@@ -97,7 +103,7 @@ export function createOnboardingFlow(initial: ProfileDocument, effects: Effects)
     publish({ step: next, direction, errors: {} });
   }
   function relevantErrors(action: "next" | "skip") {
-    const all = validateAnswers(snapshot.answers);
+    const all = validateAnswers(snapshot.answers, units);
     const errors: FieldErrors = {};
     for (const field of action === "skip" ? (["age"] as const) : stepFields[snapshot.step])
       if (all[field]) errors[field] = all[field];

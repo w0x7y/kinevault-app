@@ -5,10 +5,15 @@ import { TextField } from "../components/text-field";
 import { useDocumentEdit } from "../persistence/use-document-edit";
 import { createWaterGoalEdit } from "../water/goal-editing";
 import { useWaterGoalPersistence } from "../water/goal-provider";
-// The edit follows the saved goal itself.
+import { useUnits } from "../units/provider";
+import { unitName } from "../units/units";
+// The edit follows the saved goal itself. The goals view keys it by units, so its message does too.
 export function WaterGoalEditor({ close }: { close: () => void }) {
   const goal = useWaterGoalPersistence();
-  const { edit, draft, error, busy, saving } = useDocumentEdit(() => createWaterGoalEdit(goal));
+  const { units } = useUnits();
+  const { edit, draft, error, busy, saving } = useDocumentEdit(() =>
+    createWaterGoalEdit(goal, units),
+  );
   return (
     <EditorSection testID="profile-water-goal-editor">
       <AppText variant="heading" accessibilityRole="header">
@@ -16,7 +21,8 @@ export function WaterGoalEditor({ close }: { close: () => void }) {
       </AppText>
       <TextField
         size="large"
-        label="Daily water goal (ml)"
+        label={`Daily water goal (${unitName("fluid", units)})`}
+        quantity="fluid"
         value={draft}
         onChange={(value) => {
           edit.change(value);

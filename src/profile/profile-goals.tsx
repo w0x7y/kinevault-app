@@ -11,6 +11,7 @@ import { WaterGoalEditor } from "./water-goal-editor";
 import { useDayActivity } from "../daily/use-day";
 import { useTheme } from "../theme/provider";
 import { answerSummary } from "./answers";
+import { useUnits } from "../units/provider";
 import { useProfile } from "./provider";
 import { ProfileEditor } from "./profile-editor";
 import type { ProfileEditSection } from "./section-editing";
@@ -143,12 +144,13 @@ export function ProfileGoals({
     activity = useDayActivity({ date: today });
   const { food, water, waterGoal } = activity.sources;
   const { colors } = useTheme();
+  const { units } = useUnits();
   const [choosing, setChoosing] = useState(false);
   // The chosen editor opens once the chooser has gone, so it can take focus.
   const chosen = useRef<(typeof chooserSections)[number] | null>(null);
   const { targets } = activity;
   if (profile.state.kind !== "ready" || targets.kind !== "ready") return null;
-  const summary = answerSummary(profile.state.document.answers, targets.calories);
+  const summary = answerSummary(profile.state.document.answers, targets.calories, units);
   const nutrition = activity.nutrition ?? activity.unavailableNutrition;
   const rows = [
     ["Weight goal", summary.goal],
@@ -239,7 +241,7 @@ export function ProfileGoals({
           <ProfileEditor key={editor.id} section={editor.section} close={() => close(editor.id)} />
         )}
         {editor?.section === "water" && waterGoal.kind === "ready" && (
-          <WaterGoalEditor key={editor.id} close={() => close(editor.id)} />
+          <WaterGoalEditor key={`${editor.id}-${units}`} close={() => close(editor.id)} />
         )}
       </Panel>
       <Panel>

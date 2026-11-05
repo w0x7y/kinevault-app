@@ -14,7 +14,7 @@ The app imports only the transparent `2d/kine-*.webp` files. `2d/source/` holds 
 | `kine-name.webp`     | Listening                 | Onboarding: name                  | 108 to 132pt                                             |
 | `kine-activity.webp` | Running                   | Onboarding: activity              | 108 to 132pt                                             |
 | `kine-calories.webp` | Bowl                      | Onboarding: calories              | 108 to 132pt                                             |
-| `kine-review.webp`   | Celebration               | Onboarding: review                | 108 to 132pt                                             |
+| `kine-review.webp`   | Celebration               | Onboarding: review, share image   | 108 to 132pt; 84pt in the 1080px share image             |
 | `kine-today.webp`    | Morning stretch           | Home greeting                     | 84 to 96pt                                               |
 | `kine-exercise.webp` | Side stretch              | Live workout card on Exercise     | 132pt                                                    |
 | `kine-loading.webp`  | Holding a large hourglass | `KineLoading`                     | 96 to 140pt                                              |
