@@ -1,8 +1,10 @@
 import type { Href } from "expo-router";
 import { Children, isValidElement, type ReactNode } from "react";
 import { StyleSheet, View, type ViewProps } from "react-native";
+import Animated from "react-native-reanimated";
 import { Icon, type IconName } from "../components/icon";
 import { IconWell } from "../components/icon-well";
+import { useStateTransition } from "../components/motion";
 import { Tappable } from "../components/tappable";
 import { AppText, Panel } from "../components/ui";
 import { useTheme } from "../theme/provider";
@@ -128,6 +130,69 @@ export function SettingsButtonRow({
     >
       <RowBody {...row} chevron={chevron} />
     </Tappable>
+  );
+}
+
+/** A row that turns a setting on or off. Only the title names it, like a button row. */
+export function SettingsSwitchRow({
+  value,
+  onChange,
+  ...row
+}: Omit<RowProps, "trailing" | "value"> & { value: boolean; onChange: (value: boolean) => void }) {
+  return (
+    <Tappable
+      role="switch"
+      label={row.title}
+      checked={value}
+      disabled={row.disabled}
+      onPress={() => onChange(!value)}
+      feedback="fill"
+      style={rowStyle}
+    >
+      <RowBody {...row} trailing={<SwitchTrack value={value} />} chevron={false} />
+    </Tappable>
+  );
+}
+
+/** The switch's track and thumb. The thumb slides and the track tints, like the platform switch. */
+export function SwitchTrack({ value }: { value: boolean }) {
+  const { colors, appearance } = useTheme();
+  const trackTransition = useStateTransition(["backgroundColor"]);
+  const thumbTransition = useStateTransition(["transform", "backgroundColor"]);
+  return (
+    <Animated.View
+      style={[
+        {
+          width: 48,
+          height: 28,
+          padding: 3,
+          borderRadius: 14,
+          justifyContent: "center",
+          alignItems: "flex-start",
+          backgroundColor: value ? colors.primary : colors.input,
+        },
+        trackTransition,
+      ]}
+    >
+      <Animated.View
+        style={[
+          {
+            width: 22,
+            height: 22,
+            borderRadius: 11,
+            backgroundColor: value
+              ? colors.primaryForeground
+              : appearance === "dark"
+                ? colors.mutedForeground
+                : colors.card,
+            boxShadow: "0px 1px 2px rgba(0, 0, 0, 0.18)",
+            // 48 wide, less 3 padding each side and the 22 thumb.
+            transform: [{ translateX: value ? 20 : 0 }],
+          },
+          thumbTransition,
+        ]}
+      />
+    </Animated.View>
   );
 }
 

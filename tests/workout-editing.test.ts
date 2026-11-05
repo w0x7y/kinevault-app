@@ -1618,3 +1618,142 @@ test("a rest and a Set clock share the ticker and both keep time", async () => {
   f.edit().toggleRest();
   assert.equal(f.ticking(), false);
 });
+
+test("a set's number in edit mode marks it as a warm-up and back, and saves the draft", async () => {
+  const f = await fixture("active");
+  const edit = f.editing.edit("log");
+  edit.change({ kind: "warm-up", rowId: "row", setId: "set" });
+  assert.deepEqual(edit.getSnapshot().fields.exercises[0]!.sets[0], {
+    id: "set",
+    kind: "single",
+    reps: "8",
+    weightKg: "10",
+    warmUp: true,
+  });
+  await tick();
+  assert.deepEqual(
+    f.saved().exercises[0]!.sets[0],
+    edit.getSnapshot().fields.exercises[0]!.sets[0],
+  );
+  edit.change({ kind: "warm-up", rowId: "row", setId: "set" });
+  await tick();
+  assert.equal("warmUp" in f.saved().exercises[0]!.sets[0]!, false);
+  // A missing set changes nothing.
+  const before = edit.getSnapshot();
+  edit.change({ kind: "warm-up", rowId: "row", setId: "gone" });
+  assert.equal(edit.getSnapshot(), before);
+});
+
+test("a cardio set's stopwatch logs its seconds like a timed set's", async () => {
+  const run = { ...exercise, id: "run", name: "Run", tracking: "cardio" as const };
+  const log: WorkoutSession = {
+    ...session("active"),
+    exercises: [
+      {
+        id: "row",
+        exercise: run,
+        sets: [{ id: "set", kind: "cardio", seconds: "", distanceMeters: "5000" }],
+      },
+    ],
+  };
+  const f = await fixture("active", [log], [], [run]);
+  const { time, options, tick } = fakeTime();
+  const tab = createExerciseTabView({
+    store: f.store,
+    date: "2026-10-04",
+    importSources: [],
+    clocks: options,
+  });
+  tab.start();
+  await tab.requestView({ kind: "session", id: "log" });
+  const edit = tab.edits.edit("log");
+  // A cardio set can't be a warm-up.
+  const before = edit.getSnapshot();
+  edit.change({ kind: "warm-up", rowId: "row", setId: "set" });
+  assert.equal(edit.getSnapshot(), before);
+  edit.toggleClock("row", "set");
+  time.now += 95_000;
+  tick();
+  edit.toggleClock("row", "set");
+  assert.deepEqual(edit.getSnapshot().fields.exercises[0]!.sets[0], {
+    id: "set",
+    kind: "cardio",
+    seconds: "95",
+    distanceMeters: "5000",
+  });
+  tab.stop();
+});
+
+test("edit mode joins and splits supersets, and moves and removals keep them whole", async () => {
+  const log = session("active");
+  const first = log.exercises[0]!;
+  const f = await fixture("active", [
+    {
+      ...log,
+      exercises: [first, { ...first, id: "second" }, { ...first, id: "third" }],
+    },
+  ]);
+  const edit = f.editing.edit("log");
+  const groups = () =>
+    edit
+      .getSnapshot()
+      .fields.exercises.map((row) => `${row.id}${row.superset ? `:${row.superset}` : ""}`);
+  edit.change({ kind: "superset", rowId: "row", linked: true });
+  assert.deepEqual(groups(), ["row:1", "second:1", "third"]);
+  await tick();
+  assert.deepEqual(
+    f.saved().exercises.map((row) => row.superset),
+    ["1", "1", undefined],
+  );
+  const before = edit.getSnapshot();
+  edit.change({ kind: "superset", rowId: "row", linked: true });
+  edit.change({ kind: "superset", rowId: "third", linked: true });
+  assert.equal(edit.getSnapshot(), before, "an existing link or a last row changes nothing");
+  // Third moving to the front jumps the superset instead of splitting it.
+  edit.change({ kind: "move-exercise", rowId: "third", to: 1 });
+  assert.deepEqual(groups(), ["third", "row:1", "second:1"]);
+  // A row dragged out leaves; a superset of one stops being one.
+  edit.change({ kind: "move-exercise", rowId: "row", to: 0 });
+  assert.deepEqual(groups(), ["row", "third", "second"]);
+  edit.change({ kind: "superset", rowId: "third", linked: true });
+  edit.change({ kind: "remove-exercise", rowId: "second" });
+  assert.deepEqual(groups(), ["row", "third"]);
+  edit.change({ kind: "superset", rowId: "row", linked: true });
+  edit.change({ kind: "superset", rowId: "row", linked: false });
+  assert.deepEqual(groups(), ["row", "third"]);
+});
+
+test("Next in a live superset goes in rounds until each exercise's sets are done", async () => {
+  const set = (id: string, reps = "") => ({ id, kind: "single" as const, reps, weightKg: "" });
+  const row = (id: string, superset?: string) => ({
+    id,
+    exercise,
+    sets: [set(`${id}-set`)],
+    ...(superset ? { superset } : {}),
+  });
+  const log = {
+    ...session("active"),
+    exercises: [row("a", "1"), row("b", "1"), row("after")],
+  };
+  const f = await fixture("active", [log]);
+  await f.tab.requestView({ kind: "session", id: "log" });
+  const edit = f.editing.edit("log");
+  const steps = () => {
+    const { selected, previous, next } = edit.getSnapshot();
+    return [previous?.id, selected?.id, next?.id];
+  };
+  assert.deepEqual(steps(), ["b", "a", "b"]);
+  edit.select("b");
+  assert.deepEqual(steps(), ["a", "b", "a"]);
+  edit.change({ kind: "set", rowId: "a", setId: "a-set", side: null, field: "reps", value: "8" });
+  assert.deepEqual(steps(), ["a", "b", "a"], "a superset with sets left keeps going round");
+  edit.change({ kind: "set", rowId: "b", setId: "b-set", side: null, field: "reps", value: "8" });
+  assert.deepEqual(steps(), ["a", "b", "after"]);
+  // A completed log steps in order, even with a set left blank.
+  assert.equal(await edit.run("complete"), true);
+  await f.tab.requestView({ kind: "session", id: "log" });
+  const done = f.editing.edit("log");
+  done.change({ kind: "add-set", rowId: "a" });
+  done.select("b");
+  assert.deepEqual([done.getSnapshot().previous?.id, done.getSnapshot().next?.id], ["a", "after"]);
+});

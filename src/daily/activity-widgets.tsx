@@ -105,7 +105,7 @@ export function ActivityWidgets({
             testID="home-water-amount"
             value={waterValue}
             size={figureSize(waterValue)}
-            unit={tile.value === null ? undefined : "L"}
+            unit={tile.value === null ? undefined : tile.unit}
           />
           {tile.status && (
             <AppText variant="caption" muted>

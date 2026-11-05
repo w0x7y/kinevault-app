@@ -22,7 +22,12 @@
         "monochromeImage": "./assets/branding/adaptive-monochrome.png",
         "backgroundColor": "#f8f2e3"
       },
-      "permissions": ["android.permission.health.READ_STEPS"],
+      "permissions": [
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.WRITE_EXERCISE",
+        "android.permission.health.WRITE_WEIGHT",
+        "android.permission.health.WRITE_HYDRATION"
+      ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.ACTIVITY_RECOGNITION",
@@ -94,7 +99,15 @@
       ],
       "react-native-health-connect",
       ["expo-build-properties", { "android": { "minSdkVersion": 26 } }],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "KineVault doesn't read your health data. It only saves the workouts, body weight and water you log, once you turn that on in Settings.",
+          "NSHealthUpdateUsageDescription": "Allow KineVault to save your completed workouts, body weight and daily water to Apple Health.",
+          "background": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -369,7 +369,7 @@ test("create exercises and ordered workouts, then add a planned session without 
     await button(page, "Create exercise").click();
     const form = page.getByTestId("exercise-form");
     await field(form, "Exercise name").fill(name);
-    await button(form, tracking).click();
+    await form.getByRole("radio", { name: tracking, exact: true }).click();
     await button(form, "Save exercise").click();
     await storedWhen(
       page,
@@ -2072,6 +2072,8 @@ test("the live workout's rest counts down and adjusts; a beaten lift shows a rec
     })
     .waitFor();
   await card.getByText("· est. 1RM 140 kg", { exact: true }).waitFor();
+  // The share image needs a phone: web can't capture it, so the card offers no Share there.
+  assert.equal(await button(card, "Share workout").count(), 0);
 
   await button(page, "Saved workouts").click();
   const menu = page.getByTestId("workout-library");
@@ -2085,4 +2087,206 @@ test("the live workout's rest counts down and adjusts; a beaten lift shows a rec
       ["Leg day copy", { squat: 2 }],
     ],
   );
+});
+
+test("cardio saves km as meters, a warm-up leaves the totals, and Plates keeps its bar", async (t) => {
+  const run = { ...single, id: "run", name: "Run", equipment: "", tracking: "cardio" };
+  const lift = (id, reps, weightKg, warmUp) => ({
+    id,
+    kind: "single",
+    reps,
+    weightKg,
+    ...(warmUp ? { warmUp: true } : {}),
+  });
+  const earlier = {
+    id: "earlier",
+    date: "2026-10-01",
+    name: "Leg day",
+    status: "completed",
+    startedAt: null,
+    durationSeconds: 1800,
+    exercises: [
+      {
+        id: "earlier-row",
+        exercise: single,
+        sets: [lift("w", "10", "20", true), lift("s", "5", "90")],
+      },
+    ],
+  };
+  const active = {
+    id: "running",
+    date,
+    name: "Leg day",
+    status: "active",
+    startedAt: time.getTime() - 60000,
+    durationSeconds: null,
+    exercises: [
+      { id: "squat-row", exercise: single, sets: [lift("a", "", ""), lift("b", "", "")] },
+      {
+        id: "run-row",
+        exercise: run,
+        sets: [{ id: "r", kind: "cardio", seconds: "", distanceMeters: "" }],
+      },
+    ],
+  };
+  const page = await open(t, {
+    freeze: true,
+    document: { ...empty(), exercises: [single, run], sessions: [earlier, active] },
+  });
+  // The exercise form offers Cardio.
+  await button(page, "Create exercise").click();
+  const form = page.getByTestId("exercise-form");
+  await field(form, "Exercise name").fill("Rowing");
+  await form.getByRole("radio", { name: "Cardio", exact: true }).click();
+  await button(form, "Save exercise").click();
+  await storedWhen(page, (document) =>
+    document.exercises.some(
+      (exercise) => exercise.name === "Rowing" && exercise.tracking === "cardio",
+    ),
+  );
+
+  await button(page, "Open live workout").click();
+  const workout = page.getByTestId("active-workout");
+  const weight = (set) => field(workout, `Squat set ${set} weight (kg)`);
+  // Fresh sets hint from last workout's working sets.
+  assert.equal(await weight(1).getAttribute("placeholder"), "90");
+  await button(workout, "Edit workout").click();
+  const warmUp = workout.getByRole("checkbox", { name: "Squat set 1 warm-up", exact: true });
+  await warmUp.click();
+  assert.equal(await warmUp.getAttribute("aria-checked"), "true");
+  await workout.getByText("W", { exact: true }).waitFor();
+  // The warm-up hints from last workout's warm-up; the working set keeps its hint.
+  assert.equal(await weight(1).getAttribute("placeholder"), "20");
+  assert.equal(await weight(2).getAttribute("placeholder"), "90");
+  await storedWhen(page, (document) => document.sessions[1].exercises[0].sets[0].warmUp === true);
+  await button(workout, "Edit workout").click();
+  await button(workout, "Fill Squat set 1 from last workout").click();
+  await field(workout, "Squat set 2 reps").fill("5");
+  await weight(2).fill("102.5");
+
+  await button(workout, "Plates for Squat").click();
+  const plates = page.getByTestId("plate-sheet");
+  await plates.getByText("25 kg + 15 kg + 1.25 kg per side", { exact: true }).waitFor();
+  await plates.getByText("Set 1 · Warm-up · 20 kg", { exact: true }).waitFor();
+  await plates.getByText("Just the bar", { exact: true }).waitFor();
+  await button(plates, "15 kg bar").click();
+  await plates.getByText("25 kg + 15 kg + 2.5 kg + 1.25 kg per side", { exact: true }).waitFor();
+  assert.equal(
+    await page.evaluate(() => localStorage.getItem("kinevault-track.plate-bar-kg")),
+    "15",
+  );
+  await button(plates, "Done").click();
+  await plates.waitFor({ state: "detached" });
+
+  await button(workout, "Select exercise Run").click();
+  // A cardio time takes minutes and seconds, and shows them once the field is left.
+  const runTime = field(workout, "Run set 1 time");
+  await runTime.fill("25.00");
+  await storedWhen(
+    page,
+    (document) => document.sessions[1].exercises[1].sets[0].seconds === "1500",
+  );
+  assert.equal(await runTime.inputValue(), "25.00");
+  const distance = field(workout, "Run set 1 distance (km)");
+  // A typed decimal point stays while the distance saves as meters.
+  await distance.pressSequentially("5.");
+  assert.equal(await distance.inputValue(), "5.");
+  await distance.pressSequentially("25");
+  assert.equal(await distance.inputValue(), "5.25");
+  await storedWhen(
+    page,
+    (document) => document.sessions[1].exercises[1].sets[0].distanceMeters === "5250",
+  );
+  await button(workout, "End workout").click();
+  const card = page.getByTestId("exercise-workout");
+  // 5 × 102.5 kg counts; the 20 kg warm-up doesn't.
+  await page.getByText(/^513 kg · 5\.25 km/).waitFor();
+  assert.match(await card.innerText(), /513\s*kg/);
+  await card.getByLabel("Run, 5.25 km", { exact: true }).waitFor();
+  assert.equal(await card.getByLabel("Squat, 1 set", { exact: true }).count(), 1);
+
+  // The bar choice stays for the next sheet.
+  await openLoggedWorkout(page, "Leg day", true, false);
+  await button(page, "Plates for Squat").click();
+  assert.equal(
+    await button(page.getByTestId("plate-sheet"), "15 kg bar").getAttribute("aria-pressed"),
+    "true",
+  );
+});
+
+test("a superset joins in the saved workout, shows in lists and goes in rounds live", async (t) => {
+  const press = { ...single, id: "press", name: "Press" };
+  const row = { ...single, id: "row", name: "Row" };
+  const template = {
+    id: "upper",
+    name: "Upper",
+    exercises: [single, press, row],
+    setCounts: { squat: 1, press: 1, row: 1 },
+  };
+  const page = await open(t, {
+    document: { ...empty(), exercises: [single, press, row], workouts: [template] },
+  });
+  await button(page, "Saved workouts").click();
+  await button(page, "Edit workout Upper").click();
+  const form = page.getByTestId("workout-form");
+  const link = form.getByRole("checkbox", { name: "Superset Squat with Press", exact: true });
+  assert.equal(await link.getAttribute("aria-checked"), "false");
+  await link.click();
+  assert.equal(await link.getAttribute("aria-checked"), "true");
+  const topbar = form.getByTestId("exercise-topbar");
+  await button(topbar, "Select exercise Squat, superset 1 of 2").waitFor();
+  await button(topbar, "Select exercise Press, superset 2 of 2").waitFor();
+  await button(topbar, "Select exercise Row").waitFor();
+  assert.equal(await topbar.getByTestId("superset-bracket").count(), 2);
+  // The last exercise has nothing to join.
+  await button(topbar, "Select exercise Row").click();
+  assert.equal(await form.getByRole("checkbox").count(), 0);
+  await button(form, "Save workout").click();
+  await storedWhen(page, (document) => document.workouts[0].supersets?.press === "1");
+
+  await button(page, "Saved workouts").click();
+  const menu = page.getByTestId("workout-library");
+  await menu.getByText("3 exercises · Squat + Press, Row", { exact: true }).waitFor();
+  await menu.getByLabel("3 exercises, superset of Squat and Press, Row", { exact: true }).waitFor();
+  await button(menu, "Add Upper to selected day").click();
+  const compact = page.getByTestId("planned-workout-card");
+  await compact.getByText("Squat + Press · Row", { exact: true }).waitFor();
+  await compact.getByLabel("superset of Squat and Press, Row", { exact: true }).waitFor();
+  const planned = await storedWhen(page, (document) => document.sessions.length === 1);
+  assert.deepEqual(
+    planned.sessions[0].exercises.map((item) => item.superset),
+    ["1", "1", undefined],
+  );
+
+  await button(compact, "Start workout").click();
+  const live = page.getByTestId("active-workout");
+  const details = live.getByTestId("exercise-details");
+  const shown = () => details.getByRole("heading").first().innerText();
+  await details.waitFor();
+  assert.equal(await shown(), "Squat");
+  // Back from the first of a superset goes round to its last, and Next from its last to its first.
+  await button(live, "Back to previous exercise").click();
+  assert.equal(await shown(), "Press");
+  await button(live, "Next exercise").click();
+  assert.equal(await shown(), "Squat");
+  await field(details, "Squat set 1 reps").fill("8");
+  await button(live, "Next exercise").click();
+  assert.equal(await shown(), "Press");
+  await button(live, "Next exercise").click();
+  assert.equal(await shown(), "Squat");
+  // With every set done, Next moves on past the superset.
+  await button(live, "Next exercise").click();
+  await field(details, "Press set 1 reps").fill("10");
+  await button(live, "Next exercise").click();
+  assert.equal(await shown(), "Row");
+
+  // Edit mode splits it again, for this workout only.
+  await button(live, "Select exercise Squat, superset 1 of 2").click();
+  await button(live, "Edit workout").click();
+  await live.getByRole("checkbox", { name: "Superset Squat with Press", exact: true }).click();
+  await button(live, "Select exercise Squat").waitFor();
+  const split = await storedWhen(page, (document) =>
+    document.sessions[0].exercises.every((item) => item.superset === undefined),
+  );
+  assert.equal(split.workouts[0].supersets.squat, "1");
 });

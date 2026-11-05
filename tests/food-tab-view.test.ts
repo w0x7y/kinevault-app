@@ -567,3 +567,125 @@ test("the Custom food status waits for either document, and the log's write fail
   assert.equal(await adding, false);
   assert.equal(f.tab.getSnapshot().logError, "Couldn't save your food log. Try again.");
 });
+
+const previousDay = "2026-09-30";
+function dayEntries(f: Awaited<ReturnType<typeof fixture>>, day = date) {
+  const state = f.log.getSnapshot().state;
+  assert.equal(state.kind, "ready");
+  return state.kind === "ready" ? (state.document.days[day] ?? []) : [];
+}
+function copyPage(f: Awaited<ReturnType<typeof fixture>>) {
+  const current = f.page();
+  assert.equal(current.kind, "copy");
+  return current as Extract<FoodTabPage, { kind: "copy" }>;
+}
+
+test("copying starts from the day before, saves once and returns fresh copies to the log", async () => {
+  const f = await fixture();
+  await f.log.add({ date: "2026-09-28", food: banana, grams: 50, meal: "breakfast" });
+  await f.log.add({ date: previousDay, food: banana, grams: 80, meal: "lunch" });
+  await f.log.add({ date: previousDay, food: banana, grams: 20, meal: "snacks" });
+  f.tab.search("banana");
+  f.tab.copyFood();
+  assert.equal(copyPage(f).from, previousDay);
+  assert.equal(copyPage(f).copy, null);
+  assert.equal(f.tab.getSnapshot().query, "", "copying covers the search");
+  assert.equal(f.tab.getSnapshot().sheet, true);
+  f.tab.copyFrom("2026-09-28");
+  assert.equal(copyPage(f).from, "2026-09-28");
+  f.tab.copyFrom(previousDay);
+
+  const write = f.logStorage.holdWrite();
+  const copying = f.tab.confirmCopy("lunch");
+  assert.deepEqual(copyPage(f).copy, { meal: "lunch", state: "saving" });
+  assert.equal(f.tab.getSnapshot().busy, true);
+  f.tab.copyFrom("2026-09-28");
+  assert.equal(copyPage(f).from, previousDay, "the source stays while its copy saves");
+  assert.equal(await f.tab.confirmCopy(null), false, "one copy at a time");
+  write.open();
+  assert.equal(await copying, true);
+  assert.deepEqual(f.page(), { kind: "log" });
+  const [copy] = dayEntries(f);
+  assert.equal(dayEntries(f).length, 1);
+  assert.deepEqual(
+    { ...copy, id: "" },
+    { ...dayEntries(f, previousDay)[0], id: "" },
+    "the copy keeps its amount, Meal and nutrition",
+  );
+  assert.notEqual(copy.id, dayEntries(f, previousDay)[0].id);
+  assert.deepEqual(freshIds(f), [copy.id], "the copy rises into its meal");
+});
+
+test("a failed copy stays on its page with a retry and writes nothing", async () => {
+  const f = await fixture();
+  await f.log.add({ date: previousDay, food: banana, grams: 80, meal: "lunch" });
+  await f.log.add({ date: previousDay, food: banana, grams: 20, meal: "dinner" });
+  f.tab.copyFood();
+  const write = f.logStorage.holdWrite();
+  const copying = f.tab.confirmCopy(null);
+  await flush();
+  write.open(true);
+  assert.equal(await copying, false);
+  assert.deepEqual(copyPage(f).copy, { meal: null, state: "failed" });
+  assert.equal(dayEntries(f).length, 0);
+  assert.equal(await f.tab.confirmCopy(null), true, "retrying copies the whole day");
+  assert.deepEqual(
+    dayEntries(f).map((entry) => entry.meal),
+    ["lunch", "dinner"],
+  );
+
+  f.tab.copyFood();
+  const refused = f.logStorage.holdWrite();
+  const again = f.tab.confirmCopy("dinner");
+  await flush();
+  refused.open(true);
+  await again;
+  f.tab.copyFrom("2026-09-29");
+  assert.equal(copyPage(f).copy, null, "another source clears the failure");
+});
+
+test("copying is locked while a removal settles and a day change returns to the new day's log", async () => {
+  const f = await fixture();
+  const [first, second] = await logTwo(f);
+  f.tab.armRemoval(first);
+  const { leave, end } = fade();
+  const removing = f.tab.confirmRemoval(leave);
+  f.tab.copyFood();
+  assert.deepEqual(f.page(), { kind: "log" }, "a settling removal locks copying");
+  end();
+  assert.equal(await removing, true);
+
+  f.tab.armRemoval(second);
+  f.tab.copyFood();
+  assert.equal(f.tab.getSnapshot().removal, null, "copying closes an open confirmation");
+  assert.equal(copyPage(f).from, previousDay);
+
+  // A day change while the copy saves leaves its page; the copy still lands on its own day.
+  await f.log.add({ date: previousDay, food: banana, grams: 30, meal: "snacks" });
+  const write = f.logStorage.holdWrite();
+  const copying = f.tab.confirmCopy(null);
+  f.tab.setDay(nextDay);
+  assert.deepEqual(f.page(), { kind: "log" });
+  f.tab.macros();
+  write.open();
+  assert.equal(await copying, true);
+  assert.equal(f.page().kind, "macros", "a late copy doesn't route the page that replaced it");
+  assert.deepEqual(
+    dayEntries(f).map((entry) => entry.meal),
+    ["dinner", "snacks"],
+  );
+});
+
+test("the copy page stays up while the food log reloads, to show its loading and failure", async () => {
+  const f = await fixture();
+  f.tab.copyFood();
+  const reads = f.logStorage.holdReads();
+  f.log.stop();
+  f.log.start();
+  assert.equal(f.log.getSnapshot().state.kind, "loading");
+  assert.equal(f.tab.getSnapshot().sheet, true);
+  assert.equal(await f.tab.confirmCopy(null), false, "nothing copies from an unloaded log");
+  reads.open();
+  await flush();
+  assert.equal(copyPage(f).copy?.state, "failed");
+});

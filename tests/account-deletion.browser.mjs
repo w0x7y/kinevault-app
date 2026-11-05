@@ -41,6 +41,7 @@ const profile = {
     { date: "2026-10-01", kg: 82 },
     { date: "2026-10-08", kg: 79.5 },
   ],
+  bodyMeasurements: [{ date: "2026-10-08", cm: { waist: 84.5, thigh: 58 } }],
 };
 const water = { version: 1, days: { "2026-10-08": 1750 } };
 const food = { version: 1, days: { "2026-10-08": [] } };
@@ -206,7 +207,7 @@ async function records(page) {
   );
 }
 
-test("Settings exports downloaded logical account JSON with weight history and no auth credentials", async (t) => {
+test("Settings exports downloaded logical account JSON with weight and measurement history and no auth credentials", async (t) => {
   const { page, account, deletionRequests } = await open(t);
   const before = await records(page);
   const downloading = page.waitForEvent("download");

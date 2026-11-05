@@ -24,6 +24,8 @@ import { createFoodTabView, type FoodTabView } from "../../food/tab-view.ts";
 import { FoodDraftProvider, useFoodDrafts } from "../../food/draft-provider";
 import { CatalogDraftPage } from "../../food/catalog-draft-page";
 import { ResumeDraft } from "../../food/resume-draft";
+import { FoodCopy } from "../../food/copy-food";
+import { useUnits } from "../../units/provider";
 
 export default function FoodScreen() {
   const activity = useDayActivity();
@@ -73,6 +75,8 @@ function FoodDay({
   }, [tab]);
   useLayoutEffect(() => tab.setPresence({ focused, foreground }), [tab, focused, foreground]);
   useLayoutEffect(() => tab.setDay(date), [tab, date]);
+  const { units } = useUnits();
+  useLayoutEffect(() => tab.setUnits(units), [tab, units]);
   const scrollRef = useRef<ScrollView>(null);
   const pageScroll = useRef<ScrollView>(null);
   const resultsTop = useRef(0);
@@ -135,6 +139,15 @@ function FoodDay({
       />
     ) : page.kind === "macros" ? (
       <DailyMacros activity={activity} onBack={tab.back} />
+    ) : page.kind === "copy" ? (
+      <FoodCopy
+        page={page}
+        date={date}
+        busy={view.busy}
+        onBack={tab.back}
+        onFrom={tab.copyFrom}
+        onCopy={(meal) => void tab.confirmCopy(meal)}
+      />
     ) : null;
   return (
     <Screen title="Food" scrollRef={scrollRef} adjustKeyboardInsets>
@@ -192,6 +205,7 @@ function FoodDay({
           onArm={tab.armRemoval}
           onCancel={tab.cancelRemoval}
           onConfirm={(leave) => void tab.confirmRemoval(leave)}
+          onCopy={tab.copyFood}
         />
       ) : null}
       {/* Every flow opens on one page over the log. Its steps (create, then the saved item)

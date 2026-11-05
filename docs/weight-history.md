@@ -11,6 +11,12 @@ Weights live in the optional `weightEntries` field of `kinevault-track.profile.v
 
 A change shows only after the local save succeeds. A failed save keeps the editor values for a retry. A malformed history opens profile recovery instead of dropping entries. If the account fails to load, use **Retry weight history**.
 
+## Body measurements
+
+The Body measurements card, below Body weight, works the same way. An entry holds any of waist, chest, hips, arm and thigh, each 10 to 300 cm with up to one decimal. Blank fields aren't saved, and an entry needs one value. **Log** on a date that has measurements opens them for editing. The chart shows one measurement at a time, chosen from those with values.
+
+They live in the optional `bodyMeasurements` field of the same Profile document, as `{ date, cm: { waist, ... } }`.
+
 ## Tests
 
-`tests/weight-history.test.ts` and `tests/weight-editing.test.ts`. The browser test, `tests/weight-history.browser.mjs`, needs `KINE_PREVIEW_URL` pointing at a freshly built preview.
+`tests/weight-history.test.ts`, `tests/weight-editing.test.ts` and `tests/body-measurements.test.ts`. The browser test, `tests/weight-history.browser.mjs`, needs `KINE_PREVIEW_URL` pointing at a freshly built preview.

@@ -12,6 +12,8 @@ import { AppText } from "../components/ui";
 import { spacing } from "../theme/tokens";
 import type { createDayAmountEdit } from "./day-amount-log";
 import { useDocumentEdit } from "./use-document-edit";
+import { useUnits } from "../units/provider";
+import { fromUnits, type Quantity } from "../units/units";
 
 /**
  * The sheet that sets one day's amount, such as Manual water or logged steps: a hero field between
@@ -27,6 +29,7 @@ export function DayAmountSheet({
   fieldLabel,
   unit,
   step,
+  quantity,
   noun,
   loadingLabel,
   loadFailure,
@@ -42,7 +45,10 @@ export function DayAmountSheet({
   /** Names the amount above the field and to assistive technology. */
   fieldLabel: string;
   unit: string;
+  /** A stepper's amount, in the units shown. */
   step: number;
+  /** A measured amount saves metric and shows in the chosen units, as `unit` and `step` do. */
+  quantity?: Quantity;
   /** Names what Save saves: "water" gives "Save water" and "Saving water...". */
   noun: string;
   loadingLabel: string;
@@ -52,6 +58,10 @@ export function DayAmountSheet({
   children?: ReactNode;
 }) {
   const { edit, draft, error, busy, saving, load } = useDocumentEdit(createEdit);
+  const { units } = useUnits();
+  // shortcut: a step in fluid ounces adds its rounded milliliters, so 36 presses drift a fluid
+  // ounce; snap each step to the shown figure if that matters.
+  const saved = quantity ? Math.round(fromUnits(quantity, step, units)) : step;
   const ready = load.kind === "ready";
   // Closing plays the sheet out; the caller unmounts it once it has gone.
   const [open, setOpen] = useState(true);
@@ -84,13 +94,14 @@ export function DayAmountSheet({
           {fieldLabel}
         </AppText>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
-          <Stepper delta={-step} unit={unit} disabled={busy} onPress={() => edit.adjust(-step)} />
+          <Stepper delta={-step} unit={unit} disabled={busy} onPress={() => edit.adjust(-saved)} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <TextField
               label={fieldLabel}
               labelHidden
               kind="integer"
               size="hero"
+              quantity={quantity}
               value={draft}
               disabled={busy}
               invalid={Boolean(error)}
@@ -100,7 +111,7 @@ export function DayAmountSheet({
               onSubmit={() => void save()}
             />
           </View>
-          <Stepper delta={step} unit={unit} disabled={busy} onPress={() => edit.adjust(step)} />
+          <Stepper delta={step} unit={unit} disabled={busy} onPress={() => edit.adjust(saved)} />
         </View>
       </View>
       <InlineMessage align="center">{error}</InlineMessage>

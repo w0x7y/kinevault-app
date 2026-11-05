@@ -168,6 +168,71 @@ test("duplicating a template saves a copy after it with a free name, its exercis
   );
 });
 
+test("a template's supersets save, start its logs, copy with it and parse strictly", async () => {
+  const f = await ready();
+  const { exerciseId: squat } = await planned(f);
+  const press = await value(
+    f.store.saveExercise({
+      name: "Press",
+      muscleGroup: "",
+      equipment: "",
+      notes: "",
+      tracking: "single",
+    }),
+  );
+  const workoutId = await value(
+    f.store.saveWorkout({
+      name: "Upper",
+      exerciseIds: [squat, press],
+      setCounts: { [squat]: 1, [press]: 1 },
+      supersets: { [squat]: "1", [press]: "1" },
+    }),
+  );
+  const template = () => doc(f.store).workouts.find((workout) => workout.id === workoutId)!;
+  assert.deepEqual(template().supersets, { [squat]: "1", [press]: "1" });
+  // A log copies each row's key; the Exercise snapshot itself stays a plain definition.
+  const logId = await value(f.store.planWorkout({ date: "2026-10-05", workoutId }));
+  const log = doc(f.store).sessions.find((session) => session.id === logId)!;
+  assert.deepEqual(
+    log.exercises.map((row) => row.superset),
+    ["1", "1"],
+  );
+  assert.equal("superset" in log.exercises[0]!.exercise, false);
+  // Saving the log keeps its keys.
+  await value(f.store.updateSession({ id: logId, name: "Upper", exercises: log.exercises }));
+  assert.deepEqual(
+    doc(f.store)
+      .sessions.find((session) => session.id === logId)!
+      .exercises.map((row) => row.superset),
+    ["1", "1"],
+  );
+  const copyId = await value(f.store.duplicateWorkout(workoutId));
+  assert.deepEqual(
+    doc(f.store).workouts.find((workout) => workout.id === copyId)!.supersets,
+    template().supersets,
+  );
+  // Saved without supersets, the template has none.
+  await value(f.store.saveWorkout({ id: workoutId, name: "Upper", exerciseIds: [squat, press] }));
+  assert.equal("supersets" in template(), false);
+  assert.deepEqual(
+    await f.store.saveWorkout({ name: "Bad", exerciseIds: [squat], supersets: { [press]: "1" } }),
+    rejected("Supersets must hold selected exercises."),
+  );
+  const stored = JSON.parse(f.raw()!);
+  for (const broken of [
+    { ...stored, workouts: [{ ...stored.workouts[0], supersets: { [squat]: "" } }] },
+    { ...stored, workouts: [{ ...stored.workouts[0], supersets: { other: "1" } }] },
+    {
+      ...stored,
+      sessions: stored.sessions.map((session: { exercises: object[] }) => ({
+        ...session,
+        exercises: session.exercises.map((row) => ({ ...row, superset: 1 })),
+      })),
+    },
+  ])
+    assert.throws(() => parseExerciseDocument(JSON.stringify(broken)));
+});
+
 test("library and templates preserve history and resolve live definitions before retained snapshots", async () => {
   const f = await ready();
   const { exerciseId, sessionId } = await planned(f);

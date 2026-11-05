@@ -1,3 +1,5 @@
+import { heightText, measureFigure, unitName, type UnitSystem } from "../units/units.ts";
+
 export const steps = [
   "welcome",
   "goal",
@@ -78,11 +80,26 @@ export function choiceLabels({ goal, activity }: Pick<Answers, "goal" | "activit
   };
 }
 /** Each answer as the Goals rows, the section chooser and the review write it, given the
- * daily calorie target. A no-break space keeps a figure with its unit when a line wraps. */
-export function answerSummary(answers: Answers, calories: number | null) {
+ * daily calorie target. A no-break space keeps a figure with its unit when a line wraps. Metric
+ * shows the saved text; Imperial converts it. */
+export function answerSummary(
+  answers: Answers,
+  calories: number | null,
+  units: UnitSystem = "metric",
+) {
   const { goal, activity } = choiceLabels(answers);
-  const height = answers.height && `${answers.height}\u00a0cm`;
-  const weight = answers.weight && `${answers.weight}\u00a0kg`;
+  const cm = numericValue(answers.height);
+  const kg = numericValue(answers.weight);
+  const height =
+    answers.height &&
+    (units === "metric" || cm === null
+      ? `${answers.height}\u00a0cm`
+      : heightText(cm, units).replaceAll(" ", "\u00a0"));
+  const weight =
+    answers.weight &&
+    (units === "metric" || kg === null
+      ? `${answers.weight}\u00a0kg`
+      : `${measureFigure("bodyWeight", kg, units)}\u00a0${unitName("bodyWeight", units)}`);
   return {
     name: answers.name.trim() || "Not set",
     goal: goal ?? "Not set",

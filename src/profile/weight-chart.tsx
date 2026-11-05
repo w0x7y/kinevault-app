@@ -10,15 +10,16 @@ import Svg, {
   Text as SvgText,
 } from "react-native-svg";
 import { AppText } from "../components/ui";
-import { Icon } from "../components/icon";
+import { Icon, type IconName } from "../components/icon";
 import { parseDay } from "../calendar/dates";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { JournalFigure } from "./journal-ui";
-import { weightTrend, type WeightEntry } from "./weight-model";
+import { measurementTrend } from "./weight-model";
 import { ChartSeriesLayer } from "./chart-reveal";
+import { useUnits } from "../units/provider";
+import { measureFigure, unitName } from "../units/units";
 
-export const weightLabel = (kg: number) => kg.toLocaleString("en-US", { maximumFractionDigits: 2 });
 export const weightDateLabel = (date: string) =>
   parseDay(date).toLocaleDateString("en-US", {
     month: "short",
@@ -26,11 +27,29 @@ export const weightDateLabel = (date: string) =>
     year: "numeric",
   });
 
-export function WeightChart({ entries }: { entries: readonly WeightEntry[] }) {
+/** A dated trend: Body weight by default, or one Body measurement, read in the chosen units. */
+export function WeightChart({
+  entries,
+  name = "Body weight",
+  quantity = "bodyWeight",
+  icon = "weight-scale",
+  empty = "No measurements yet. Log your weight to start your trend.",
+}: {
+  /** Saved values: kilograms, or centimeters for a Body measurement. */
+  entries: readonly { date: string; value: number }[];
+  name?: string;
+  quantity?: "bodyWeight" | "length";
+  icon?: IconName;
+  empty?: string;
+}) {
   const { colors, appearance } = useTheme();
+  const { units } = useUnits();
+  const unit = unitName(quantity, units);
+  // Conversion is linear, so the trend, its change and its axis convert as figures.
+  const label = (value: number) => measureFigure(quantity, value, units);
   const gradientId = `weight-fill-${useId().replace(/[^a-zA-Z0-9-]/g, "")}`;
   // Keep the drawing bounded. The full history remains available below it.
-  const trend = weightTrend(entries.slice(-30));
+  const trend = measurementTrend(entries.slice(-30));
   if (!trend.points.length)
     return (
       <View
@@ -43,9 +62,9 @@ export function WeightChart({ entries }: { entries: readonly WeightEntry[] }) {
           backgroundColor: colors.muted,
         }}
       >
-        <Icon name="weight-scale" size={20} color={colors.mutedForeground} />
+        <Icon name={icon} size={20} color={colors.mutedForeground} />
         <AppText variant="label" muted style={{ flex: 1, fontFamily: fonts.medium }}>
-          No measurements yet. Log your weight to start your trend.
+          {empty}
         </AppText>
       </View>
     );
@@ -58,7 +77,7 @@ export function WeightChart({ entries }: { entries: readonly WeightEntry[] }) {
     .join(" ");
   const area = `${path} L${x(latest.x)},116 L${x(first.x)},116 Z`;
   const description = trend.points
-    .map((point) => `${point.date}: ${weightLabel(point.kg)} kg`)
+    .map((point) => `${point.date}: ${label(point.value)} ${unit}`)
     .join("; ");
   const shortDate = (date: string) =>
     parseDay(date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -66,18 +85,18 @@ export function WeightChart({ entries }: { entries: readonly WeightEntry[] }) {
   return (
     <View style={{ gap: spacing.sm }}>
       <View>
-        <JournalFigure value={weightLabel(latest.kg)} unit="kg" />
+        <JournalFigure value={label(latest.value)} unit={unit} />
         <AppText variant="caption" muted>
           {weightDateLabel(latest.date)}
           {trend.change !== null &&
-            ` · ${trend.change > 0 ? "+" : trend.change < 0 ? "−" : ""}${weightLabel(Math.abs(trend.change))} kg since ${shortDate(first.date)}`}
+            ` · ${trend.change > 0 ? "+" : trend.change < 0 ? "−" : ""}${label(Math.abs(trend.change))} ${unit} since ${shortDate(first.date)}`}
         </AppText>
       </View>
       <View
-        testID="body-weight-trend"
+        testID={`${name.toLowerCase().replace(/ /g, "-")}-trend`}
         accessible
         accessibilityRole="image"
-        accessibilityLabel={`Body weight trend, ${trend.points.length} measurements. ${description}`}
+        accessibilityLabel={`${name} trend, ${trend.points.length} measurements. ${description}`}
       >
         <Svg width="100%" height={150} viewBox="0 0 320 150" aria-hidden {...hidden}>
           {[0, 0.5, 1].map((value) => (
@@ -102,7 +121,7 @@ export function WeightChart({ entries }: { entries: readonly WeightEntry[] }) {
               fontFamily={fonts.medium}
               fontSize={11}
             >
-              {weightLabel(Math.round((value ? trend.maximum : trend.minimum) * 10) / 10)}
+              {label(Math.round((value ? trend.maximum : trend.minimum) * 10) / 10)}
             </SvgText>
           ))}
           <SvgText

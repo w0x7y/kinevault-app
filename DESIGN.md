@@ -39,7 +39,7 @@ Tokens live in [tokens.ts](src/theme/tokens.ts). Components use the token names 
 | `dangerSoft`            | `#fbe8e6` | `#3a2224` | Fill behind red actions               |
 | `error`                 | `#991b1b` | `#fca5a5` | Error text                            |
 
-Macro colors stay the same in labels, bars and ring arcs. Unfilled tracks are neutral.
+Macro colors stay the same in labels, bars and ring arcs. Unfilled tracks are neutral. `LightTheme` ([provider.tsx](src/theme/provider.tsx)) draws its children in the light palette whatever the theme, for the workout share image.
 
 ### Type
 

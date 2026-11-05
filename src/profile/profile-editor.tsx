@@ -7,7 +7,8 @@ import { useDocumentEdit } from "../persistence/use-document-edit";
 import { createFocusedProfileEdit, focusedEditFeedback } from "./focused-editing";
 import { useProfilePersistence } from "./provider";
 import type { ProfileEditSection } from "./section-editing";
-// Each open editor owns its edit; the parent keys it so a new section starts fresh.
+import { useUnits } from "../units/provider";
+// Each open editor owns its edit; the parent keys it by section and units so either starts fresh.
 export function ProfileEditor({
   section,
   close,
@@ -16,8 +17,9 @@ export function ProfileEditor({
   close: () => void;
 }) {
   const profile = useProfilePersistence();
+  const { units } = useUnits();
   const { edit, draft, error, busy, saving } = useDocumentEdit(() =>
-    createFocusedProfileEdit(profile, section),
+    createFocusedProfileEdit(profile, section, units),
   );
   const { errors, others, message: failure } = focusedEditFeedback(error, section);
   return (

@@ -46,7 +46,7 @@ adb install -r ~/Downloads/KineVaultTrack.apk   # -r keeps the app's data
 
 Without a computer, send the `.apk` to the phone and open it. Allow the app you opened it from to install unknown apps. If Play Protect warns about an unknown developer, install anyway.
 
-Update every phone on the same account, iPhones included, before using a new workout feature. Builds from before 2026-10-19 can't load an exercise document with Alternating or Timed exercises, and builds without RIR drop RIR values when they save.
+Update every phone on the same account, iPhones included, before using a new workout feature. Builds from before 2026-10-19 can't load an exercise document with Alternating or Timed exercises, and builds without RIR drop RIR values when they save. Builds without Cardio can't load one with Cardio exercises and drop warm-up flags when they save.
 
 Home's Steps reads Health Connect. Android 14 and newer have it built in. On Android 8 to 13, install it from Google Play; the app offers the install. If step access is refused, Steps shows **Open settings**. Android stops showing the permission dialog after repeated refusals.
 

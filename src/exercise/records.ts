@@ -1,5 +1,5 @@
 import { exerciseHistoryKey, type SessionExercise, type WorkoutSession } from "./model.ts";
-import { setMeasurements, type Lift } from "./tracking.ts";
+import { isWarmUp, setMeasurements, type Lift } from "./tracking.ts";
 
 /** A Personal record: the lift and its estimated one-rep max. */
 export type PersonalRecord = Lift & { oneRepMaxKg: number };
@@ -14,7 +14,7 @@ export function estimatedOneRepMax({ reps, weightKg }: Lift): number {
  * row sets one when its best weighted lift by estimated one-rep max beats every earlier Completed
  * workout with the same exercise history (`exerciseHistoryKey`): on an earlier date, or earlier
  * in the document on the same date. An exercise's first workout has nothing to beat, so it sets
- * none. A day without a Completed workout reads no history.
+ * none. Warm-up sets never count. A day without a Completed workout reads no history.
  */
 export function personalRecords(
   sessions: readonly WorkoutSession[],
@@ -31,7 +31,7 @@ export function personalRecords(
   for (const session of history) {
     for (const row of session.exercises) {
       let top: PersonalRecord | null = null;
-      for (const set of row.sets)
+      for (const set of row.sets.filter((value) => !isWarmUp(value)))
         for (const lift of setMeasurements(set).lifts) {
           const oneRepMaxKg = estimatedOneRepMax(lift);
           if (lift.weightKg > 0 && (!top || oneRepMaxKg > top.oneRepMaxKg))

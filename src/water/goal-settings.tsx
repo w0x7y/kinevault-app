@@ -11,11 +11,15 @@ import { spacing } from "../theme/tokens";
 import { useDocumentEdit } from "../persistence/use-document-edit";
 import { createWaterGoalEdit } from "./goal-editing";
 import { useWaterGoalPersistence } from "./goal-provider";
+import { useUnits } from "../units/provider";
+import { measureText, unitName } from "../units/units";
 
+// Settings keys this by units, so the edit's message follows them.
 export function WaterGoalSettings() {
   const goal = useWaterGoalPersistence();
+  const { units } = useUnits();
   const { edit, draft, error, busy, saving, saved, load } = useDocumentEdit(() =>
-    createWaterGoalEdit(goal),
+    createWaterGoalEdit(goal, units),
   );
   const { colors } = useTheme();
   const savedMl = load.kind === "ready" ? load.document.dailyMl : undefined;
@@ -35,7 +39,7 @@ export function WaterGoalSettings() {
             </AppText>
             {load.kind === "ready" && (
               <AppText variant="caption" muted accessibilityLiveRegion="polite">
-                {`Current goal: ${savedMl?.toLocaleString()} ml per day.`}
+                {`Current goal: ${savedMl === undefined ? "" : measureText("fluid", savedMl, units)} per day.`}
               </AppText>
             )}
             {load.kind === "loading" && (
@@ -65,11 +69,12 @@ export function WaterGoalSettings() {
               <View style={{ flexGrow: 1, flexBasis: 140, minWidth: 0 }}>
                 <TextField
                   testID="water-goal-input"
-                  label="Daily water goal (ml)"
+                  label={`Daily water goal (${unitName("fluid", units)})`}
                   labelHidden
                   kind="integer"
                   size="figure"
-                  unit="ml"
+                  unit={unitName("fluid", units)}
+                  quantity="fluid"
                   value={draft}
                   disabled={busy}
                   invalid={Boolean(error)}

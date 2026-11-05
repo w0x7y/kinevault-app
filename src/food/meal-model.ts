@@ -22,6 +22,7 @@ import {
   type DetailedNutrientDraft,
   type DetailedNutrientErrors,
 } from "./detailed-nutrient-drafts.ts";
+import { limitText, unitName, type UnitSystem } from "../units/units.ts";
 
 export type CatalogKind = "food" | "meal";
 export type MealIngredient = { id: string; food: CatalogFood; grams: number };
@@ -109,6 +110,15 @@ export function previewMeal(ingredients: readonly MealIngredientDraft[]): MealCa
   }
 }
 
+/** What an invalid ingredient amount says, with its limit in `units`. */
+export function ingredientAmountMessage(units: UnitSystem): string {
+  return `Enter a weight greater than 0 and up to ${limitText("food", 10000, units, "max")} ${unitName("food", units)}.`;
+}
+/** What a meal over the weight limit says, in `units`. */
+export function mealWeightMessage(units: UnitSystem): string {
+  return `Keep the total meal weight up to ${limitText("food", 10000, units, "max")} ${unitName("food", units)}.`;
+}
+
 export function mealFromDraft(
   draft: MealDraft,
   customId: string,
@@ -121,8 +131,7 @@ export function mealFromDraft(
   const ids = new Set<string>();
   for (const ingredient of draft.ingredients) {
     const grams = parseFoodGrams(ingredient.amount);
-    if (grams === null)
-      amounts[ingredient.id] = "Enter a weight greater than 0 and up to 10,000 g.";
+    if (grams === null) amounts[ingredient.id] = ingredientAmountMessage("metric");
     else
       ingredients.push({ id: ingredient.id, food: parseCatalogFoodRecord(ingredient.food), grams });
     if (!ingredient.id.trim() || ingredient.id.length > 100 || ids.has(ingredient.id))
@@ -137,7 +146,7 @@ export function mealFromDraft(
     try {
       calculation = calculateMeal(ingredients);
     } catch {
-      errors.ingredients = "Keep the total meal weight up to 10,000 g.";
+      errors.ingredients = mealWeightMessage("metric");
     }
   const overrides: Partial<Nutrition> = {};
   for (const key of ["calories", "carbs", "protein", "fat"] as const) {

@@ -16,6 +16,7 @@ import {
   type FoodSaveTarget,
 } from "./log-model.ts";
 import { parseNutritionAmount } from "./number-input.ts";
+import { limitText, unitName, type UnitSystem } from "../units/units.ts";
 
 export type Serving = Readonly<{ label: string; grams: number }>;
 export type FoodLoggingFields = {
@@ -50,8 +51,13 @@ export type FoodLoggingPreparation = { date: string; operation: "add" | "edit" }
     })
 );
 
-const gramMessage = "Enter an amount greater than 0 and up to 10,000 g.";
-const servingsMessage = "Enter a number of servings that comes to more than 0 and up to 10,000 g.";
+// Amounts are saved grams and milliliters; messages name the limits in the chosen units.
+const most = (quantity: "food" | "fluid", units: UnitSystem) =>
+  `${limitText(quantity, 10000, units, "max")} ${unitName(quantity, units)}`;
+const gramMessage = (units: UnitSystem) =>
+  `Enter an amount greater than 0 and up to ${most("food", units)}.`;
+const servingsMessage = (units: UnitSystem) =>
+  `Enter a number of servings that comes to more than 0 and up to ${most("food", units)}.`;
 const hundredGrams: Serving = { label: "100 g", grams: 100 };
 
 /** Serving size choices: the food's 100 g portion (or a plain 100 g) first, then its other portions. */
@@ -78,9 +84,12 @@ function servingsGrams(count: string, servingGrams: number): number | null {
   const grams = servings === null ? null : Math.round(servings * servingGrams * 100) / 100;
   return isFoodGrams(grams) ? grams : null;
 }
-export const volumeMessage = "Enter a whole drink amount from 1 to 10,000 ml.";
-const labelMessage =
-  "Enter label nutrition per 100 ml and a whole drink amount from 1 to 10,000 ml.";
+const drinkRange = (units: UnitSystem) =>
+  `from ${limitText("fluid", 1, units, "min")} to ${most("fluid", units)}`;
+export const volumeMessage = (units: UnitSystem) =>
+  `Enter a whole drink amount ${drinkRange(units)}.`;
+const labelMessage = (units: UnitSystem) =>
+  `Enter label nutrition per 100 ml and a whole drink amount ${drinkRange(units)}.`;
 
 /** Prepare one preview and write from validated catalog/log sources and the entered fields.
  * Sources keep their own validation; incomplete user input never carries an executable write.
@@ -92,12 +101,16 @@ export function prepareFoodLogging({
   fields,
   findFood,
   catalogItem,
+  units = "metric",
 }: {
   target: FoodSaveTarget;
   date: string;
+  /** Saved gram and milliliter text, whatever the units shown. */
   fields: FoodLoggingFields;
   findFood: FindFood;
   catalogItem?: CatalogFood;
+  /** How messages name the limits. */
+  units?: UnitSystem;
 }): FoodLoggingPreparation {
   const common = { date, operation: target.kind };
   const food =
@@ -141,7 +154,8 @@ export function prepareFoodLogging({
         amount,
         status: fields.drinkMl.trim() ? "invalid" : "incomplete",
         reason: "amount",
-        message: labelRequired && labelStatus !== "valid" ? labelMessage : volumeMessage,
+        message:
+          labelRequired && labelStatus !== "valid" ? labelMessage(units) : volumeMessage(units),
       };
     if (labelStatus !== "valid")
       return {
@@ -150,7 +164,7 @@ export function prepareFoodLogging({
         amount,
         status: labelStatus,
         reason: "label",
-        message: labelMessage,
+        message: labelMessage(units),
       };
     measurement = {
       ...volumeFields,
@@ -185,7 +199,7 @@ export function prepareFoodLogging({
         amount,
         status: (serving ? fields.servings : fields.grams).trim() ? "invalid" : "incomplete",
         reason: "amount",
-        message: serving ? servingsMessage : gramMessage,
+        message: serving ? servingsMessage(units) : gramMessage(units),
       };
     if (fields.meal === "drinks")
       return {

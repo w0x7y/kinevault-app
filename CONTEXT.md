@@ -42,6 +42,8 @@ KineVault Track is the food and exercise tracking companion to the separate Kine
 
 **Body-weight edit**: Unsaved changes to a Body-weight measurement, or a pending delete. A failed save keeps the values.
 
+**Body measurement**: A dated Personal journal entry with any of waist, chest, hips, arm and thigh, each 10 to 300 cm with up to one decimal. At most one per date, and logging on a date that has one edits it. It is edited like a Body-weight measurement and never changes calorie or macro targets.
+
 **Calorie mode**: Whether the Profile uses the Estimated target or a Custom target.
 
 **Estimated target**: Daily calories estimated from adult body details, activity, and a lose, maintain or gain goal.
@@ -56,17 +58,25 @@ KineVault Track is the food and exercise tracking companion to the separate Kine
 
 **Exercise definition**: A reusable, account-owned exercise with a name, optional muscle group, equipment, notes and a Tracking mode.
 
-**Tracking mode**: How an exercise's sets are entered: Single weight, Left and right (a Side set), Alternating (an Alternating set) or Timed (a Timed set). A change applies to future logs only.
+**Tracking mode**: How an exercise's sets are entered: Single weight, Left and right (a Side set), Alternating (an Alternating set), Timed (a Timed set) or Cardio (a Cardio set). A change applies to future logs only.
 
 **Alternating set**: Reps per side and kilograms. Both sides count: 10 reps per side at 12 kg is 20 reps and 240 kg.
 
 **Timed set**: Whole seconds from 1 to 86,400 instead of reps and kilograms. It counts as a set with no reps or volume.
 
-**Set clock**: A Timed set's stopwatch, or a countdown from its seconds. Stopping it or letting it run out logs the seconds, and Save, Log, End and Cancel log it first. It isn't saved, so closing the app loses it.
+**Cardio set**: A time typed as minutes (30) or minutes and seconds (28:13, or 28.13 on a number pad), saved as whole seconds from 1 to 86,400, and an optional distance typed in kilometers or miles (0.01 to 1,000 km, two decimals at most) and saved in meters. It has no reps, volume or Personal record.
+
+**Warm-up set**: A Single weight, Left and right or Alternating set marked W in edit mode. It saves and shows, but counts toward no Workout volume, reps, sets, Personal record or Workout graph.
+
+**Plate calculator**: The plates for each side of a bar for each set's weight, from 25 down to 1.25 kg, and what's left over. The bar (20, 15 or 10 kg, or none) is a device setting. In Imperial it loads 45 down to 2.5 lb plates on the bar's pound counterpart (45, 35 or 15 lb).
+
+**Set clock**: A Timed or Cardio set's stopwatch, or a countdown from its seconds. Stopping it or letting it run out logs the seconds, and Save, Log, End and Cancel log it first. Edit mode hides its button but not a running clock. It isn't saved, so closing the app loses it.
 
 **Rest timer**: A countdown between sets on the Active workout's page. It defaults to 90 seconds, − and + change it by 15 seconds between 15 seconds and 10 minutes, and it buzzes when it runs out.
 
 **Workout template**: A named, ordered exercise list with planned set counts (three by default). Duplicate saves a copy named "Leg day copy", then "Leg day copy 2" and so on.
+
+**Superset**: Two or more adjacent exercises in a Workout template or log that share a group key. The Active workout goes through it in rounds until every set in it is entered. An exercise moved into another superset lands past it, and one left alone leaves its superset.
 
 **Workout log**: A record made from a saved workout on the Selected day. A draft becomes active through Start workout, or completed through manual logging. There are no ad hoc sessions.
 
@@ -84,7 +94,7 @@ KineVault Track is the food and exercise tracking companion to the separate Kine
 
 **Completed workout**: A finished or manually logged workout. Untouched blank sets are skipped, partly entered sets must be valid, and only completed workouts count toward daily totals.
 
-**Previous sets**: The sets from the latest Completed workout with the same exercise, shown as hints in blank fields. Hints are never saved unless the user presses the set's number to copy them in.
+**Previous sets**: The sets from the latest Completed workout with the same exercise, shown as hints in blank fields. Warm-up sets hint from its warm-ups in order, other sets from its other sets. Hints are never saved unless the user presses the set's number to copy them in.
 
 **Exercise snapshot**: The copy of an exercise kept in a template or log, so history survives library edits and deletions.
 
@@ -96,21 +106,27 @@ KineVault Track is the food and exercise tracking companion to the separate Kine
 
 **Side set**: One set with separate left and right reps and kilograms. It counts as one set, and both sides add to reps and volume.
 
-**RIR**: Reps in reserve, an optional 0 to 10 per set (per side for a Side set, none for a Timed set). It doesn't count toward volume or totals.
+**RIR**: Reps in reserve, an optional 0 to 10 per set (per side for a Side set, none for a Timed or Cardio set). It doesn't count toward volume or totals.
 
 **Recorded duration**: Seconds from a workout timer, or minutes typed for a workout that isn't running. Blank means unknown.
 
 **Profile recovery**: Getting a usable Profile back after loading fails, by retrying or starting fresh.
 
-**Workout volume**: Kilograms times reps, summed over completed sets.
+**Workout volume**: Kilograms times reps, summed over completed sets other than Warm-up sets.
+
+**Top set**: An exercise's heaviest lift in a Completed workout, more reps breaking a tie. Warm-up sets don't count, and Timed and Cardio exercises show their total time and distance instead.
+
+**Workout share image**: A 1080 × 1350 PNG of the Selected day's Completed workouts, shared from the Workout card: name, date, duration, sets, Workout volume, each exercise's Top set, Personal records and Kine. Long lists end with "+3 more exercises". It's drawn on demand and never saved.
 
 **Estimated one-rep max**: Epley's formula, kilograms × (1 + reps ÷ 30), or the weight itself for one rep.
 
-**Personal record**: An exercise whose best Estimated one-rep max beats every earlier Completed workout with the same Exercise definition and Tracking mode. First workouts, ties, bodyweight lifts and Timed sets never count. Records are computed from logs, never stored.
+**Personal record**: An exercise whose best Estimated one-rep max beats every earlier Completed workout with the same Exercise definition and Tracking mode. First workouts, ties, bodyweight lifts, Warm-up sets, Timed sets and Cardio sets never count. Records are computed from logs, never stored.
 
 **Daily activity**: The Selected day's food, workout, step and water records. Water is Manual water plus saved Drinks. Unavailable data is distinct from a known empty day.
 
 **Phone steps**: Steps the phone counted, from Core Motion on iOS (last 7 days) or Health Connect on Android. They need permission and a native build, and are never stored or uploaded.
+
+**Health saving**: With its setting on (each Account's own choice on each device), completed workouts with a Recorded duration, Body-weight measurements and each day's water (Manual water plus Drinks) are saved to Apple Health or Health Connect under the app's own IDs, tagged per Account and device so two Accounts on one phone never share a record. An edit replaces the copy and a delete removes it. Workouts without a duration are skipped. The setting never syncs, and failed saves retry without touching the app's records.
 
 **Logged steps**: Steps entered by hand for a day, added to Phone steps. They are an Account tracking document, so they sync.
 
@@ -132,6 +148,8 @@ KineVault Track is the food and exercise tracking companion to the separate Kine
 
 **Meal destination**: The Meal a new Logging attempt adds to. Returning to the food log resets it to Breakfast.
 
+**Food copy**: Another day's entries, one Meal's or the whole day's, added to the Selected day in one save. Each copy gets a new ID and keeps its amount, Meal and nutrition snapshot. The source starts as the day before and is never the Selected day.
+
 **Custom food**: A food the user enters, with a name, serving weight, calories and macros, plus an optional brand and detailed nutrients. Blank means unknown and zero is known.
 
 **Catalog draft**: Unfinished editing of a Custom food or Custom meal, including a Product import. Cancel discards it, and only a confirmed save closes it.
@@ -149,6 +167,8 @@ KineVault Track is the food and exercise tracking companion to the separate Kine
 **Kine**: The app's blue creature. He guides setup, greets on Home and appears in loading states.
 
 **Drink nutrition basis**: Nutrition per 100 ml, from a reviewed label or a real USDA non-iced fluid serving. Volume-only custom drinks have no gram nutrition, and an old entry without ml needs ml and a label basis before it moves to Drinks.
+
+**Units**: Metric or Imperial, a device setting that never syncs. It changes only what figures and fields show and take; saved values stay in grams, kilograms, centimeters, meters and milliliters. Nutrients stay in grams in both.
 
 **Reminder**: A device notification at a chosen time and weekdays for a weigh-in, water, a workout, food logging, a Progress photo or a custom note. Reminders are device settings, not Account tracking: sign-out cancels them and sign-in restores them.
 

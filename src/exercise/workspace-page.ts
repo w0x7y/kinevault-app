@@ -1,4 +1,5 @@
 import { exerciseResultPage } from "./model.ts";
+import { supersetSpan, type Grouped } from "./supersets.ts";
 
 // The page rules Workout edits and Workout template drafts share for `WorkoutWorkspace`. Each owner
 // keeps the state in its own entry, so a remounted page reopens where it was.
@@ -21,16 +22,28 @@ export function resultPage<Item>(matches: readonly Item[], limit: number) {
   return { items: matches.slice(0, limit), more: matches.length > limit };
 }
 
-/** The row on screen (the selected one, or the first) and the rows Back and Next go to. */
-export function workspaceView<Row extends { id: string }>(
+/**
+ * The row on screen (the selected one, or the first) and the rows Back and Next go to. With
+ * `done`, a superset goes in rounds: Next from its last exercise returns to its first, and Back
+ * from its first to its last, until each of its exercises is `done`.
+ */
+export function workspaceView<Row extends { id: string } & Grouped>(
   rows: readonly Row[],
   selectedId: string | null | undefined,
+  done?: (row: Row) => boolean,
 ): { selected: Row | undefined; previous: Row | undefined; next: Row | undefined } {
   const index = Math.max(
     0,
     rows.findIndex((row) => row.id === selectedId),
   );
-  return { selected: rows[index], previous: rows[index - 1], next: rows[index + 1] };
+  let previous = rows[index - 1],
+    next = rows[index + 1];
+  const span = done ? supersetSpan(rows, index) : null;
+  if (span && !rows.slice(span[0], span[1] + 1).every(done!)) {
+    if (index === span[0]) previous = rows[span[1]];
+    if (index === span[1]) next = rows[span[0]];
+  }
+  return { selected: rows[index], previous, next };
 }
 
 /**

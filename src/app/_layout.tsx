@@ -15,6 +15,7 @@ import * as SystemUI from "expo-system-ui";
 import { useEffect } from "react";
 import { Platform, View } from "react-native";
 import { ThemeProvider, useTheme } from "../theme/provider";
+import { UnitsProvider, useUnits } from "../units/provider";
 import { useProfile } from "../profile/provider";
 import { ProfileRecovery } from "../profile/recovery";
 import { MotionProvider, useReducedMotion } from "../components/motion";
@@ -43,12 +44,13 @@ void SplashScreen.preventAutoHideAsync().catch(() => {});
 function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const reduced = useReducedMotion();
   const { colors, appearance, ready } = useTheme();
+  const units = useUnits();
   const profile = useProfile();
   const { state } = profile;
   const { user, recovery } = useAccount();
   const route = entryRoute(useSegments());
   const readings = {
-    appReady: ready && fontsReady,
+    appReady: ready && units.ready && fontsReady,
     profile: state,
     recovery,
     signedIn: user !== null,
@@ -104,20 +106,22 @@ export default function RootLayout() {
   return (
     <AppErrorBoundary>
       <ThemeProvider>
-        <MotionProvider>
-          <ConnectivityProvider>
-            <AccountProvider>
-              <View style={{ flex: 1 }}>
-                <OfflineNotice />
-                <AccountDataProvider>
-                  <ReminderProvider>
-                    <RootNavigator fontsReady={fontsLoaded || Boolean(fontError)} />
-                  </ReminderProvider>
-                </AccountDataProvider>
-              </View>
-            </AccountProvider>
-          </ConnectivityProvider>
-        </MotionProvider>
+        <UnitsProvider>
+          <MotionProvider>
+            <ConnectivityProvider>
+              <AccountProvider>
+                <View style={{ flex: 1 }}>
+                  <OfflineNotice />
+                  <AccountDataProvider>
+                    <ReminderProvider>
+                      <RootNavigator fontsReady={fontsLoaded || Boolean(fontError)} />
+                    </ReminderProvider>
+                  </AccountDataProvider>
+                </View>
+              </AccountProvider>
+            </ConnectivityProvider>
+          </MotionProvider>
+        </UnitsProvider>
       </ThemeProvider>
     </AppErrorBoundary>
   );

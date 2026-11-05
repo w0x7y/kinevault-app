@@ -35,6 +35,35 @@ test("the row on screen is the selected one, or the first, between its Back and 
   });
 });
 
+test("a live superset goes in rounds until each of its exercises is done, then moves on", () => {
+  const list = [
+    { id: "warm" },
+    { id: "a", superset: "1" },
+    { id: "b", superset: "1" },
+    { id: "c", superset: "1" },
+    { id: "cool" },
+  ];
+  const steps = (selectedId: string, done: readonly string[]) => {
+    const { previous, next } = workspaceView(list, selectedId, (row) => done.includes(row.id));
+    return [previous?.id, next?.id];
+  };
+  // Next goes through the superset and returns to its first from its last; Back mirrors it.
+  assert.deepEqual(steps("a", []), ["c", "b"]);
+  assert.deepEqual(steps("b", []), ["a", "c"]);
+  assert.deepEqual(steps("c", ["a", "b"]), ["b", "a"]);
+  // Once every exercise in it is done, Next and Back leave it.
+  assert.deepEqual(steps("c", ["a", "b", "c"]), ["b", "cool"]);
+  assert.deepEqual(steps("a", ["a", "b", "c"]), ["warm", "b"]);
+  // Outside a superset, and without rounds, Back and Next follow the order.
+  assert.deepEqual(steps("warm", []), [undefined, "a"]);
+  assert.deepEqual(steps("cool", []), ["c", undefined]);
+  const { previous, next } = workspaceView(list, "c");
+  assert.deepEqual([previous?.id, next?.id], ["b", "cool"]);
+  // A key no neighbor shares is no superset, so it never loops to itself.
+  const lone = workspaceView([{ id: "x", superset: "1" }, { id: "y" }], "x", () => false);
+  assert.equal(lone.next?.id, "y");
+});
+
 test("rows about to move keep the row on screen, even one shown for being first", () => {
   assert.equal(keepShown(rows, "b"), "b");
   assert.equal(keepShown(rows, null), "a");

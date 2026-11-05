@@ -8,6 +8,7 @@ import { AppText, Panel } from "../components/ui";
 import { answerSummary, type Answers, type EditableStep } from "../profile/answers";
 import { useTheme } from "../theme/provider";
 import { spacing } from "../theme/tokens";
+import { useUnits } from "../units/provider";
 
 export function ProfileReview({
   answers,
@@ -21,7 +22,8 @@ export function ProfileReview({
   const mode = calorieState(answers);
   const { target, source } = mode;
   const macros = macroTargets(answers);
-  const summary = answerSummary(answers, target);
+  const { units } = useUnits();
+  const summary = answerSummary(answers, target, units);
   const rows: { label: string; value: string; step: EditableStep; icon: IconName }[] = [
     { label: "Name", value: summary.name, step: "name", icon: "user" },
     { label: "Goal", value: summary.goal, step: "goal", icon: "flag" },

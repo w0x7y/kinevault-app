@@ -7,19 +7,28 @@ import type { AppearancePreference } from "../../theme/preferences";
 import { spacing } from "../../theme/tokens";
 import { WaterGoalSettings } from "../../water/goal-settings";
 import { ReminderSettings } from "../../reminders/settings";
+import { HealthSettings } from "../../health/settings";
 import { AccountSettings } from "../../account/settings-panel";
 import { AppButton } from "../../components/button";
 import { InlineMessage } from "../../components/inline-message";
 import { RowContent, SettingsGroup, SettingsLinkRow } from "../../account/settings-list";
+import { useUnits } from "../../units/provider";
+import type { UnitSystem } from "../../units/units";
 
 const choices: SegmentOption<AppearancePreference>[] = [
   { value: "system", label: "System", icon: "desktop" },
   { value: "light", label: "Light", icon: "sun" },
   { value: "dark", label: "Dark", icon: "moon" },
 ];
+const unitChoices: SegmentOption<UnitSystem>[] = [
+  { value: "metric", label: "Metric" },
+  { value: "imperial", label: "Imperial" },
+];
+const unitSummary = { metric: "Metric (kg, cm, km, ml)", imperial: "Imperial (lb, in, mi, fl oz)" };
 
 export default function SettingsScreen() {
   const { state } = useProfile();
+  const { units } = useUnits();
   return (
     <Screen title="Settings" adjustKeyboardInsets>
       <AccountSettings
@@ -42,14 +51,18 @@ export default function SettingsScreen() {
             />
           </SettingsGroup>
         )}
-        <WaterGoalSettings />
+        <WaterGoalSettings key={units} />
         <ReminderSettings />
+        <HealthSettings />
         <SettingsGroup title="Appearance">
           <AppearanceControl />
         </SettingsGroup>
+        <SettingsGroup title="Units">
+          <UnitsControl />
+        </SettingsGroup>
       </AccountSettings>
       <AppText variant="caption" muted style={{ textAlign: "center", paddingTop: spacing.sm }}>
-        English · Metric (kg, cm, km, ml) · Version 1.0.0
+        {`English · ${unitSummary[units]} · Version 1.0.0`}
       </AppText>
     </Screen>
   );
@@ -70,6 +83,34 @@ function AppearanceControl() {
       />
       <AppText variant="caption" muted accessibilityLiveRegion="polite">
         {saving ? "Saving…" : "System follows your device's theme. Applies to this device."}
+      </AppText>
+      {error && (
+        <View style={{ gap: spacing.sm, alignItems: "flex-start" }}>
+          <InlineMessage>{error}</InlineMessage>
+          <AppButton size="compact" label="Try again" icon="rotate-right" onPress={retryLoad} />
+        </View>
+      )}
+    </RowContent>
+  );
+}
+
+/** Metric or Imperial for every figure and field; saved values stay metric. */
+function UnitsControl() {
+  const { units, setUnits, saving, error, retryLoad } = useUnits();
+  return (
+    <RowContent>
+      <SegmentedControl
+        label="Units"
+        semantics="radio"
+        options={unitChoices}
+        value={units}
+        disabled={saving}
+        onChange={(value) => void setUnits(value)}
+      />
+      <AppText variant="caption" muted accessibilityLiveRegion="polite">
+        {saving
+          ? "Saving…"
+          : "Imperial shows pounds, ounces, feet and inches, miles and fluid ounces. Nutrients stay in grams. Applies to this device."}
       </AppText>
       {error && (
         <View style={{ gap: spacing.sm, alignItems: "flex-start" }}>

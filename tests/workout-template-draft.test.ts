@@ -206,3 +206,42 @@ test("preparation captures only current selection and stays detached from later 
     input: { id: "strength", name: "Strength", exerciseIds: ["squat"], setCounts: { squat: 5 } },
   });
 });
+
+test("a template draft joins and splits supersets, keeps them through moves and saves them", () => {
+  const saved: WorkoutTemplate = {
+    ...legacy,
+    exercises: [squat, curl, press],
+    setCounts: { squat: 3, curl: 3, press: 3 },
+    supersets: { squat: "1", curl: "1" },
+  };
+  const draft = createWorkoutTemplateDraft(saved);
+  const groups = (value: typeof draft) =>
+    value.rows.map((row) => `${row.id}${row.superset ? `:${row.superset}` : ""}`);
+  assert.deepEqual(groups(draft), ["squat:1", "curl:1", "press"]);
+  const joined = draft.link("curl", true);
+  assert.deepEqual(groups(joined), ["squat:1", "curl:1", "press:1"]);
+  assert.equal(joined.link("curl", true), joined, "an existing link changes nothing");
+  assert.equal(joined.link("press", true), joined, "the last exercise has nothing after it");
+  // Swapping inside a superset keeps it; moving the last exercise out leaves it.
+  assert.deepEqual(groups(joined.move(1, -1)), ["curl:1", "squat:1", "press:1"]);
+  assert.deepEqual(groups(draft.move(1, 1)), ["squat", "press", "curl"]);
+  // Press moving up jumps the whole superset rather than splitting it.
+  assert.deepEqual(groups(draft.move(2, -1)), ["press", "squat:1", "curl:1"]);
+  // Removing a row leaves a superset of one, which stops being one.
+  assert.deepEqual(groups(draft.remove("curl")), ["squat", "press"]);
+  const split = joined.link("squat", false);
+  assert.deepEqual(groups(split), ["squat", "curl:2", "press:2"]);
+  assert.deepEqual(split.prepare(), {
+    kind: "ready",
+    input: {
+      id: "strength",
+      name: "Strength",
+      exerciseIds: ["squat", "curl", "press"],
+      setCounts: { squat: 3, curl: 3, press: 3 },
+      supersets: { curl: "2", press: "2" },
+    },
+  });
+  // A draft with no superset saves none.
+  const none = draft.link("squat", false).prepare();
+  assert.equal(none.kind === "ready" && "supersets" in none.input, false);
+});

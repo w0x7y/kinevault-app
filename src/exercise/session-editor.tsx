@@ -16,6 +16,10 @@ import { WorkoutWorkspace } from "./workout-workspace";
 import { useSheetBack } from "../components/sheet-page";
 import { ModalSheet } from "../components/modal-sheet";
 import { AddExerciseSheet } from "./add-exercise-sheet";
+import { PlateCalculator } from "./plate-sheet";
+import { distanceMessage, trackingMode } from "./tracking";
+import { useUnits } from "../units/provider";
+import { exerciseListText } from "./supersets";
 
 export function SessionEditor({
   edit,
@@ -59,6 +63,7 @@ export function SessionEditor({
     overline,
     testID,
   } = useSnapshot(edit);
+  const { units } = useUnits();
   // In a sheet, its back button is this workout's Cancel. The Active workout keeps running.
   const inSheet = useSheetBack({ onPress: () => void edit.run(back), disabled: busy });
   const editToggle = (
@@ -91,6 +96,7 @@ export function SessionEditor({
               ? {
                   onAdd: (setId) => edit.change({ kind: "add-set", rowId: row.id, afterId: setId }),
                   onRemove: (setId) => edit.change({ kind: "remove-set", rowId: row.id, setId }),
+                  onWarmUp: (setId) => edit.change({ kind: "warm-up", rowId: row.id, setId }),
                 }
               : undefined
           }
@@ -104,13 +110,18 @@ export function SessionEditor({
             onPress={() => edit.change({ kind: "add-set", rowId: row.id })}
           />
         )}
+        {trackingMode(row.exercise.tracking).weighted && row.sets.length > 0 && (
+          <PlateCalculator sets={row.sets} rowLabel={rowLabel} />
+        )}
         {rest && <RestControl rest={rest} edit={edit} />}
       </>
     );
   }
+  // The one save reason that names a unit reads in the chosen units.
+  const shownError = error === distanceMessage("metric") ? distanceMessage(units) : error;
   const feedback = (
     <>
-      <InlineMessage>{error}</InlineMessage>
+      <InlineMessage>{shownError}</InlineMessage>
       {error && retry && (
         <AppButton
           label="Retry draft save"
@@ -182,6 +193,10 @@ export function SessionEditor({
       disabled={busy}
     />
   );
+  const exerciseList = exerciseListText(
+    draft.exercises.map((row) => ({ name: row.exercise.name, superset: row.superset })),
+    " · ",
+  );
   const plannedHeading = (
     <View style={{ gap: 2 }}>
       <Overline>{overline}</Overline>
@@ -192,10 +207,13 @@ export function SessionEditor({
       >
         {draft.name}
       </AppText>
-      <AppText variant="caption" muted numberOfLines={2}>
-        {draft.exercises.length
-          ? draft.exercises.map((row) => row.exercise.name).join(" · ")
-          : "No exercises yet"}
+      <AppText
+        variant="caption"
+        muted
+        numberOfLines={2}
+        accessibilityLabel={draft.exercises.length ? exerciseList.label : undefined}
+      >
+        {draft.exercises.length ? exerciseList.text : "No exercises yet"}
       </AppText>
     </View>
   );
@@ -282,6 +300,11 @@ export function SessionEditor({
           onShowNotes={edit.showNotes}
           onLinkDemo={linkDemo ? (definition) => void edit.linkDemo(definition) : undefined}
           exerciseActions={editToggle}
+          onSuperset={
+            editing
+              ? (rowId, linked) => edit.change({ kind: "superset", rowId, linked })
+              : undefined
+          }
           editing={
             editing
               ? {

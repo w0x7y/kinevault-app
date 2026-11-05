@@ -9,6 +9,7 @@ import { meals, type FoodDay, type FoodEntry, type Meal } from "./model";
 import { FoodLogEntry } from "./food-log-entry";
 import type { FoodEntryRemoval } from "../food/tab-view";
 import { InlineMessage } from "../components/inline-message";
+import { AppButton } from "../components/button";
 
 export function MealsWidget({
   day,
@@ -18,6 +19,7 @@ export function MealsWidget({
   onCancel,
   onConfirm,
   onEdit,
+  onCopy,
   onLayout,
   saving,
   error,
@@ -30,6 +32,8 @@ export function MealsWidget({
   onCancel: () => void;
   onConfirm: (leave: () => Promise<void>) => void;
   onEdit: (entry: FoodEntry) => void;
+  /** Opens copying another day's food into this day. */
+  onCopy: () => void;
   onLayout?: ViewProps["onLayout"];
   saving: boolean;
   error: string | null;
@@ -110,6 +114,14 @@ export function MealsWidget({
           </Animated.View>
         );
       })}
+      <Animated.View layout={layout}>
+        <AppButton
+          label="Copy food from another day"
+          icon="copy"
+          disabled={saving}
+          onPress={onCopy}
+        />
+      </Animated.View>
     </View>
   );
 }

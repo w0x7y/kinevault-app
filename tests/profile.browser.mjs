@@ -324,13 +324,22 @@ async function expectCarousel(page, photos) {
     );
     await expectDateBelowPhoto(item, photo.date);
     if (index < photos.length - 1) {
-      const divider = await separators.nth(index).boundingBox();
-      const image = await item
-        .getByRole("img", { name: `Progress photo ${photo.date}`, exact: true })
-        .boundingBox();
-      const nextItem = await journal
-        .getByTestId(`progress-photo-${photos[index + 1].id}`)
-        .boundingBox();
+      // One snapshot, so a carousel still scrolling under load can't move a box between reads.
+      const handles = await Promise.all([
+        separators.nth(index).elementHandle(),
+        item
+          .getByRole("img", { name: `Progress photo ${photo.date}`, exact: true })
+          .elementHandle(),
+        journal.getByTestId(`progress-photo-${photos[index + 1].id}`).elementHandle(),
+      ]);
+      const [divider, image, nextItem] = await page.evaluate(
+        (elements) =>
+          elements.map((element) => {
+            const { x, width, height } = element.getBoundingClientRect();
+            return { x, width, height };
+          }),
+        handles,
+      );
       assert.ok(divider.height > divider.width * 10, "photo divider is vertical");
       assert.ok(
         divider.x >= image.x + image.width - 1 && divider.x + divider.width <= nextItem.x + 1,

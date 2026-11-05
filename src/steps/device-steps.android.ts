@@ -8,8 +8,11 @@ let client: HealthConnect | null = null;
 // Health Connect can't report a refusal, so this session remembers one until steps are granted.
 let refused = false;
 
-/** Health Connect once it's ready to use, or why it isn't. Only success is kept, so an install shows up. */
-async function connect(): Promise<HealthConnect | "install" | "unavailable"> {
+/**
+ * Health Connect once it's ready to use, or why it isn't. Only success is kept, so an install shows
+ * up. Health writes (`src/health/device-health.android.ts`) share it.
+ */
+export async function connect(): Promise<HealthConnect | "install" | "unavailable"> {
   if (client) return client;
   try {
     // Expo Go has no Health Connect module, and loading it throws, so it loads on first use.
@@ -56,12 +59,15 @@ export const deviceSteps: DeviceSteps = {
     });
     return result.COUNT_TOTAL;
   },
-  async openSettings() {
-    const health = await connect();
-    if (health === "install")
-      await Linking.openURL(`market://details?id=${provider}`).catch(() =>
-        Linking.openURL(`https://play.google.com/store/apps/details?id=${provider}`),
-      );
-    else if (typeof health !== "string") health.openHealthConnectSettings();
-  },
+  openSettings: openHealthConnect,
 };
+
+/** Opens Health Connect's settings, or Google Play when it needs installing. */
+export async function openHealthConnect() {
+  const health = await connect();
+  if (health === "install")
+    await Linking.openURL(`market://details?id=${provider}`).catch(() =>
+      Linking.openURL(`https://play.google.com/store/apps/details?id=${provider}`),
+    );
+  else if (typeof health !== "string") health.openHealthConnectSettings();
+}

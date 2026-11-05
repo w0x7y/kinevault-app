@@ -113,8 +113,11 @@ Workout edits own all three, so they survive the set table unmounting.
 | `workout-workspace.tsx`         | `WorkoutWorkspace`, the page for both a Workout edit and a Workout template draft                                            |
 | `exercise-bar.tsx`              | Chips and edit mode tiles: remove badge, drag and add. Pins Back and Next over the caller's main action (`useSheetControls`) |
 | `workspace-page.ts`             | Shared page rules: the row on screen is the selected one or the first, and stays on screen when rows move                    |
+| `supersets.ts`                  | Supersets: joining and splitting (`linkToNext`), moves that keep them whole (`moveRow`), list text                           |
 | `short-name.ts`                 | Row labels: the accessible "Squat exercise 2" and the chip label (three characters at most)                                  |
 | `src/components/sheet-page.tsx` | Header overrides and scroll: `useSheetBack`, `useSheetScrollTarget`, `center`. A new `page` starts at the top                |
+
+- On the Active workout, `workspaceView` takes a `done` rule, so Back and Next go through a Superset in rounds. Templates and other logs step in order.
 
 ### Library drafts
 
@@ -125,10 +128,13 @@ Workout edits own all three, so they survive the set table unmounting.
 
 ### Tracking modes
 
-`src/exercise/tracking.ts` owns what each Tracking mode means: its columns, empty set, blank rule, `withSetValue`, hints, what a completed set counts (`setMeasurements`) and a Timed set's countdown (`timedSeconds`).
+`src/exercise/tracking.ts` owns what each Tracking mode means: its columns, empty set, blank rule, `withSetValue`, hints, what a completed set counts (`setMeasurements`), a Timed or Cardio set's countdown (`timedSeconds`) and Warm-up sets (`isWarmUp`, `withWarmUp`, for `weighted` modes only).
 
 - The set table renders a mode's columns and sends changes. It never builds a set itself. Removing a set changes this log only; Workout templates keep their planned counts.
 - A set's `kind` is its exercise's mode. The model only checks they match.
+- Sets hold saved text: kilograms, and a Cardio distance in meters. The set table shows and takes them in the chosen units (see [Units](#units)), and `columnText` names each column's unit.
+- In edit mode a weighted set's number is a warm-up checkbox (the `warm-up` change), and Timed and Cardio sets hide their clock button.
+- `src/exercise/plates.ts` is the Plate calculator: `platesPerSide` loads each side heaviest first in thousandths of the chosen unit, and `plateLines` and `plateLoading` word each set's weight. `plate-sheet.tsx` draws it and keeps the kilogram bar in a device AsyncStorage key, like `restLength`; Imperial shows its pound counterpart (`plateKit`, `barWeight`).
 
 ### Demos
 
@@ -138,11 +144,12 @@ Workout edits own all three, so they survive the set table unmounting.
 
 | File                      | Owns                                                                                                                                 |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/exercise/summary.ts` | `summarizeSessions`: Completed workout totals from saved sessions and valid sets, with each exercise's `record`                      |
+| `src/exercise/summary.ts` | `summarizeSessions`: Completed workout totals from saved sessions and valid sets, with each exercise's `record` and Top set (`top`)  |
 | `src/exercise/records.ts` | `personalRecords`: a day's records, from Completed workouts in date and document order. `estimatedOneRepMax` is the one Epley rule   |
 | `src/profile/activity.ts` | `workoutGraph`: weekly buckets ending today and the pending message (fewer than two weeks with data). `workout-chart.tsx` only draws |
 
 - Daily activity and test fixtures use the same summary interface. Don't add a separate workout interpreter or a fixture-only measurement model.
+- The summary, records and graph each skip Warm-up sets with `isWarmUp`. Cardio distance totals in `meters`; Daily activity shows it in the title, the exercise row and, on a day without reps, the reps column.
 
 ## Food
 
@@ -158,6 +165,7 @@ Workout edits own all three, so they survive the set table unmounting.
 - Leaving the tab hides the page without discarding it. Saves that finish while hidden still route their page.
 - Removing an entry counts as a write from confirmation until it settles, fade included. Other entries, search and resuming stay locked.
 - Entries logged while the log shows, or from a search over it, are fresh and rise into their meal. Entry details and Daily macros show only over a loaded food log.
+- The tab view owns the Food copy page (`copyFood`, `copyFrom`, `confirmCopy`), which is locked like the entries. A copy is one food-log write (`copy`, built by `copiedFoodDay`): every copy lands or none does. `foodCopyPreview` (`log-model.ts`) picks the Meals on offer and the nearest other days with food. The page (`copy-food.tsx`) also shows over an unloaded log, with its loading and failure.
 - `catalogWriteState` is the one write rule for drafts and forms. Saving means the session's own write; a refresh, another write or an unloaded catalog only locks Save.
 - A completed save never discards fields changed while it was pending and never reaches a replacement editor. Deleting an item retires only its own retained edit.
 - A Logging attempt shows saving only for its own write. A save started during a food-log refresh waits, then writes the preparation that's current at that point. Servings (`setAmountBy`, `setServings`, `choosePortion`) only compute grams; the entry still saves grams.
@@ -170,11 +178,30 @@ Workout edits own all three, so they survive the set table unmounting.
 
 `src/daily/activity.ts` reads one day from every source: the food log, Manual water and the Water goal, workouts, Phone steps and Logged steps. Each source reports its own availability and retry. Home, Exercise and the Personal journal read it, not the providers. `useDayActivity` is its React adapter; only Home asks it for Phone steps.
 
-- It owns the wording of the Home Steps, Water and Workout tiles, the Exercise title's summary and the Workout card's rows and records.
+- It owns the wording of the Home Steps, Water and Workout tiles, the Exercise title's summary and the Workout card's rows and records, and the Workout share image's text (`share` on a done tile).
 - It computes nutrition progress against the targets (whole kcal, grams to one decimal) and writes the figures. Screens only draw them.
 - A missing target shows "—" and reads "unset". "Set your goals" is one link, and pages close before following it.
 - While the food log isn't loaded, `unavailableNutrition` gives the journal its figures. The journal's streak comes from the same activity.
 - `phoneStepsKind` (`src/steps/summary.ts`) classifies the phone's reading: counted, loading, error, connect, denied, install or unavailable. The Home Steps tile and `phoneStepsStatus` word it in exhaustive switches, so a new value fails typecheck in both.
+- `src/daily/workout-share.tsx` is the Workout card's Share workout button. It draws the share image out of sight in the light palette with fixed text sizes and waits for Kine. `share-image.ts` captures it with react-native-view-shot and opens expo-sharing; `share-image.web.ts` is null, so web hides the button.
+
+## Health saving
+
+Save to Apple Health or Health Connect writes completed workouts, Body-weight measurements and daily water to the phone's health store.
+
+| Module                                    | Owns                                                                                                                                                      |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/health/plan.ts`                      | What to write: `healthRecords` (IDs, times, water as Daily activity counts it), `healthWrites` (versions, removals) and `healthStatus` (Settings wording) |
+| `src/health/writer.ts`                    | `createHealthWriter`: the setting, access, one sync at a time and the record ledger                                                                       |
+| `src/health/device-health.ts`             | The platform port: HealthKit (`@kingstinct/react-native-healthkit`) on iOS, Health Connect on Android, nothing on web                                     |
+| `src/health/provider.tsx`, `settings.tsx` | Feeds the writer the loaded documents, rechecks access on foreground; the Settings switch                                                                 |
+
+- The writer only syncs once Exercise, Food log, Water log and Profile are all loaded. An unloaded document would read as empty and remove its records.
+- Records use the app's own IDs (`workout:<log id>`, `weight:<date>`, `water:<date>`) as Health Connect's `clientRecordId` and HealthKit's sync identifier, with a version that only grows, so a save replaces the older copy. A record saves again only when its source values change.
+- The ledger (`kinevault-track.health-written.v1`) lists what this account wrote on this device. It lives in account storage, never uploads, and is how a deleted record gets removed. The setting (`kinevault-track.health-write`) and a random owner tag (`kinevault-track.health-owner.v1`) live there too. Every ID sent to the store starts with the tag, so accounts on one phone never share or remove each other's records.
+- A failed write sets `failed` and retries on the next change, on foreground or from Try again. It never touches the app's documents, logs or crash reports.
+- Records with only a date sit at noon, or now if that's earlier. Water runs from midnight to the day's end or now. Days after today wait.
+- Android shares `connect` and `openHealthConnect` with Phone steps (`src/steps/device-steps.android.ts`).
 
 ## Durable documents and edits
 
@@ -192,8 +219,17 @@ Workout edits own all three, so they survive the set table unmounting.
 - A refresh keeps the last ready document visible while it validates the replacement. A failed refresh carries `refreshError` and a retry, keeps drafts, and blocks writes until a valid replacement is read. `refreshing` is separate from `saving`; editors show "Saving…" only for a running write.
 - `createDocumentEdit` serves Manual water, Logged steps, Water goal and focused Profile edits. `use-document-edit.ts` is its one React adapter.
 - A day amount edit's `adjust` keeps the draft between zero and the safe maximum. Each domain keeps its own storage key, parser and messages.
-- Body weight lives in the Profile document, edited through `src/profile/weight-editing.ts`. Logging a measurement keeps goal answers and doesn't recalculate calorie or macro targets.
+- Body weight and Body measurements live in the Profile document (`weightEntries`, `bodyMeasurements`), edited through `src/profile/weight-editing.ts`: `createWeightEdit` and `createMeasurementEdit` share one dated edit. Logging a measurement keeps goal answers and doesn't recalculate calorie or macro targets. `weight-chart.tsx` draws both trends, and `measureFigure` (`src/units/units.ts`) writes their figures.
 - Profile media (`src/profile/media-editing.ts`) is two-phase: import the image, then commit its metadata. Image files don't sync. Committed metadata keeps its image after a lifecycle change.
+
+## Units
+
+`src/units/units.ts` is the one place that converts measured values (the table is in [language and units](language-and-units.md)). `src/units/provider.tsx` holds the setting (`kinevault-track.units`, a device AsyncStorage key like the appearance) and `useUnits`.
+
+- `measureText` and `measureFigure` write a saved value in the chosen units; `limitText` writes a validation limit, rounded inward.
+- `savedText` turns typed text into saved metric text and `fieldText` back. A typed value shows back exactly; text that isn't a number stays as typed, so validation rejects it. `TextField`'s `quantity` and the set table use them.
+- Domain rules keep validating metric values. Functions that word a message take `units` (`weightFromInput`, `validateAnswers`, `prepareFoodLogging`, `distanceMessage`), and edits that word messages are created with the units and keyed by them.
+- Daily activity takes `units` from `useDayActivity`, so every tile, title and the share image follow the setting.
 
 ## Shared controls
 

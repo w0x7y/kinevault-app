@@ -11,6 +11,7 @@ Track keeps a local copy of each account's tracking so logging works offline.
 | Reminders                                                                                                                                 | The account's local storage                                   | No                                                          |
 | Rest timer length (`kinevault-track.rest-seconds`)                                                                                        | A device setting, kept after sign-out                         | No                                                          |
 | Phone step count                                                                                                                          | Not stored                                                    | No                                                          |
+| Health saving setting (`kinevault-track.health-write`) and its record list (`kinevault-track.health-written.v1`: IDs, versions, values)   | Both in the account's local storage on this device            | No                                                          |
 
 - Account namespaces only stop one account from seeing another's records in the app. Never call them encryption, or say web localStorage protects tokens like native secure storage.
 - Signing out hides the account's local records and keeps pending saves for the next sign-in. It doesn't erase them. Clearing browser storage or uninstalling can lose local-only records and pending changes.
@@ -18,7 +19,11 @@ Track keeps a local copy of each account's tracking so logging works offline.
 
 ## Steps
 
-With permission, Home reads the day's step total on the device: Core Motion on iOS (Motion & Fitness; Apple keeps 7 days) and Health Connect on Android (read steps). Track reads nothing else from them, doesn't use HealthKit, and never saves, syncs or uploads phone steps. Hand-logged steps sync like the water log. The export includes them, and account deletion removes both copies.
+With permission, Home reads the day's step total on the device: Core Motion on iOS (Motion & Fitness; Apple keeps 7 days) and Health Connect on Android (read steps). Track reads nothing else from them and never saves, syncs or uploads phone steps. Hand-logged steps sync like the water log. The export includes them, and account deletion removes both copies.
+
+## Health saving
+
+Only when Save to Apple Health or Save to Health Connect is on, Track writes completed workouts, body-weight entries and daily water totals to the phone's health store. It asks for write access only and reads nothing back. The setting and the list of written records stay on the device and never reach Supabase, the export or crash reports. Turning it off or deleting the account leaves the records already saved there; the user removes them in Health or Health Connect.
 
 ## Workout import
 
@@ -57,5 +62,8 @@ Crash reports follow [the reporting setup](resilience.md). They carry no identit
 > phone's motion data (iOS) or Health Connect (Android) to show it on Home; that
 > count stays on your device and is never uploaded. Steps you log by hand are
 > synced to your account with the rest of your tracking.
+> If you turn on saving to Apple Health or Health Connect, the app saves your
+> completed workouts, body weight and daily water there. It doesn't read your
+> health data.
 
 The published policy still needs the operator, contact details and retention rules. Release work is in [TODO.md](../TODO.md).

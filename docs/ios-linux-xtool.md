@@ -160,7 +160,7 @@ For quick JavaScript edits, use Expo Go with `npm start` or `npm run start:lan` 
 - A device can have 3 apps from free teams at a time, counting ones from Xcode, AltStore, SideStore or Sideloadly.
 - A free team can register 10 App IDs per 7 days. Renewals reuse this app's App ID.
 - If xtool needs a new development certificate, it lists the ones it would revoke and asks first. Apps signed with a revoked certificate, such as a Mac's Xcode install with the same Apple ID, stop opening until re-signed. Answer no if that matters and use a separate Apple ID for xtool.
-- The app is signed with only the App ID, team and `get-task-allow`. That's enough, since it has no push, iCloud or App Groups.
+- The app is signed with the App ID, team, `get-task-allow` and HealthKit. xtool takes entitlements from the app's existing signature, so the workflow ad-hoc signs the app with its entitlements file first. A free team can have HealthKit ([Apple's capability list](https://developer.apple.com/help/account/reference/supported-capabilities-ios)), and xtool adds it to the App ID and profile. It has no push, iCloud or App Groups.
 - The URL schemes stay `kinevaulttrack` and `com.kinevault.track`, so the [Supabase redirect URLs](ios-xcode.md#supabase-redirect-urls) still work. A copy installed from Xcode is a separate app with separate data.
 - Installs work over USB only. Linux `usbmuxd` 1.1.1 can't find Wi-Fi devices, and xtool doesn't see `netmuxd` devices ([#134](https://github.com/xtool-org/xtool/issues/134)).
 - The workflow builds Release only.

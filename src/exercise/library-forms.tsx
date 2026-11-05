@@ -13,7 +13,7 @@ import { trackingMode, trackingModes } from "./tracking";
 import { InlineMessage } from "../components/inline-message";
 import { TextField } from "../components/text-field";
 import { Hairline, SectionLabel } from "./controls";
-import { SegmentedControl } from "../components/segmented-control";
+import { Chip } from "../components/chip";
 import { useSheetBack, useSheetScrollTarget } from "../components/sheet-page";
 import { WorkoutWorkspace } from "./workout-workspace";
 import type { LibraryDrafts } from "./library-drafts";
@@ -71,21 +71,27 @@ export function ExerciseForm({
         kind="multiline"
       />
       <SectionLabel>How to track</SectionLabel>
-      <SegmentedControl
-        label="How to track"
-        options={trackingModes.map((value) => ({
-          value,
-          label: trackingMode(value).name,
-          short: trackingMode(value).short,
-        }))}
-        value={values.tracking}
-        onChange={(tracking) => draft.change((v) => ({ ...v, tracking }))}
-        disabled={busy}
-      />
+      {/* Five modes don't fit one segmented track at 320 pt, so the choices wrap. */}
+      <View
+        accessibilityRole="radiogroup"
+        accessibilityLabel="How to track"
+        style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}
+      >
+        {trackingModes.map((value) => (
+          <Chip
+            key={value}
+            role="radio"
+            label={trackingMode(value).name}
+            selected={values.tracking === value}
+            disabled={busy}
+            onPress={() => draft.change((v) => ({ ...v, tracking: value }))}
+          />
+        ))}
+      </View>
       <AppText variant="caption" muted>
         Leave weight blank for bodyweight. Alternating logs reps per side; Timed logs a stopwatch or
-        countdown time instead of reps and weight. Changes apply to future workouts; a KineVault
-        demo shows in past workouts too.
+        countdown time instead of reps and weight; Cardio logs a time and an optional distance.
+        Changes apply to future workouts; a KineVault demo shows in past workouts too.
       </AppText>
       <View ref={demoSection.ref} onLayout={demoSection.onLayout}>
         <KineVaultDemoSection
@@ -252,6 +258,7 @@ export function WorkoutForm({
         onSelect={template.select}
         notesId={notesId}
         onShowNotes={template.showNotes}
+        onSuperset={(id, linked) => template.change((current) => current.link(id, linked))}
         empty={
           <AppText variant="caption" muted>
             {settingsOpen

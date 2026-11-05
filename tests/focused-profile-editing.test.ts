@@ -9,6 +9,7 @@ import {
 } from "../src/profile/persistence.ts";
 import type { ProfileDocument } from "../src/profile/model.ts";
 import type { ProfileEditSection } from "../src/profile/section-editing.ts";
+import type { UnitSystem } from "../src/units/units.ts";
 
 const complete: ProfileDocument = {
   version: 1,
@@ -60,8 +61,8 @@ async function ready() {
   const profile = createProfilePersistence(storage);
   profile.start();
   await flush();
-  const open = (section: ProfileEditSection = "name") => {
-    const edit = createFocusedProfileEdit(profile, section);
+  const open = (section: ProfileEditSection = "name", units: UnitSystem = "metric") => {
+    const edit = createFocusedProfileEdit(profile, section, units);
     edit.start();
     return edit;
   };
@@ -98,6 +99,17 @@ test("a focused draft copies the saved answers once; cancel restarts from the la
   assert.equal(edit.getSnapshot().draft.age, "35");
   assert.equal(answersOf(profile).age, "35");
   assert.deepEqual(calls, ["read", "write", "read"]);
+});
+
+test("a focused edit names its limits in the chosen units", async () => {
+  const { open } = await ready();
+  const edit = open("body", "imperial");
+  edit.change({ kind: "fields", patch: { height: "61", weight: "22.68" } });
+  assert.equal(await edit.save(), false);
+  const { errors } = focusedEditFeedback(edit.getSnapshot().error, "body");
+  assert.match(errors.height ?? "", /ft/);
+  assert.match(errors.weight ?? "", /lb/);
+  assert.doesNotMatch(`${errors.height} ${errors.weight}`, /\b(cm|kg)\b/);
 });
 
 test("focused Save merges only its fields into the latest durable Profile", async () => {

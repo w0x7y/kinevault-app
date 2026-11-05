@@ -123,3 +123,24 @@ test("the Exercise summary gives each row the record it set", () => {
   });
   assert.equal(summarizeSessions([today]).exercises[0]!.record, null, "no records given");
 });
+
+test("warm-up and cardio sets never set or hold a record", () => {
+  const warm = (reps: string, weightKg: string) =>
+    ({ ...lift(reps, weightKg, `w${reps}x${weightKg}`), warmUp: true }) as ExerciseSet;
+  const first = workout("first", "2026-10-01", [warm("5", "150"), lift("5", "100")]);
+  // 110 kg beats the working 100 kg; the 150 kg warm-up never counted.
+  const better = workout("better", "2026-10-02", [lift("5", "110")]);
+  assert.deepEqual(recordsOn([first, better], "2026-10-02"), [
+    ["better", { reps: 5, weightKg: 110, oneRepMaxKg: 110 * (1 + 5 / 30) }],
+  ]);
+  // A heavier warm-up alone sets nothing.
+  const heavyWarmUp = workout("heavy", "2026-10-02", [warm("5", "200"), lift("5", "90")]);
+  assert.deepEqual(recordsOn([first, heavyWarmUp], "2026-10-02"), []);
+  const run = { ...squat, id: "run", tracking: "cardio" as const };
+  const runs = (id: string, date: string, distanceMeters: string) =>
+    workout(id, date, [{ id: "r", kind: "cardio", seconds: "1800", distanceMeters }], {}, run);
+  assert.deepEqual(
+    recordsOn([runs("a", "2026-10-01", "5000"), runs("b", "2026-10-02", "9000")], "2026-10-02"),
+    [],
+  );
+});

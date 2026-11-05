@@ -8,6 +8,7 @@ import { Badge } from "./food-ui";
 import { beverageForFood } from "./beverage.ts";
 import type { CatalogFood } from "./catalog.ts";
 import type { CatalogKind } from "./meal-model.ts";
+import { useUnits } from "../units/provider";
 
 export const genericDrinkNotice =
   "Generic drinks use approximate nutrition. Use Scan for your exact product.";
@@ -28,6 +29,7 @@ export function FoodResult({
   genericMatch?: boolean;
 }) {
   const { colors } = useTheme();
+  const { units } = useUnits();
   const beverage = beverageForFood(food);
   const macros =
     action === "add"
@@ -43,7 +45,7 @@ export function FoodResult({
     <Tappable
       testID="food-result"
       label={`${action === "add" ? `Add ${food.name} to meal` : `View nutrition for ${food.name}`}${food.customId ? `, custom ${kind}` : ""}${food.importSource?.method === "barcode" ? ", imported by barcode" : ""}`}
-      hint={`${action === "add" ? "Adds this food as an ingredient" : beverage ? "Enter the drink amount in milliliters" : "Choose a serving size or enter a weight"}${genericMatch ? `. ${genericDrinkNotice}` : ""}`}
+      hint={`${action === "add" ? "Adds this food as an ingredient" : beverage ? `Enter the drink amount in ${units === "metric" ? "milliliters" : "fluid ounces"}` : "Choose a serving size or enter a weight"}${genericMatch ? `. ${genericDrinkNotice}` : ""}`}
       disabled={disabled}
       onPress={onSelect}
       feedback="fill"

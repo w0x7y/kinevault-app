@@ -23,6 +23,8 @@ import { NutritionFields } from "./form-fields";
 import { getFoodDatabase } from "./database";
 import { CatalogDraftPage } from "./catalog-draft-page";
 import type { FoodLoggingAttempt } from "./logging-attempt.ts";
+import { useUnits } from "../units/provider";
+import { measureText, unitName } from "../units/units";
 
 const decimal = (value: number) => value.toLocaleString(undefined, { maximumFractionDigits: 1 });
 const useAttempt = (attempt: FoodLoggingAttempt) =>
@@ -48,6 +50,7 @@ export function FoodNutritionDetail({
   onDeleteItem: () => Promise<boolean>;
 }) {
   const { colors } = useTheme();
+  const { units } = useUnits();
   const { deletion } = useFoodDrafts();
   const { target, fields, preparation, amount, item, noun, saving, busy } = useAttempt(attempt);
   const customMeal = item?.kind === "meal" ? item.food : undefined;
@@ -58,7 +61,7 @@ export function FoodNutritionDetail({
     preparation.measurement === "volume" &&
     preparation.status === "invalid" &&
     preparation.reason === "amount"
-      ? volumeMessage
+      ? volumeMessage(units)
       : null;
   const [hundredGrams, ...sourcePortions] = amount.portions;
   const visiblePortions = servingsExpanded ? sourcePortions : sourcePortions.slice(0, 2);
@@ -99,7 +102,7 @@ export function FoodNutritionDetail({
         <Section
           title={
             preparation.status === "ready"
-              ? `Nutrition for ${decimal(preparation.amount)} ${preparation.measurement === "volume" ? "ml" : "g"}`
+              ? `Nutrition for ${measureText(preparation.measurement === "volume" ? "fluid" : "food", preparation.amount, units)}`
               : "Nutrition"
           }
         >
@@ -211,7 +214,7 @@ export function FoodNutritionDetail({
                     selectable
                     style={{ fontVariant: ["tabular-nums"] }}
                   >
-                    {decimal(ingredient.grams * ingredientsScale)} g
+                    {measureText("food", ingredient.grams * ingredientsScale, units)}
                   </AppText>
                 </View>
               ))}
@@ -227,11 +230,12 @@ export function FoodNutritionDetail({
           {preparation.measurement === "volume" && (
             <TextField
               label="Drink amount"
-              accessibilityLabel="Drink amount (ml)"
-              hint="Enter whole milliliters. Changes nutrition and adds this volume to the selected day's water total."
+              accessibilityLabel={`Drink amount (${unitName("fluid", units)})`}
+              hint={`Enter whole ${units === "metric" ? "milliliters" : "fluid ounces"}. Changes nutrition and adds this volume to the selected day's water total.`}
               kind="integer"
               size="figure"
-              unit="ml"
+              unit={unitName("fluid", units)}
+              quantity="fluid"
               maxLength={16}
               value={fields.drinkMl}
               onChange={attempt.setDrinkMl}
@@ -285,11 +289,12 @@ export function FoodNutritionDetail({
           {preparation.measurement === "grams" && !counting && (
             <TextField
               label="Amount"
-              accessibilityLabel="Amount (g)"
+              accessibilityLabel={`Amount (${unitName("food", units)})`}
               hint="Changes the nutrition preview for this weight"
               kind="decimal"
               size="figure"
-              unit="g"
+              unit={unitName("food", units)}
+              quantity="food"
               maxLength={16}
               value={fields.grams}
               onChange={attempt.setGrams}
@@ -301,9 +306,18 @@ export function FoodNutritionDetail({
             <View style={{ gap: spacing.sm }}>
               <Overline accessibilityRole="header">Serving sizes</Overline>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+                {/* The plain 100 g serving reads as its weight in the chosen units. */}
                 <Chip
-                  label={hundredGrams.label}
-                  detail={hundredGrams.label === "100 g" ? undefined : ", 100 g"}
+                  label={
+                    hundredGrams.label === "100 g"
+                      ? measureText("food", 100, units)
+                      : hundredGrams.label
+                  }
+                  detail={
+                    hundredGrams.label === "100 g"
+                      ? undefined
+                      : `, ${measureText("food", 100, units)}`
+                  }
                   selected={hundredGrams.chosen}
                   disabled={busy}
                   onPress={() => attempt.choosePortion(hundredGrams)}
@@ -312,7 +326,7 @@ export function FoodNutritionDetail({
                   <Chip
                     key={`${portion.label}-${portion.grams}`}
                     label={portion.label}
-                    detail={`, ${decimal(portion.grams)} g`}
+                    detail={`, ${measureText("food", portion.grams, units)}`}
                     selected={portion.chosen}
                     disabled={busy}
                     onPress={() => attempt.choosePortion(portion)}

@@ -1,4 +1,5 @@
-import type { FoodEntry } from "../daily/model.ts";
+import { addDays, parseDay } from "../calendar/dates.ts";
+import type { FoodEntry, Meal } from "../daily/model.ts";
 import type { CatalogFood } from "./catalog.ts";
 import type { CatalogDraftHandle, CatalogDrafts } from "./catalog-drafts.ts";
 import type { CustomFood } from "./custom-model.ts";
@@ -7,6 +8,7 @@ import type { createFoodLogPersistence } from "./log-persistence.ts";
 import type { FoodSaveTarget } from "./log-model.ts";
 import { createFoodLoggingAttempt, type FoodLoggingAttempt } from "./logging-attempt.ts";
 import type { CustomMeal } from "./meal-model.ts";
+import type { UnitSystem } from "../units/units.ts";
 import {
   createProductImportFlow,
   type ProductImportFlow,
@@ -16,7 +18,7 @@ import {
 
 type FoodLog = Pick<
   ReturnType<typeof createFoodLogPersistence>,
-  "getSnapshot" | "subscribe" | "add" | "edit" | "remove" | "findFood"
+  "getSnapshot" | "subscribe" | "add" | "edit" | "remove" | "copy" | "findFood"
 >;
 type Catalog = Pick<ReturnType<typeof createCustomFoodPersistence>, "getSnapshot" | "subscribe">;
 type Drafts = Pick<
@@ -41,12 +43,21 @@ export type FoodImportPage = {
   flow: ProductImportFlow;
   state: ProductImportState;
 };
+/** Copying another day's food into the Selected day: the source day, and the copy that is
+ * saving or failed, by its Meal (`null` for the whole day). */
+export type FoodCopyPage = {
+  kind: "copy";
+  key: number;
+  from: string;
+  copy: { meal: Meal | null; state: "saving" | "failed" } | null;
+};
 /** What the Food tab shows over its food log. */
 export type FoodTabPage =
   | { kind: "log" }
   | { kind: "macros" | "create" | "resume"; key: number }
   | FoodImportPage
-  | FoodDetailPage;
+  | FoodDetailPage
+  | FoodCopyPage;
 /** Removing a logged entry: its confirmation is open, its removal runs, or the removal failed. */
 export type FoodEntryRemoval = Readonly<{
   id: string;
@@ -117,6 +128,7 @@ export function createFoodTabView({
 }) {
   const listeners = new Set<() => void>();
   let day = date;
+  let units: UnitSystem = "metric";
   let query = "";
   let page: FoodTabPage = { kind: "log" };
   let focused = false;
@@ -231,6 +243,7 @@ export function createFoodTabView({
       log,
       catalog,
       destination: drafts.destination,
+      units,
     });
     if (running) attempt.start();
     show({ kind: "detail", key: ++sequence, origin, attempt, saved, editor: false });
@@ -289,6 +302,11 @@ export function createFoodTabView({
       if (page.kind === "detail") page.attempt.close();
       if (page.kind === "import") page.flow.stop();
     },
+    /** The units a Logging attempt words its caption and messages in. */
+    setUnits(next: UnitSystem) {
+      units = next;
+      if (page.kind === "detail") page.attempt.setUnits(next);
+    },
     /** Day-specific views return to the new day's log; catalog views follow the new day. */
     setDay(date: string) {
       if (date === day) return;
@@ -331,6 +349,40 @@ export function createFoodTabView({
       show({ kind: "macros", key: ++sequence });
       query = "";
       publish();
+    },
+    /** Opens copying into the Selected day, from the day before. Locked like the entries. */
+    copyFood() {
+      if (snapshot.busy) return;
+      disarm();
+      show({ kind: "copy", key: ++sequence, from: addDays(day, -1), copy: null });
+      query = "";
+      publish();
+    },
+    /** Picks the copy's source day, unless its copy is saving. */
+    copyFrom(date: string) {
+      if (page.kind !== "copy" || page.copy?.state === "saving") return;
+      parseDay(date);
+      page = { ...page, from: date, copy: null };
+      publish();
+    },
+    /**
+     * Copies the source's `meal` (the whole day for `null`) into the Selected day in one write.
+     * A durable success returns to the log, where the copies are fresh; a failure keeps the
+     * page with its retry.
+     */
+    async confirmCopy(meal: Meal | null) {
+      if (page.kind !== "copy" || snapshot.busy) return false;
+      const { key, from } = page;
+      page = { ...page, copy: { meal, state: "saving" } };
+      publish();
+      const copied = await log.copy({ from, to: day, meal }).catch(() => false);
+      if (page.kind !== "copy" || page.key !== key) return copied;
+      if (copied) showLog();
+      else {
+        page = { ...page, copy: { meal, state: "failed" } };
+        publish();
+      }
+      return copied;
     },
     resume(handle: CatalogDraftHandle) {
       if (!drafts.resume(handle)) return;
