@@ -192,13 +192,13 @@ Save to Apple Health or Health Connect writes completed workouts, Body-weight me
 | Module                                    | Owns                                                                                                                                                      |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/health/plan.ts`                      | What to write: `healthRecords` (IDs, times, water as Daily activity counts it), `healthWrites` (versions, removals) and `healthStatus` (Settings wording) |
-| `src/health/writer.ts`                    | `createHealthWriter`: the device setting, access, one sync at a time and the record ledger                                                                |
+| `src/health/writer.ts`                    | `createHealthWriter`: the setting, access, one sync at a time and the record ledger                                                                       |
 | `src/health/device-health.ts`             | The platform port: HealthKit (`@kingstinct/react-native-healthkit`) on iOS, Health Connect on Android, nothing on web                                     |
 | `src/health/provider.tsx`, `settings.tsx` | Feeds the writer the loaded documents, rechecks access on foreground; the Settings switch                                                                 |
 
 - The writer only syncs once Exercise, Food log, Water log and Profile are all loaded. An unloaded document would read as empty and remove its records.
 - Records use the app's own IDs (`workout:<log id>`, `weight:<date>`, `water:<date>`) as Health Connect's `clientRecordId` and HealthKit's sync identifier, with a version that only grows, so a save replaces the older copy. A record saves again only when its source values change.
-- The ledger (`kinevault-track.health-written.v1`) lists what this account wrote on this device. It lives in account storage, never uploads, and is how a deleted record gets removed. The setting (`kinevault-track.health-write`) is a device AsyncStorage key like the appearance.
+- The ledger (`kinevault-track.health-written.v1`) lists what this account wrote on this device. It lives in account storage, never uploads, and is how a deleted record gets removed. The setting (`kinevault-track.health-write`) and a random owner tag (`kinevault-track.health-owner.v1`) live there too. Every ID sent to the store starts with the tag, so accounts on one phone never share or remove each other's records.
 - A failed write sets `failed` and retries on the next change, on foreground or from Try again. It never touches the app's documents, logs or crash reports.
 - Records with only a date sit at noon, or now if that's earlier. Water runs from midnight to the day's end or now. Days after today wait.
 - Android shares `connect` and `openHealthConnect` with Phone steps (`src/steps/device-steps.android.ts`).
@@ -219,7 +219,7 @@ Save to Apple Health or Health Connect writes completed workouts, Body-weight me
 - A refresh keeps the last ready document visible while it validates the replacement. A failed refresh carries `refreshError` and a retry, keeps drafts, and blocks writes until a valid replacement is read. `refreshing` is separate from `saving`; editors show "Saving…" only for a running write.
 - `createDocumentEdit` serves Manual water, Logged steps, Water goal and focused Profile edits. `use-document-edit.ts` is its one React adapter.
 - A day amount edit's `adjust` keeps the draft between zero and the safe maximum. Each domain keeps its own storage key, parser and messages.
-- Body weight and Body measurements live in the Profile document (`weightEntries`, `bodyMeasurements`), edited through `src/profile/weight-editing.ts`: `createWeightEdit` and `createMeasurementEdit` share one dated edit. Logging a measurement keeps goal answers and doesn't recalculate calorie or macro targets. `weight-chart.tsx` draws both trends, and `weightLabel` and `lengthLabel` write their figures.
+- Body weight and Body measurements live in the Profile document (`weightEntries`, `bodyMeasurements`), edited through `src/profile/weight-editing.ts`: `createWeightEdit` and `createMeasurementEdit` share one dated edit. Logging a measurement keeps goal answers and doesn't recalculate calorie or macro targets. `weight-chart.tsx` draws both trends, and `measureFigure` (`src/units/units.ts`) writes their figures.
 - Profile media (`src/profile/media-editing.ts`) is two-phase: import the image, then commit its metadata. Image files don't sync. Committed metadata keeps its image after a lifecycle change.
 
 ## Units

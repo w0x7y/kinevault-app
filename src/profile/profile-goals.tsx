@@ -238,7 +238,11 @@ export function ProfileGoals({
           <SourceStatus name="water goal" kind={waterGoal.kind} retry={waterGoal.retry} />
         )}
         {editor?.section === "calories" && (
-          <ProfileEditor key={editor.id} section={editor.section} close={() => close(editor.id)} />
+          <ProfileEditor
+            key={`${editor.id}-${units}`}
+            section={editor.section}
+            close={() => close(editor.id)}
+          />
         )}
         {editor?.section === "water" && waterGoal.kind === "ready" && (
           <WaterGoalEditor key={`${editor.id}-${units}`} close={() => close(editor.id)} />
@@ -278,7 +282,11 @@ export function ProfileGoals({
           ))}
         </View>
         {editor && editor.section !== "calories" && editor.section !== "water" && (
-          <ProfileEditor key={editor.id} section={editor.section} close={() => close(editor.id)} />
+          <ProfileEditor
+            key={`${editor.id}-${units}`}
+            section={editor.section}
+            close={() => close(editor.id)}
+          />
         )}
       </Panel>
       <ModalSheet

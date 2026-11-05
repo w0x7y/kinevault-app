@@ -2179,7 +2179,14 @@ test("cardio saves km as meters, a warm-up leaves the totals, and Plates keeps i
   await plates.waitFor({ state: "detached" });
 
   await button(workout, "Select exercise Run").click();
-  await field(workout, "Run set 1 seconds").fill("1500");
+  // A cardio time takes minutes and seconds, and shows them once the field is left.
+  const runTime = field(workout, "Run set 1 time");
+  await runTime.fill("25.00");
+  await storedWhen(
+    page,
+    (document) => document.sessions[1].exercises[1].sets[0].seconds === "1500",
+  );
+  assert.equal(await runTime.inputValue(), "25.00");
   const distance = field(workout, "Run set 1 distance (km)");
   // A typed decimal point stays while the distance saves as meters.
   await distance.pressSequentially("5.");

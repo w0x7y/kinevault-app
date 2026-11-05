@@ -3,6 +3,7 @@ import { emptyAnswers, stepFields, type Answers, type FieldErrors } from "./answ
 import { changeAnswers, validateAnswers, type AnswerChange } from "./calories.ts";
 import type { createProfilePersistence } from "./persistence.ts";
 import { editedProfileAnswers, type ProfileEditSection } from "./section-editing.ts";
+import type { UnitSystem } from "../units/units.ts";
 
 // A focused Profile edit changes one section. Its draft copies the saved answers
 // once; Save merges only that section's fields into the latest saved Profile and
@@ -11,6 +12,8 @@ import { editedProfileAnswers, type ProfileEditSection } from "./section-editing
 export function createFocusedProfileEdit(
   profile: ReturnType<typeof createProfilePersistence>,
   section: ProfileEditSection,
+  /** Field messages name their limits in these units. */
+  units: UnitSystem = "metric",
 ) {
   const edit = createDocumentEdit({
     document: profile,
@@ -18,7 +21,7 @@ export function createFocusedProfileEdit(
     seed: (document) => ({ ...document.answers }),
     parse(draft, latest): ParsedDraft<Answers, FieldErrors> {
       const answers = editedProfileAnswers(latest.answers, draft, section);
-      const errors = validateAnswers(answers);
+      const errors = validateAnswers(answers, units);
       return Object.keys(errors).length ? { error: errors } : { value: answers };
     },
     write: (answers) => profile.save({ version: 1, kind: "complete", answers }),

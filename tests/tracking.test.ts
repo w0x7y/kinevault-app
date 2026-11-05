@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { ExerciseSet } from "../src/exercise/model.ts";
 import {
+  clockSeconds,
+  clockText,
   columnText,
   createEmptySet,
   distanceMessage,
@@ -178,7 +180,7 @@ test("a cardio set holds seconds and a distance saved in meters", () => {
       columnText(column, "imperial").label,
     ]),
     [
-      ["seconds", "Seconds", "Seconds"],
+      ["seconds", "Time", "Time"],
       ["distance", "Distance (km)", "Distance (mi)"],
     ],
   );
@@ -225,7 +227,7 @@ test("a cardio set needs 1 to 86,400 seconds and an optional 0.01 to 1,000 km", 
   assert.equal(setMeasurements(cardio("60", "10")).meters, 10);
   assert.equal(setMeasurements(cardio("60", "1000000")).meters, 1000000);
   for (const seconds of ["", "0", "86401", "1.5"])
-    assert.throws(() => setMeasurements(cardio(seconds, "5000")), /seconds for each cardio set/);
+    assert.throws(() => setMeasurements(cardio(seconds, "5000")), /cardio set.s time as minutes/);
   // 0 km, past 1,000 km, three decimals and text that isn't a number.
   for (const meters of ["0", "1000010", "5", "5255", "abc", "5255.5"])
     assert.throws(() => setMeasurements(cardio("60", meters)), /distance/, meters);
@@ -255,4 +257,29 @@ test("only weighted sets can be warm-ups, and the flag comes off cleanly", () =>
     assert.equal(trackingMode(mode).weighted, mode !== "time" && mode !== "cardio", mode);
   // A warm-up still validates like any set.
   assert.throws(() => setMeasurements({ ...warm, reps: "" }), /repetitions/);
+});
+
+test("a cardio time is typed as minutes or minutes and seconds, and saved as seconds", () => {
+  assert.equal(clockSeconds("30"), "1800");
+  assert.equal(clockSeconds(" 28:13 "), "1693");
+  // Phone number pads have no colon.
+  assert.equal(clockSeconds("28.13"), "1693");
+  assert.equal(clockSeconds("28,05"), "1685");
+  assert.equal(clockSeconds("0:45"), "45");
+  assert.equal(clockSeconds("90:00"), "5400");
+  // Seconds take two digits below 60; anything else stays as typed for the save to reject.
+  for (const typed of ["28.5", "28:60", "28:130", "1:2:3", "-5", "abc", "28.13.1"])
+    assert.equal(clockSeconds(typed), typed);
+  assert.equal(clockSeconds(""), "");
+  assert.equal(clockText("1693"), "28:13");
+  assert.equal(clockText("45"), "0:45");
+  assert.equal(clockText("5400"), "90:00");
+  assert.equal(clockText("28.5"), "28.5");
+  // What a field shows saves back to the same seconds.
+  for (const saved of ["1", "59", "60", "1693", "86400"])
+    assert.equal(clockSeconds(clockText(saved)), saved);
+  assert.throws(
+    () => setMeasurements(cardio("28.5", "")),
+    /Enter each cardio set's time as minutes \(30\) or minutes and seconds \(28:13\)/,
+  );
 });

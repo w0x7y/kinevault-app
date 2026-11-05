@@ -580,14 +580,22 @@ function workoutShare(
   date: string,
   units: UnitSystem,
 ): WorkoutShare {
-  const records = shareList(
-    completed.exercises.flatMap(({ name, record }) => {
-      const line = recordLine(record, units);
-      return line ? [{ name, figure: line.parts.slice(1).join(" · ") }] : [];
-    }),
-    2,
-    "record",
+  const recordLines = completed.exercises.flatMap(({ name, record }) => {
+    const line = recordLine(record, units);
+    return line ? [{ name, figure: line.parts.slice(1).join(" · ") }] : [];
+  });
+  // The fixed-size image fits eight exercise lines, or five beside two record lines.
+  const exercises = shareList(
+    completed.exercises.map((exercise) => ({
+      name: exercise.name,
+      figure: topSet(exercise, units),
+    })),
+    recordLines.length ? 5 : 8,
+    "exercise",
   );
+  // Records also take the exercise lines a short workout leaves free.
+  const used = exercises.lines.length + (exercises.more ? 1 : 0);
+  const records = shareList(recordLines, 2 + Math.max(0, 5 - used), "record");
   return {
     name,
     date: parseDay(date).toLocaleDateString(undefined, {
@@ -605,15 +613,7 @@ function workoutShare(
         ? { label: "Distance", value: measureText("distance", completed.meters, units) }
         : { label: "Volume", value: measureText("weight", completed.volume, units, 0) },
     ],
-    // The fixed-size image fits eight exercise lines, or five beside the records.
-    exercises: shareList(
-      completed.exercises.map((exercise) => ({
-        name: exercise.name,
-        figure: topSet(exercise, units),
-      })),
-      records.lines.length ? 5 : 8,
-      "exercise",
-    ),
+    exercises,
     records,
   };
 }

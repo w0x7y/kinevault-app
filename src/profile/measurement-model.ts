@@ -27,7 +27,9 @@ export function cmFromInput(value: string, units: UnitSystem = "metric"): number
   const text = value.trim();
   const unit = unitName("length", units);
   if (text.length > 16 || !/^\d+(?:[.,]\d)?$/.test(text))
-    throw new Error(`Enter ${unit} with up to one decimal place.`);
+    throw new Error(
+      `Enter a measurement in ${units === "imperial" ? "inches" : "cm"} with up to one decimal place.`,
+    );
   const cm = Number(text.replace(",", "."));
   if (cm < 10 || cm > 300)
     throw new Error(

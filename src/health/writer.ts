@@ -1,3 +1,4 @@
+import { createId } from "../persistence/create-id.ts";
 import type { DurableStorage } from "../persistence/durable-write.ts";
 import type { DeviceHealth, HealthAccess } from "./device-health.ts";
 import {
@@ -13,6 +14,11 @@ import {
 // Not an Account tracking document: account storage keeps it on this device, scoped to the
 // signed-in account, and never uploads it. Another account on this device keeps its own.
 export const healthLedgerKey = "kinevault-track.health-written.v1";
+/**
+ * A random tag for this account on this device. Every ID the store sees starts with it, so two
+ * accounts on one phone never overwrite or remove each other's records.
+ */
+export const healthOwnerKey = "kinevault-track.health-owner.v1";
 const kinds = ["workout", "weight", "water"] as const;
 /** Records per save call, so a first sync of a long history stays within Health Connect's limits. */
 const batch = 100;
@@ -56,6 +62,7 @@ export function createHealthWriter({
   let active = false;
   let sources: HealthSources | null = null;
   let ledger: HealthLedger | null = null;
+  let owner: string | null = null;
   let running = false;
   let again = false;
 
@@ -86,6 +93,21 @@ export function createHealthWriter({
   }
 
   async function write(current: HealthSources) {
+    if (!owner) {
+      try {
+        owner = await storage.getItem(healthOwnerKey);
+        if (!owner) {
+          const created = createId();
+          await storage.setItem(healthOwnerKey, created);
+          owner = created;
+        }
+      } catch {
+        publish({ failed: true });
+        return;
+      }
+    }
+    const tag = owner;
+    const stored = (id: string) => `${tag}/${id}`;
     if (!ledger) {
       let raw: string | null;
       try {
@@ -113,7 +135,7 @@ export function createHealthWriter({
       for (let index = 0; index < records.length && writing(); index += batch) {
         const part = records.slice(index, index + batch);
         try {
-          await device.save(part);
+          await device.save(part.map((record) => ({ ...record, id: stored(record.id) })));
           for (const { id, version, source } of part) ledger[id] = { version, source };
         } catch {
           failed = true;
@@ -123,7 +145,7 @@ export function createHealthWriter({
       const ids = remove.filter((id) => healthKind(id) === kind);
       if (ids.length === 0 || !writing()) continue;
       try {
-        await device.remove(kind, ids);
+        await device.remove(kind, ids.map(stored));
         for (const id of ids) delete ledger[id];
       } catch {
         failed = true;

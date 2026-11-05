@@ -103,6 +103,8 @@ test("Metric fields show what was saved; a distance is typed in km and saved in 
     ["0.005", "5"],
     ["05.20", "5200"],
     ["12345678", "12345678000"],
+    // A phone whose decimal pad shows a comma.
+    ["5,25", "5250"],
     ["", ""],
     [".", "."],
     ["5.2555", "5.2555"],

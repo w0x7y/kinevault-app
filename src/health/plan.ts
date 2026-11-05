@@ -38,8 +38,6 @@ export function healthRecords(
   now: number,
 ): HealthRecord[] {
   const today = dayKey(new Date(now));
-  // shortcut: IDs aren't scoped to the account, so two accounts on one phone that log the same
-  // date share that record. Prefix them per account if shared phones turn out to matter.
   const records: HealthRecord[] = [];
   for (const session of sessions) {
     // A workout without a Recorded duration (or a zero one) has no session to write.

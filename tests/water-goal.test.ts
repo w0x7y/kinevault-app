@@ -6,7 +6,6 @@ import {
   waterGoalFromText,
   waterGoalProgress,
   waterGoalMessage,
-  waterGoalRangeMessage,
 } from "../src/water/goal-model.ts";
 import {
   createWaterGoalPersistence,
@@ -151,7 +150,7 @@ test("invalid goal text shows the range message and never writes", async () => {
     edit.change(text);
     assert.equal(edit.getSnapshot().error, null);
     assert.equal(await edit.save(), false);
-    assert.equal(edit.getSnapshot().error, waterGoalRangeMessage);
+    assert.equal(edit.getSnapshot().error, waterGoalMessage("metric"));
   }
   assert.deepEqual(calls, ["read"]);
   assert.equal(waterGoalMessage("imperial"), "Enter a whole number from 1 to 338 fl oz.");

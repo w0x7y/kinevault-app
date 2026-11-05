@@ -91,7 +91,7 @@ test("measurements are 10 to 300 cm with one decimal, and an entry needs at leas
   assert.equal(cmFromInput(savedText("length", "32.2", "imperial"), "imperial"), 81.8);
   assert.throws(
     () => cmFromInput(savedText("length", "32.25", "imperial"), "imperial"),
-    /^Error: Enter in with up to one decimal place\.$/,
+    /^Error: Enter a measurement in inches with up to one decimal place\.$/,
   );
   assert.throws(
     () => cmFromInput(savedText("length", "3", "imperial"), "imperial"),

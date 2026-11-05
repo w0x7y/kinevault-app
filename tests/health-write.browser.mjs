@@ -19,6 +19,8 @@ const answers = {
   customCalories: "",
 };
 const button = (page, name) => page.getByRole("button", { name, exact: true });
+// Saved IDs start with this account's random tag on the device.
+const expectSaved = ({ saves }) => assert.match(saves.join(" "), /^[^/\s]+\/weight:2026-10-01$/);
 
 /** The Health settings group over a fake Health Connect, which the web preview can't show. */
 async function openFixture(t, setup = {}) {
@@ -106,7 +108,7 @@ test("turning it on asks for access; a refusal offers the settings, and access g
   });
   await page.getByText("Access to Health Connect is off.").waitFor({ state: "detached" });
   await page.waitForFunction(() => window.healthFixture.saves.length === 1);
-  assert.deepEqual((await fixture()).saves, ["weight:2026-10-01"]);
+  expectSaved(await fixture());
 });
 
 test("an unasked device offers Allow access, which saves", async (t) => {
@@ -116,7 +118,7 @@ test("an unasked device offers Allow access, which saves", async (t) => {
   await button(page, "Allow access").click();
   await page.waitForFunction(() => window.healthFixture.saves.length === 1);
   await page.getByText("Not connected").waitFor({ state: "detached" });
-  assert.deepEqual((await fixture()).saves, ["weight:2026-10-01"]);
+  expectSaved(await fixture());
 });
 
 test("a failed save says so and Try again saves it; a failed setting save keeps the switch", async (t) => {
@@ -126,7 +128,7 @@ test("a failed save says so and Try again saves it; a failed setting save keeps 
   await page.evaluate(() => (window.healthFixture.failSave = false));
   await button(page, "Try again").click();
   await page.getByText("Couldn't save to Health Connect.").waitFor({ state: "detached" });
-  assert.deepEqual((await fixture()).saves, ["weight:2026-10-01"]);
+  expectSaved(await fixture());
   await page.evaluate(() => (window.healthFixture.failSetting = true));
   await toggle.click();
   await page

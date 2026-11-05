@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect } from "react";
 import { AppState } from "react-native";
 import { useExercises } from "../exercise/provider";
@@ -9,7 +8,10 @@ import { useWaterLog } from "../water/provider";
 import { deviceHealth } from "./device-health";
 import { createHealthWriter } from "./writer";
 
-/** Save to Apple Health or Health Connect: a device setting like the appearance, never synced. */
+/**
+ * Save to Apple Health or Health Connect: each account's own choice on this device, kept in its
+ * local storage and never synced, so another account signing in here starts with it off.
+ */
 const settingKey = "kinevault-track.health-write";
 
 // Mounted once per account scope, inside the tracking documents it reads.
@@ -21,9 +23,8 @@ export const { Provider: HealthWriteProvider, useDocument: useHealthWrite } =
         storage,
         device: deviceHealth,
         setting: {
-          load: async () => (await AsyncStorage.getItem(settingKey)) === "on",
-          save: (enabled) =>
-            enabled ? AsyncStorage.setItem(settingKey, "on") : AsyncStorage.removeItem(settingKey),
+          load: async () => (await storage.getItem(settingKey)) === "on",
+          save: (enabled) => storage.setItem(settingKey, enabled ? "on" : "off"),
         },
       }),
     useValue(snapshot, writer) {

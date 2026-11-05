@@ -141,7 +141,7 @@ export function fieldText(quantity: Quantity, saved: string, units: UnitSystem):
 
 /** Kilometers typed into a Cardio set as the whole meters it saves: "5.25" is "5250". */
 function metersFromKm(km: string): string {
-  const match = /^(\d*)(?:\.(\d{0,3}))?$/.exec(km.trim());
+  const match = /^(\d*)(?:[.,](\d{0,3}))?$/.exec(km.trim());
   if (!match || !(match[1] || match[2])) return km;
   return `${match[1]}${(match[2] ?? "").padEnd(3, "0")}`.replace(/^0+(?=\d)/, "");
 }

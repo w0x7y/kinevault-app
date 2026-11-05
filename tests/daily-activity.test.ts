@@ -735,6 +735,15 @@ test("the share image lists each exercise's top set and the day's records", () =
   });
   assert.equal(one.records.lines.length, 1);
   assert.deepEqual([one.exercises.lines.length, one.exercises.more], [4, "+2 more exercises"]);
+  // A short workout leaves its unused exercise lines to the records.
+  const short = share(workout("before", otherDate, many.slice(0, 4)), {
+    ...workout("after", date, many.slice(0, 4)),
+    exercises: many
+      .slice(0, 4)
+      .map((row, index) => (index < 3 ? { ...row, sets: [lift(`${row.id}-up`, "60", "5")] } : row)),
+  });
+  assert.deepEqual([short.records.lines.length, short.records.more], [3, null]);
+  assert.deepEqual([short.exercises.lines.length, short.exercises.more], [4, null]);
 });
 
 test("each saved source reports its own availability and retries only itself", () => {

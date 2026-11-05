@@ -13,6 +13,8 @@ import { fieldText, savedText } from "../units/units";
 import { formatElapsed, type ExerciseSet, type SetHint } from "./model";
 import type { ShownClock } from "./set-clock";
 import {
+  clockSeconds,
+  clockText,
   columnText,
   isBlankSet,
   isWarmUp,
@@ -31,26 +33,33 @@ const editColumn = iconButtonSize * 2 + spacing.xs;
 /** A left/right set's lines are badged L1 and R1. */
 const sideLetter = { left: "L", right: "R" } as const;
 
+const sameNumber = (typed: string, value: string) => Number(typed) === Number(value);
+const sameClock = (typed: string, value: string) => clockSeconds(typed) === clockSeconds(value);
+
 function NumberInput({
   label,
   value,
   placeholder,
   onChange,
   disabled,
+  same,
 }: {
   label: string;
   value: string;
   placeholder?: string;
   onChange: (value: string) => void;
   disabled: boolean;
+  /** Whether typed text means the value shown; by default, the same number. */
+  same?: (typed: string, value: string) => boolean;
 }) {
   const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
-  // Weights and distances save metric figures, so typing "5." comes back as "5". While focused,
-  // the field keeps what was typed for as long as it means the saved number.
+  // Weights, distances and Cardio times save other figures, so typing "5." comes back as "5". While
+  // focused, the field keeps what was typed for as long as it means the saved value.
   const [typed, setTyped] = useState<string | null>(null);
   const shown =
-    typed !== null && (typed === value || (typed.trim() !== "" && Number(typed) === Number(value)))
+    typed !== null &&
+    (typed === value || (typed.trim() !== "" && (same ?? sameNumber)(typed, value)))
       ? typed
       : value;
   const empty = shown === "";
@@ -238,9 +247,23 @@ export function ExerciseSetTable({
 }) {
   const mode = trackingMode(tracking);
   const { units } = useUnits();
-  // A weight or distance shows and is typed in the chosen units; other values as saved.
-  const shown = (column: (typeof mode.columns)[number], value: string | undefined) =>
-    column.quantity && value !== undefined ? fieldText(column.quantity, value, units) : value;
+  // A weight or distance shows and is typed in the chosen units, a Cardio time as minutes and
+  // seconds; other values as saved.
+  type SetColumn = (typeof mode.columns)[number];
+  const shown = (column: SetColumn, value: string | undefined) =>
+    value === undefined
+      ? value
+      : "clock" in column
+        ? clockText(value)
+        : column.quantity
+          ? fieldText(column.quantity, value, units)
+          : value;
+  const saved = (column: SetColumn, value: string) =>
+    "clock" in column
+      ? clockSeconds(value)
+      : column.quantity
+        ? savedText(column.quantity, value, units)
+        : value;
   // Edit mode's add and remove buttons take the clock button's place, so a Cardio set's two
   // fields still fit at 320 pt. A running clock keeps running and still shows its face.
   const clockButton = mode.clock && !editing;
@@ -329,13 +352,9 @@ export function ExerciseSetTable({
                             value={shown(column, line.values[column.field]) ?? ""}
                             placeholder={shown(column, hint?.values[column.field])}
                             disabled={busy}
+                            same={"clock" in column ? sameClock : undefined}
                             onChange={(value) =>
-                              onChange(
-                                set.id,
-                                line.side,
-                                column.field,
-                                column.quantity ? savedText(column.quantity, value, units) : value,
-                              )
+                              onChange(set.id, line.side, column.field, saved(column, value))
                             }
                           />
                         ),

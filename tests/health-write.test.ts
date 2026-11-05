@@ -12,7 +12,7 @@ import {
   type HealthSources,
   type HealthWrite,
 } from "../src/health/plan.ts";
-import { createHealthWriter, healthLedgerKey } from "../src/health/writer.ts";
+import { createHealthWriter, healthLedgerKey, healthOwnerKey } from "../src/health/writer.ts";
 
 // Local times, so the expectations hold in any time zone.
 const at = (day: number, hour: number, minute = 0) =>
@@ -218,7 +218,11 @@ const flush = async () => {
   for (let index = 0; index < 20; index++) await Promise.resolve();
 };
 
-function fixture({ enabled = false, access = "undetermined" as HealthAccess } = {}) {
+function fixture({
+  enabled = false,
+  access = "undetermined" as HealthAccess,
+  owner = "owner" as string | null,
+} = {}) {
   let saved = enabled;
   let raw: string | null = null;
   const calls: string[] = [];
@@ -251,11 +255,13 @@ function fixture({ enabled = false, access = "undetermined" as HealthAccess } = 
     now: () => clock,
     storage: {
       async getItem(key) {
+        if (key === healthOwnerKey) return owner;
         assert.equal(key, healthLedgerKey);
         if (failures.read) throw new Error("Fixture read failure");
         return raw;
       },
       async setItem(key, value) {
+        if (key === healthOwnerKey) return void (owner = value);
         assert.equal(key, healthLedgerKey);
         raw = value;
       },
@@ -274,6 +280,7 @@ function fixture({ enabled = false, access = "undetermined" as HealthAccess } = 
     calls,
     failures,
     setting: () => saved,
+    owner: () => owner,
     ledger: () => parseHealthLedger(raw),
     tick: (ms: number) => (clock += ms),
   };
@@ -291,15 +298,15 @@ test("turning it on asks once, then saves, updates and removes records as the do
   await writer.setEnabled(true);
   await flush();
   assert.equal(setting(), true);
-  assert.deepEqual(calls, ["request", `save weight:2026-11-04@${now}`]);
+  assert.deepEqual(calls, ["request", `save owner/weight:2026-11-04@${now}`]);
   assert.deepEqual(ledger(), { "weight:2026-11-04": { version: now, source: "80" } });
   tick(1000);
   writer.setSources(weights(79.5));
   await flush();
-  assert.equal(calls.at(-1), `save weight:2026-11-04@${now + 1000}`);
+  assert.equal(calls.at(-1), `save owner/weight:2026-11-04@${now + 1000}`);
   writer.setSources(empty);
   await flush();
-  assert.equal(calls.at(-1), "remove weight weight:2026-11-04");
+  assert.equal(calls.at(-1), "remove weight owner/weight:2026-11-04");
   assert.deepEqual(ledger(), {});
   assert.equal(writer.getSnapshot().failed, false);
 });
@@ -325,7 +332,7 @@ test("a failed write is quiet, keeps the ledger, and the retry saves it", async 
   failures.save = false;
   await writer.refresh();
   await flush();
-  assert.deepEqual(calls, [`save weight:2026-11-04@${now}`]);
+  assert.deepEqual(calls, [`save owner/weight:2026-11-04@${now}`]);
   assert.equal(writer.getSnapshot().failed, false);
 });
 
@@ -350,7 +357,7 @@ test("denied access writes nothing until it is granted", async () => {
   assert.deepEqual(calls, []);
   await writer.connect();
   await flush();
-  assert.deepEqual(calls, ["request", `save weight:2026-11-04@${now}`]);
+  assert.deepEqual(calls, ["request", `save owner/weight:2026-11-04@${now}`]);
 });
 
 test("a change during a sync waits for it, then saves the latest values", async () => {
@@ -365,6 +372,28 @@ test("a change during a sync waits for it, then saves the latest values", async 
   failures.gate = null;
   release();
   await flush();
-  assert.deepEqual(calls, [`save weight:2026-11-04@${now}`, `save weight:2026-11-04@${now + 1}`]);
+  assert.deepEqual(calls, [
+    `save owner/weight:2026-11-04@${now}`,
+    `save owner/weight:2026-11-04@${now + 1}`,
+  ]);
   assert.deepEqual(ledger(), { "weight:2026-11-04": { version: now + 1, source: "79.5" } });
+});
+
+test("each account on a phone tags the IDs the store sees, so accounts never share a record", async () => {
+  const first = fixture({ enabled: true, access: "granted", owner: null });
+  const second = fixture({ enabled: true, access: "granted", owner: null });
+  for (const { writer } of [first, second]) {
+    writer.setSources(weights(80));
+    await flush();
+  }
+  const tags = [first, second].map(({ owner }) => owner());
+  assert.ok(tags[0] && tags[1] && tags[0] !== tags[1]);
+  assert.deepEqual(first.calls, [`save ${tags[0]}/weight:2026-11-04@${now}`]);
+  assert.deepEqual(second.calls, [`save ${tags[1]}/weight:2026-11-04@${now}`]);
+  // The ledger keeps the untagged IDs, and the saved tag is reused.
+  assert.deepEqual(Object.keys(first.ledger()), ["weight:2026-11-04"]);
+  first.tick(1000);
+  first.writer.setSources(weights(79));
+  await flush();
+  assert.equal(first.calls.at(-1), `save ${tags[0]}/weight:2026-11-04@${now + 1000}`);
 });

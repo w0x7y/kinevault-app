@@ -7,7 +7,6 @@ export const defaultWaterGoalMl = 1500;
 export function waterGoalMessage(units: UnitSystem): string {
   return `Enter a whole number from ${limitText("fluid", 1, units, "min")} to ${limitText("fluid", 10000, units, "max")} ${unitName("fluid", units)}.`;
 }
-export const waterGoalRangeMessage = waterGoalMessage("metric");
 
 export function isWaterGoal(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 1 && value <= 10000;

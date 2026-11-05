@@ -43,7 +43,7 @@ The app is for ages 18 and up. It uses English copy and Metric or Imperial units
 
 - The Daily workout log shows the day's weight lifted, cardio distance and minutes in its title.
 - Tiles open Saved workouts, Create workout and Create exercise. Logging always starts from a saved workout.
-- Exercises have a name, optional muscle group, equipment, notes and a tracking mode: Single weight, Left and right, Alternating, Timed or Cardio. Cardio logs a time and an optional distance in km or miles.
+- Exercises have a name, optional muscle group, equipment, notes and a tracking mode: Single weight, Left and right, Alternating, Timed or Cardio. Cardio logs a time in minutes and seconds and an optional distance in km or miles.
 - Saved workouts hold an ordered exercise list with planned sets (0 to 100, default 3). Duplicate makes a copy.
 - Adjacent exercises can form a superset, joined in a saved workout or in a workout's edit mode. The live workout goes through it in rounds: Next returns to its first exercise until every set in it is done, then moves on.
 - Start opens the live workout as a page with its timer in the top bar. While it runs, the app header shows the timer on every tab and the Exercise tab shows a Live workout card.
@@ -72,7 +72,7 @@ The app is for ages 18 and up. It uses English copy and Metric or Imperial units
 
 - Settings holds profile editing, the water goal, reminders, health saving, appearance (System, Light, Dark), units and Import workouts.
 - Units, Metric or Imperial, is a device setting. Imperial shows and takes pounds, feet and inches, miles, ounces and US fluid ounces everywhere; nutrients stay in grams. Saved values stay metric.
-- Save to Apple Health (iOS) or Save to Health Connect (Android), off by default, saves completed workouts that have a duration, body-weight entries and each day's water total. Edits update them and deletes remove them. Turning it on asks for write access. It's a device setting, hidden on web.
+- Save to Apple Health (iOS) or Save to Health Connect (Android), off by default, saves completed workouts that have a duration, body-weight entries and each day's water total. Edits update them and deletes remove them. Turning it on asks for write access. Each account turns it on separately on each device, so another account signing in on the phone starts with it off. Hidden on web.
 - Reminders are device notifications at a chosen time on chosen weekdays: weigh-in, water, workout, food logging, progress photo or a custom note. Tapping one opens its screen.
 - Import workouts previews a workout shared as a Tracked link and saves it as a saved workout.
 - Export saves account tracking data and local photos as JSON.

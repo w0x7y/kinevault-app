@@ -23,6 +23,8 @@ type Column = {
   short?: string;
   name: string;
   quantity?: "weight" | "distance";
+  /** Typed and shown as minutes and seconds ("28:13"), saved as seconds (see `clockSeconds`). */
+  clock?: true;
 };
 
 const reps: Column = { field: "reps", label: "Reps", name: "reps" };
@@ -75,7 +77,7 @@ const modes = {
     name: "Cardio",
     tag: "Cardio",
     columns: [
-      seconds,
+      { field: "seconds", label: "Time", name: "time", clock: true },
       { field: "distance", label: "Distance", name: "distance", quantity: "distance" },
     ],
     sided: false,
@@ -288,6 +290,23 @@ function cardioMeters(text: string): number {
     throw new Error(distanceMessage("metric"));
   return meters;
 }
+/**
+ * A Cardio time typed as whole minutes ("30") or minutes and two-digit seconds ("28:13"), as the
+ * seconds it saves. Phone number pads have no colon, so "." and "," also separate them. Other
+ * text stays as typed, so the save rejects it.
+ */
+export function clockSeconds(typed: string): string {
+  const match = /^(\d+)(?:[:.,](\d\d))?$/.exec(typed.trim());
+  if (!match || Number(match[2] ?? 0) > 59) return typed;
+  return String(Number(match[1]) * 60 + Number(match[2] ?? 0));
+}
+/** Saved seconds as a Cardio time field shows them ("28:13"); other text shows as it is. */
+export function clockText(saved: string): string {
+  if (!/^\d+$/.test(saved)) return saved;
+  const seconds = Number(saved);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
 /** A completed set's numbers; throws the message to show for an invalid one. */
 export function setMeasurements(set: ExerciseSet): SetMeasurements {
   const none = { reps: 0, volume: 0, lifts: [], left: null, right: null, seconds: 0, meters: 0 };
@@ -295,7 +314,9 @@ export function setMeasurements(set: ExerciseSet): SetMeasurements {
     const seconds = timedSeconds(set);
     if (seconds === null)
       throw new Error(
-        `Enter from 1 to 86,400 whole seconds for each ${set.kind === "time" ? "timed" : "cardio"} set.`,
+        set.kind === "time"
+          ? "Enter from 1 to 86,400 whole seconds for each timed set."
+          : "Enter each cardio set's time as minutes (30) or minutes and seconds (28:13), up to 24 hours.",
       );
     return set.kind === "time"
       ? { ...none, seconds }

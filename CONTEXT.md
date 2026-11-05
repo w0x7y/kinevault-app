@@ -64,7 +64,7 @@ KineVault Track is the food and exercise tracking companion to the separate Kine
 
 **Timed set**: Whole seconds from 1 to 86,400 instead of reps and kilograms. It counts as a set with no reps or volume.
 
-**Cardio set**: Whole seconds from 1 to 86,400, like a Timed set, and an optional distance typed in kilometers or miles (0.01 to 1,000 km, two decimals at most) and saved in meters. It has no reps, volume or Personal record.
+**Cardio set**: A time typed as minutes (30) or minutes and seconds (28:13, or 28.13 on a number pad), saved as whole seconds from 1 to 86,400, and an optional distance typed in kilometers or miles (0.01 to 1,000 km, two decimals at most) and saved in meters. It has no reps, volume or Personal record.
 
 **Warm-up set**: A Single weight, Left and right or Alternating set marked W in edit mode. It saves and shows, but counts toward no Workout volume, reps, sets, Personal record or Workout graph.
 
@@ -126,7 +126,7 @@ KineVault Track is the food and exercise tracking companion to the separate Kine
 
 **Phone steps**: Steps the phone counted, from Core Motion on iOS (last 7 days) or Health Connect on Android. They need permission and a native build, and are never stored or uploaded.
 
-**Health saving**: With its device setting on, completed workouts with a Recorded duration, Body-weight measurements and each day's water (Manual water plus Drinks) are saved to Apple Health or Health Connect under the app's own IDs, so an edit replaces the copy and a delete removes it. Workouts without a duration are skipped. The setting never syncs, and failed saves retry without touching the app's records.
+**Health saving**: With its setting on (each Account's own choice on each device), completed workouts with a Recorded duration, Body-weight measurements and each day's water (Manual water plus Drinks) are saved to Apple Health or Health Connect under the app's own IDs, tagged per Account and device so two Accounts on one phone never share a record. An edit replaces the copy and a delete removes it. Workouts without a duration are skipped. The setting never syncs, and failed saves retry without touching the app's records.
 
 **Logged steps**: Steps entered by hand for a day, added to Phone steps. They are an Account tracking document, so they sync.
 
