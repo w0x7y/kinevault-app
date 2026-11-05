@@ -74,23 +74,50 @@ This file is the single source of truth for project status. PRODUCT.md, README.m
 
 ## Paid plans
 
-Membership already has `free`, `plus` and `pro` on the server (`public.subscriptions`), with no payments yet.
+Membership already has `free`, `plus` and `pro` on the server (`public.subscriptions`), with no payments yet. Track isn't public yet (two users as of 2026-11-05), so existing features can move behind a plan. Tell current users before gating something they use.
 
 Before charging:
 
 - [ ] Ship store builds first (Profile & integrations above). Subscriptions need a Play Console listing and a paid Apple Developer Program team. Sideloaded `.apk` and xtool `.ipa` builds can't take purchases.
 - [ ] Add store billing, for example RevenueCat (`react-native-purchases`) over StoreKit and Play Billing. A server webhook writes `public.subscriptions`; the app only reads it (`src/account/membership.ts`).
+- [ ] Add one gate the app reads everywhere (plan, status and a grace period while offline), plus a paywall sheet and Restore purchases. Locked features show what they do and how to unlock them, never an error.
 - [ ] Check the plan on the server for anything that costs money to run (Storage policies, Edge Functions), not only in the UI.
+- [ ] Decide what happens to Plus data after a plan lapses: keep it readable and exportable, and lock only new entries and Plus views.
 - [ ] Launch Plus alone first. Keep `pro` for later.
-- [ ] Keep logging, barcode scanning, sync, JSON export and account deletion free, and never move something Free accounts already have behind a plan.
 
-Plus:
+Stays free, so the app is useful on day one:
 
-- [ ] Progression suggestions: the next weight and reps from the last session and its RIR.
+- Food logging: search, barcode scan, servings, drinks, Daily macros (calories and the three macros) and a few custom foods and meals.
+- Water, steps, reminders, the Units and Appearance settings, and Workout import.
+- Workout logging: saved workouts, the live workout, Rest timer, RIR, Personal records and Previous sets hints.
+- Calorie and macro goals, body weight, streaks and the 4-week Workout graph.
+- Sync, JSON export and account deletion. Export and deletion stay free for trust and store review.
+
+Plus, moved from what exists today:
+
+- [ ] Unlimited custom foods and meals (free keeps 10 of each) and unlimited saved workouts (free keeps 3). Existing items stay usable after a lapse; only new ones are locked.
+- [ ] Detailed nutrients in Daily macros and custom foods: fat subtypes, fiber, sugars, minerals, vitamin D, caffeine and alcohol.
+- [ ] Copy food from another day.
+- [ ] Supersets, warm-up sets and the Plate calculator.
+- [ ] Cardio distance totals and the 12 and 52-week Workout graphs.
+- [ ] Body measurements and their chart.
+- [ ] Progress photos past the first three, and the earliest-and-latest comparison.
+- [ ] Saving to Apple Health and Health Connect.
+- [ ] Every KineVault exercise demo. Free shows a few starter demos.
+- [ ] Share image styles past the default card. The default card stays free because it advertises the app.
+
+Plus, new:
+
+- [ ] Progression suggestions: the next weight and reps from the last session, its RIR and warm-ups.
+- [ ] Warm-up generator: warm-up sets built from the working weight, loaded with the Plate calculator.
 - [ ] Adaptive calorie target: estimate daily energy use each week from the body-weight trend and logged kcal, then adjust the goal. Needs careful wording and a safe cap on the weekly rate of change.
 - [ ] Weekly muscle volume map: sets per muscle on a body figure, from the muscle group or the linked KineVault exercise's muscles.
+- [ ] Deeper trends: all-time workout graphs, a smoothed body-weight trend, weekly micronutrient averages and measurement overlays (waist, hips and weight on one chart).
+- [ ] Cardio trends: pace, weekly distance and distance records such as the fastest 5 km.
+- [ ] Meal plans: repeat a meal on chosen weekdays, built on Copy food.
+- [ ] Recap cards: weekly and monthly summaries to share, with dark and photo-background styles.
 - [ ] Progress photo cloud backup, and comparing any two dates. Photos are device-only today, and storage costs money.
-- [ ] Deeper trends: weekly micronutrient averages, all-time workout graphs and a smoothed body-weight trend line. The 4, 12 and 52-week graphs stay free.
+- [ ] Home-screen widget and a lock-screen workout timer.
 - [ ] Cosmetics: Kine outfits, app icons and accent colors.
 
 Pro, later:
