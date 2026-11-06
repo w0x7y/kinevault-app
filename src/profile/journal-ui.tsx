@@ -10,6 +10,7 @@ import {
   type ViewProps,
   type StyleProp,
   type ViewStyle,
+  type ViewInstance,
 } from "react-native";
 import { AppText, Overline } from "../components/ui";
 import { useReducedMotion } from "../components/motion";
@@ -117,8 +118,8 @@ export function JournalDisclosure<T extends string | number>({
   const { colors } = useTheme();
   const reduced = useReducedMotion();
   const [open, setOpen] = useState(false);
-  const trigger = useRef<View>(null),
-    list = useRef<View>(null);
+  const trigger = useRef<ViewInstance>(null),
+    list = useRef<ViewInstance>(null);
   const dismiss = useCallback(() => setOpen(false), []);
   const popover = usePopover({ open, onDismiss: dismiss, trigger, container: list });
   useFocusEffect(useCallback(() => dismiss, [dismiss]));

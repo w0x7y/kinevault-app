@@ -1,6 +1,13 @@
 import { useCallback, useRef } from "react";
 import { useFocusEffect } from "expo-router";
-import { BackHandler, Platform, View, type StyleProp, type ViewStyle } from "react-native";
+import {
+  BackHandler,
+  Platform,
+  View,
+  type StyleProp,
+  type ViewStyle,
+  type ViewInstance,
+} from "react-native";
 import Animated from "react-native-reanimated";
 import { AppButton, ButtonRow, IconButton } from "../components/button";
 import { useLayoutMotion, useReducedMotion, useStateTransition } from "../components/motion";
@@ -55,8 +62,8 @@ export function FoodLogEntry({
       reduced ? Promise.resolve() : new Promise((resolve) => setTimeout(resolve, leaveDuration)),
     );
   const disabled = saving || busy;
-  const trashButton = useRef<View>(null);
-  const cancelButton = useRef<View>(null);
+  const trashButton = useRef<ViewInstance>(null);
+  const cancelButton = useRef<ViewInstance>(null);
   useFocusEffect(
     useCallback(() => {
       if (!armed) return;

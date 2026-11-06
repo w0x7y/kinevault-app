@@ -10,6 +10,7 @@ import {
   StyleSheet,
   View,
   useWindowDimensions,
+  type ScrollViewInstance,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppText, DocumentTitle } from "../components/ui";
@@ -110,7 +111,7 @@ function OnboardingFlow({
   } = useSyncExternalStore(flow.subscribe, flow.getSnapshot, flow.getSnapshot);
   const update = flow.update;
   const mode = calorieState(answers);
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   // A hairline separates the pinned actions only while the step scrolls beneath them.
   const [viewport, setViewport] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);

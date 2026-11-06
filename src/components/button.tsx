@@ -1,5 +1,5 @@
 import { Children, type Ref } from "react";
-import { View, type ViewProps } from "react-native";
+import { View, type ViewProps, type ViewInstance } from "react-native";
 import { AppText } from "./ui";
 import { Icon, type IconName } from "./icon";
 import { Tappable } from "./tappable";
@@ -56,7 +56,7 @@ export function AppButton({
   expanded?: boolean;
   fill?: boolean;
   testID?: string;
-  ref?: Ref<View>;
+  ref?: Ref<ViewInstance>;
 }) {
   const { colors } = useTheme();
   const link = tone === "link";
@@ -190,7 +190,7 @@ export function IconButton({
   expanded?: boolean;
   /** A toggle's state, e.g. edit mode on; it shows like `expanded`. */
   selected?: boolean;
-  ref?: Ref<View>;
+  ref?: Ref<ViewInstance>;
 }) {
   const { colors } = useTheme();
   return (
