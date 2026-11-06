@@ -1,8 +1,9 @@
 name: Android release build
 
 # Manual only: Actions > Android release build > Run workflow. Builds a signed
-# release .apk to install directly on Android phones. See docs/android-apk.md.
-# The optional name, such as the build date, labels the run, the artifact and the .apk.
+# release .apk to install directly on Android phones and a signed .aab for
+# Google Play. See docs/android-apk.md. The optional name, such as the build
+# date, labels the run, the artifacts and the files.
 run-name: Android release build ${{ inputs.name }}
 on:
   workflow_dispatch:
@@ -51,6 +52,12 @@ jobs:
             fi
           done
           exit "$missing"
+      # Google Play needs a higher versionCode for every upload, read by
+      # plugins/with-android-version-code.cjs. The offset keeps it above the old
+      # builds' versionCode 1. Renaming this file restarts the run numbers, so
+      # raise the offset past the last uploaded code first.
+      - name: Set the version code
+        run: echo "ANDROID_VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -63,7 +70,7 @@ jobs:
       - run: npm ci
       # Generates android/ from app.json and plugins/.
       - run: npx expo prebuild --platform android --clean --no-install
-      - name: Build the signed release .apk
+      - name: Build the signed release .apk and .aab
         working-directory: android
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -72,40 +79,71 @@ jobs:
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
           # Android Studio's signing properties replace the template's debug
           # signing. Phone ABIs only; x86 builds run only in emulators.
-          ./gradlew assembleRelease --console=plain \
+          ./gradlew assembleRelease bundleRelease --console=plain \
             -PreactNativeArchitectures=armeabi-v7a,arm64-v8a \
             -Pandroid.injected.signing.store.file="$RUNNER_TEMP/release.jks" \
             -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
             -Pandroid.injected.signing.key.alias=kinevault-track \
             -Pandroid.injected.signing.key.password="$ANDROID_KEYSTORE_PASSWORD"
-      - name: Check and rename the .apk
+      - name: Check and rename the .apk and .aab
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           BUILD_NAME: ${{ inputs.name }}
         run: |
           apk=android/app/build/outputs/apk/release/app-release.apk
-          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          aab=android/app/build/outputs/bundle/release/app-release.aab
+          build_tools=$(printf "%s\n" "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           expected=$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -alias kinevault-track -storepass "$ANDROID_KEYSTORE_PASSWORD" | sha256sum | cut -d' ' -f1)
-          "$apksigner" verify --print-certs "$apk" | tee "$RUNNER_TEMP/certs.txt"
           rm -f "$RUNNER_TEMP/release.jks"
+          "$build_tools/apksigner" verify --print-certs "$apk" | tee "$RUNNER_TEMP/certs.txt"
           if ! grep -q "SHA-256 digest: $expected" "$RUNNER_TEMP/certs.txt"; then
             echo "::error::The .apk isn't signed with the release keystore."
             exit 1
           fi
+          # An .aab is signed like a .jar, with one certificate. jarsigner adds a
+          # "- Entry" line for every file in an .aab; leave those out of the log.
+          jarsigner -verify "$aab" | grep -v '^- Entry' | tee "$RUNNER_TEMP/aab-verify.txt"
+          aab_cert=$(keytool -printcert -jarfile "$aab" | sed -n 's/^[[:space:]]*SHA256: //p' | tr -d : | tr A-F a-f)
+          if ! grep -q "^jar verified" "$RUNNER_TEMP/aab-verify.txt" || [ "$aab_cert" != "$expected" ]; then
+            echo "::error::The .aab isn't signed with the release keystore."
+            exit 1
+          fi
           # The Supabase URL is a string literal in the Hermes bundle. If it's
           # missing, the bundle task didn't see the environment.
-          if ! unzip -p "$apk" assets/index.android.bundle | grep -qaF "$EXPO_PUBLIC_SUPABASE_URL"; then
+          if ! unzip -p "$apk" assets/index.android.bundle | grep -qaF "$EXPO_PUBLIC_SUPABASE_URL" ||
+            ! unzip -p "$aab" base/assets/index.android.bundle | grep -qaF "$EXPO_PUBLIC_SUPABASE_URL"; then
             echo "::error::EXPO_PUBLIC_SUPABASE_URL is not in index.android.bundle."
             exit 1
           fi
+          "$build_tools/aapt2" dump badging "$apk" > "$RUNNER_TEMP/badging.txt"
+          version_code=$(sed -n "1s/.* versionCode='\([0-9]*\)'.*/\1/p" "$RUNNER_TEMP/badging.txt")
+          version_name=$(sed -n "1s/.* versionName='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/badging.txt")
+          if [ "$version_code" != "$ANDROID_VERSION_CODE" ]; then
+            echo "::error::The .apk has versionCode '$version_code', not $ANDROID_VERSION_CODE."
+            exit 1
+          fi
+          {
+            echo "| versionCode | versionName |"
+            echo "| --- | --- |"
+            echo "| $version_code | $version_name |"
+          } >> "$GITHUB_STEP_SUMMARY"
           mkdir -p out
           mv "$apk" "out/KineVaultTrack${BUILD_NAME:+-$BUILD_NAME}.apk"
-          ls -l out/*.apk
+          mv "$aab" "out/KineVaultTrack${BUILD_NAME:+-$BUILD_NAME}.aab"
+          ls -l out
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: KineVaultTrack-${{ inputs.name || 'apk' }}
           path: out/*.apk
           if-no-files-found: error
           # An .apk is already a zip file.
+          compression-level: 0
+          retention-days: 7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ inputs.name && format('KineVaultTrack-{0}-aab', inputs.name) || 'KineVaultTrack-aab' }}
+          path: out/*.aab
+          if-no-files-found: error
+          # So is an .aab.
           compression-level: 0
           retention-days: 7

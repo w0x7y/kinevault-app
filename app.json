@@ -84,6 +84,7 @@
       "expo-sharing",
       "./plugins/with-local-notifications-only.cjs",
       "./plugins/with-gradle-memory.cjs",
+      "./plugins/with-android-version-code.cjs",
       [
         "expo-notifications",
         {
