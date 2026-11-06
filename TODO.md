@@ -18,7 +18,7 @@ This file is the single source of truth for project status. PRODUCT.md, README.m
 - [x] Apply migration `20261029120000` to the hosted project (2026-10-29, verified).
 - [ ] Update every device on an account to a build from 2026-10-29 or later before logging steps there. Older builds fail every cloud download once the account holds a steps row (docs/supabase-setup.md).
 - [x] Include Logged steps in the account JSON export.
-- [ ] Before any Google Play release, declare Health Connect step access in the Play Console with the privacy policy page. The page exists at `/privacy`, with placeholders to fill and a deploy still to do (docs/privacy.md). Health Connect's privacy policy link still opens the app's start screen, not `/privacy`; routing it there needs a native MainActivity change (docs/privacy.md).
+- [ ] Before any Google Play release, declare Health Connect step access in the Play Console with the privacy policy page. The page exists at `/privacy`, with placeholders to fill and a deploy still to do (docs/web-deploy.md). From the next Android build, Health Connect's privacy policy link opens `/privacy` (`plugins/with-health-connect-privacy-link.cjs`, checked on an Android 15 emulator). Check it on an Android 13 phone and an Android 14 or later phone, with the app closed and open (docs/privacy.md).
 - [ ] Also declare the Health Connect write access for exercise, weight and hydration in the Play Console, with the same privacy policy page (`/privacy`, placeholders still to fill).
 
 ## Exercise
@@ -65,12 +65,52 @@ This file is the single source of truth for project status. PRODUCT.md, README.m
 - [x] Publish the first 10 KineVault demos to the hosted project on 2026-10-14 (migration applied 2026-10-13). Linking and playback checked on a phone in Expo Go.
 - [x] Re-check demo playback, fullscreen, offline replay and Android rounded video corners in native builds on an iPhone and an Android phone (2026-11-04).
 - [x] Build installable apps: a signed release `.apk` (`Android release build` workflow, docs/android-apk.md) and an unsigned `.ipa` signed with xtool (`iOS unsigned build` workflow, docs/ios-linux-xtool.md). Both use `com.kinevault.track`.
-- [ ] Set up store builds when ready to release: a Play Console app bundle with increasing version codes, and App Store builds, which need a paid Apple Developer Program team.
-- [ ] Turn on production email and web hosting: Resend SMTP, a verified sender domain and the Vercel production origin. Gmail SMTP sends account emails until then (docs/supabase-setup.md).
-- [ ] Publish the Google sign-in consent screen without buying a domain: deploy the web app to a free `*.vercel.app` address with the `/privacy` page (it exists; fill its placeholders first, docs/privacy.md), add its home page and privacy policy links on the Google Auth Platform Branding page, add the address as an authorized domain, then click Publish app. Until then only listed test users can use Google sign-in (100 over the project's lifetime).
+- [x] Build a signed `.aab` for Google Play in the Android release workflow, with versionCode 1000 plus the run number (2026-11-06, docs/android-apk.md). It hasn't run in CI yet.
+- [ ] Run the Android release workflow from `main`, create the Play Console app with Play App Signing using the existing release key, and upload the first `.aab` (docs/android-apk.md).
+- [ ] Set up App Store builds, which need a paid Apple Developer Program team.
+- [ ] Turn on production email and web hosting: Resend SMTP, a verified sender domain and the Vercel production origin (docs/web-deploy.md). Gmail SMTP sends account emails until then (docs/supabase-setup.md).
+- [ ] Publish the Google sign-in consent screen without buying a domain: deploy the web app to a free `*.vercel.app` address (docs/web-deploy.md) with `/privacy` and `/delete-account` (fill their placeholders first, docs/privacy.md), add the address's `/auth/callback` redirect URLs in Supabase, add its home page and privacy policy links on the Google Auth Platform Branding page, add the address as an authorized domain, then click Publish app. Until then only listed test users can use Google sign-in (100 over the project's lifetime).
 - [x] Make new Android and iOS builds (`expo-web-browser` is a new native module) and check Continue with Google, Resend email and the email callback on an iPhone and an Android phone (2026-11-04).
 - [ ] Add Sign in with Apple before an App Store release. Apps that offer Google sign-in must offer it too, and it needs a paid Apple Developer Program team.
 - [x] Clear the retained email-link result after Google sign-in on iOS without breaking the Android callback route. Unit-tested only; check Continue with Google on an iPhone and an Android phone with the new builds.
+
+## Store submission
+
+Answers and copy for both stores are in [docs/store-listing.md](docs/store-listing.md). Items marked "check" depend on store policy the repo can't confirm.
+
+Decisions:
+
+- [ ] Say who runs the shared Supabase project. If KineVault's owner isn't the Track publisher, the account data counts as shared, and `/privacy` has to name both.
+- [ ] iPad: test the layout or set `supportsTablet` to `false` before the first App Store submission. App Review runs on an iPad when it's `true`.
+- [ ] Pick Play's purpose for crash logs (Analytics or App functionality) and Apple's category for age and sex (Health or Other data).
+- [ ] Check whether Supabase's logs record IP addresses, which may count as approximate location.
+
+Both stores:
+
+- [ ] Fill `/privacy` and `/delete-account`: operator, contact email, effective date, and retention for accounts and Sentry. Add the Health Connect Limited Use statement to `/privacy`.
+- [ ] Keep `EXPO_PUBLIC_SENTRY_DSN` set in store builds, or answer crash data as "not collected".
+- [ ] Make a reviewer demo account with email and password. Google sign-in won't work for reviewers until the consent screen is published.
+- [ ] Don't claim deletion removes all data until the end-to-end `delete-account` check below passes.
+- [ ] When Plus billing ships, update the Data safety form, App Privacy labels and description: purchases, the subscription and the Plus features. The description lists Health saving, which moves to Plus.
+
+Google Play:
+
+- [ ] Closed testing before production, if the developer account is personal (12 testers for 14 days when last announced; check).
+- [ ] Data safety form, with `https://<host>/delete-account` as the account deletion URL and `/privacy` as the privacy policy.
+- [ ] Health apps declaration (check), target audience 18 and over, and the IARC content rating.
+- [ ] App access (the demo account), Ads: No, Advertising ID: No (recheck the first `.aab` for `AD_ID`).
+- [ ] Store listing: icon, feature graphic, screenshots, contact email.
+- [ ] Target API level (the 2026-11-05 APK targets SDK 36; check the minimum) and Android developer verification (check; it may also affect the sideloaded `.apk`).
+
+App Store:
+
+- [ ] App Privacy labels, privacy policy URL, Support URL and the age rating.
+- [ ] Export compliance: `app.json` sets `ITSAppUsesNonExemptEncryption` to `false` (check).
+- [ ] Privacy manifest: `app.json` has no `ios.privacyManifests`. Check that the build's `PrivacyInfo.xcprivacy` covers AsyncStorage and the other modules, or that the upload doesn't warn.
+- [ ] HealthKit capability on the App ID, and the demo account in App Review Information.
+- [ ] EU trader status under the Digital Services Act, if offered in the EU (Play asks too; check).
+- [ ] Once Sign in with Apple exists, revoke the Apple token on account deletion (check).
+- [ ] If Google brand verification needs the home page to link to `/privacy`, add the link to setup's first screen. Signed-out visitors land there.
 
 ## Paid plans
 
@@ -147,7 +187,8 @@ Pro, later:
 - [x] Decide on token-hash email links on a never-signed-in device. Every hosted email template uses `{{ .ConfirmationURL }}` (PKCE), so Track refuses token-hash links (docs/security-remediation.md).
 - [x] Move the Android signing secrets into the `android-release` GitHub Environment (limited to `main`, w0x7y as required reviewer) and delete the repository copies (2026-10-28). The 2026-10-28 build used them and kept the original certificate (docs/android-apk.md).
 - [ ] Enable Supabase Auth CAPTCHA (such as Turnstile) so sign-up, resend and reset emails can't be spammed through the shared project. The in-app resend cap is only a convenience.
-- [x] Add `script-src` and `connect-src` to the Content-Security-Policy in `vercel.json` before deploying the web app. Tested locally against `npm run export:web`; recheck the browser console after the first Vercel deploy.
+- [x] Add `script-src` and `connect-src` to the Content-Security-Policy in `vercel.json` before deploying the web app. Tested locally against `npm run export:web`, and `/delete-account` against the export with the `vercel.json` headers (2026-11-06). Recheck the browser console after the first Vercel deploy (docs/web-deploy.md).
+- [ ] Fix the browser test "day changes and tab blur cancel pending barcode requests" (`tests/food-expansion.browser.mjs`). It fails every local run, on `main` too, but passes in CI (2026-11-06). The water cup test also timed out once in CI.
 - [ ] Remove the `localhost` callbacks and the `http://localhost:3000` Site URL from the production Auth settings, or move local testing to a separate Supabase project.
 - [x] Raise the server password minimum (`password_min_length`) from 6 to 10 characters (2026-10-28).
 - [x] Pin GitHub Actions to commit SHAs with the release tag in a comment. Update both together when bumping an action.
