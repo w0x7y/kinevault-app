@@ -200,31 +200,35 @@ export function DailyMacros({ activity, onBack }: { activity: DayActivity; onBac
               </View>
             ))}
             {!unlocked && (
-              <Tappable
-                testID="daily-nutrients-plus"
-                label={`${detailedNutrients.length} more nutrients, part of Plus`}
-                onPress={() => paywall.open("nutrients")}
-                feedback="fill"
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: spacing.md,
-                  paddingVertical: spacing.md,
-                  borderTopWidth: StyleSheet.hairlineWidth,
-                  borderColor: colors.border,
-                }}
+              <View
+                style={{ borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border }}
               >
-                <IconWell icon="apple-whole" color={colors.brand} background="brandSoft" />
-                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                  <AppText variant="label" style={{ fontFamily: fonts.bold }}>
-                    {`${detailedNutrients.length} more nutrients`}
-                  </AppText>
-                  <AppText variant="caption" muted>
-                    Fiber, sugars, fat types, minerals, vitamin D, caffeine and alcohol
-                  </AppText>
-                </View>
-                <PlusTag />
-              </Tappable>
+                <Tappable
+                  testID="daily-nutrients-plus"
+                  label={`${detailedNutrients.length} more nutrients, part of Plus`}
+                  onPress={() => paywall.open("nutrients")}
+                  feedback="fill"
+                  ring="outline"
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: spacing.md,
+                    paddingVertical: spacing.md,
+                    borderRadius: radius.control,
+                  }}
+                >
+                  <IconWell icon="apple-whole" color={colors.brand} background="brandSoft" />
+                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                    <AppText variant="label" style={{ fontFamily: fonts.bold }}>
+                      {`${detailedNutrients.length} more nutrients`}
+                    </AppText>
+                    <AppText variant="caption" muted>
+                      Fiber, sugars, fat types, minerals, vitamin D, caffeine and alcohol
+                    </AppText>
+                  </View>
+                  <PlusTag />
+                </Tappable>
+              </View>
             )}
             {missing.length > 0 && (
               <View

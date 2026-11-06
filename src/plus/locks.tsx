@@ -93,12 +93,15 @@ export function PlusLocked({
         <AppText variant="label" style={{ textAlign: "center", maxWidth: 260 }}>
           {message}
         </AppText>
-        <AppButton
-          tone="primary"
-          size="compact"
-          label="See Plus"
-          onPress={() => paywall.open(feature)}
-        />
+        {/* A compact button hugs the start of its parent; its own box centers it here. */}
+        <View>
+          <AppButton
+            tone="primary"
+            size="compact"
+            label="See Plus"
+            onPress={() => paywall.open(feature)}
+          />
+        </View>
       </View>
       {paywall.sheet}
     </View>

@@ -140,7 +140,8 @@ export function SettingsButtonRow({
 /** A row that only shows a value, such as the current plan. */
 export function SettingsInfoRow(row: RowProps) {
   return (
-    <View style={rowStyle}>
+    // Pressable rows add a 2 pt ring border; this row adds it as padding, so wells line up.
+    <View style={[rowStyle, { paddingHorizontal: rowPadding }]}>
       <RowBody {...row} chevron={false} />
     </View>
   );
