@@ -377,14 +377,12 @@ export function AccountScreen({
                       Your goals and workout history are saved to your KineVault account.
                     </AppText>
                   )}
-                  <View style={{ alignItems: "center" }}>
-                    <AppButton
-                      label="Privacy policy"
-                      tone="link"
-                      disabled={busy}
-                      onPress={() => router.push("/privacy")}
-                    />
-                  </View>
+                  <AppButton
+                    label="Privacy policy"
+                    tone="link"
+                    disabled={busy}
+                    onPress={() => router.push("/privacy")}
+                  />
                 </View>
               </View>
             )}
