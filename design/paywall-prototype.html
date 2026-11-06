@@ -1,0 +1,484 @@
+<!doctype html>
+<!-- Throwaway layout study for KineVault Plus: the paywall sheet, locked features in context, Settings plan rows and the after-purchase states. Prices and values are illustrative. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>KineVault Track | Plus paywall</title>
+  <link rel="icon" href="../assets/branding/favicon.png">
+  <style>
+    @font-face { font-family: Comfortaa; src: url('../node_modules/@expo-google-fonts/comfortaa/600SemiBold/Comfortaa_600SemiBold.ttf'); font-weight: 600; font-display: swap; }
+    @font-face { font-family: Manrope; src: url('../node_modules/@expo-google-fonts/manrope/400Regular/Manrope_400Regular.ttf'); font-weight: 400; font-display: swap; }
+    @font-face { font-family: Manrope; src: url('../node_modules/@expo-google-fonts/manrope/500Medium/Manrope_500Medium.ttf'); font-weight: 500; font-display: swap; }
+    @font-face { font-family: Manrope; src: url('../node_modules/@expo-google-fonts/manrope/600SemiBold/Manrope_600SemiBold.ttf'); font-weight: 600; font-display: swap; }
+    @font-face { font-family: Manrope; src: url('../node_modules/@expo-google-fonts/manrope/700Bold/Manrope_700Bold.ttf'); font-weight: 700; font-display: swap; }
+    @font-face { font-family: Manrope; src: url('../node_modules/@expo-google-fonts/manrope/800ExtraBold/Manrope_800ExtraBold.ttf'); font-weight: 800; font-display: swap; }
+    @font-face { font-family: Ionicons; src: url('../node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf'); font-display: block; }
+
+    /* Tokens from src/theme/tokens.ts (docs/redesign-2026-10.md). */
+    :root {
+      --background: #eef2f6; --card: #ffffff; --elevated: #ffffff; --foreground: #172029; --muted-fg: #52606d;
+      --primary: #2c5070; --primary-fg: #ffffff; --brand: #3a6a96; --brand-soft: #e2ecf5;
+      --carbs: #a4661a; --protein: #3a6a96; --fat: #b04e72; --water: #1f78a6; --success: #2f7d5b;
+      --secondary: #e3e9ef; --secondary-fg: #2c5070; --muted: #e6ecf1; --border: #dde4ea; --input: #c9d3dc;
+      --ring: #4f7fa6; --danger: #b42318; --danger-soft: #fbe8e6;
+      --shadow: 0 1px 2px rgba(23, 32, 41, .05), 0 6px 18px rgba(23, 32, 41, .06);
+      --desk: #dfe6ed; --frame: #26343e;
+    }
+    [data-theme="dark"] {
+      --background: #10161c; --card: #18212a; --elevated: #1f2a35; --foreground: #e8edf2; --muted-fg: #aab8c6;
+      --primary: #94bdd7; --primary-fg: #0f1820; --brand: #94bdd7; --brand-soft: #1e2e3d;
+      --carbs: #e8ae55; --protein: #8db3dc; --fat: #e58aaa; --water: #62c0ea; --success: #6fc59c;
+      --secondary: #232f3b; --secondary-fg: #d7e6f2; --muted: #232f3b; --border: #2a3744; --input: #3b4a59;
+      --ring: #94bdd7; --danger: #fca5a5; --danger-soft: #3a2224;
+      --shadow: none;
+      --desk: #0a0f14; --frame: #40505e;
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; background: var(--desk); color: var(--foreground); font: 400 16px/24px Manrope, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+    button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, a:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+    .i { font: normal 20px/1 Ionicons; display: inline-block; speak: never; }
+
+    /* Workbench */
+    .workbench { max-width: 2140px; margin: 0 auto; padding: 32px 28px 48px; }
+    .workbench-header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; margin-bottom: 26px; }
+    h1 { font: 600 32px/40px Comfortaa, sans-serif; letter-spacing: -.8px; margin: 0 0 6px; }
+    .intro { color: var(--muted-fg); margin: 0; max-width: 72ch; font-size: 14px; line-height: 21px; }
+    .bench-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+    .bench-button { min-height: 44px; padding: 0 16px; border: 1px solid var(--border); border-radius: 16px; background: var(--card); font-size: 14px; font-weight: 600; }
+    .bench-button[aria-pressed="true"] { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+    .frames { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 390px)); gap: 28px; justify-content: center; align-items: start; }
+    .frame-title { font-size: 17px; font-weight: 700; margin: 0 0 4px; }
+    .frame-note { color: var(--muted-fg); font-size: 13px; line-height: 19px; margin: 0 0 12px; min-height: 57px; }
+    .frame-toggles { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; min-height: 32px; }
+    .frame-toggles button { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 0; background: var(--muted); font-size: 12px; font-weight: 700; color: var(--muted-fg); }
+    .frame-toggles button[aria-pressed="true"] { background: var(--primary); color: var(--primary-fg); }
+
+    /* Phone */
+    .phone { position: relative; height: 800px; border: 6px solid var(--frame); border-radius: 40px; background: var(--background); overflow: hidden; display: flex; flex-direction: column; }
+    .status { height: 40px; flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 6px 26px 0; font-size: 13px; font-weight: 700; }
+    .scroll { flex: 1; min-height: 0; overflow: auto; padding: 0 20px 24px; scrollbar-width: none; }
+    .scroll::-webkit-scrollbar { display: none; }
+    .footer { flex: 0 0 auto; padding: 12px 20px 22px; background: var(--background); border-top: 1px solid var(--border); display: grid; gap: 10px; }
+
+    /* App pieces */
+    .topbar { display: flex; align-items: center; justify-content: space-between; min-height: 56px; gap: 8px; }
+    .round { width: 44px; height: 44px; border-radius: 999px; border: 0; background: var(--secondary); color: var(--secondary-fg); display: grid; place-items: center; }
+    .round .i { font-size: 20px; }
+    .screen-title { font: 600 24px/32px Comfortaa, sans-serif; letter-spacing: -.6px; margin: 4px 0 14px; }
+    .display { font: 600 32px/40px Comfortaa, sans-serif; letter-spacing: -.8px; margin: 0; text-align: center; }
+    .title { font: 600 24px/32px Comfortaa, sans-serif; letter-spacing: -.6px; margin: 0; }
+    .overline { font-size: 11px; line-height: 14px; font-weight: 700; letter-spacing: 1.3px; text-transform: uppercase; color: var(--muted-fg); margin: 0 0 8px; }
+    .muted { color: var(--muted-fg); }
+    .caption { font-size: 13px; line-height: 18px; font-weight: 500; }
+    .label { font-size: 14px; line-height: 20px; font-weight: 600; }
+    .panel { background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 18px; box-shadow: var(--shadow); }
+    .panel + .panel, .panel + .group, .group + .group { margin-top: 14px; }
+    .rows { padding: 4px 18px; }
+    .row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 10px 0; }
+    .row + .row { border-top: 1px solid var(--border); }
+    button.row { width: 100%; border: 0; background: none; text-align: left; padding-left: 0; padding-right: 0; }
+    .row-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+    .row-title { font-size: 15px; line-height: 21px; font-weight: 700; }
+    .row-sub { font-size: 13px; line-height: 18px; color: var(--muted-fg); }
+    .well { width: 36px; height: 36px; flex: 0 0 auto; border-radius: 12px; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; }
+    .well .i { font-size: 19px; }
+    .chev { color: var(--muted-fg); font-size: 18px; }
+    .kine-disc { width: 132px; height: 132px; border-radius: 999px; background: var(--brand-soft); display: grid; place-items: center; margin: 0 auto; }
+    .kine-disc img { width: 112px; height: 112px; object-fit: contain; }
+    .kine-disc.small { width: 96px; height: 96px; }
+    .kine-disc.small img { width: 80px; height: 80px; }
+
+    .btn { min-height: 50px; border-radius: 16px; border: 0; padding: 0 18px; font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
+    .btn.primary { background: var(--primary); color: var(--primary-fg); }
+    .btn.secondary { background: var(--secondary); color: var(--secondary-fg); }
+    .btn.compact { min-height: 44px; border-radius: 999px; font-size: 15px; width: auto; }
+    .btn.small { min-height: 32px; border-radius: 999px; font-size: 13px; padding: 0 12px; width: auto; }
+    .link { border: 0; background: none; color: var(--brand); font-size: 13px; font-weight: 700; min-height: 44px; padding: 0 6px; }
+    .links { display: flex; justify-content: center; flex-wrap: wrap; gap: 0 4px; margin-top: -6px; }
+
+    /* Plus tag on a locked control */
+    .plus-tag { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px 2px 6px; border-radius: 999px; background: var(--brand-soft); color: var(--brand); font-size: 11px; line-height: 16px; font-weight: 800; letter-spacing: .2px; white-space: nowrap; }
+    .plus-tag .i { font-size: 11px; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; background: var(--brand-soft); color: var(--brand); font-size: 12px; line-height: 16px; font-weight: 700; }
+    .badge.success { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
+
+    /* Paywall */
+    .hero { text-align: center; padding: 4px 4px 18px; display: grid; gap: 10px; }
+    .hero p { margin: 0; color: var(--muted-fg); font-size: 15px; line-height: 22px; }
+    .context { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 16px; background: var(--brand-soft); color: var(--foreground); margin: 0 0 14px; font-size: 14px; line-height: 20px; font-weight: 600; }
+    .context .i { color: var(--brand); font-size: 18px; }
+    .features .row { align-items: flex-start; min-height: 0; padding: 12px 0; }
+    .features .well { margin-top: 1px; }
+    .plans { display: grid; gap: 10px; margin-top: 18px; }
+    .plan { position: relative; display: flex; align-items: center; gap: 14px; min-height: 72px; padding: 12px 18px; border-radius: 18px; border: 1px solid var(--border); background: var(--card); text-align: left; width: 100%; transition: border-color .15s, background-color .15s; }
+    .plan[aria-checked="true"] { border: 2px solid var(--primary); padding: 11px 17px; }
+    .plan .check { width: 24px; height: 24px; border-radius: 999px; border: 2px solid var(--input); flex: 0 0 auto; display: grid; place-items: center; color: var(--primary-fg); }
+    .plan[aria-checked="true"] .check { background: var(--primary); border-color: var(--primary); }
+    .plan[aria-checked="true"] .check::after { content: "\f21d"; font: normal 14px/1 Ionicons; }
+    .plan-text { flex: 1; display: grid; gap: 2px; }
+    .plan-name { font-size: 16px; line-height: 22px; font-weight: 700; }
+    .plan-price { text-align: right; display: grid; gap: 0; }
+    .plan-price strong { font-size: 17px; line-height: 22px; font-weight: 800; }
+    .save { position: absolute; top: -10px; right: 16px; padding: 2px 10px; border-radius: 999px; background: var(--success); color: var(--card); font-size: 11px; line-height: 16px; font-weight: 800; }
+    .terms { font-size: 12px; line-height: 17px; color: var(--muted-fg); text-align: center; margin: 0; }
+
+    /* Context screens */
+    .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+    .set-row { display: grid; grid-template-columns: 36px 1fr 1fr 52px; gap: 8px; align-items: center; min-height: 48px; }
+    .set-num { width: 32px; height: 32px; border-radius: 999px; background: var(--muted); display: grid; place-items: center; font-size: 13px; font-weight: 800; }
+    .field { min-height: 44px; border-radius: 14px; background: var(--muted); border: 1px solid var(--input); display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 16px; font-weight: 700; }
+    .field small { font-size: 12px; color: var(--muted-fg); font-weight: 600; }
+    .pill-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 0; background: var(--secondary); color: var(--secondary-fg); font-size: 14px; font-weight: 700; }
+    .notice { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 16px; background: var(--brand-soft); margin-bottom: 14px; }
+    .notice .i { color: var(--brand); font-size: 18px; margin-top: 2px; }
+    .notice-text { flex: 1; display: grid; gap: 8px; font-size: 14px; line-height: 20px; }
+    .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+    .tile { min-height: 84px; border-radius: 16px; background: var(--muted); border: 0; display: grid; place-items: center; align-content: center; gap: 6px; padding: 10px 6px; font-size: 13px; line-height: 17px; font-weight: 700; text-align: center; position: relative; }
+    .tile .i { font-size: 20px; color: var(--brand); }
+    .tile .plus-tag { position: absolute; top: 6px; right: 6px; padding: 2px 5px; }
+    .nut { display: flex; justify-content: space-between; min-height: 40px; align-items: center; font-size: 15px; }
+    .nut + .nut { border-top: 1px solid var(--border); }
+    .nut.indent { padding-left: 16px; color: var(--muted-fg); }
+    .seg { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--muted); border-radius: 999px; padding: 3px; gap: 3px; margin-bottom: 14px; }
+    .seg button { min-height: 38px; border-radius: 999px; border: 0; background: none; font-size: 14px; font-weight: 700; color: var(--muted-fg); display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+    .seg button[aria-checked="true"] { background: var(--card); color: var(--foreground); box-shadow: var(--shadow); }
+    .seg .i { font-size: 12px; color: var(--brand); }
+    .chart { position: relative; height: 150px; display: flex; align-items: flex-end; gap: 10px; padding: 0 6px; }
+    .bar { flex: 1; border-radius: 8px 8px 4px 4px; background: var(--brand); opacity: .85; }
+    .chart.locked .bar { filter: blur(5px); opacity: .35; }
+    .lock-card { position: absolute; inset: 14px 18px; display: grid; place-items: center; align-content: center; gap: 10px; text-align: center; }
+    .lock-card p { margin: 0; font-size: 14px; line-height: 20px; font-weight: 600; max-width: 26ch; }
+    .divider-cap { text-align: center; margin: 18px 0 0; }
+  </style>
+</head>
+<body>
+  <div class="workbench">
+    <header class="workbench-header">
+      <div>
+        <h1>Plus paywall</h1>
+        <p class="intro">KineVault Plus in the Quiet Vault look: the paywall sheet, locked features where people meet them, Settings plan rows and the states after buying or lapsing. Prices are $4.99 a month and $34.99 a year with a 7-day trial on yearly. The feature list follows the recommended Plus list, not TODO.md as written.</p>
+      </div>
+      <div class="bench-controls">
+        <button class="bench-button" id="theme-toggle" type="button" aria-pressed="false">Dark mode</button>
+        <button class="bench-button" id="platform-toggle" type="button" aria-pressed="false">Android copy</button>
+      </div>
+    </header>
+
+    <main class="frames">
+      <!-- 1. Paywall -->
+      <section aria-labelledby="f1">
+        <h2 class="frame-title" id="f1">1 · Paywall sheet</h2>
+        <p class="frame-note">A SheetPage. Opened from a locked feature it names that feature first; opened from Settings it doesn't. One primary action, pinned. Yearly is preselected.</p>
+        <div class="frame-toggles" role="group" aria-label="Opened from">
+          <button type="button" data-context="plates" aria-pressed="true">From Plates</button>
+          <button type="button" data-context="nutrients" aria-pressed="false">From nutrients</button>
+          <button type="button" data-context="settings" aria-pressed="false">From Settings</button>
+        </div>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+          <div class="scroll">
+            <div class="topbar">
+              <button class="round" type="button" aria-label="Close"><span class="i" aria-hidden="true">&#xf229;</span></button>
+            </div>
+            <div class="hero">
+              <div class="kine-disc small"><img src="../assets/mascot/2d/kine-review.webp" alt=""></div>
+              <p class="overline" style="margin:6px 0 0">KineVault Plus</p>
+              <h3 class="display" style="font-size:28px;line-height:36px">See where your training is going</h3>
+              <p>Free covers every log. Plus adds long-range trends, training tools and every exercise demo.</p>
+            </div>
+            <div class="context" id="paywall-context">
+              <span class="i" aria-hidden="true">&#xf58d;</span><span id="paywall-context-text">The Plate calculator is part of Plus.</span>
+            </div>
+            <div class="panel rows features">
+              <div class="row"><span class="well"><span class="i" aria-hidden="true">&#xf59c;</span></span><span class="row-text"><span class="row-title">Long-range trends</span><span class="row-sub">12 and 52-week workout graphs and cardio distance totals.</span></span></div>
+              <div class="row"><span class="well"><span class="i" aria-hidden="true">&#xf485;</span></span><span class="row-text"><span class="row-title">Detailed nutrients</span><span class="row-sub">Fiber, sugars, fat types, minerals, vitamin D, caffeine and alcohol.</span></span></div>
+              <div class="row"><span class="well"><span class="i" aria-hidden="true">&#xf1cd;</span></span><span class="row-text"><span class="row-title">Plate calculator</span><span class="row-sub">The plates for each side of every set, for any bar.</span></span></div>
+              <div class="row"><span class="well"><span class="i" aria-hidden="true">&#xf1a0;</span></span><span class="row-text"><span class="row-title">Body and photo progress</span><span class="row-sub">Measurement charts, unlimited progress photos and side-by-side comparisons.</span></span></div>
+              <div class="row"><span class="well"><span class="i" aria-hidden="true">&#xf4ce;</span></span><span class="row-text"><span class="row-title">Every exercise demo</span><span class="row-sub">The full KineVault video library in workouts and search.</span></span></div>
+              <div class="row"><span class="well"><span class="i" aria-hidden="true">&#xf377;</span></span><span class="row-text"><span class="row-title" data-health>Save to Apple Health</span><span class="row-sub">Completed workouts, body weight and daily water.</span></span></div>
+              <div class="row"><span class="well"><span class="i" aria-hidden="true">&#xf3b0;</span></span><span class="row-text"><span class="row-title">No limits</span><span class="row-sub">Unlimited custom foods, meals and saved workouts.</span></span></div>
+            </div>
+            <div class="plans" role="radiogroup" aria-label="Plus plan">
+              <button class="plan" type="button" role="radio" aria-checked="true" data-plan="yearly">
+                <span class="save">Save 41%</span>
+                <span class="check" aria-hidden="true"></span>
+                <span class="plan-text"><span class="plan-name">Yearly</span><span class="row-sub">7 days free, then billed yearly</span></span>
+                <span class="plan-price"><strong>$34.99</strong><span class="row-sub">$2.92 a month</span></span>
+              </button>
+              <button class="plan" type="button" role="radio" aria-checked="false" data-plan="monthly">
+                <span class="check" aria-hidden="true"></span>
+                <span class="plan-text"><span class="plan-name">Monthly</span><span class="row-sub">Cancel anytime</span></span>
+                <span class="plan-price"><strong>$4.99</strong><span class="row-sub">a month</span></span>
+              </button>
+            </div>
+            <p class="caption muted divider-cap">Your logs, sync, export and account deletion stay free.</p>
+          </div>
+          <div class="footer">
+            <button class="btn primary" type="button" id="cta">Start 7-day free trial</button>
+            <p class="terms" id="terms">Free for 7 days, then $34.99 a year. Renews automatically until you cancel in <span data-store>App Store</span> settings, at least 24 hours before the renewal date.</p>
+            <div class="links"><button class="link" type="button">Restore purchases</button><button class="link" type="button">Terms</button><button class="link" type="button">Privacy</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Exercise context -->
+      <section aria-labelledby="f2">
+        <h2 class="frame-title" id="f2">2 · Locked in Exercise</h2>
+        <p class="frame-note">Locked controls look normal with a small Plus tag. Tapping one opens the paywall naming it. A limit says what's left before it's hit, never an error after.</p>
+        <div class="frame-toggles" role="group" aria-label="Saved workouts state">
+          <button type="button" data-limit="near" aria-pressed="false">4 of 5 saved</button>
+          <button type="button" data-limit="full" aria-pressed="true">5 of 5 saved</button>
+        </div>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+          <div class="scroll">
+            <div class="topbar">
+              <button class="round" type="button" aria-label="Back to Exercise"><span class="i" aria-hidden="true">&#xf229;</span></button>
+              <span class="label">Saved workouts</span>
+              <span style="width:44px"></span>
+            </div>
+            <div class="notice" id="limit-notice">
+              <span class="i" aria-hidden="true">&#xf58d;</span>
+              <div class="notice-text">
+                <span id="limit-text"><strong>5 of 5 saved workouts.</strong> Free keeps 5. Edit or delete one to make room, or get Plus for unlimited.</span>
+                <span><button class="btn small secondary" type="button">See Plus</button></span>
+              </div>
+            </div>
+            <div class="panel rows">
+              <div class="row"><span class="row-text"><span class="row-title">Push day</span><span class="row-sub">6 exercises · 22 sets</span></span><span class="chev i" aria-hidden="true">&#xf23b;</span></div>
+              <div class="row"><span class="row-text"><span class="row-title">Pull day</span><span class="row-sub">5 exercises · 19 sets</span></span><span class="chev i" aria-hidden="true">&#xf23b;</span></div>
+              <div class="row"><span class="row-text"><span class="row-title">Legs</span><span class="row-sub">5 exercises · 18 sets</span></span><span class="chev i" aria-hidden="true">&#xf23b;</span></div>
+              <div class="row" id="limit-row-4"><span class="row-text"><span class="row-title">Upper</span><span class="row-sub">6 exercises · 20 sets</span></span><span class="chev i" aria-hidden="true">&#xf23b;</span></div>
+              <div class="row" id="limit-row-5"><span class="row-text"><span class="row-title">Lower</span><span class="row-sub">5 exercises · 17 sets</span></span><span class="chev i" aria-hidden="true">&#xf23b;</span></div>
+            </div>
+            <p class="overline" style="margin:22px 0 8px">Live workout · Bench press</p>
+            <div class="panel">
+              <div class="set-row"><span class="set-num">W</span><span class="field">40 <small>kg</small></span><span class="field">10 <small>reps</small></span><span></span></div>
+              <div class="set-row"><span class="set-num">1</span><span class="field">80 <small>kg</small></span><span class="field">8 <small>reps</small></span><span class="field">2 <small>RIR</small></span></div>
+              <div class="set-row"><span class="set-num">2</span><span class="field">80 <small>kg</small></span><span class="field">8 <small>reps</small></span><span class="field">1 <small>RIR</small></span></div>
+              <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+                <button class="pill-btn" type="button" aria-label="Plates, part of Plus"><span class="i" aria-hidden="true">&#xf1cd;</span>Plates <span class="plus-tag"><span class="i" aria-hidden="true">&#xf58d;</span>Plus</span></button>
+              </div>
+            </div>
+            <p class="caption muted" style="margin:12px 4px 0">Warm-up sets, supersets and Cardio distance stay free: they change what a workout records, so locking them would leave free logs wrong.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Food and Profile context -->
+      <section aria-labelledby="f3">
+        <h2 class="frame-title" id="f3">3 · Locked views</h2>
+        <p class="frame-note">A locked view shows what it does with the person's own data, faded, and one way to unlock it. Never sample data, never an error.</p>
+        <div class="frame-toggles" aria-hidden="true"></div>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+          <div class="scroll">
+            <div class="topbar">
+              <button class="round" type="button" aria-label="Back to Food"><span class="i" aria-hidden="true">&#xf229;</span></button>
+              <span class="label">Daily macros</span>
+              <span style="width:44px"></span>
+            </div>
+            <div class="panel">
+              <p class="overline">Nutrients</p>
+              <div class="nut"><span>Calories (kcal)</span><strong>1,840</strong></div>
+              <div class="nut"><span style="color:var(--protein)">Protein (g)</span><strong>132</strong></div>
+              <div class="nut"><span style="color:var(--carbs)">Carbs (g)</span><strong>196</strong></div>
+              <div class="nut"><span style="color:var(--fat)">Fat (g)</span><strong>58</strong></div>
+              <button class="row" type="button" style="border-top:1px solid var(--border);margin-top:2px" aria-label="14 more nutrients, part of Plus">
+                <span class="well"><span class="i" aria-hidden="true">&#xf485;</span></span>
+                <span class="row-text"><span class="row-title">14 more nutrients</span><span class="row-sub">Fiber, sugars, fat types, minerals, vitamin D, caffeine and alcohol</span></span>
+                <span class="plus-tag"><span class="i" aria-hidden="true">&#xf58d;</span>Plus</span>
+              </button>
+            </div>
+            <p class="overline" style="margin:22px 0 8px">Profile · Overview</p>
+            <div class="panel">
+              <div class="card-head"><span class="overline" style="margin:0">Workouts</span><span class="caption muted">kg lifted a week</span></div>
+              <div class="seg" role="radiogroup" aria-label="Graph range">
+                <button type="button" role="radio" aria-checked="false" data-range="4">4 wk</button>
+                <button type="button" role="radio" aria-checked="true" data-range="12">12 wk <span class="i" aria-hidden="true">&#xf58d;</span></button>
+                <button type="button" role="radio" aria-checked="false" data-range="52">52 wk <span class="i" aria-hidden="true">&#xf58d;</span></button>
+              </div>
+              <div class="chart locked" id="chart">
+                <span class="bar" style="height:42%"></span><span class="bar" style="height:58%"></span><span class="bar" style="height:51%"></span><span class="bar" style="height:66%"></span><span class="bar" style="height:62%"></span><span class="bar" style="height:74%"></span><span class="bar" style="height:70%"></span><span class="bar" style="height:81%"></span>
+                <div class="lock-card" id="lock-card">
+                  <p>See 12 weeks of training with Plus</p>
+                  <button class="btn compact primary" type="button">See Plus</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Settings -->
+      <section aria-labelledby="f4">
+        <h2 class="frame-title" id="f4">4 · Settings plan rows</h2>
+        <p class="frame-note">The account card already shows a plan badge. Free adds one quiet Get Plus row; Plus shows renewal and hands management to the store.</p>
+        <div class="frame-toggles" role="group" aria-label="Membership">
+          <button type="button" data-member="free" aria-pressed="true">Free</button>
+          <button type="button" data-member="trial" aria-pressed="false">Trial</button>
+          <button type="button" data-member="plus" aria-pressed="false">Plus</button>
+          <button type="button" data-member="lapsed" aria-pressed="false">Lapsed</button>
+        </div>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+          <div class="scroll">
+            <h3 class="screen-title" style="margin-top:12px">Settings</h3>
+            <p class="overline">Account</p>
+            <div class="panel rows">
+              <div class="row">
+                <span class="well" style="width:48px;height:48px;border-radius:999px;background:var(--brand);color:var(--primary-fg);font-weight:800">KV</span>
+                <span class="row-text"><span class="row-title" style="font-size:16px">you@example.com</span><span style="display:flex;gap:8px;align-items:center"><span class="badge" id="plan-badge">Free</span><span class="caption muted" id="plan-status"></span></span></span>
+              </div>
+              <div class="row"><span class="caption muted">Synced just now</span></div>
+            </div>
+            <div class="group" style="margin-top:14px">
+              <p class="overline">Membership</p>
+              <div class="panel rows" id="member-free">
+                <button class="row" type="button">
+                  <span class="well"><span class="i" aria-hidden="true">&#xf58d;</span></span>
+                  <span class="row-text"><span class="row-title">Get KineVault Plus</span><span class="row-sub">Long-range trends, detailed nutrients and every demo. 7 days free.</span></span>
+                  <span class="chev i" aria-hidden="true">&#xf23b;</span>
+                </button>
+                <button class="row" type="button">
+                  <span class="well"><span class="i" aria-hidden="true">&#xf518;</span></span>
+                  <span class="row-text"><span class="row-title">Restore purchases</span></span>
+                </button>
+              </div>
+              <div class="panel rows" id="member-plus" hidden>
+                <div class="row">
+                  <span class="well"><span class="i" aria-hidden="true">&#xf58d;</span></span>
+                  <span class="row-text"><span class="row-title" id="plus-title">Plus yearly</span><span class="row-sub" id="plus-sub">Renews Dec 13, 2026 for $34.99</span></span>
+                </div>
+                <button class="row" type="button">
+                  <span class="well"><span class="i" aria-hidden="true">&#xf1e8;</span></span>
+                  <span class="row-text"><span class="row-title">Manage subscription</span><span class="row-sub">Opens <span data-store>App Store</span> subscriptions</span></span>
+                  <span class="chev i" aria-hidden="true">&#xf23b;</span>
+                </button>
+              </div>
+              <div id="member-lapsed" hidden>
+                <div class="panel">
+                  <div style="display:flex;gap:12px;align-items:flex-start">
+                    <span class="well"><span class="i" aria-hidden="true">&#xf58d;</span></span>
+                    <div style="display:grid;gap:4px;flex:1">
+                      <span class="row-title">Plus ended on Nov 30</span>
+                      <span class="row-sub">Everything you saved stays here and in your export. Plus views and new Plus entries are locked until you renew.</span>
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+                    <button class="btn compact primary" type="button">Renew Plus</button>
+                    <button class="btn compact secondary" type="button">Restore purchases</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="group" style="margin-top:14px">
+              <p class="overline">Appearance</p>
+              <div class="panel rows">
+                <div class="row"><span class="well"><span class="i" aria-hidden="true">&#xf461;</span></span><span class="row-text"><span class="row-title">Theme</span></span><span class="caption muted">System</span></div>
+                <div class="row"><span class="well"><span class="i" aria-hidden="true">&#xf350;</span></span><span class="row-text"><span class="row-title">Units</span></span><span class="caption muted">Metric</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. After purchase -->
+      <section aria-labelledby="f5">
+        <h2 class="frame-title" id="f5">5 · After buying</h2>
+        <p class="frame-note">The paywall's last step replaces it in place. The one action goes back to what the person was doing, now unlocked.</p>
+        <div class="frame-toggles" aria-hidden="true"></div>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+          <div class="scroll" style="display:grid;align-content:center;gap:14px;text-align:center">
+            <div class="kine-disc"><img src="../assets/mascot/2d/kine-review.webp" alt=""></div>
+            <h3 class="display">Welcome to Plus</h3>
+            <p class="muted" style="margin:0 8px">Your free trial runs until Nov 13. Cancel anytime in <span data-store>App Store</span> settings.</p>
+            <div class="panel rows" style="text-align:left;margin-top:8px">
+              <div class="row"><span class="well"><span class="i" aria-hidden="true">&#xf1cd;</span></span><span class="row-text"><span class="row-title">Plate calculator</span><span class="row-sub">Ready on every weighted set</span></span><span class="badge success">Unlocked</span></div>
+              <div class="row"><span class="well"><span class="i" aria-hidden="true">&#xf59c;</span></span><span class="row-text"><span class="row-title">Long-range trends</span><span class="row-sub">On Profile, from your first workout</span></span><span class="badge success">Unlocked</span></div>
+            </div>
+          </div>
+          <div class="footer">
+            <button class="btn primary" type="button">Back to Plates</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const $ = (s, root = document) => root.querySelector(s);
+    const $$ = (s, root = document) => [...root.querySelectorAll(s)];
+    const press = (group, chosen) => $$("button", group).forEach((b) => b.setAttribute("aria-pressed", String(b === chosen)));
+
+    $("#theme-toggle").addEventListener("click", (e) => {
+      const dark = document.documentElement.dataset.theme !== "dark";
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+      e.currentTarget.setAttribute("aria-pressed", String(dark));
+    });
+
+    $("#platform-toggle").addEventListener("click", (e) => {
+      const android = e.currentTarget.getAttribute("aria-pressed") !== "true";
+      e.currentTarget.setAttribute("aria-pressed", String(android));
+      $$("[data-store]").forEach((n) => (n.textContent = android ? "Google Play" : "App Store"));
+      $$("[data-health]").forEach((n) => (n.textContent = android ? "Save to Health Connect" : "Save to Apple Health"));
+    });
+
+    const contexts = {
+      plates: "The Plate calculator is part of Plus.",
+      nutrients: "Detailed nutrients are part of Plus.",
+      settings: null,
+    };
+    $$("[data-context]").forEach((b) => b.addEventListener("click", () => {
+      press(b.parentElement, b);
+      const text = contexts[b.dataset.context];
+      $("#paywall-context").hidden = !text;
+      if (text) $("#paywall-context-text").textContent = text;
+    }));
+
+    $$(".plan").forEach((p) => p.addEventListener("click", () => {
+      $$(".plan").forEach((x) => x.setAttribute("aria-checked", String(x === p)));
+      const yearly = p.dataset.plan === "yearly";
+      const store = $("#platform-toggle").getAttribute("aria-pressed") === "true" ? "Google Play" : "App Store";
+      $("#cta").textContent = yearly ? "Start 7-day free trial" : "Subscribe for $4.99 a month";
+      $("#terms").innerHTML = (yearly ? "Free for 7 days, then $34.99 a year." : "$4.99 a month.") +
+        ` Renews automatically until you cancel in <span data-store>${store}</span> settings, at least 24 hours before the renewal date.`;
+    }));
+
+    $$("[data-limit]").forEach((b) => b.addEventListener("click", () => {
+      press(b.parentElement, b);
+      const full = b.dataset.limit === "full";
+      $("#limit-row-5").hidden = !full;
+      $("#limit-text").innerHTML = full
+        ? "<strong>5 of 5 saved workouts.</strong> Free keeps 5. Edit or delete one to make room, or get Plus for unlimited."
+        : "<strong>4 of 5 saved workouts.</strong> Free keeps 5. Plus has no limit.";
+    }));
+
+    $$("[data-range]").forEach((b) => b.addEventListener("click", () => {
+      $$("[data-range]").forEach((x) => x.setAttribute("aria-checked", String(x === b)));
+      const locked = b.dataset.range !== "4";
+      $("#chart").classList.toggle("locked", locked);
+      $("#lock-card").hidden = !locked;
+      if (locked) $("#lock-card p").textContent = `See ${b.dataset.range} weeks of training with Plus`;
+    }));
+
+    $$("[data-member]").forEach((b) => b.addEventListener("click", () => {
+      press(b.parentElement, b);
+      const m = b.dataset.member;
+      $("#member-free").hidden = m !== "free";
+      $("#member-plus").hidden = m !== "plus" && m !== "trial";
+      $("#member-lapsed").hidden = m !== "lapsed";
+      $("#plan-badge").textContent = m === "free" || m === "lapsed" ? "Free" : "Plus";
+      $("#plan-status").textContent = m === "trial" ? "Trial" : m === "lapsed" ? "Plus ended" : "";
+      $("#plus-title").textContent = m === "trial" ? "Plus yearly, free trial" : "Plus yearly";
+      $("#plus-sub").textContent = m === "trial" ? "Trial ends Nov 13, then $34.99 a year" : "Renews Dec 13, 2026 for $34.99";
+    }));
+  </script>
+</body>
+</html>
