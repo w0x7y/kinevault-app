@@ -1,5 +1,5 @@
 import { useState, type Ref } from "react";
-import { TextInput, View } from "react-native";
+import { TextInput, View, type TextInputInstance } from "react-native";
 import { Tappable } from "../components/tappable";
 import { inputSurface } from "../components/text-field";
 import { AppText } from "../components/ui";
@@ -8,7 +8,7 @@ import { useTheme } from "../theme/provider";
 import { cardShadow, fonts, radius, spacing } from "../theme/tokens";
 
 type SearchActionsProps = {
-  inputRef?: Ref<TextInput>;
+  inputRef?: Ref<TextInputInstance>;
   query: string;
   onQueryChange: (query: string) => void;
 } & (

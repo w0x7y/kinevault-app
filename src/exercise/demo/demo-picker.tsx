@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Platform, View } from "react-native";
+import { Platform, View, type ViewInstance } from "react-native";
 import { AppButton, ButtonRow } from "../../components/button";
 import { AppText } from "../../components/ui";
 import { useConnectivity } from "../../connectivity/provider";
@@ -87,7 +87,7 @@ export function KineVaultDemoSection({
   const catalog = useDemoCatalog();
   const offline = useConnectivity() === "offline";
   const { refreshIfStale } = catalog;
-  const changeButton = useRef<View>(null);
+  const changeButton = useRef<ViewInstance>(null);
   useEffect(() => {
     void refreshIfStale();
   }, [refreshIfStale]);

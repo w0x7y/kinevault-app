@@ -16,6 +16,7 @@ import {
   View,
   type StyleProp,
   type ViewStyle,
+  type ViewInstance,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { addDays, calendarWeeks, parseDay } from "../calendar/dates";
@@ -72,7 +73,7 @@ function HeaderButton({
   style?: StyleProp<ViewStyle>;
   /** A button drawn shorter than its 44 pt hit area. */
   surfaceHeight?: number;
-  ref?: Ref<View>;
+  ref?: Ref<ViewInstance>;
 }>) {
   const { colors } = useTheme();
   const look = ({ pressed }: TappableState) => [
@@ -257,10 +258,10 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
   const [headerHeight, setHeaderHeight] = useState(0);
   const [timerWidth, setTimerWidth] = useState(0);
   const closePopover = useCallback(() => setPopover(null), []);
-  const calendarChip = useRef<View>(null),
-    calendarCard = useRef<View>(null),
-    profileButton = useRef<View>(null),
-    profileMenu = useRef<View>(null);
+  const calendarChip = useRef<ViewInstance>(null),
+    calendarCard = useRef<ViewInstance>(null),
+    profileButton = useRef<ViewInstance>(null),
+    profileMenu = useRef<ViewInstance>(null);
   // The calendar stays open while the day below it is used; the menu closes on any outside press.
   usePopover({
     open: expanded,

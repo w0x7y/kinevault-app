@@ -1,7 +1,7 @@
 import { AppButton } from "../../components/button";
 import { StepFade, useLayoutMotion } from "../../components/motion";
 import { useRef } from "react";
-import { View, type ScrollView } from "react-native";
+import { View, type ScrollViewInstance } from "react-native";
 import Animated from "react-native-reanimated";
 import { SheetPage } from "../../components/sheet-page";
 import { AppText, Panel, Screen, ScreenTitle } from "../../components/ui";
@@ -22,7 +22,7 @@ export default function ExerciseScreen() {
   const activity = useDayActivity();
   const { tab, view } = useExerciseTabView(activity.date);
   const open = tab.requestView;
-  const scrollRef = useRef<ScrollView>(null),
+  const scrollRef = useRef<ScrollViewInstance>(null),
     resultsTop = useRef(0);
   const ready = { ready: view.loaded };
   useRouteRequest("workoutMenu", ready, (date) => {

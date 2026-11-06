@@ -10,7 +10,7 @@ import {
   type NativeSyntheticEvent,
   type StyleProp,
   type TargetedEvent,
-  type View as ViewType,
+  type ViewInstance,
   type ViewStyle,
 } from "react-native";
 import Animated from "react-native-reanimated";
@@ -130,7 +130,7 @@ export function Tappable({
   surfaceHeight?: number;
   testID?: string;
   nativeID?: string;
-  ref?: Ref<ViewType>;
+  ref?: Ref<ViewInstance>;
   /** The control's frame (the hit area when `surface` is set), e.g. to place an indicator. */
   onLayout?: (event: LayoutChangeEvent) => void;
   /** Screen reader actions besides the press, e.g. moving a tile; `onAction` gets the name. */
@@ -200,22 +200,25 @@ export function Tappable({
       accessibilityActions={actions}
       onAccessibilityAction={onAction && ((event) => onAction(event.nativeEvent.actionName))}
       // Flat: Link's asChild slot rejects style arrays.
-      style={StyleSheet.flatten([
-        // The ring above replaces the browser's own focus outline.
-        {
-          minWidth: minimumTarget,
-          minHeight: minimumTarget,
-          outlineWidth: 0,
-          outlineStyle: "solid",
-        },
-        short && {
-          marginVertical: -(minimumTarget - surfaceHeight) / 2,
-          justifyContent: "center",
-        },
-        surface === undefined ? look : resolve(style),
-        scales && { transform: [{ scale: state.pressed ? pressedScale : 1 }] },
-        transition,
-      ])}
+      style={{
+        ...StyleSheet.flatten([
+          // The ring above replaces the browser's own focus outline.
+          {
+            minWidth: minimumTarget,
+            minHeight: minimumTarget,
+            outlineWidth: 0,
+            outlineStyle: "solid",
+          },
+          short && {
+            marginVertical: -(minimumTarget - surfaceHeight) / 2,
+            justifyContent: "center",
+          },
+          surface === undefined ? look : resolve(style),
+          scales && { transform: [{ scale: state.pressed ? pressedScale : 1 }] },
+        ]),
+        // Spread after flatten: its style type takes a single transition duration, Reanimated a list.
+        ...transition,
+      }}
     >
       {surface === undefined ? (
         content

@@ -1,5 +1,5 @@
 import * as Sharing from "expo-sharing";
-import { PixelRatio, Platform, type View } from "react-native";
+import { PixelRatio, Platform, type ViewInstance } from "react-native";
 import { captureRef } from "react-native-view-shot";
 
 /** The shared image's size in pixels. */
@@ -10,7 +10,7 @@ const size = { width: 1080, height: 1350 };
  * where view-shot needs an extra library, so the Share action hides there.
  */
 export const shareImage:
-  ((view: View | null, dialogTitle: string) => Promise<void>) | null = async (
+  ((view: ViewInstance | null, dialogTitle: string) => Promise<void>) | null = async (
   view,
   dialogTitle,
 ) => {

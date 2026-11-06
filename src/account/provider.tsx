@@ -51,7 +51,7 @@ export function AccountProvider({ children }: PropsWithChildren) {
     start();
     if (!client || Platform.OS === "web") return stop;
     let active = true;
-    const refresh = (state: string) => {
+    const refresh = (state: typeof AppState.currentState) => {
       if (!active) return;
       if (state === "active" && connectivity.getSnapshot() !== "offline")
         client.auth.startAutoRefresh();

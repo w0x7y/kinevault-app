@@ -1,5 +1,5 @@
 import { useEffect, useRef, type Ref, type RefObject } from "react";
-import { Platform, ScrollView, StyleSheet, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, View, type ViewInstance } from "react-native";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { Icon, type IconName } from "./icon";
@@ -78,11 +78,11 @@ export function ProfileMenu({
   maxHeight: number;
   currentProfile?: boolean;
   /** The button that opened the menu. */
-  trigger: RefObject<View | null>;
-  ref?: Ref<View>;
+  trigger: RefObject<ViewInstance | null>;
+  ref?: Ref<ViewInstance>;
 }) {
   const { colors } = useTheme();
-  const list = useRef<View>(null);
+  const list = useRef<ViewInstance>(null);
   useEffect(() => {
     if (Platform.OS !== "web") return;
     const opener = trigger.current as unknown as HTMLElement | null;
