@@ -1,15 +1,8 @@
-import { router } from "expo-router";
-import { View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { AppButton } from "../components/button";
-import { AppText, Panel, Screen } from "../components/ui";
-import { ViewHeader } from "../components/view-header";
-import { useTheme } from "../theme/provider";
-import { spacing } from "../theme/tokens";
+import { PolicyPage, type PolicySection } from "../components/policy-page";
+import { AppText } from "../components/ui";
 
 // Bracketed text is for the operator to fill in before the policy is published (docs/privacy.md).
-// A string is a paragraph; an array of strings is a bulleted list.
-const sections: { title: string; body: (string | string[])[] }[] = [
+const sections: PolicySection[] = [
   {
     title: "On your device",
     body: [
@@ -79,6 +72,7 @@ const sections: { title: string; body: (string | string[])[] }[] = [
     body: [
       "Settings → Data & account → Export account data saves your tracking, any changes that haven't synced and this device's photos as a JSON file.",
       "Settings → Data & account → Delete account permanently deletes your KineVault account with its synced tracking and membership, and removes the account's records and photos from this device. It can't be undone. Records and photos on your other devices have to be removed on those devices, for example by clearing the app's storage or uninstalling it.",
+      { label: "How to delete your account", href: "/delete-account" },
     ],
   },
   {
@@ -108,20 +102,12 @@ const sections: { title: string; body: (string | string[])[] }[] = [
 
 /** The public privacy policy. It renders signed out, before setup and past data errors. */
 export default function PrivacyPolicyScreen() {
-  const { colors } = useTheme();
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={{ flex: 1, backgroundColor: colors.background }}>
-      <Screen title="Privacy policy" contentContainerStyle={{ maxWidth: 680 }}>
-        <View style={{ minHeight: 44, alignItems: "flex-start" }}>
-          <AppButton
-            label="Back"
-            size="compact"
-            icon="chevron-left"
-            // Opened from a link, a Health Connect screen or a typed URL, there's nothing to go back to.
-            onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
-          />
-        </View>
-        <ViewHeader overline="KineVault Track" title="Privacy policy">
+    <PolicyPage
+      title="Privacy policy"
+      sections={sections}
+      intro={
+        <>
           <AppText variant="caption" muted>
             Effective [Effective date]
           </AppText>
@@ -130,33 +116,8 @@ export default function PrivacyPolicyScreen() {
             Android and the web. This policy explains what the app keeps on your device, what it
             sends to your account and to other services, and how to export or delete your data.
           </AppText>
-        </ViewHeader>
-        {sections.map((section) => (
-          <Panel key={section.title}>
-            <AppText variant="heading" accessibilityRole="header">
-              {section.title}
-            </AppText>
-            {section.body.map((block) =>
-              typeof block === "string" ? (
-                <AppText key={block}>{block}</AppText>
-              ) : (
-                <View key={block.join()} role="list" style={{ gap: spacing.xs }}>
-                  {block.map((item) => (
-                    <View
-                      key={item}
-                      role="listitem"
-                      style={{ flexDirection: "row", gap: spacing.sm }}
-                    >
-                      <AppText aria-hidden>•</AppText>
-                      <AppText style={{ flex: 1 }}>{item}</AppText>
-                    </View>
-                  ))}
-                </View>
-              ),
-            )}
-          </Panel>
-        ))}
-      </Screen>
-    </SafeAreaView>
+        </>
+      }
+    />
   );
 }

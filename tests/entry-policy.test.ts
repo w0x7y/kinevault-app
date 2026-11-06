@@ -168,14 +168,16 @@ test("readable rows of the entry policy", () => {
     ["onboarding", { setupStage: "account", signedIn: false }, { kind: "render" }],
     ["other", { profile: profiles.draft, signedIn: false }, { kind: "render" }],
   ];
-  // The privacy policy renders signed out, before setup, and past storage or Profile failures.
-  for (const change of [
-    { signedIn: false, profile: profiles.draft },
-    { signedIn: false, storage: "loading" as const, profile: profiles.loading },
-    { storage: "error" as const, profile: profiles.error },
-    { recovery: true },
-  ])
-    rows.push([entryRoute(["privacy"]), change, { kind: "render" }]);
+  // The privacy policy and account deletion pages render signed out, before setup, and past
+  // storage or Profile failures.
+  for (const page of ["privacy", "delete-account"])
+    for (const change of [
+      { signedIn: false, profile: profiles.draft },
+      { signedIn: false, storage: "loading" as const, profile: profiles.loading },
+      { storage: "error" as const, profile: profiles.error },
+      { recovery: true },
+    ])
+      rows.push([entryRoute([page]), change, { kind: "render" }]);
   for (const [route, change, decision] of rows)
     assert.deepEqual(
       entryDecision(route, { ...ready, ...change }),
@@ -209,6 +211,7 @@ test("routes are classified from their segments", () => {
   assert.equal(entryRoute(["+not-found"]), "other");
   // The privacy policy opens like an email link: before setup, signed out or with damaged data.
   assert.equal(entryRoute(["privacy"]), "auth");
+  assert.equal(entryRoute(["delete-account"]), "auth");
   assert.equal(entryRoute([]), "other");
 });
 

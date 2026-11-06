@@ -4,6 +4,8 @@ Track keeps a local copy of each account's tracking so logging works offline.
 
 The public policy is the `/privacy` route ([`src/app/privacy.tsx`](../src/app/privacy.tsx)), built from this page. It renders signed out, before setup, and past storage or Profile errors, because `entryRoute` treats it like the email-link routes. Settings → Data & account and the sign-in screen link to it. The web export serves it at `/privacy`. Change the page and this file together.
 
+`/delete-account` ([`src/app/delete-account.tsx`](../src/app/delete-account.tsx)) explains account deletion for people without the app, as Google Play requires. It renders in the same states, and its button opens sign-in or, signed in, Settings. The policy's Export and deletion section links to it. Both pages use `PolicyPage`. [Web deploy](web-deploy.md) puts them online.
+
 | Data                                                                                                                                                          | On the device                                                 | Uploaded                                                    |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------- |
 | Tracking: profile, body measurements, goals, food, water, hand-logged steps (`kinevault-track.steps-log.v1`), workouts, imported workouts                     | AsyncStorage on native, browser storage on web. Not encrypted | When signed in, to the account's private Supabase documents |
@@ -75,13 +77,13 @@ Crash reports follow [the reporting setup](resilience.md). They carry no identit
 
 ## Before publishing
 
-Fill these placeholders on `/privacy`:
+Fill these placeholders on `/privacy` and `/delete-account`:
 
-| Placeholder          | Where                                                                                                             |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `[Operator name]`    | The opening paragraph: who runs Track                                                                             |
-| `[Effective date]`   | Under the title                                                                                                   |
-| `[Contact email]`    | Contact                                                                                                           |
-| `[Retention period]` | Twice: Crash reports (Sentry's retention setting) and How long data is kept (the account and its synced tracking) |
+| Placeholder          | Where                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `[Operator name]`    | The opening paragraph: who runs Track                                                                                     |
+| `[Effective date]`   | Under the title                                                                                                           |
+| `[Contact email]`    | Contact, and If you can't sign in on `/delete-account`                                                                    |
+| `[Retention period]` | Crash reports (Sentry's retention setting) on both pages, and How long data is kept (the account and its synced tracking) |
 
 Health Connect's privacy policy link opens the app's start screen, not `/privacy`. The rationale intents (`androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE` through Android 13, `android.intent.action.VIEW_PERMISSION_USAGE` from Android 14) reach `MainActivity` with no URI, so Expo Router only sees the root URL and a JavaScript redirect can't tell them apart from a normal launch. Routing them needs a config plugin that sets `intent.data` to `kinevaulttrack://privacy` for those two actions in `MainActivity.onCreate` (before `super.onCreate`) and in an `onNewIntent` override, then a new Android build checked on a phone. Release work is in [TODO.md](../TODO.md).
