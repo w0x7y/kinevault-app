@@ -25,7 +25,7 @@ Sign-in:
 Entry and deletion:
 
 - `entryDecision` composes the layers `sessionGate`, `storageGate`, `navigatorGate` and `routeDecision`, and `EntryGate` renders the result. Its unit test covers every route and reading combination.
-- Sign-in and email-link routes render whatever state the Profile is in. Tracking needs a signed-in Account and a completed Profile.
+- Sign-in, email-link and privacy policy routes render whatever state the Profile is in. Tracking needs a signed-in Account and a completed Profile.
 - After sign-in, the sign-in screen waits for the account's first download, so it never acts on an empty Profile before this device's setup answers are imported.
 - A damaged Profile shows Profile recovery, which can log out without deleting saved data.
 - An Onboarding save that finishes after the route loses focus can't advance or navigate the flow.

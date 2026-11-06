@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { router, type Href } from "expo-router";
+import { router } from "expo-router";
 import { useState, type ReactNode } from "react";
 import { Linking, Platform, StyleSheet, View } from "react-native";
 import type { Membership } from "../account/membership";
@@ -89,8 +89,7 @@ function PaywallSheet({ source, onClose }: { source: PaywallSource; onClose: () 
           onRestore={() => void run(plusPurchases.restore)}
           onPrivacy={() => {
             onClose();
-            // shortcut: `/privacy` arrives with the privacy page branch; drop the cast once it merges.
-            router.push("/privacy" as Href);
+            router.push("/privacy");
           }}
         />
       )}
