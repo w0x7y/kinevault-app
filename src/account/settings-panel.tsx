@@ -12,7 +12,13 @@ import { TextField } from "../components/text-field";
 import { ProfileAvatar } from "../profile/profile-identity";
 import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
-import { RowContent, SettingsButtonRow, SettingsCard, SettingsGroup } from "./settings-list";
+import {
+  RowContent,
+  SettingsButtonRow,
+  SettingsCard,
+  SettingsGroup,
+  SettingsLinkRow,
+} from "./settings-list";
 import { useAccount } from "./provider";
 import { useAccountStorage } from "./storage-context";
 import { readMembership, type Membership } from "./membership";
@@ -342,6 +348,12 @@ export function AccountSettings({
           </RowContent>
         )}
         {importRow}
+        <SettingsLinkRow
+          href="/privacy"
+          icon="user-shield"
+          title="Privacy policy"
+          description="What Track keeps, syncs and shares"
+        />
         <SettingsButtonRow
           icon="right-from-bracket"
           title={account.busy ? "Signing out…" : "Log out"}

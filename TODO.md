@@ -18,8 +18,8 @@ This file is the single source of truth for project status. PRODUCT.md, README.m
 - [x] Apply migration `20261029120000` to the hosted project (2026-10-29, verified).
 - [ ] Update every device on an account to a build from 2026-10-29 or later before logging steps there. Older builds fail every cloud download once the account holds a steps row (docs/supabase-setup.md).
 - [x] Include Logged steps in the account JSON export.
-- [ ] Before any Google Play release, declare Health Connect step access in the Play Console and add a privacy policy page for its permission screen. The link currently just opens the app.
-- [ ] Also declare the Health Connect write access for exercise, weight and hydration in the Play Console, with the same privacy policy page.
+- [ ] Before any Google Play release, declare Health Connect step access in the Play Console with the privacy policy page. The page exists at `/privacy`, with placeholders to fill and a deploy still to do (docs/privacy.md). Health Connect's privacy policy link still opens the app's start screen, not `/privacy`; routing it there needs a native MainActivity change (docs/privacy.md).
+- [ ] Also declare the Health Connect write access for exercise, weight and hydration in the Play Console, with the same privacy policy page (`/privacy`, placeholders still to fill).
 
 ## Exercise
 
@@ -67,7 +67,7 @@ This file is the single source of truth for project status. PRODUCT.md, README.m
 - [x] Build installable apps: a signed release `.apk` (`Android release build` workflow, docs/android-apk.md) and an unsigned `.ipa` signed with xtool (`iOS unsigned build` workflow, docs/ios-linux-xtool.md). Both use `com.kinevault.track`.
 - [ ] Set up store builds when ready to release: a Play Console app bundle with increasing version codes, and App Store builds, which need a paid Apple Developer Program team.
 - [ ] Turn on production email and web hosting: Resend SMTP, a verified sender domain and the Vercel production origin. Gmail SMTP sends account emails until then (docs/supabase-setup.md).
-- [ ] Publish the Google sign-in consent screen without buying a domain: deploy the web app to a free `*.vercel.app` address with a `/privacy` page, add its home page and privacy policy links on the Google Auth Platform Branding page, add the address as an authorized domain, then click Publish app. Until then only listed test users can use Google sign-in (100 over the project's lifetime).
+- [ ] Publish the Google sign-in consent screen without buying a domain: deploy the web app to a free `*.vercel.app` address with the `/privacy` page (it exists; fill its placeholders first, docs/privacy.md), add its home page and privacy policy links on the Google Auth Platform Branding page, add the address as an authorized domain, then click Publish app. Until then only listed test users can use Google sign-in (100 over the project's lifetime).
 - [x] Make new Android and iOS builds (`expo-web-browser` is a new native module) and check Continue with Google, Resend email and the email callback on an iPhone and an Android phone (2026-11-04).
 - [ ] Add Sign in with Apple before an App Store release. Apps that offer Google sign-in must offer it too, and it needs a paid Apple Developer Program team.
 - [x] Clear the retained email-link result after Google sign-in on iOS without breaking the Android callback route. Unit-tested only; check Continue with Google on an iPhone and an Android phone with the new builds.

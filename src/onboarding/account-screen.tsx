@@ -9,6 +9,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppText, DocumentTitle, Panel } from "../components/ui";
 import { Icon } from "../components/icon";
@@ -376,6 +377,14 @@ export function AccountScreen({
                       Your goals and workout history are saved to your KineVault account.
                     </AppText>
                   )}
+                  <View style={{ alignItems: "center" }}>
+                    <AppButton
+                      label="Privacy policy"
+                      tone="link"
+                      disabled={busy}
+                      onPress={() => router.push("/privacy")}
+                    />
+                  </View>
                 </View>
               </View>
             )}
