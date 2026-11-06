@@ -8,27 +8,6 @@ import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import type { DayActivity } from "./activity";
 import { WorkoutShare } from "./workout-share";
-import { Tappable } from "../components/tappable";
-import { PlusTag } from "../plus/locks";
-import { usePaywall } from "../plus/paywall";
-
-/** A day's distance total without Plus: the Plus tag in its place, which opens the paywall. */
-function PlusStat() {
-  const paywall = usePaywall();
-  return (
-    <>
-      <Tappable
-        label="Distance total, part of Plus"
-        onPress={() => paywall.open("distance")}
-        feedback="fill"
-        style={{ alignSelf: "flex-start", justifyContent: "center", borderRadius: radius.pill }}
-      >
-        <PlusTag />
-      </Tappable>
-      {paywall.sheet}
-    </>
-  );
-}
 
 /** "WORKOUT" with a small status chip on the right. */
 function WidgetTop({ status }: { status?: "Live" | "Done" }) {
@@ -173,7 +152,7 @@ export function WorkoutWidget({
           borderColor: colors.border,
         }}
       >
-        {tile.stats.map(({ label, value, plus }, index) => (
+        {tile.stats.map(({ label, value }, index) => (
           <View
             key={label}
             style={{
@@ -188,22 +167,18 @@ export function WorkoutWidget({
             <AppText variant="caption" muted>
               {label}
             </AppText>
-            {plus ? (
-              <PlusStat />
-            ) : (
-              <AppText
-                selectable
-                variant="label"
-                style={{
-                  fontFamily: fonts.extrabold,
-                  fontSize: 17,
-                  lineHeight: 23,
-                  fontVariant: ["tabular-nums"],
-                }}
-              >
-                {value}
-              </AppText>
-            )}
+            <AppText
+              selectable
+              variant="label"
+              style={{
+                fontFamily: fonts.extrabold,
+                fontSize: 17,
+                lineHeight: 23,
+                fontVariant: ["tabular-nums"],
+              }}
+            >
+              {value}
+            </AppText>
           </View>
         ))}
       </View>

@@ -60,7 +60,6 @@ export function interpretDayActivity({
   phoneSteps,
   loggedSteps,
   units = "metric",
-  distanceTotals = true,
 }: {
   date: string;
   today: string;
@@ -73,8 +72,6 @@ export function interpretDayActivity({
   loggedSteps: Source<StepsLogSnapshot["state"]>;
   /** How figures read; the day's numbers stay metric. */
   units?: UnitSystem;
-  /** Cardio distance summed per exercise and per day, a Plus feature. Each set's own stays. */
-  distanceTotals?: boolean;
 }) {
   let foodActivity: FoodActivity;
   if (food.state.kind === "ready") {
@@ -153,7 +150,6 @@ export function interpretDayActivity({
       date === today,
       date,
       units,
-      distanceTotals,
     ),
     water: {
       total,
@@ -451,7 +447,6 @@ function workoutTile(
   today: boolean,
   date: string,
   units: UnitSystem,
-  distanceTotals: boolean,
 ): { retry: () => void; summary: string | null } & (
   | { kind: "loading" }
   | { kind: "error" }
@@ -469,8 +464,7 @@ function workoutTile(
       detail: string;
       /** The detailed card's exercise rows. */
       exercises: WorkoutExerciseRow[];
-      /** `plus`: the figure is a Plus feature; the card shows the Plus tag in its place. */
-      stats: { label: string; value: string; plus?: true }[];
+      stats: { label: string; value: string }[];
       share: WorkoutShare;
     }
 ) {
@@ -479,10 +473,7 @@ function workoutTile(
   const lifted = measureFigure("weight", completed.volume, units, 0);
   const exerciseCount =
     completed.exercises.length === 1 ? "1 exercise" : `${completed.exercises.length} exercises`;
-  const distance =
-    distanceTotals && completed.meters > 0
-      ? measureText("distance", completed.meters, units)
-      : null;
+  const distance = completed.meters > 0 ? measureText("distance", completed.meters, units) : null;
   // The day's training in one line: volume and distance when logged, then duration.
   let summary = "No workouts yet";
   if (completed.sets > 0) {
@@ -524,7 +515,7 @@ function workoutTile(
       // A timed or cardio exercise counts its sets and distance; its time is its amount.
       counts: [
         exercise.sets === 1 ? "1 set" : `${exercise.sets} sets`,
-        ...(distanceTotals && exercise.load.kind === "cardio" && exercise.load.meters > 0
+        ...(exercise.load.kind === "cardio" && exercise.load.meters > 0
           ? [measureText("distance", exercise.load.meters, units)]
           : []),
         ...(exercise.load.kind === "time" || exercise.load.kind === "cardio"
@@ -537,13 +528,11 @@ function workoutTile(
       { label: "Duration", value: completed.durationKnown ? minutes : "Not recorded" },
       { label: "Sets", value: String(completed.sets) },
       // Three columns fit a 320 pt card, so a day without reps shows its distance instead.
-      completed.reps === 0 && completed.meters > 0
-        ? distance
-          ? { label: "Distance", value: distance }
-          : { label: "Distance", value: "Plus", plus: true }
+      completed.reps === 0 && distance
+        ? { label: "Distance", value: distance }
         : { label: "Reps", value: String(completed.reps) },
     ],
-    share: workoutShare(completed.name, completed, date, units, distanceTotals),
+    share: workoutShare(completed.name, completed, date, units),
   };
 }
 
@@ -569,18 +558,14 @@ function shareList(lines: ShareLine[], max: number, noun: string): ShareList {
 }
 
 /** An exercise's top set, or a Timed or Cardio exercise's total time and distance. */
-function topSet(
-  { top, load }: CompletedWorkout["exercises"][number],
-  units: UnitSystem,
-  distanceTotals: boolean,
-): string {
+function topSet({ top, load }: CompletedWorkout["exercises"][number], units: UnitSystem): string {
   if (top)
     return top.weightKg > 0
       ? `${measureText("weight", top.weightKg, units)} × ${top.reps}`
       : `${top.reps} ${top.reps === 1 ? "rep" : "reps"}`;
   if (load.kind !== "time" && load.kind !== "cardio") return "";
   const time = formatElapsed(load.seconds);
-  return distanceTotals && load.kind === "cardio" && load.meters > 0
+  return load.kind === "cardio" && load.meters > 0
     ? `${measureText("distance", load.meters, units)} · ${time}`
     : time;
 }
@@ -594,7 +579,6 @@ function workoutShare(
   completed: CompletedWorkout,
   date: string,
   units: UnitSystem,
-  distanceTotals: boolean,
 ): WorkoutShare {
   const recordLines = completed.exercises.flatMap(({ name, record }) => {
     const line = recordLine(record, units);
@@ -604,7 +588,7 @@ function workoutShare(
   const exercises = shareList(
     completed.exercises.map((exercise) => ({
       name: exercise.name,
-      figure: topSet(exercise, units, distanceTotals),
+      figure: topSet(exercise, units),
     })),
     recordLines.length ? 5 : 8,
     "exercise",
@@ -625,12 +609,9 @@ function workoutShare(
         ? [{ label: "Duration", value: `${Math.round(completed.durationSeconds / 60)} min` }]
         : []),
       { label: "Sets", value: String(completed.sets) },
-      // Without distance totals a distance-only day leaves its third figure out.
-      ...(completed.volume === 0 && completed.meters > 0
-        ? distanceTotals
-          ? [{ label: "Distance", value: measureText("distance", completed.meters, units) }]
-          : []
-        : [{ label: "Volume", value: measureText("weight", completed.volume, units, 0) }]),
+      completed.volume === 0 && completed.meters > 0
+        ? { label: "Distance", value: measureText("distance", completed.meters, units) }
+        : { label: "Volume", value: measureText("weight", completed.volume, units, 0) },
     ],
     exercises,
     records,

@@ -169,7 +169,6 @@ export function demoLocked(catalogId: string, unlocked: boolean): boolean {
 /** Where a person meets Plus; the paywall names the feature it opened from. */
 export type PlusFeature =
   | "trends"
-  | "distance"
   | "nutrients"
   | "plates"
   | "measurements"

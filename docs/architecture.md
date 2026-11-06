@@ -221,7 +221,6 @@ KineVault Plus is built but dormant: `plusGatesEnabled` in `src/plus/gate.ts` is
 - A locked control looks as usual with the Plus tag and opens the paywall naming its feature. A locked view shows the person's own data faded under one See Plus. Neither is an error or disabled.
 - Limits block only creating one more item. Items past a limit after Plus ends stay usable.
 - `usePaywall` returns the sheet for the caller to render, so on a phone it stacks over whichever sheet the caller is on (`SheetPage`'s `stacked`).
-- Daily activity takes `distanceTotals`; without Plus, summed cardio distance leaves the titles, rows and share image, and the Workout card's Distance figure shows the Plus tag. Each set's distance stays.
 - Without Plus the health writer gets no sources, so it writes nothing new and removes nothing.
 - Plus adds no synced document field or value.
 

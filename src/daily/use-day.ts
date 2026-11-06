@@ -9,7 +9,6 @@ import { useExercises } from "../exercise/provider";
 import { useStepsLog } from "../steps/provider";
 import { useDeviceSteps } from "../steps/use-device-steps";
 import { useUnits } from "../units/provider";
-import { usePlus } from "../plus/provider";
 
 /**
  * Daily activity from every saved source, each with its own retry. Defaults to the Selected
@@ -30,7 +29,6 @@ export function useDayActivity({
   const steps = useStepsLog();
   const phone = useDeviceSteps(phoneSteps ? day : null);
   const { units } = useUnits();
-  const { unlocked } = usePlus();
   return useMemo(
     () =>
       interpretDayActivity({
@@ -44,7 +42,6 @@ export function useDayActivity({
         phoneSteps: phone,
         loggedSteps: { state: steps.state, retryLoad: steps.retryLoad },
         units,
-        distanceTotals: unlocked,
       }),
     // Saving and refresh flags don't change the day; only each source's state and retry do.
     [
@@ -63,7 +60,6 @@ export function useDayActivity({
       steps.state,
       steps.retryLoad,
       units,
-      unlocked,
     ],
   );
 }

@@ -83,7 +83,7 @@ export function paywallRows(store: PlusStore): PaywallRow[] {
       key: "trends",
       icon: "chart-simple",
       title: "Long-range trends",
-      caption: "12 and 52-week workout graphs and cardio distance totals.",
+      caption: "12 and 52-week workout graphs.",
       ready: "On Profile, from your first workout",
     },
     {
@@ -139,11 +139,6 @@ const sources: Record<
   { row: RowKey; context: (store: PlusStore) => string; back: string }
 > = {
   trends: { row: "trends", context: () => "Long-range trends are part of Plus.", back: "Profile" },
-  distance: {
-    row: "trends",
-    context: () => "Cardio distance totals are part of Plus.",
-    back: "your workout",
-  },
   nutrients: {
     row: "nutrients",
     context: () => "Detailed nutrients are part of Plus.",

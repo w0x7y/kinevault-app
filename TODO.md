@@ -91,14 +91,14 @@ Free keeps:
 
 - Food logging: search, barcode scan, servings, drinks, Copy food, Daily macros (calories and the three macros), 10 custom foods and 10 saved meals.
 - Water, steps, reminders, the Units and Appearance settings, and Workout import.
-- Workout logging: 5 saved workouts, the live workout, Rest timer, RIR, supersets, warm-up sets, cardio distance logging, Personal records and Previous sets hints.
+- Workout logging: 5 saved workouts, the live workout, Rest timer, RIR, supersets, warm-up sets, cardio distance (logged and totaled), Personal records and Previous sets hints.
 - Calorie and macro goals, body weight, logging body measurements, streaks, the first 3 progress photos and the 4-week Workout graph.
 - A few starter exercise demos, and the default share card.
 - Sync, JSON export and account deletion. Export and deletion stay free for trust and store review.
 
 Plus at launch (built, dormant until billing; see [Plus](docs/architecture.md#plus)):
 
-- [ ] The 12 and 52-week Workout graphs, and cardio distance totals.
+- [ ] The 12 and 52-week Workout graphs.
 - [ ] Detailed nutrients in Daily macros and the custom food and meal forms: everything past calories, protein, carbs and fat.
 - [ ] The Plate calculator.
 - [ ] The body measurement chart. Logging measurements stays free.
