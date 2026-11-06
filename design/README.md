@@ -20,6 +20,16 @@ Open `http://localhost:8091/design/profile-prototype.html`.
 
 Floating controls or the arrow keys switch layouts. Charts, Journal tabs and the photo viewer are visual demos.
 
+## Plus paywall
+
+`paywall-prototype.html` shows KineVault Plus: the paywall sheet, locked controls and views, Settings plan rows and the after-purchase state. Prices ($4.99 a month, $34.99 a year with a 7-day trial) and values are placeholders, and nothing is wired to billing.
+
+```sh
+python3 -m http.server 8092 --bind 127.0.0.1
+```
+
+Open `http://localhost:8092/design/paywall-prototype.html`. The buttons above each phone switch its state; Dark mode and Android copy apply to all of them.
+
 ## Branding
 
 `branding.html` previews the exported launcher icons and splash screens on the splash colors from `app.json`. Serving from `Application/` lets it load the images and the installed Comfortaa font.

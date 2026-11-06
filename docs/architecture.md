@@ -203,6 +203,27 @@ Save to Apple Health or Health Connect writes completed workouts, Body-weight me
 - Records with only a date sit at noon, or now if that's earlier. Water runs from midnight to the day's end or now. Days after today wait.
 - Android shares `connect` and `openHealthConnect` with Phone steps (`src/steps/device-steps.android.ts`).
 
+## Plus
+
+KineVault Plus is built but dormant: `plusGatesEnabled` in `src/plus/gate.ts` is the only switch. Off, every feature is unlocked and no Plus entry point shows, so the app behaves as it did before Plus. Turn it on once store billing works ([TODO.md](../TODO.md#paid-plans)).
+
+| Module                              | Owns                                                                                                                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/plus/gate.ts`                  | The switch, who has Plus (`hasPlus`, `plusAccess`), the 7-day membership cache, Free's limits (`freeLimits`, `limitNotice`), the free Workout graph range and the starter demos |
+| `src/plus/plans.ts`                 | The price list (`plusPrices`), plan cards, checkout and renewal wording, the store per platform, and the paywall's rows and per-feature strip                                   |
+| `src/plus/purchases.ts`             | The purchase interface. Today's only implementation answers `unavailable`; RevenueCat replaces it                                                                               |
+| `src/plus/provider.tsx`             | `PlusProvider` and `usePlus`: one membership read per signed-in account, mounted in the tabs layout. Settings' plan badge reads it too                                          |
+| `src/plus/paywall.tsx`, `locks.tsx` | `usePaywall` and the paywall sheet; `PlusTag`, `PlusLocked` (a faded view with See Plus) and `LimitNotice`                                                                      |
+
+- Plus is plan `plus` or `pro` with status `active`, `trialing` or `past_due`. `canceled` and `inactive` count as ended.
+- A failed or offline read uses the last read on this device (`kinevault-track.membership.v1` in account storage, never uploaded) for up to 7 days, then Free. Nothing is cached while the switch is off, and an unchanged read is saved again at most once a day (`membershipCacheWrite`).
+- Gating rules are pure functions in `gate.ts`, so screens only ask `usePlus().unlocked`. With the switch off `unlocked` is always true. The functions take the switch as an argument, so `tests/plus-gate.test.ts` covers both values.
+- A locked control looks as usual with the Plus tag and opens the paywall naming its feature. A locked view shows the person's own data faded under one See Plus. Neither is an error or disabled.
+- Limits block only creating one more item. Items past a limit after Plus ends stay usable.
+- `usePaywall` returns the sheet for the caller to render, so on a phone it stacks over whichever sheet the caller is on (`SheetPage`'s `stacked`).
+- Without Plus the health writer gets no sources, so it writes nothing new and removes nothing.
+- Plus adds no synced document field or value.
+
 ## Durable documents and edits
 
 | Module                                 | Owns                                                                                                                    |

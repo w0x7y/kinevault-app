@@ -18,6 +18,10 @@ import { SourceStatus } from "./profile-controls";
 import { ModalSheet } from "../components/modal-sheet";
 import { PhotoEditor } from "./photo-editor";
 import { progressPhotoTimeline } from "./progress-photo-order";
+import { limitReached } from "../plus/gate";
+import { LimitNotice, PlusLocked, PlusTag } from "../plus/locks";
+import { usePaywall } from "../plus/paywall";
+import { usePlus } from "../plus/provider";
 
 export function ProgressPhotos({
   today,
@@ -42,8 +46,12 @@ export function ProgressPhotos({
     media.state.kind === "ready" ? media.state.document.photos : [],
   );
   const itemWidth = galleryWidth ? Math.min(300, galleryWidth * 0.72) : 220;
+  const { unlocked } = usePlus();
+  const paywall = usePaywall();
+  const full = limitReached("photos", photos.length, unlocked);
   function add() {
-    if (Platform.OS === "web") void pick("library");
+    if (full) paywall.open("photos");
+    else if (Platform.OS === "web") void pick("library");
     else setSources(true);
   }
   const unavailable = edit.busy || !edit.ready;
@@ -113,45 +121,52 @@ export function ProgressPhotos({
               <Icon name="chevron-right" size={16} color={colors.mutedForeground} />
             </Tappable>
           ) : recent ? (
-            <View style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.md }}>
-              {[
-                { label: "First", photo: first, testID: "profile-comparison-first" },
-                { label: "Latest", photo: latest, testID: "profile-comparison-latest" },
-              ].map(({ label, photo, testID }) => (
-                <Tappable
-                  key={label}
-                  testID={testID}
-                  label={
-                    photo
-                      ? `View ${label.toLowerCase()} progress photo ${photo.date}`
-                      : `View photo journal, no ${label.toLowerCase()} photo saved`
-                  }
-                  onPress={openPhotos}
-                  disabled={!openPhotos}
-                  style={{ flex: 1, minWidth: 0, gap: 6, borderRadius: radius.control + 2 }}
-                >
-                  <View>
-                    {photoWell(photo)}
-                    <View
-                      style={{
-                        position: "absolute",
-                        top: spacing.sm,
-                        left: spacing.sm,
-                        paddingHorizontal: spacing.sm,
-                        paddingVertical: 3,
-                        borderRadius: radius.pill,
-                        backgroundColor: colors.elevated,
-                      }}
-                    >
-                      <Overline style={{ color: colors.foreground, letterSpacing: 0.8 }}>
-                        {label}
-                      </Overline>
+            <PlusLocked
+              locked={!unlocked}
+              feature="comparison"
+              message="Compare your first and latest photos with Plus"
+            >
+              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.md }}>
+                {[
+                  { label: "First", photo: first, testID: "profile-comparison-first" },
+                  { label: "Latest", photo: latest, testID: "profile-comparison-latest" },
+                ].map(({ label, photo, testID }) => (
+                  <Tappable
+                    key={label}
+                    testID={testID}
+                    label={
+                      photo
+                        ? `View ${label.toLowerCase()} progress photo ${photo.date}`
+                        : `View photo journal, no ${label.toLowerCase()} photo saved`
+                    }
+                    onPress={openPhotos}
+                    // Locked, the photos only show faded under the Plus message.
+                    disabled={!openPhotos || !unlocked}
+                    style={{ flex: 1, minWidth: 0, gap: 6, borderRadius: radius.control + 2 }}
+                  >
+                    <View>
+                      {photoWell(photo)}
+                      <View
+                        style={{
+                          position: "absolute",
+                          top: spacing.sm,
+                          left: spacing.sm,
+                          paddingHorizontal: spacing.sm,
+                          paddingVertical: 3,
+                          borderRadius: radius.pill,
+                          backgroundColor: colors.elevated,
+                        }}
+                      >
+                        <Overline style={{ color: colors.foreground, letterSpacing: 0.8 }}>
+                          {label}
+                        </Overline>
+                      </View>
                     </View>
-                  </View>
-                  {photo && <AppText variant="label">{dateLabel(photo.date)}</AppText>}
-                </Tappable>
-              ))}
-            </View>
+                    {photo && <AppText variant="label">{dateLabel(photo.date)}</AppText>}
+                  </Tappable>
+                ))}
+              </View>
+            </PlusLocked>
           ) : (
             <>
               {photos.length === 0 ? (
@@ -229,10 +244,12 @@ export function ProgressPhotos({
                   </ScrollView>
                 </View>
               )}
+              <LimitNotice limit="photos" count={photos.length} />
               <AppButton
                 tone={photos.length === 0 ? "primary" : "secondary"}
                 icon="plus"
-                accessibilityLabel="Add from library"
+                accessibilityLabel={full ? "Add from library, part of Plus" : "Add from library"}
+                badge={full && <PlusTag />}
                 label={
                   picking
                     ? "Opening photo picker…"
@@ -248,6 +265,7 @@ export function ProgressPhotos({
           {error && edit.attempt.kind === "closed" && <InlineMessage>{error}</InlineMessage>}
         </>
       )}
+      {paywall.sheet}
       <ModalSheet
         open={sources}
         title="Add progress photo"

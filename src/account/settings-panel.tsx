@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { View } from "react-native";
 import Animated from "react-native-reanimated";
 import { useLayoutMotion } from "../components/motion";
@@ -21,7 +21,8 @@ import {
 } from "./settings-list";
 import { useAccount } from "./provider";
 import { useAccountStorage } from "./storage-context";
-import { readMembership, type Membership } from "./membership";
+import { MembershipSettings } from "../plus/membership-settings";
+import { usePlus } from "../plus/provider";
 import { useConnectivity } from "../connectivity/provider";
 import { useAccountManagementAttempts } from "./use-management-attempts";
 import { accountTrackingDocument } from "./tracking-documents";
@@ -43,9 +44,7 @@ export function AccountSettings({
   const account = useAccount();
   const storage = useAccountStorage();
   const sync = useSyncExternalStore(storage.subscribe, storage.getSnapshot, storage.getSnapshot);
-  const [membership, setMembership] = useState<Membership | null>(null);
-  const [membershipError, setMembershipError] = useState(false);
-  const [attempt, setAttempt] = useState(0);
+  const { membership, failed: membershipError, retry: retryMembership } = usePlus();
   const {
     working,
     error: actionError,
@@ -55,23 +54,6 @@ export function AccountSettings({
     proof,
   } = useAccountManagementAttempts({ account, storage, offline });
   const googleConfirmed = proof === "google" && recentGoogleSignIn(account.session?.access_token);
-  const userId = account.user?.id;
-  useEffect(() => {
-    if (!userId) return;
-    let active = true;
-    setMembershipError(false);
-    readMembership(userId)
-      .then((value) => {
-        if (active) setMembership(value);
-      })
-      .catch(() => {
-        if (active) setMembershipError(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, [userId, attempt]);
-
   const syncText = offline
     ? "Offline. Changes stay on this device and sync when you reconnect."
     : sync.state === "idle"
@@ -148,7 +130,7 @@ export function AccountSettings({
             <LoadFailure
               message="Couldn't load membership."
               retryLabel="Retry membership"
-              onRetry={() => setAttempt((x) => x + 1)}
+              onRetry={retryMembership}
             />
           </RowContent>
         )}
@@ -222,6 +204,7 @@ export function AccountSettings({
           <InlineMessage>{account.error}</InlineMessage>
         </RowContent>
       </SettingsGroup>
+      <MembershipSettings />
       {children}
       <SettingsGroup
         title="Data & account"

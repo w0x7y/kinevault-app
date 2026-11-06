@@ -12,14 +12,19 @@ import { useTheme } from "../theme/provider";
 import { fonts, radius, spacing } from "../theme/tokens";
 import { detailedNutrients } from "./nutrients.ts";
 import { getFoodDatabase } from "./database";
+import { IconWell } from "../components/icon-well";
+import { Tappable } from "../components/tappable";
+import { PlusTag } from "../plus/locks";
+import { usePaywall } from "../plus/paywall";
+import { usePlus } from "../plus/provider";
 
-const nutrientRows = [
+const basicRows = [
   { key: "calories", label: "Calories", unit: "kcal", indented: false },
   { key: "carbs", label: "Carbs", unit: "g", indented: false },
   { key: "protein", label: "Protein", unit: "g", indented: false },
   { key: "fat", label: "Fat", unit: "g", indented: false },
-  ...detailedNutrients,
 ] as const;
+const allRows = [...basicRows, ...detailedNutrients] as const;
 
 function formatNutrient(value: number | null): string {
   if (value === null) return "Not available";
@@ -31,6 +36,10 @@ export function DailyMacros({ activity, onBack }: { activity: DayActivity; onBac
   const { targets, food, nutrition } = activity;
   const { colors } = useTheme();
   const [showMissing, setShowMissing] = useState(false);
+  const { unlocked } = usePlus();
+  const paywall = usePaywall();
+  // Without Plus only calories and the three macros show; the rest is one locked row.
+  const nutrientRows = unlocked ? allRows : basicRows;
   // The page opens at once; its figures appear when the day's targets have loaded.
   if (targets.kind !== "ready" || food.kind !== "ready" || !nutrition)
     return <SheetPage title="Daily macros" closeLabel="Back to food log" onClose={onBack} />;
@@ -190,6 +199,37 @@ export function DailyMacros({ activity, onBack }: { activity: DayActivity; onBac
                 </AppText>
               </View>
             ))}
+            {!unlocked && (
+              <View
+                style={{ borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border }}
+              >
+                <Tappable
+                  testID="daily-nutrients-plus"
+                  label={`${detailedNutrients.length} more nutrients, part of Plus`}
+                  onPress={() => paywall.open("nutrients")}
+                  feedback="fill"
+                  ring="outline"
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: spacing.md,
+                    paddingVertical: spacing.md,
+                    borderRadius: radius.control,
+                  }}
+                >
+                  <IconWell icon="apple-whole" color={colors.brand} background="brandSoft" />
+                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                    <AppText variant="label" style={{ fontFamily: fonts.bold }}>
+                      {`${detailedNutrients.length} more nutrients`}
+                    </AppText>
+                    <AppText variant="caption" muted>
+                      Fiber, sugars, fat types, minerals, vitamin D, caffeine and alcohol
+                    </AppText>
+                  </View>
+                  <PlusTag />
+                </Tappable>
+              </View>
+            )}
             {missing.length > 0 && (
               <View
                 style={{
@@ -213,6 +253,7 @@ export function DailyMacros({ activity, onBack }: { activity: DayActivity; onBac
             )}
           </View>
         </Panel>
+        {paywall.sheet}
         {day.foods.length === 0 && (
           <AppText muted style={{ textAlign: "center" }}>
             No food has been logged yet

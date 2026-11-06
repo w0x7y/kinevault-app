@@ -23,13 +23,20 @@ import { SegmentedControl } from "../components/segmented-control";
 import { JournalDisclosure, JournalFigure, JournalHeading } from "./journal-ui";
 import { ChartSeriesLayer } from "./chart-reveal";
 import { trackingMode } from "../exercise/tracking";
+import { defaultWorkoutWeeks, workoutWeeksLocked } from "../plus/gate";
+import { PlusLocked } from "../plus/locks";
+import { usePlus } from "../plus/provider";
 export function WorkoutChart({ today }: { today: string }) {
   const exercise = useExercises(),
     { colors, appearance } = useTheme();
   const gradientId = `workout-fill-${useId().replace(/[^a-zA-Z0-9-]/g, "")}`;
   const grid = appearance === "dark" ? colors.input : colors.border;
+  const { unlocked } = usePlus();
   const [metric, setMetric] = useState<WorkoutMetric>("volume"),
-    [weeks, setWeeks] = useState<WorkoutRange>(12);
+    [chosenWeeks, setWeeks] = useState<WorkoutRange | null>(null);
+  // Until a range is picked, the default follows the membership as it loads.
+  const weeks = chosenWeeks ?? defaultWorkoutWeeks(unlocked);
+  const locked = workoutWeeksLocked(weeks, unlocked);
   const [key, setKey] = useState<string | undefined>();
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
   const [width, setWidth] = useState(320);
@@ -174,7 +181,7 @@ export function WorkoutChart({ today }: { today: string }) {
           label="Workout range"
           values={([4, 12, 52] as const).map((value) => ({
             value,
-            label: `${value} weeks`,
+            label: `${value} weeks${workoutWeeksLocked(value, unlocked) ? " · Plus" : ""}`,
           }))}
           value={weeks}
           onChange={(value) => {
@@ -183,200 +190,208 @@ export function WorkoutChart({ today }: { today: string }) {
           }}
         />
       </View>
-      {graph.pending ? (
-        <AppText
-          testID="profile-workout-chart-pending"
-          variant="label"
-          muted
-          style={{
-            padding: spacing.md + 2,
-            borderRadius: radius.control,
-            backgroundColor: colors.muted,
-            fontFamily: fonts.medium,
-          }}
-        >
-          {graph.pending}
-        </AppText>
-      ) : (
-        // The box keeps the drawing's aspect ratio from the first frame, so measuring its width
-        // (for touch positions) never resizes the card.
-        <View
-          onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-          style={{ width: "100%", aspectRatio: 320 / 149 }}
-        >
-          <Svg
-            width="100%"
-            height="100%"
-            viewBox="0 0 320 149"
-            accessibilityLabel={`Workout ${metric} in ${graph.unit}. Tap the graph for weekly values.`}
+      <PlusLocked
+        locked={locked}
+        feature="trends"
+        message={`See ${weeks} weeks of training with Plus`}
+      >
+        {graph.pending ? (
+          <AppText
+            testID="profile-workout-chart-pending"
+            variant="label"
+            muted
+            style={{
+              padding: spacing.md + 2,
+              borderRadius: radius.control,
+              backgroundColor: colors.muted,
+              fontFamily: fonts.medium,
+            }}
           >
-            {[top, top / 2, 0].map((value) => (
-              <Line
-                key={value}
-                x1={42}
-                x2={308}
-                y1={y(value)}
-                y2={y(value)}
-                stroke={grid}
-                strokeWidth={1}
-                strokeDasharray={value ? "3 4" : undefined}
-              />
-            ))}
-            {[top, top / 2, 0].map((value) => (
-              <SvgText
-                key={value}
-                x={32}
-                y={y(value) + 4}
-                textAnchor="end"
-                fill={colors.mutedForeground}
-                fontFamily={fonts.medium}
-                fontSize={11}
-              >
-                {value
-                  .toLocaleString(undefined, {
-                    notation: "compact",
-                    maximumFractionDigits: 1,
-                  })
-                  .toLowerCase()}
-              </SvgText>
-            ))}
-            {selected && (
-              <Line
-                x1={x(points.indexOf(selected))}
-                x2={x(points.indexOf(selected))}
-                y1={y(top)}
-                y2={121}
-                stroke={colors.mutedForeground}
-                strokeWidth={1}
-                strokeDasharray="2 3"
-              />
-            )}
-            {[
-              { date: points[0].date, x: 42, anchor: "start" as const },
-              {
-                date: points[Math.floor(points.length / 2)].date,
-                x: 174,
-                anchor: "middle" as const,
-              },
-              { date: today, x: 308, anchor: "end" as const },
-            ].map((item) => (
-              <SvgText
-                key={item.x}
-                x={item.x}
-                y={143}
-                textAnchor={item.anchor}
-                fill={colors.mutedForeground}
-                fontFamily={fonts.medium}
-                fontSize={11}
-              >
-                {shortDate(item.date)}
-              </SvgText>
-            ))}
-          </Svg>
-          <ChartSeriesLayer dataKey={dataKey}>
+            {graph.pending}
+          </AppText>
+        ) : (
+          // The box keeps the drawing's aspect ratio from the first frame, so measuring its width
+          // (for touch positions) never resizes the card.
+          <View
+            onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+            style={{ width: "100%", aspectRatio: 320 / 149 }}
+          >
             <Svg
               width="100%"
               height="100%"
               viewBox="0 0 320 149"
-              aria-hidden
-              {...hiddenFromAccessibility}
+              accessibilityLabel={`Workout ${metric} in ${graph.unit}. Tap the graph for weekly values.`}
             >
-              <Defs>
-                {series.map(({ field, color }) => (
-                  <LinearGradient
-                    key={field}
-                    id={`${gradientId}-${field}`}
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <Stop
-                      offset="0"
-                      stopColor={color}
-                      stopOpacity={appearance === "dark" ? 0.32 : 0.2}
-                    />
-                    <Stop offset="1" stopColor={color} stopOpacity={0} />
-                  </LinearGradient>
-                ))}
-              </Defs>
-              {series.map(({ field, color }) => {
-                const segments: { index: number; value: number }[][] = [];
-                points.forEach((point, index) => {
-                  const value = point[field];
-                  if (value === null) return;
-                  if (!index || points[index - 1][field] === null) segments.push([]);
-                  segments.at(-1)!.push({ index, value });
-                });
-                return segments.map((segment, index) => {
-                  const first = segment[0],
-                    last = segment.at(-1)!;
-                  const line = segment
-                    .map((p, i) => `${i ? "L" : "M"}${x(p.index)},${y(p.value)}`)
-                    .join(" ");
-                  return (
-                    <ChartSeries
-                      key={`${field}-${index}`}
-                      line={line}
-                      area={`${line} L${x(last.index)},121 L${x(first.index)},121 Z`}
-                      color={color}
-                      fill={`url(#${gradientId}-${field})`}
-                      lastX={x(last.index)}
-                      lastY={y(last.value)}
-                      showDot={last.index === points.findLastIndex((p) => p[field] !== null)}
-                      card={colors.card}
-                    />
-                  );
-                });
-              })}
-              {selected &&
-                series.map(({ field, color }) =>
-                  selected[field] === null ? null : (
-                    <Circle
-                      key={`selected-${field}`}
-                      cx={x(points.indexOf(selected))}
-                      cy={y(selected[field]!)}
-                      r={5}
-                      fill={colors.card}
-                      stroke={color}
-                      strokeWidth={2.5}
-                    />
-                  ),
-                )}
+              {[top, top / 2, 0].map((value) => (
+                <Line
+                  key={value}
+                  x1={42}
+                  x2={308}
+                  y1={y(value)}
+                  y2={y(value)}
+                  stroke={grid}
+                  strokeWidth={1}
+                  strokeDasharray={value ? "3 4" : undefined}
+                />
+              ))}
+              {[top, top / 2, 0].map((value) => (
+                <SvgText
+                  key={value}
+                  x={32}
+                  y={y(value) + 4}
+                  textAnchor="end"
+                  fill={colors.mutedForeground}
+                  fontFamily={fonts.medium}
+                  fontSize={11}
+                >
+                  {value
+                    .toLocaleString(undefined, {
+                      notation: "compact",
+                      maximumFractionDigits: 1,
+                    })
+                    .toLowerCase()}
+                </SvgText>
+              ))}
+              {selected && (
+                <Line
+                  x1={x(points.indexOf(selected))}
+                  x2={x(points.indexOf(selected))}
+                  y1={y(top)}
+                  y2={121}
+                  stroke={colors.mutedForeground}
+                  strokeWidth={1}
+                  strokeDasharray="2 3"
+                />
+              )}
+              {[
+                { date: points[0].date, x: 42, anchor: "start" as const },
+                {
+                  date: points[Math.floor(points.length / 2)].date,
+                  x: 174,
+                  anchor: "middle" as const,
+                },
+                { date: today, x: 308, anchor: "end" as const },
+              ].map((item) => (
+                <SvgText
+                  key={item.x}
+                  x={item.x}
+                  y={143}
+                  textAnchor={item.anchor}
+                  fill={colors.mutedForeground}
+                  fontFamily={fonts.medium}
+                  fontSize={11}
+                >
+                  {shortDate(item.date)}
+                </SvgText>
+              ))}
             </Svg>
-          </ChartSeriesLayer>
-          <Tappable
-            label="Select workout graph point"
-            hint="Tap the graph for the selected week's date and unit labels."
-            feedback="none"
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              height: `${(124 / 149) * 100}%`,
-            }}
-            onPressIn={(event) => {
-              pressX.current = Number.isFinite(event.nativeEvent.locationX)
-                ? event.nativeEvent.locationX
-                : null;
-            }}
-            onPress={(event) => {
-              const touchX = Number.isFinite(event.nativeEvent.locationX)
-                ? event.nativeEvent.locationX
-                : (pressX.current ?? width);
-              pressX.current = null;
-              const fraction = ((touchX / width) * 320 - 42) / 264;
-              const index = Math.max(
-                0,
-                Math.min(points.length - 1, Math.round(fraction * (points.length - 1))),
-              );
-              setSelectedWeek(points[index].date);
-            }}
-          />
-        </View>
-      )}
-      {selected && (
+            <ChartSeriesLayer dataKey={dataKey}>
+              <Svg
+                width="100%"
+                height="100%"
+                viewBox="0 0 320 149"
+                aria-hidden
+                {...hiddenFromAccessibility}
+              >
+                <Defs>
+                  {series.map(({ field, color }) => (
+                    <LinearGradient
+                      key={field}
+                      id={`${gradientId}-${field}`}
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <Stop
+                        offset="0"
+                        stopColor={color}
+                        stopOpacity={appearance === "dark" ? 0.32 : 0.2}
+                      />
+                      <Stop offset="1" stopColor={color} stopOpacity={0} />
+                    </LinearGradient>
+                  ))}
+                </Defs>
+                {series.map(({ field, color }) => {
+                  const segments: { index: number; value: number }[][] = [];
+                  points.forEach((point, index) => {
+                    const value = point[field];
+                    if (value === null) return;
+                    if (!index || points[index - 1][field] === null) segments.push([]);
+                    segments.at(-1)!.push({ index, value });
+                  });
+                  return segments.map((segment, index) => {
+                    const first = segment[0],
+                      last = segment.at(-1)!;
+                    const line = segment
+                      .map((p, i) => `${i ? "L" : "M"}${x(p.index)},${y(p.value)}`)
+                      .join(" ");
+                    return (
+                      <ChartSeries
+                        key={`${field}-${index}`}
+                        line={line}
+                        area={`${line} L${x(last.index)},121 L${x(first.index)},121 Z`}
+                        color={color}
+                        fill={`url(#${gradientId}-${field})`}
+                        lastX={x(last.index)}
+                        lastY={y(last.value)}
+                        showDot={last.index === points.findLastIndex((p) => p[field] !== null)}
+                        card={colors.card}
+                      />
+                    );
+                  });
+                })}
+                {selected &&
+                  series.map(({ field, color }) =>
+                    selected[field] === null ? null : (
+                      <Circle
+                        key={`selected-${field}`}
+                        cx={x(points.indexOf(selected))}
+                        cy={y(selected[field]!)}
+                        r={5}
+                        fill={colors.card}
+                        stroke={color}
+                        strokeWidth={2.5}
+                      />
+                    ),
+                  )}
+              </Svg>
+            </ChartSeriesLayer>
+            {!locked && (
+              <Tappable
+                label="Select workout graph point"
+                hint="Tap the graph for the selected week's date and unit labels."
+                feedback="none"
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: `${(124 / 149) * 100}%`,
+                }}
+                onPressIn={(event) => {
+                  pressX.current = Number.isFinite(event.nativeEvent.locationX)
+                    ? event.nativeEvent.locationX
+                    : null;
+                }}
+                onPress={(event) => {
+                  const touchX = Number.isFinite(event.nativeEvent.locationX)
+                    ? event.nativeEvent.locationX
+                    : (pressX.current ?? width);
+                  pressX.current = null;
+                  const fraction = ((touchX / width) * 320 - 42) / 264;
+                  const index = Math.max(
+                    0,
+                    Math.min(points.length - 1, Math.round(fraction * (points.length - 1))),
+                  );
+                  setSelectedWeek(points[index].date);
+                }}
+              />
+            )}
+          </View>
+        )}
+      </PlusLocked>
+      {selected && !locked && (
         <AppText
           variant="caption"
           selectable

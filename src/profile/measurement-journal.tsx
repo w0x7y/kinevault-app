@@ -13,6 +13,8 @@ import { ModalSheet } from "../components/modal-sheet";
 import { useDocumentEdit } from "../persistence/use-document-edit";
 import { useProfile, useProfilePersistence } from "./provider";
 import { createMeasurementEdit } from "./weight-editing";
+import { PlusLocked } from "../plus/locks";
+import { usePlus } from "../plus/provider";
 import { WeightChart, weightDateLabel } from "./weight-chart";
 import { useUnits } from "../units/provider";
 import { measureFigure, unitName, type UnitSystem } from "../units/units";
@@ -38,6 +40,7 @@ export function MeasurementJournal() {
   const profile = useProfile();
   const persistence = useProfilePersistence();
   const { units } = useUnits();
+  const { unlocked } = usePlus();
   // The Personal journal keys this by units, so the edit's messages follow them.
   const { edit, attempt, busy, replacing } = useDocumentEdit(() =>
     createMeasurementEdit(persistence, units),
@@ -108,13 +111,20 @@ export function MeasurementJournal() {
           />
         </View>
       )}
-      <WeightChart
-        entries={measurementSeries(entries, shown)}
-        name={measurementLabels[shown]}
-        quantity="length"
-        icon="person"
-        empty="No measurements yet. Log your waist, chest, hips, arm or thigh to start a trend."
-      />
+      <PlusLocked
+        // Logging stays free; with nothing logged there's no chart to lock.
+        locked={!unlocked && options.length > 0}
+        feature="measurements"
+        message="See your measurement trend with Plus"
+      >
+        <WeightChart
+          entries={measurementSeries(entries, shown)}
+          name={measurementLabels[shown]}
+          quantity="length"
+          icon="person"
+          empty="No measurements yet. Log your waist, chest, hips, arm or thigh to start a trend."
+        />
+      </PlusLocked>
       {history.length > 0 && (
         <View testID="body-measurement-history" style={{ marginTop: spacing.xs }}>
           <Overline style={{ marginBottom: spacing.xs }}>History</Overline>

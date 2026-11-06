@@ -19,6 +19,11 @@ import { WorkoutWorkspace } from "./workout-workspace";
 import type { LibraryDrafts } from "./library-drafts";
 import { useSnapshot } from "./use-exercise-tab-view";
 import { KineVaultDemoSection } from "./demo/demo-picker";
+import { useExercises } from "./provider";
+import { limitReached } from "../plus/gate";
+import { LimitNotice, PlusTag } from "../plus/locks";
+import { usePaywall } from "../plus/paywall";
+import { usePlus } from "../plus/provider";
 
 type ExerciseDraft = ReturnType<LibraryDrafts["exercise"]>;
 type TemplateDraft = ReturnType<LibraryDrafts["template"]>;
@@ -137,8 +142,16 @@ export function WorkoutForm({
   const rise = useLayoutMotion().enter();
   // The sheet's back button is this form's Cancel, except while it saves.
   useSheetBack({ disabled: busy });
+  const store = useExercises();
+  const { unlocked } = usePlus();
+  const paywall = usePaywall();
+  // Free's limit counts only new workouts; editing one never hits it.
+  const count =
+    workout || store.state.kind !== "ready" ? null : store.state.document.workouts.length;
+  const full = count !== null && limitReached("workouts", count, unlocked);
   const builder = (
     <View testID="workout-template-settings" style={{ gap: spacing.layout }}>
+      {count !== null && <LimitNotice limit="workouts" count={count} />}
       <TextField
         labelTone="muted"
         label="Workout name"
@@ -235,6 +248,7 @@ export function WorkoutForm({
   );
   return (
     <Panel>
+      {paywall.sheet}
       <WorkoutWorkspace
         name={draft.name.trim() || "Untitled workout"}
         overline={workout ? "Saved workout" : "New workout"}
@@ -271,7 +285,9 @@ export function WorkoutForm({
         primary={
           <AppButton
             label="Save workout"
-            onPress={() => void template.save()}
+            accessibilityLabel={full ? "Save workout, part of Plus" : "Save workout"}
+            badge={full && <PlusTag />}
+            onPress={() => (full ? paywall.open("workouts") : void template.save())}
             tone="primary"
             disabled={busy}
           />

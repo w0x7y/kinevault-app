@@ -96,10 +96,15 @@ Version 3, Personal journal, from [the prototype](../design/profile-prototype.ht
 
 - A grouped list: an overline title above one card of rows, with icon wells, hairline dividers and values on the right.
 - The account card comes first: avatar, email, plan badge and sync status.
+- Membership follows it, only once Plus is switched on: Free shows Get KineVault Plus and Restore purchases; Plus shows the plan and Manage subscription, which opens the store's subscriptions page.
 - Appearance is a three-segment control that is still a radio group. Units (Metric, Imperial) follows it the same way.
 - Reminders, then Health (a Save to Apple Health or Save to Health Connect switch row, with its status and fix below), are hidden on web.
 - Data & account (export, log out) comes last. Delete account sits apart below it in red. Confirming takes the current password and typed DELETE. A Google-only account signs in with Google again instead, which unlocks deletion for 10 minutes.
 - Language, units and version share one caption at the bottom.
+
+## Plus
+
+The paywall is a SheetPage that stacks over whatever sheet opened it ([design/paywall-prototype.html](../design/paywall-prototype.html)): Kine's review pose on a brand-soft disc, a Comfortaa title, a brand-soft strip naming the locked feature, one card of the seven Plus rows, Yearly and Monthly radio cards (Yearly preselected, with a green Save badge), and a pinned footer with one primary button, the renewal terms and the Restore purchases, Terms and Privacy links. After a purchase it turns into Welcome to Plus with one button back. A locked control keeps its look and adds a small brand-soft Plus tag with sparkles; a locked view fades the person's own data under one See Plus. Limits show a brand-soft notice from one item before the limit.
 
 ## Onboarding and account
 

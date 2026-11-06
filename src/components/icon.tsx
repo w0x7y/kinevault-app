@@ -112,6 +112,11 @@ const outline: Partial<Record<IconName, keyof typeof ionGlyphMap>> = {
   "circle-check": "checkmark-circle-outline",
   "circle-info": "information-circle-outline",
   stopwatch: "timer-outline",
+  "chart-simple": "stats-chart-outline",
+  "circle-play": "play-circle-outline",
+  "credit-card": "card-outline",
+  "layer-group": "layers-outline",
+  "wand-magic-sparkles": "sparkles-outline",
 };
 
 // Icons next to labels are decorative. Supply a label for a standalone icon.

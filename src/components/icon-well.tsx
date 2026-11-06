@@ -25,7 +25,8 @@ export function IconWell({
 }: {
   icon?: IconName;
   color?: string;
-  background?: "muted" | "card";
+  /** `brandSoft` for Plus rows, which carry the brand color. */
+  background?: "muted" | "card" | "brandSoft";
   size?: keyof typeof sizes;
   children?: ReactNode;
 }) {

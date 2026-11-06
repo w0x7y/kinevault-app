@@ -80,43 +80,44 @@ Before charging:
 
 - [ ] Ship store builds first (Profile & integrations above). Subscriptions need a Play Console listing and a paid Apple Developer Program team. Sideloaded `.apk` and xtool `.ipa` builds can't take purchases.
 - [ ] Add store billing, for example RevenueCat (`react-native-purchases`) over StoreKit and Play Billing. A server webhook writes `public.subscriptions`; the app only reads it (`src/account/membership.ts`).
-- [ ] Add one gate the app reads everywhere (plan, status and a grace period while offline), plus a paywall sheet and Restore purchases. Locked features show what they do and how to unlock them, never an error.
+- [x] Add one gate the app reads everywhere (plan, status and a grace period while offline), plus a paywall sheet. Locked features show what they do and how to unlock them, never an error (2026-11-06). Dormant until store billing: `plusGatesEnabled` in `src/plus/gate.ts` is off, so everything stays unlocked and no Plus entry point shows. Tried only on the web build with the switch on, not on a phone.
+- [ ] Restore purchases waits for billing. The button and the Settings row exist and say "Purchases open with the store release."
+- [ ] Turn on `plusGatesEnabled` once billing works, after telling the current users what moves to Plus. Check every locked state on an iPhone and an Android phone first.
 - [ ] Check the plan on the server for anything that costs money to run (Storage policies, Edge Functions), not only in the UI.
 - [ ] Decide what happens to Plus data after a plan lapses: keep it readable and exportable, and lock only new entries and Plus views.
 - [ ] Launch Plus alone first. Keep `pro` for later.
 
-Stays free, so the app is useful on day one:
+Free keeps:
 
-- Food logging: search, barcode scan, servings, drinks, Daily macros (calories and the three macros) and a few custom foods and meals.
+- Food logging: search, barcode scan, servings, drinks, Copy food, Daily macros (calories and the three macros), 10 custom foods and 10 saved meals.
 - Water, steps, reminders, the Units and Appearance settings, and Workout import.
-- Workout logging: saved workouts, the live workout, Rest timer, RIR, Personal records and Previous sets hints.
-- Calorie and macro goals, body weight, streaks and the 4-week Workout graph.
+- Workout logging: 5 saved workouts, the live workout, Rest timer, RIR, supersets, warm-up sets, cardio distance (logged and totaled), Personal records and Previous sets hints.
+- Calorie and macro goals, body weight, logging body measurements, streaks, the first 3 progress photos and the 4-week Workout graph.
+- A few starter exercise demos, and the default share card.
 - Sync, JSON export and account deletion. Export and deletion stay free for trust and store review.
 
-Plus, moved from what exists today:
+Plus at launch (built, dormant until billing; see [Plus](docs/architecture.md#plus)):
 
-- [ ] Unlimited custom foods and meals (free keeps 10 of each) and unlimited saved workouts (free keeps 3). Existing items stay usable after a lapse; only new ones are locked.
-- [ ] Detailed nutrients in Daily macros and custom foods: fat subtypes, fiber, sugars, minerals, vitamin D, caffeine and alcohol.
-- [ ] Copy food from another day.
-- [ ] Supersets, warm-up sets and the Plate calculator.
-- [ ] Cardio distance totals and the 12 and 52-week Workout graphs.
-- [ ] Body measurements and their chart.
-- [ ] Progress photos past the first three, and the earliest-and-latest comparison.
+- [ ] The 12 and 52-week Workout graphs.
+- [ ] Detailed nutrients in Daily macros and the custom food and meal forms: everything past calories, protein, carbs and fat.
+- [ ] The Plate calculator.
+- [ ] The body measurement chart. Logging measurements stays free.
+- [ ] Progress photos past the first 3, and the earliest-and-latest comparison.
+- [ ] Every KineVault exercise demo past the starter set.
 - [ ] Saving to Apple Health and Health Connect.
-- [ ] Every KineVault exercise demo. Free shows a few starter demos.
-- [ ] Share image styles past the default card. The default card stays free because it advertises the app.
+- [ ] Unlimited custom foods, meals and saved workouts (Free keeps 10, 10 and 5). Items past a limit after Plus ends stay usable; only creating a new one is locked.
 
-Plus, new:
+Plus, later:
 
 - [ ] Progression suggestions: the next weight and reps from the last session, its RIR and warm-ups.
 - [ ] Warm-up generator: warm-up sets built from the working weight, loaded with the Plate calculator.
 - [ ] Adaptive calorie target: estimate daily energy use each week from the body-weight trend and logged kcal, then adjust the goal. Needs careful wording and a safe cap on the weekly rate of change.
 - [ ] Weekly muscle volume map: sets per muscle on a body figure, from the muscle group or the linked KineVault exercise's muscles.
-- [ ] Deeper trends: all-time workout graphs, a smoothed body-weight trend, weekly micronutrient averages and measurement overlays (waist, hips and weight on one chart).
+- [ ] Deeper trends: a smoothed body-weight trend, weekly micronutrient averages and measurement overlays (waist, hips and weight on one chart).
 - [ ] Cardio trends: pace, weekly distance and distance records such as the fastest 5 km.
-- [ ] Meal plans: repeat a meal on chosen weekdays, built on Copy food.
-- [ ] Recap cards: weekly and monthly summaries to share, with dark and photo-background styles.
-- [ ] Progress photo cloud backup, and comparing any two dates. Photos are device-only today, and storage costs money.
+- [ ] Meal plans: repeat a meal on chosen weekdays. They replace Copy food as the Plus food feature.
+- [ ] Recap cards and share styles: weekly and monthly summaries to share, and share image styles past the default card, with dark and photo-background styles.
+- [ ] Progress photo cloud backup. Photos are device-only today, and storage costs money.
 - [ ] Home-screen widget and a lock-screen workout timer.
 - [ ] Cosmetics: Kine outfits, app icons and accent colors.
 

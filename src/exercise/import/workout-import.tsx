@@ -22,6 +22,10 @@ import { previewWorkoutImport, type WorkoutImportRow } from "./mapping";
 import { capitalizeWords } from "./tracked-page";
 import { trackingMode } from "../tracking";
 import { workoutImportSources, type WorkoutImportSource } from "./sources";
+import { limitReached } from "../../plus/gate";
+import { PlusTag } from "../../plus/locks";
+import { usePaywall } from "../../plus/paywall";
+import { usePlus } from "../../plus/provider";
 
 const count = (value: number, noun: string) => `${value} ${noun}${value === 1 ? "" : "s"}`;
 
@@ -48,6 +52,14 @@ export function WorkoutImport({
     () => (document && plan ? previewWorkoutImport(document, plan) : null),
     [document, plan],
   );
+  const { unlocked } = usePlus();
+  const paywall = usePaywall();
+  // Replacing an earlier import adds nothing, so only a new workout counts toward Free's limit.
+  const full =
+    preview !== null &&
+    !preview.replacing &&
+    document !== null &&
+    limitReached("workouts", document.workouts.length, unlocked);
   const source =
     state.step === "sources" ? null : workoutImportSources.find((item) => item.id === state.source);
   // The sheet's back button steps back through the import, and closes it from the first and
@@ -168,10 +180,13 @@ export function WorkoutImport({
                       ? "Replace workout"
                       : "Import workout"
                 }
+                accessibilityLabel={full ? "Import workout, part of Plus" : undefined}
+                badge={full && <PlusTag />}
                 busy={state.saving}
                 disabled={state.saving || conflict || preview.problem !== null}
-                onPress={() => void flow.confirm()}
+                onPress={() => (full ? paywall.open("workouts") : void flow.confirm())}
               />
+              {paywall.sheet}
               {(preview.repeated.length > 0 || preview.rows.some((row) => row.sidesFromName)) && (
                 <View style={{ gap: spacing.xs }}>
                   {preview.repeated.map((item) => (

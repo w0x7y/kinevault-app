@@ -28,6 +28,9 @@ import { FormFooter } from "./create-form";
 
 import { useFoodDrafts } from "./draft-provider";
 import { catalogWriteState, type MealDraftSession } from "./catalog-drafts.ts";
+import { limitReached } from "../plus/gate";
+import { LimitNotice } from "../plus/locks";
+import { usePlus } from "../plus/provider";
 
 const numberText = (value: number) => String(Number(value.toFixed(4)));
 
@@ -55,6 +58,9 @@ export function CreateMealForm({
   const sequence = useRef(0);
   const { saving, locked } = catalogWriteState(foods, session);
   const busy = foods.saving || saving;
+  const { unlocked } = usePlus();
+  // Free's limit counts only new meals; editing one never hits it.
+  const count = existing || foods.state.kind !== "ready" ? null : foods.state.document.meals.length;
   const calculated = previewMeal(draft.ingredients);
   const values: Record<keyof Nutrition, string> = {
     calories: "0",
@@ -85,6 +91,7 @@ export function CreateMealForm({
   }
   return (
     <View testID="create-meal-form" style={{ gap: spacing.layout }}>
+      {count !== null && <LimitNotice limit="meals" count={count} />}
       <AppText variant="caption" muted style={{ paddingHorizontal: spacing.xs }}>
         Combine foods into a meal you can log again. The ingredient amounts make one complete meal.
       </AppText>
@@ -200,6 +207,7 @@ export function CreateMealForm({
           onCancel();
         }}
         saveLabel={saving ? "Saving meal..." : existing ? "Save meal changes" : "Save meal"}
+        limit={count !== null && limitReached("meals", count, unlocked) ? "meals" : undefined}
         saveDisabled={locked}
         onSave={() => {
           void save();

@@ -96,6 +96,10 @@ type RowProps = {
   value?: string;
   disabled?: boolean;
   trailing?: ReactNode;
+  /** A decorative mark after the title, such as the Plus tag. Name it in `accessibilityLabel`. */
+  badge?: ReactNode;
+  /** The accessible name, when the visible text doesn't say everything. */
+  accessibilityLabel?: string;
 };
 
 /** A row that navigates. Its accessible name is its visible text. */
@@ -122,7 +126,7 @@ export function SettingsButtonRow({
 }: RowProps & { onPress: () => void; chevron?: boolean }) {
   return (
     <Tappable
-      label={row.title}
+      label={row.accessibilityLabel ?? row.title}
       disabled={row.disabled}
       onPress={onPress}
       feedback="fill"
@@ -130,6 +134,16 @@ export function SettingsButtonRow({
     >
       <RowBody {...row} chevron={chevron} />
     </Tappable>
+  );
+}
+
+/** A row that only shows a value, such as the current plan. */
+export function SettingsInfoRow(row: RowProps) {
+  return (
+    // Pressable rows add a 2 pt ring border; this row adds it as padding, so wells line up.
+    <View style={[rowStyle, { paddingHorizontal: rowPadding }]}>
+      <RowBody {...row} chevron={false} />
+    </View>
   );
 }
 
@@ -142,7 +156,7 @@ export function SettingsSwitchRow({
   return (
     <Tappable
       role="switch"
-      label={row.title}
+      label={row.accessibilityLabel ?? row.title}
       checked={value}
       disabled={row.disabled}
       onPress={() => onChange(!value)}
@@ -211,24 +225,35 @@ function RowBody({
   description,
   value,
   trailing,
+  badge,
   chevron,
 }: RowProps & { chevron: boolean }) {
   const { colors } = useTheme();
+  const titleText = (
+    <AppText
+      variant="label"
+      style={{
+        fontSize: 15,
+        lineHeight: 21,
+        fontFamily: fonts.semibold,
+        color: colors.foreground,
+      }}
+    >
+      {title}
+    </AppText>
+  );
   return (
     <>
       {icon && <IconWell icon={icon} />}
       <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-        <AppText
-          variant="label"
-          style={{
-            fontSize: 15,
-            lineHeight: 21,
-            fontFamily: fonts.semibold,
-            color: colors.foreground,
-          }}
-        >
-          {title}
-        </AppText>
+        {badge ? (
+          <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+            <View style={{ flexShrink: 1 }}>{titleText}</View>
+            {badge}
+          </View>
+        ) : (
+          titleText
+        )}
         {description && (
           <AppText variant="caption" muted>
             {description}

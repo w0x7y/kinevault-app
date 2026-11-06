@@ -1,4 +1,4 @@
-import { Children, type Ref } from "react";
+import { Children, type ReactNode, type Ref } from "react";
 import { View, type ViewProps, type ViewInstance } from "react-native";
 import { AppText } from "./ui";
 import { Icon, type IconName } from "./icon";
@@ -31,6 +31,7 @@ export function AppButton({
   size = "regular",
   icon,
   iconAfter = false,
+  badge,
   disabled = false,
   busy = false,
   selected,
@@ -49,6 +50,8 @@ export function AppButton({
   icon?: IconName;
   /** Draws the icon after the label, as a forward arrow reads. */
   iconAfter?: boolean;
+  /** A decorative mark after the label, such as the Plus tag. Name it in `accessibilityLabel`. */
+  badge?: ReactNode;
   disabled?: boolean;
   /** Working: announced as busy and unavailable until the work ends. */
   busy?: boolean;
@@ -149,6 +152,7 @@ export function AppButton({
         {label}
       </AppText>
       {iconAfter && iconMark}
+      {badge}
     </Tappable>
   );
 }
