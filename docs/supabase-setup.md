@@ -195,7 +195,7 @@ Match the localhost port to the running Expo server. Expo Go uses `exp://YOUR-DE
 
 ## Web hosting
 
-The web app goes on Vercel. `vercel.json` defines the build and routes. It isn't deployed yet.
+The web app goes on Vercel. `vercel.json` defines the build and routes. It isn't deployed yet. [Web deploy](web-deploy.md) has the full steps.
 
 1. Create the Vercel project from `Application/`.
 2. Add `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and, for Sentry, `EXPO_PUBLIC_SENTRY_DSN`.

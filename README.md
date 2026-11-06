@@ -24,6 +24,8 @@ The companion app to [KineVault](https://github.com/arielhagay10-ui/KineVault). 
 
 **iPhone:** build it with [Xcode on a Mac](docs/ios-xcode.md), or [from Linux with xtool](docs/ios-linux-xtool.md).
 
+**Web:** deploy the web export to a free `vercel.app` address. See [web deploy](docs/web-deploy.md).
+
 ## Development
 
 It needs Node 24. Copy `.env.example` to `.env.local` and fill in the Supabase URL and key ([Supabase setup](docs/supabase-setup.md)).
@@ -38,6 +40,7 @@ npm run web    # browser preview
 | ---------------------- | --------------------------------------------------- |
 | `npm run check`        | Lint, format, types and unit tests                  |
 | `npm run test:browser` | Browser tests, against `npm run web -- --port 8081` |
+| `npm run export:web`   | Static web export in `dist`, which Vercel deploys   |
 
 If the phone won't connect, see [troubleshooting](docs/troubleshooting.md).
 
