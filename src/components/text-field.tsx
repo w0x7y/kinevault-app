@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useUnitField } from "../units/provider";
 import type { Quantity } from "../units/units";
-import { TextInput, View, type TextInputProps, type TextStyle } from "react-native";
+import {
+  TextInput,
+  View,
+  type TextInputProps,
+  type TextStyle,
+  type TextInputInstance,
+} from "react-native";
 import { Icon } from "./icon";
 import { InlineMessage } from "./inline-message";
 import { Tappable } from "./tappable";
@@ -198,7 +204,7 @@ export function TextField({
     // A password the form clears (submitted, or the form reset) hides again.
     if (!value) setRevealed(false);
   }
-  const input = useRef<TextInput>(null);
+  const input = useRef<TextInputInstance>(null);
   const focusPending = useRef(autoFocus);
   // Phones refuse to focus a field that isn't editable, so the platform's own autoFocus would
   // be lost while the field is disabled at mount.

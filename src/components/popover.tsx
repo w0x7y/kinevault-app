@@ -12,7 +12,7 @@ import {
   Platform,
   StyleSheet,
   type StyleProp,
-  type View,
+  type ViewInstance,
   type ViewProps,
   type ViewStyle,
 } from "react-native";
@@ -20,7 +20,7 @@ import Animated from "react-native-reanimated";
 import { cssEase, motionDuration, useReducedMotion } from "./motion";
 import { useTheme } from "../theme/provider";
 
-type Anchor = RefObject<View | null>;
+type Anchor = RefObject<ViewInstance | null>;
 
 /** On web a View's ref is its DOM element. */
 const element = (anchor: Anchor) => anchor.current as unknown as HTMLElement | null;
@@ -116,7 +116,7 @@ export function PopoverSurface({
   {
     origin: "top" | "top left" | "top right" | "center";
     style?: StyleProp<ViewStyle>;
-    ref?: Ref<View>;
+    ref?: Ref<ViewInstance>;
   } & Pick<
     ViewProps,
     "nativeID" | "accessibilityRole" | "accessibilityLabel" | "accessibilityViewIsModal"

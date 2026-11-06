@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { useEffect, useEffectEvent, useRef, useState, type Ref } from "react";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { AppButton } from "../components/button";
 import { Icon } from "../components/icon";
 import { InlineMessage } from "../components/inline-message";
@@ -21,7 +21,7 @@ const layout = { width: 432, height: 540 };
 export function WorkoutShare({ share }: { share: ShareText }) {
   const [sharing, setSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const card = useRef<View>(null);
+  const card = useRef<ViewInstance>(null);
   if (!shareImage) return null;
   const send = shareImage;
   async function capture() {
@@ -58,7 +58,7 @@ function ShareCard({
   onReady,
 }: {
   share: ShareText;
-  ref: Ref<View>;
+  ref: Ref<ViewInstance>;
   onReady: () => void;
 }) {
   const ready = useRef(false);

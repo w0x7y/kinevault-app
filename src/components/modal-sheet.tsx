@@ -6,7 +6,15 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
-import { Modal, Platform, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import {
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+  type ViewInstance,
+} from "react-native";
 import Animated, {
   Easing,
   ReduceMotion,
@@ -71,7 +79,7 @@ export function ModalSheet({
   // Phones get a bottom sheet; wider windows keep a centered dialog.
   const sheet = width < 600;
   const presence = usePresence(open, sheet, windowHeight, onClosed);
-  const surface = useRef<View>(null);
+  const surface = useRef<ViewInstance>(null);
   // While leaving, it keeps showing what it showed last while open.
   const shown = useRef<Header & { children: typeof children }>({ title, children });
   if (open) shown.current = { title, overline, description, children };

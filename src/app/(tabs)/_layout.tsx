@@ -1,7 +1,7 @@
 import { Tabs } from "expo-router";
 import { BottomTabBar, type BottomTabBarProps } from "expo-router/js-tabs";
 import { createContext, useContext, useEffect, useRef, useState, type RefObject } from "react";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DayProvider } from "../../calendar/provider";
 import { AppHeader } from "../../components/app-header";
@@ -30,7 +30,7 @@ export const unstable_settings = { anchor: tabAnchor };
  * route, not `focused`, says which icon is chosen.
  */
 const TabHighlight = createContext<{
-  bar: RefObject<View | null>;
+  bar: RefObject<ViewInstance | null>;
   active: string;
   frame: Frame | null;
   place: (frame: Frame) => void;
@@ -124,7 +124,7 @@ function FloatingTabBar({
   const insets = useSafeAreaInsets();
   const { colors, appearance } = useTheme();
   const reduced = useReducedMotion();
-  const bar = useRef<View>(null);
+  const bar = useRef<ViewInstance>(null);
   const [highlight, setHighlight] = useState<Frame | null>(null);
   const active = props.state.routes[props.state.index].name;
   // Profile has no tab of its own, so no tab is highlighted while it shows.
@@ -194,7 +194,7 @@ function FloatingTabBar({
 function TabIcon({ route, name, focused }: { route: string; name: IconName; focused: boolean }) {
   const { colors } = useTheme();
   const highlight = useContext(TabHighlight);
-  const icon = useRef<View>(null);
+  const icon = useRef<ViewInstance>(null);
   // The chosen icon tells the bar where its highlight goes; the screens switch instantly.
   const place = () => {
     if (highlight?.active === route && highlight.bar.current && icon.current)

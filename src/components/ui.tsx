@@ -10,6 +10,7 @@ import {
   type ViewProps,
   type StyleProp,
   type ViewStyle,
+  type ScrollViewInstance,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -122,14 +123,14 @@ export function Screen({
   contentContainerStyle,
 }: PropsWithChildren<{
   title: string;
-  scrollRef?: Ref<ScrollView>;
+  scrollRef?: Ref<ScrollViewInstance>;
   adjustKeyboardInsets?: boolean;
   contentContainerStyle?: StyleProp<ViewStyle>;
 }>) {
   const { colors } = useTheme();
   const tabBarInset = useContext(TabBarInset);
-  const scroll = useRef<ScrollView>(null);
-  useImperativeHandle(scrollRef, () => scroll.current as ScrollView, []);
+  const scroll = useRef<ScrollViewInstance>(null);
+  useImperativeHandle(scrollRef, () => scroll.current as ScrollViewInstance, []);
   const navigation = useNavigation();
   // Switching to another tab drops this one's scroll position, so it always opens at the top.
   // A page pushed over the tabs (Edit profile) blurs it too; coming back keeps the position.

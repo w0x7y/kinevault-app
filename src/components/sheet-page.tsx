@@ -1,4 +1,12 @@
-import { Modal, Platform, ScrollView, StyleSheet, View } from "react-native";
+import {
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+  type ScrollViewInstance,
+  type ViewInstance,
+} from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   createContext,
@@ -35,7 +43,7 @@ type SheetPageProps = PropsWithChildren<{
   /** Identifies the page on an open sheet: a new page starts at the top of the sheet. */
   page?: string | number;
   testID?: string;
-  scrollRef?: Ref<ScrollView>;
+  scrollRef?: Ref<ScrollViewInstance>;
 }>;
 type SheetHeader = Required<Pick<SheetPageProps, "title" | "closeLabel" | "closeDisabled">> &
   Pick<SheetPageProps, "trailing" | "center"> & { onClose: () => void; footer?: ReactNode };
@@ -43,8 +51,8 @@ type SheetHeader = Required<Pick<SheetPageProps, "title" | "closeLabel" | "close
 type HeaderClaim = { depth: number; header: Partial<SheetHeader> };
 type SheetHost = {
   claimHeader: (owner: object, claim: HeaderClaim | null) => void;
-  scrollView: RefObject<ScrollView | null>;
-  scrollTo: (view: View) => void;
+  scrollView: RefObject<ScrollViewInstance | null>;
+  scrollTo: (view: ViewInstance) => void;
 };
 const SheetHostContext = createContext<SheetHost | null>(null);
 // How many nested pages enclose the caller.
@@ -160,7 +168,7 @@ export function useSheetControls({ trailing, footer }: PinnedControls) {
  */
 export function useSheetScrollTarget(enabled = true) {
   const host = useContext(SheetHostContext);
-  const ref = useRef<View>(null),
+  const ref = useRef<ViewInstance>(null),
     scrolled = useRef(false);
   return {
     ref,
@@ -224,8 +232,8 @@ function SheetFrame({
   children,
 }: SheetPageProps) {
   const [claims, setClaims] = useState<ReadonlyMap<object, HeaderClaim>>(() => new Map());
-  const scrollView = useRef<ScrollView | null>(null),
-    content = useRef<View>(null),
+  const scrollView = useRef<ScrollViewInstance | null>(null),
+    content = useRef<ViewInstance>(null),
     contentTop = useRef(0);
   const [host] = useState<SheetHost>(() => ({
     claimHeader(owner, claim) {

@@ -8,6 +8,7 @@ import {
   ScrollView,
   View,
   useWindowDimensions,
+  type ScrollViewInstance,
 } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -38,7 +39,7 @@ export function AccountScreen({
   const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const confirmation =
     account.emailDelivery?.kind === "confirmation" ? account.emailDelivery : null;
   const announcedConfirmation = useRef(confirmation);

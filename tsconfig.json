@@ -2,8 +2,7 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    // Defers the React Native strict TypeScript API. RN 0.90 drops this opt-out; see TODO.md.
-    "customConditions": ["react-native", "react-native-legacy-deep-imports"],
+    "customConditions": ["react-native"],
     "allowImportingTsExtensions": true,
     "types": ["node", "react", "expo/types"],
     "paths": {

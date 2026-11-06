@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import { AppState, Keyboard, type ScrollView } from "react-native";
+import { AppState, Keyboard, type ScrollViewInstance } from "react-native";
 import { useIsFocused } from "expo-router";
 import { Screen, ScreenTitle } from "../../components/ui";
 import { SheetPage } from "../../components/sheet-page";
@@ -77,8 +77,8 @@ function FoodDay({
   useLayoutEffect(() => tab.setDay(date), [tab, date]);
   const { units } = useUnits();
   useLayoutEffect(() => tab.setUnits(units), [tab, units]);
-  const scrollRef = useRef<ScrollView>(null);
-  const pageScroll = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const pageScroll = useRef<ScrollViewInstance>(null);
   const resultsTop = useRef(0);
   // A new day starts at the top of its log, and so does each return to the log.
   useEffect(() => {
