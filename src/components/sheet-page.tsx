@@ -44,6 +44,8 @@ type SheetPageProps = PropsWithChildren<{
   page?: string | number;
   testID?: string;
   scrollRef?: Ref<ScrollViewInstance>;
+  /** Opens its own sheet over an open one instead of taking over its page, e.g. the paywall. */
+  stacked?: boolean;
 }>;
 type SheetHeader = Required<Pick<SheetPageProps, "title" | "closeLabel" | "closeDisabled">> &
   Pick<SheetPageProps, "trailing" | "center"> & { onClose: () => void; footer?: ReactNode };
@@ -74,7 +76,11 @@ function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
  */
 export function SheetPage(props: SheetPageProps) {
   const host = useContext(SheetHostContext);
-  return host ? <NestedSheetPage host={host} {...props} /> : <SheetFrame {...props} />;
+  return host && !props.stacked ? (
+    <NestedSheetPage host={host} {...props} />
+  ) : (
+    <SheetFrame {...props} />
+  );
 }
 
 /**
@@ -344,7 +350,10 @@ function SheetFrame({
               }}
               style={styles.pages}
             >
-              <SheetHostContext.Provider value={host}>{children}</SheetHostContext.Provider>
+              <SheetHostContext.Provider value={host}>
+                {/* A stacked sheet's pages count from its own top. */}
+                <SheetDepthContext.Provider value={0}>{children}</SheetDepthContext.Provider>
+              </SheetHostContext.Provider>
             </View>
           </ScrollView>
           {footer && (

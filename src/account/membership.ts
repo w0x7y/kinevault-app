@@ -1,3 +1,4 @@
+import { isMembership } from "../plus/gate.ts";
 import { getSupabaseClient } from "./client";
 
 export type Membership = {
@@ -17,11 +18,7 @@ export async function readMembership(userId: string): Promise<Membership> {
   if (error || !data || data.user_id !== userId) {
     throw new Error("Your account membership could not be loaded.");
   }
-  if (
-    !["free", "plus", "pro"].includes(data.plan) ||
-    !["active", "trialing", "past_due", "canceled", "inactive"].includes(data.status)
-  ) {
-    throw new Error("The account returned an invalid membership.");
-  }
-  return { plan: data.plan, status: data.status };
+  const membership = { plan: data.plan, status: data.status };
+  if (!isMembership(membership)) throw new Error("The account returned an invalid membership.");
+  return membership;
 }
