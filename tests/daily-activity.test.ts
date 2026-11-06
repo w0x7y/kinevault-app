@@ -506,6 +506,53 @@ test("the Workout tile covers every state, with one minutes rule for the title a
   assert.equal(same.kind === "done" && same.exercises[0]!.record, null);
 });
 
+test("without Plus the Workout tile leaves cardio distance totals out, not each set's", () => {
+  const run = {
+    id: "run",
+    name: "Run",
+    muscleGroup: "",
+    equipment: "",
+    notes: "",
+    tracking: "cardio" as const,
+  };
+  const session: WorkoutSession = {
+    id: "day",
+    date,
+    name: "Morning",
+    status: "completed",
+    startedAt: null,
+    durationSeconds: 1800,
+    exercises: [
+      {
+        id: "run-row",
+        exercise: run,
+        sets: [{ id: "r", kind: "cardio", seconds: "1500", distanceMeters: "5250" }],
+      },
+    ],
+  };
+  const day = (distanceTotals: boolean) =>
+    interpretDayActivity({
+      ...sources,
+      exercise: source({
+        kind: "ready" as const,
+        document: { ...noExercise, sessions: [session] },
+      }),
+      distanceTotals,
+    }).workout;
+  const open = day(true);
+  assert.equal(open.summary, "5.25 km · 30 min");
+  const locked = day(false);
+  assert.equal(locked.summary, "1 set · 30 min");
+  assert.ok(locked.kind === "done");
+  assert.deepEqual(locked.exercises[0]!.counts, ["1 set"]);
+  assert.deepEqual(locked.stats.at(-1), { label: "Distance", value: "Plus", plus: true });
+  assert.deepEqual(locked.share.stats, [
+    { label: "Duration", value: "30 min" },
+    { label: "Sets", value: "1" },
+  ]);
+  assert.deepEqual(locked.share.exercises.lines, [{ name: "Run", figure: "25:00" }]);
+});
+
 test("the Workout tile adds cardio distance and leaves warm-up sets out", () => {
   const squat = {
     id: "squat",

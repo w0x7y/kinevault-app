@@ -17,6 +17,9 @@ import { DemoThumbnail, ExerciseDemo } from "./exercise-demo";
 import { useDemoCatalog } from "./provider";
 import { RetryButton } from "../../components/load-failure";
 import { StatusLine } from "./status-line";
+import { demoLocked } from "../../plus/gate";
+import { PlusTag } from "../../plus/locks";
+import { usePlus } from "../../plus/provider";
 
 function DemoResult({
   entry,
@@ -28,11 +31,14 @@ function DemoResult({
   onPress: () => void;
 }) {
   const { colors } = useTheme();
+  const { unlocked } = usePlus();
+  // Linking stays free; the tag says the demo itself plays with Plus.
+  const locked = demoLocked(entry.id, unlocked);
   const metadata = [entry.muscleGroup, entry.equipment].filter(Boolean).join(" · ");
   return (
     <Tappable
       testID="kinevault-demo-result"
-      label={`Link ${entry.name}`}
+      label={`Link ${entry.name}${locked ? ", demo part of Plus" : ""}`}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => ({
@@ -55,6 +61,7 @@ function DemoResult({
           </AppText>
         )}
       </View>
+      {locked && <PlusTag />}
       <Icon name="link" size={17} color={colors.mutedForeground} />
     </Tappable>
   );

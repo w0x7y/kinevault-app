@@ -15,6 +15,9 @@ import {
 } from "./nutrients.ts";
 import { nutritionAmountText } from "./number-input.ts";
 import { TextField } from "../components/text-field";
+import { PlusTag } from "../plus/locks";
+import { usePaywall } from "../plus/paywall";
+import { usePlus } from "../plus/provider";
 
 export function DetailedNutrientFields({
   values = {},
@@ -32,8 +35,11 @@ export function DetailedNutrientFields({
   onReset?: () => void;
 }) {
   const { colors } = useTheme();
-  const [expanded, setExpanded] = useState(() =>
-    Object.values(values).some((value) => value?.trim()),
+  const { unlocked } = usePlus();
+  const paywall = usePaywall();
+  // Locked, saved amounts stay in the draft and save unchanged; only invalid ones open the fields.
+  const [expanded, setExpanded] = useState(
+    () => unlocked && Object.values(values).some((value) => value?.trim()),
   );
   // Validation runs on the entire draft, even when inputs are hidden.
   useEffect(() => {
@@ -49,14 +55,27 @@ export function DetailedNutrientFields({
           paddingTop: spacing.xs,
         }}
       >
-        <AppButton
-          tone="link"
-          icon={expanded ? "chevron-up" : "chevron-down"}
-          label="More nutrients"
-          expanded={expanded}
-          disabled={disabled}
-          onPress={() => setExpanded((value) => !value)}
-        />
+        {unlocked || expanded ? (
+          <AppButton
+            tone="link"
+            icon={expanded ? "chevron-up" : "chevron-down"}
+            label="More nutrients"
+            expanded={expanded}
+            disabled={disabled}
+            onPress={() => setExpanded((value) => !value)}
+          />
+        ) : (
+          <AppButton
+            tone="link"
+            icon="chevron-down"
+            label="More nutrients"
+            accessibilityLabel="More nutrients, part of Plus"
+            badge={<PlusTag />}
+            disabled={disabled}
+            onPress={() => paywall.open("nutrients")}
+          />
+        )}
+        {paywall.sheet}
       </View>
       {expanded && (
         <View style={{ gap: spacing.layout }}>

@@ -24,6 +24,9 @@ import {
 import { useDemoCatalog } from "./provider";
 import { RetryButton } from "../../components/load-failure";
 import { StatusLine } from "./status-line";
+import { demoLocked } from "../../plus/gate";
+import { PlusLocked } from "../../plus/locks";
+import { usePlus } from "../../plus/provider";
 
 function Frame({ children }: { children: ReactNode }) {
   return (
@@ -102,6 +105,7 @@ function DemoVideo({
 /** A KineVault demonstration: the poster first, then a muted loop after a tap. */
 export function ExerciseDemo({ link, label }: { link: CatalogLink; label: string }) {
   const { colors } = useTheme();
+  const { unlocked } = usePlus();
   const catalog = useDemoCatalog();
   const offline = useConnectivity() === "offline";
   const [playback, dispatch] = useReducer(demoPlayback, initialDemoPlayback);
@@ -117,6 +121,7 @@ export function ExerciseDemo({ link, label }: { link: CatalogLink; label: string
     ? demoStatus({ state: catalog.state, link, mediaFailed: playback.failed, offline })
     : null;
   const ready = status?.kind === "ready" ? status : null;
+  const locked = demoLocked(link.id, unlocked);
   // One container and one status line stay mounted whatever the state, so
   // screen readers announce the status text as it changes.
   const notice = demoNotice(status);
@@ -148,7 +153,27 @@ export function ExerciseDemo({ link, label }: { link: CatalogLink; label: string
           onRetry={onRetry}
         />
       )}
-      {config && ready && (
+      {config && ready && locked && (
+        <>
+          {/* The linked exercise's own poster, faded, without the play control. */}
+          <PlusLocked locked feature="demos" message="This demo plays with Plus">
+            <Frame>
+              <Image
+                source={{ uri: demoObjectUrl(config, ready.posterPath) }}
+                cachePolicy="memory-disk"
+                contentFit="contain"
+                transition={0}
+                accessible={false}
+                style={{ flex: 1 }}
+              />
+            </Frame>
+          </PlusLocked>
+          <AppText variant="caption" muted>
+            {ready.entry.credit}
+          </AppText>
+        </>
+      )}
+      {config && ready && !locked && (
         <>
           <Frame>
             {playback.phase !== "poster" ? (

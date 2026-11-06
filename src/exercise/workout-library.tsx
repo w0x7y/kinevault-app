@@ -12,6 +12,10 @@ import { Hairline } from "./controls";
 import { useSheetBack } from "../components/sheet-page";
 import type { LibraryDrafts } from "./library-drafts";
 import { useSnapshot } from "./use-exercise-tab-view";
+import { limitReached } from "../plus/gate";
+import { LimitNotice, PlusTag } from "../plus/locks";
+import { usePaywall } from "../plus/paywall";
+import { usePlus } from "../plus/provider";
 
 export function WorkoutLibrary({
   actions,
@@ -28,8 +32,13 @@ export function WorkoutLibrary({
   const { busy, error, workouts, logs: records } = useSnapshot(actions);
   // The sheet's back button closes the menu, except while a change is saving.
   useSheetBack({ disabled: busy });
+  const { unlocked } = usePlus();
+  const paywall = usePaywall();
+  const full = limitReached("workouts", workouts.length, unlocked);
   return (
     <Panel style={{ gap: spacing.layout }}>
+      <LimitNotice limit="workouts" count={workouts.length} />
+      {paywall.sheet}
       {workouts.length === 0 && (
         <AppText muted>No workout found. Create a workout to get started.</AppText>
       )}
@@ -60,8 +69,11 @@ export function WorkoutLibrary({
                   size="compact"
                   icon="copy"
                   label="Duplicate"
-                  accessibilityLabel={`Duplicate workout ${workout.name}`}
-                  onPress={() => void actions.duplicate(workout.id)}
+                  accessibilityLabel={`Duplicate workout ${workout.name}${full ? ", part of Plus" : ""}`}
+                  badge={full && <PlusTag />}
+                  onPress={() =>
+                    full ? paywall.open("workouts") : void actions.duplicate(workout.id)
+                  }
                   disabled={busy}
                 />
               </LibraryRow>

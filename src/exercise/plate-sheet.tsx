@@ -19,6 +19,9 @@ import {
   type BarKg,
 } from "./plates";
 import { useUnits } from "../units/provider";
+import { PlusTag } from "../plus/locks";
+import { usePaywall } from "../plus/paywall";
+import { usePlus } from "../plus/provider";
 
 /** The Plate calculator's bar, a device setting like the Rest timer's length. It saves the kilogram
  * bar; Imperial shows its pound counterpart. */
@@ -50,11 +53,16 @@ function useBar() {
   return [bar, pick] as const;
 }
 
-/** A Plates button under a weighted exercise's sets, and its sheet of plates for each set. */
+/**
+ * A Plates button under a weighted exercise's sets, and its sheet of plates for each set. Without
+ * Plus the button wears the Plus tag and opens the paywall instead.
+ */
 export function PlateCalculator({ sets, rowLabel }: { sets: ExerciseSet[]; rowLabel: string }) {
   const [open, setOpen] = useState(false);
   const [bar, pickBar] = useBar();
   const { units } = useUnits();
+  const { unlocked } = usePlus();
+  const paywall = usePaywall();
   const lines = plateLines(sets, units);
   return (
     <>
@@ -62,9 +70,11 @@ export function PlateCalculator({ sets, rowLabel }: { sets: ExerciseSet[]; rowLa
         size="compact"
         icon="calculator"
         label="Plates"
-        accessibilityLabel={`Plates for ${rowLabel}`}
-        onPress={() => setOpen(true)}
+        accessibilityLabel={`Plates for ${rowLabel}${unlocked ? "" : ", part of Plus"}`}
+        badge={!unlocked && <PlusTag />}
+        onPress={() => (unlocked ? setOpen(true) : paywall.open("plates"))}
       />
+      {paywall.sheet}
       <ModalSheet
         open={open}
         title="Plates per side"

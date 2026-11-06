@@ -14,6 +14,10 @@ import { SegmentedControl } from "../components/segmented-control";
 
 import { useFoodDrafts } from "./draft-provider";
 import { catalogWriteState, type FoodDraftSession } from "./catalog-drafts.ts";
+import { limitReached, type PlusLimit } from "../plus/gate";
+import { LimitNotice, PlusTag } from "../plus/locks";
+import { usePaywall } from "../plus/paywall";
+import { usePlus } from "../plus/provider";
 
 export function CreateFoodForm({
   onCancel,
@@ -29,6 +33,9 @@ export function CreateFoodForm({
   const { draft, existing, volumeBased, handle, errors, error } = session;
   const { saving, locked } = catalogWriteState(foods, session);
   const busy = foods.saving || saving;
+  const { unlocked } = usePlus();
+  // Free's limit counts only new foods; editing one never hits it.
+  const count = existing || foods.state.kind !== "ready" ? null : foods.state.document.foods.length;
   function changeDraft(next: CustomFoodDraft) {
     drafts.changeFood(handle, next);
   }
@@ -50,6 +57,7 @@ export function CreateFoodForm({
   }
   return (
     <View testID="create-food-form" style={{ gap: spacing.layout }}>
+      {count !== null && <LimitNotice limit="foods" count={count} />}
       <AppText variant="caption" muted style={{ paddingHorizontal: spacing.xs }}>
         {draft.importSource
           ? "Check the label and edit any values before saving. Blank values are unknown."
@@ -132,6 +140,7 @@ export function CreateFoodForm({
         }}
         saveLabel={saving ? "Saving food..." : existing ? "Save food changes" : "Save food"}
         saveDisabled={locked}
+        limit={count !== null && limitReached("foods", count, unlocked) ? "foods" : undefined}
         onSave={() => {
           void save();
         }}
@@ -149,6 +158,7 @@ export function FormFooter({
   saveLabel,
   saveDisabled,
   onSave,
+  limit,
 }: {
   note: string;
   error?: string | null;
@@ -157,14 +167,26 @@ export function FormFooter({
   saveLabel: string;
   saveDisabled: boolean;
   onSave: () => void;
+  /** Free's limit this save would pass: Save wears the Plus tag and opens the paywall. */
+  limit?: PlusLimit;
 }) {
+  const paywall = usePaywall();
   return (
     <View style={{ gap: spacing.md, paddingTop: spacing.xs }}>
       {error && <InlineMessage>{error}</InlineMessage>}
       <ButtonRow>
         <AppButton fill label="Cancel" disabled={busy} onPress={onCancel} />
-        <AppButton fill tone="primary" label={saveLabel} disabled={saveDisabled} onPress={onSave} />
+        <AppButton
+          fill
+          tone="primary"
+          label={saveLabel}
+          accessibilityLabel={limit ? `${saveLabel}, part of Plus` : saveLabel}
+          badge={limit && <PlusTag />}
+          disabled={saveDisabled}
+          onPress={limit ? () => paywall.open(limit) : onSave}
+        />
       </ButtonRow>
+      {paywall.sheet}
       <AppText
         variant="caption"
         muted

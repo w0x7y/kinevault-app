@@ -5,6 +5,7 @@ import { useFoodLog } from "../food/log-provider";
 import { createDocumentProvider } from "../persistence/document-provider";
 import { useProfile } from "../profile/provider";
 import { useWaterLog } from "../water/provider";
+import { usePlus } from "../plus/provider";
 import { deviceHealth } from "./device-health";
 import { createHealthWriter } from "./writer";
 
@@ -32,10 +33,13 @@ export const { Provider: HealthWriteProvider, useDocument: useHealthWrite } =
       const food = useFoodLog().state;
       const water = useWaterLog().state;
       const profile = useProfile().state;
+      const { unlocked } = usePlus();
       useEffect(() => {
         // Writing from a document that hasn't loaded would remove its records from the store.
+        // Without Plus nothing new is written, and nothing already saved is removed.
         writer.setSources(
-          exercise.kind === "ready" &&
+          unlocked &&
+            exercise.kind === "ready" &&
             food.kind === "ready" &&
             water.kind === "ready" &&
             profile.kind === "ready"
@@ -47,7 +51,7 @@ export const { Provider: HealthWriteProvider, useDocument: useHealthWrite } =
               }
             : null,
         );
-      }, [writer, exercise, food, water, profile]);
+      }, [writer, unlocked, exercise, food, water, profile]);
       useEffect(() => {
         const subscription = AppState.addEventListener("change", (state) => {
           if (state === "active") void writer.refresh();
