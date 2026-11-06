@@ -6,10 +6,12 @@
  * route itself. `entryDecision` composes the layers into the one rule.
  *
  * Sign-in and email-link routes stay usable while the Profile or the account's
- * first download needs recovery. Password recovery comes first on every guarded
- * route; tracking needs a ready Profile, a signed-in Account and finished setup.
+ * first download needs recovery, and so does the privacy policy. Password recovery
+ * comes first on every guarded route; tracking needs a ready Profile, a signed-in
+ * Account and finished setup.
  */
 
+/** `auth` covers the email-link routes and the privacy policy: they render in any state. */
 export type EntryRoute = "auth" | "account" | "onboarding" | "tracking" | "other";
 
 export type ProfileReading =
@@ -55,6 +57,8 @@ export function entryRoute(segments: readonly string[]): EntryRoute {
     case "account":
     case "onboarding":
       return segments[0];
+    case "privacy":
+      return "auth";
     case "(tabs)":
       return "tracking";
     default:
@@ -62,7 +66,7 @@ export function entryRoute(segments: readonly string[]): EntryRoute {
   }
 }
 
-/** Sign-in and email-link routes, which work whatever the Profile or storage state. */
+/** Sign-in, email-link and privacy policy routes, which work whatever the Profile or storage state. */
 export function isPublicAccountRoute(route: EntryRoute): boolean {
   return route === "auth" || route === "account";
 }

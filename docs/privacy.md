@@ -2,6 +2,8 @@
 
 Track keeps a local copy of each account's tracking so logging works offline.
 
+The public policy is the `/privacy` route ([`src/app/privacy.tsx`](../src/app/privacy.tsx)), built from this page. It renders signed out, before setup, and past storage or Profile errors, because `entryRoute` treats it like the email-link routes. Settings → Data & account and the sign-in screen link to it. The web export serves it at `/privacy`. Change the page and this file together.
+
 | Data                                                                                                                                      | On the device                                                 | Uploaded                                                    |
 | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------- |
 | Tracking: profile, body measurements, goals, food, water, hand-logged steps (`kinevault-track.steps-log.v1`), workouts, imported workouts | AsyncStorage on native, browser storage on web. Not encrypted | When signed in, to the account's private Supabase documents |
@@ -30,6 +32,10 @@ Only when Save to Apple Health or Save to Health Connect is on, Track writes com
 On iOS and Android, Track fetches the share page straight from `app.tracked.gg`. It sends only the workout ID, with no cookies or account data, and Tracked sees the device's network address.
 
 On web, the browser sends the workout ID, in the request body, and the session token to the `tracked-workout` Edge Function. The function checks the session, fetches the page without cookies or account data, and returns it. It doesn't store or log the ID, the page or the token. Tracked sees Supabase's network. See [workout import](workout-import.md).
+
+## Barcode lookups
+
+A scanned or typed barcode goes straight from the device or browser to Open Food Facts (`world.openfoodfacts.org`) with no account data. Open Food Facts sees the device's network address.
 
 ## Reminders
 
@@ -66,4 +72,15 @@ Crash reports follow [the reporting setup](resilience.md). They carry no identit
 > completed workouts, body weight and daily water there. It doesn't read your
 > health data.
 
-The published policy still needs the operator, contact details and retention rules. Release work is in [TODO.md](../TODO.md).
+## Before publishing
+
+Fill these placeholders on `/privacy`:
+
+| Placeholder          | Where                                                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `[Operator name]`    | The opening paragraph: who runs Track                                                                             |
+| `[Effective date]`   | Under the title                                                                                                   |
+| `[Contact email]`    | Contact                                                                                                           |
+| `[Retention period]` | Twice: Crash reports (Sentry's retention setting) and How long data is kept (the account and its synced tracking) |
+
+Health Connect's privacy policy link opens the app's start screen, not `/privacy`. The rationale intents (`androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE` through Android 13, `android.intent.action.VIEW_PERMISSION_USAGE` from Android 14) reach `MainActivity` with no URI, so Expo Router only sees the root URL and a JavaScript redirect can't tell them apart from a normal launch. Routing them needs a config plugin that sets `intent.data` to `kinevaulttrack://privacy` for those two actions in `MainActivity.onCreate` (before `super.onCreate`) and in an `onNewIntent` override, then a new Android build checked on a phone. Release work is in [TODO.md](../TODO.md).
