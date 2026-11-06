@@ -98,6 +98,7 @@
         }
       ],
       "react-native-health-connect",
+      "./plugins/with-health-connect-privacy-link.cjs",
       ["expo-build-properties", { "android": { "minSdkVersion": 26 } }],
       "expo-web-browser",
       [
