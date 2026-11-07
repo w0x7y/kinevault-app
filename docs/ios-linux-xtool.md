@@ -98,17 +98,15 @@ xtool asks for the Apple ID, password, two-factor code and team. A free Apple ID
 
 The workflow compiles these into the JavaScript bundle. Set them under Settings > Secrets and variables > Actions, or with `gh` from `Application/`:
 
-| Name                                   | Kind     | Required | Value                                        |
-| -------------------------------------- | -------- | -------- | -------------------------------------------- |
-| `EXPO_PUBLIC_SUPABASE_URL`             | Variable | Yes      | Supabase project URL, as in `.env.local`     |
-| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Secret   | Yes      | Supabase publishable key                     |
-| `EXPO_PUBLIC_SENTRY_DSN`               | Variable | No       | Public Sentry DSN; unset turns reporting off |
-| `EXPO_PUBLIC_TRACK_PARTITIONS`         | Variable | No       | Defaults to `false`; see `.env.example`      |
+| Name                                   | Kind     | Required | Value                                    |
+| -------------------------------------- | -------- | -------- | ---------------------------------------- |
+| `EXPO_PUBLIC_SUPABASE_URL`             | Variable | Yes      | Supabase project URL, as in `.env.local` |
+| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Secret   | Yes      | Supabase publishable key                 |
+| `EXPO_PUBLIC_TRACK_PARTITIONS`         | Variable | No       | Defaults to `false`; see `.env.example`  |
 
 ```sh
 gh variable set EXPO_PUBLIC_SUPABASE_URL --body "https://<project-ref>.supabase.co"
 gh secret set EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY    # paste the key at the prompt
-gh variable set EXPO_PUBLIC_SENTRY_DSN --body "<dsn>"  # optional
 ```
 
 The runner builds what's pushed to `main`, not your working tree. Push `.github/workflows/ios-unsigned-build.yml`, `plugins/` and the app changes you want first.
@@ -174,8 +172,6 @@ idevicesyslog -p KineVaultTrack
 mkdir -p ~/kinevault-crashes
 idevicecrashreport -e -k -f KineVaultTrack ~/kinevault-crashes
 ```
-
-JavaScript errors go to Sentry when `EXPO_PUBLIC_SENTRY_DSN` is set; see [iOS builds with Xcode](ios-xcode.md#sentry).
 
 ## When things change
 

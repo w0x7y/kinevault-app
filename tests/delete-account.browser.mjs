@@ -44,8 +44,7 @@ async function expectPage(page) {
   for (const section of ["In the app", "On the web", "What's deleted", "What isn't deleted"])
     await heading(page, section);
   // The operator's details stay visible placeholders until they're filled in.
-  for (const placeholder of ["[Contact email]", "[Retention period]"])
-    assert.ok((await page.getByText(placeholder, { exact: false }).count()) > 0, placeholder);
+  assert.ok((await page.getByText("[Contact email]", { exact: false }).count()) > 0);
   assert.equal(new URL(page.url()).pathname, "/delete-account");
 }
 

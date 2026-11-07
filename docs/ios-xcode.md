@@ -46,7 +46,7 @@ sudo xcodebuild -license accept
    cp .env.example .env.local
    ```
 
-   Fill in `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and optionally `EXPO_PUBLIC_SENTRY_DSN`. Debug builds read them when Metro starts, Release builds when Xcode builds, so restart Metro or rebuild after a change. Without the Supabase values, account features stay off. If npm says it skipped `@sentry/cli`'s install script, ignore it (see [Sentry](#sentry)).
+   Fill in `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Debug builds read them when Metro starts, Release builds when Xcode builds, so restart Metro or rebuild after a change. Without the Supabase values, account features stay off.
 
 2. Generate and open the project:
 
@@ -108,16 +108,6 @@ Reminders are local notifications from `expo-notifications`. There's no push ser
 - Remote push needs a paid team. Remove that plugin, enable the capability and add push-token registration.
 - On Android, the small icon is `assets/branding/notification-icon.png`, tinted `#3a6a96`.
 
-## Sentry
-
-The Sentry pods are linked, but the `@sentry/react-native/expo` config plugin isn't in `app.json`. Builds don't run `sentry-cli`, upload debug symbols or need `SENTRY_AUTH_TOKEN`. `src/components/crash-reporting-policy.ts` sends sanitized JavaScript errors when `EXPO_PUBLIC_SENTRY_DSN` is set, with native crash handling off (`enableNative: false`). Release stack traces have no source maps, and Swift or Objective-C crashes aren't reported. See [Sentry verification](sentry-verification.md).
-
-To turn on uploads:
-
-1. Add `["@sentry/react-native/expo", { "organization": "idan-gilboa", "project": "kinevault-track" }]` to the `app.json` plugins, plus Sentry's region `url` option for EU organizations. Run `npm run ios:prebuild`.
-2. Give the Xcode build `SENTRY_AUTH_TOKEN` for builds that upload.
-3. For other local builds, add `export SENTRY_DISABLE_AUTO_UPLOAD=true` to `ios/.xcode.env.local`. Without a token or that line, Release builds fail with "error: sentry-cli - To disable source maps auto upload, set SENTRY_DISABLE_AUTO_UPLOAD=true".
-
 ## Change the bundle identifier
 
 1. Set `expo.ios.bundleIdentifier` in `app.json`, such as `com.yourname.kinevaulttrack`. Use reverse-DNS form with letters, digits, hyphens and periods.
@@ -155,7 +145,6 @@ Apps built with the iOS 27 SDK (Xcode 27) stop at launch on iOS 27 without the U
 | App closes at once on iOS 27 after an Xcode 27 build                                          | Check `ios/KineVaultTrack/Info.plist` has `UIApplicationSceneManifest`. If not, run `npx expo prebuild --platform ios --clean`.                                                                                          |
 | Release build blank or stuck on the splash screen                                             | Read the JavaScript error in the Xcode console (View > Debug Area). Check `.env.local` existed at build time.                                                                                                            |
 | "No script URL provided" or "Could not connect to development server"                         | See below.                                                                                                                                                                                                               |
-| `sentry-cli` in the build log                                                                 | Someone added the Sentry config plugin. Follow [Sentry](#sentry).                                                                                                                                                        |
 
 If the app can't reach Metro:
 

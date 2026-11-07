@@ -19,13 +19,13 @@ Keep both when a patch is removed.
 
 ## Open advisories
 
-The patches don't fix or hide any other advisory. `npm audit --omit=dev` reports 10 findings (7 moderate, 3 high) from three advisories, all in build tools rather than code that ships in the app:
+The patches don't fix or hide any other advisory. `npm audit --omit=dev` reports 8 findings (5 moderate, 3 high) from three advisories, all in build tools rather than code that ships in the app:
 
-| Package   | Advisory                                                                 | Why it stays                                                                                                   |
-| --------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| zod       | [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) | `@expo/cli@58.1.19` requires zod 3; the fix is only in zod 4.6.6                                               |
-| glob      | [GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) | `@expo/cli`, `@expo/fingerprint` and `@sentry/bundler-plugins` require glob 13; the fix is only in glob 14.0.2 |
-| minimatch | [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) | `@expo/fingerprint` requires minimatch 10; the fix is only in minimatch 11.0.1                                 |
+| Package   | Advisory                                                                 | Why it stays                                                                        |
+| --------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| zod       | [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) | `@expo/cli@58.1.19` requires zod 3; the fix is only in zod 4.6.6                    |
+| glob      | [GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) | `@expo/cli` and `@expo/fingerprint` require glob 13; the fix is only in glob 14.0.2 |
+| minimatch | [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) | `@expo/fingerprint` requires minimatch 10; the fix is only in minimatch 11.0.1      |
 
 The full `npm audit` reports 17 (14 moderate, 3 high): the same three advisories, also through development-only packages. `node-forge` resolves to the fixed 1.4.3, deepmerge is no longer installed, and the braces advisory is withdrawn. See [security remediation](../docs/security-remediation.md#dependency-audit-2026-11-04).
 

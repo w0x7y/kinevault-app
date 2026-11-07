@@ -28,7 +28,7 @@ With permission, Home reads the day's step total on the device: Core Motion on i
 
 ## Health saving
 
-Only when Save to Apple Health or Save to Health Connect is on, Track writes completed workouts, body-weight entries and daily water totals to the phone's health store. It asks for write access only and reads nothing back. The setting and the list of written records stay on the device and never reach Supabase, the export or crash reports. Turning it off or deleting the account leaves the records already saved there; the user removes them in Health or Health Connect.
+Only when Save to Apple Health or Save to Health Connect is on, Track writes completed workouts, body-weight entries and daily water totals to the phone's health store. It asks for write access only and reads nothing back. The setting and the list of written records stay on the device and never reach Supabase or the export. Turning it off or deleting the account leaves the records already saved there; the user removes them in Health or Health Connect.
 
 ## Workout import
 
@@ -50,7 +50,7 @@ Settings exports tracking data and local photos. Deletion runs through the `dele
 
 ## Error reporting
 
-Crash reports follow [the reporting setup](resilience.md). They carry no identity, food or workout payloads, request bodies or auth links, and use a constant `0.0.0.0` IP so Sentry can't infer location. Turn reporting on only with the configured destination, and put the vendor's retention settings in the published policy. Only local delivery is verified ([Sentry verification](sentry-verification.md)).
+Track sends no crash reports or analytics. A crash shows a recovery screen, and nothing about it leaves the device ([resilience](resilience.md)).
 
 ## Proposed privacy-policy text
 
@@ -79,11 +79,9 @@ Crash reports follow [the reporting setup](resilience.md). They carry no identit
 
 Fill these placeholders on `/privacy` and `/delete-account`:
 
-| Placeholder          | Where                                                                                                                     |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `[Operator name]`    | The opening paragraph: who runs Track                                                                                     |
-| `[Effective date]`   | Under the title                                                                                                           |
-| `[Contact email]`    | Contact, and If you can't sign in on `/delete-account`                                                                    |
-| `[Retention period]` | Crash reports (Sentry's retention setting) on both pages, and How long data is kept (the account and its synced tracking) |
+| Placeholder        | Where                                                  |
+| ------------------ | ------------------------------------------------------ |
+| `[Effective date]` | Under the title                                        |
+| `[Contact email]`  | Contact, and If you can't sign in on `/delete-account` |
 
 Health Connect's privacy policy link opens `/privacy`. Its intents (`androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE` through Android 13, `android.intent.action.VIEW_PERMISSION_USAGE` from Android 14) reach `MainActivity` with no URL, and React Native passes Expo Router a URL only for `ACTION_VIEW` intents. `plugins/with-health-connect-privacy-link.cjs` turns both into an `ACTION_VIEW` intent for `kinevaulttrack://privacy`, in `MainActivity.onCreate` before `super.onCreate` for a cold start and in `onNewIntent` for a running app. It needs a new Android build. On an Android 15 emulator with a local release build, Health Connect's Read privacy policy link opened Privacy policy with the app closed and with it open (2026-11-06). It hasn't run on a phone yet. Check it on Android 13 and on Android 14 or newer, once with the app closed and once with it open: Health Connect → App permissions → KineVault Track → the privacy policy link should open Privacy policy. Release work is in [TODO.md](../TODO.md).

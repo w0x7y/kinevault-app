@@ -198,13 +198,13 @@ Match the localhost port to the running Expo server. Expo Go uses `exp://YOUR-DE
 The web app goes on Vercel. `vercel.json` defines the build and routes. It isn't deployed yet. [Web deploy](web-deploy.md) has the full steps.
 
 1. Create the Vercel project from `Application/`.
-2. Add `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and, for Sentry, `EXPO_PUBLIC_SENTRY_DSN`.
+2. Add `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 3. Use the production origin for the web callback URLs above.
 
 `vercel.json` also sets a Content-Security-Policy:
 
 - `script-src` allows same-origin scripts and Expo Router's inline script by SHA-256 hash. `tests/web-headers.test.ts` fails if an Expo Router upgrade changes that script.
-- `connect-src` allows the Supabase project, Open Food Facts and `o4512218785120256.ingest.de.sentry.io`. A DSN for another Sentry organization or region needs its host added.
+- `connect-src` allows the Supabase project and Open Food Facts.
 
 ## Google sign-in
 

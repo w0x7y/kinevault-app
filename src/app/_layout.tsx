@@ -30,14 +30,12 @@ import {
 } from "../account/entry-policy";
 import { RefreshNotice } from "../persistence/refresh-notice";
 import { AppErrorBoundary } from "../components/error-boundary";
-import { initializeCrashReporting } from "../components/crash-reporting";
 import { ConnectivityProvider } from "../connectivity/provider";
 import { OfflineNotice } from "../connectivity/notice";
 import { initializeReminderNotifications } from "../reminders/notifications";
 import { ReminderProvider } from "../reminders/provider";
 import { useReminderTapRouting } from "../reminders/tap-routing";
 
-initializeCrashReporting();
 initializeReminderNotifications();
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 

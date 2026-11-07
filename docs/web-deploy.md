@@ -23,12 +23,9 @@ Below, `YOUR-TRACK-WEB-HOST` stands for that address without `https://`, as in [
    | -------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------- |
    | `EXPO_PUBLIC_SUPABASE_URL`             | `https://kkywpvkckxniriatelta.supabase.co`                      | Yes                                                                   |
    | `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | The publishable key from Supabase → Project Settings → API Keys | Yes                                                                   |
-   | `EXPO_PUBLIC_SENTRY_DSN`               | The Sentry DSN                                                  | Only for crash reports                                                |
    | `EXPO_PUBLIC_TRACK_PARTITIONS`         | Leave unset                                                     | Not until the [monthly history rollout](history-migration-rollout.md) |
 
    Without the Supabase pair the build still passes, but the app shows account features as unavailable. Everything here ends up in the public bundle. Never add a service-role key, secret key or access token.
-
-   The CSP's `connect-src` allows only Sentry host `o4512218785120256.ingest.de.sentry.io`. A DSN from another Sentry organization or region needs its host added to `vercel.json`.
 
 5. Deploy. The production address is listed under Settings → Domains. Use that address everywhere below. Per-deployment URLs, the ones with a hash in them, can sit behind Vercel's deployment protection, and a reviewer who opens one gets a Vercel login page.
 

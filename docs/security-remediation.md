@@ -87,14 +87,14 @@ In 4.3.0, `max-stale` could reuse private, `no-store` and `no-cache` responses, 
 
 Expo Doctor failed once Expo published newer SDK 58 patches. `npx expo install --fix` moved Expo to 58.0.23, its packages to the SDK's current patch versions and `react-native-safe-area-context` to 5.11.1. That also moved `node-forge` to 1.4.3 and removed deepmerge.
 
-| Advisory                                                                                            | Status                                                                                                                              |
-| --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| [GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4), deepmerge                 | Gone: deepmerge is no longer installed                                                                                              |
-| [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5), zod below 4.6.6           | Open, high. Through `@expo/cli` and development-only `expo-mcp`. Fixed in zod 4.6.6                                                 |
-| [GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4), glob 9.0.0 to 14.0.1      | Open, moderate. Through `@expo/cli`, `@expo/fingerprint` and `@sentry/bundler-plugins`, which require glob 13. Fixed in glob 14.0.2 |
-| [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249), minimatch 7.0.0 to 11.0.0 | Open, moderate. Through `@expo/fingerprint`, which requires minimatch 10. Fixed in minimatch 11.0.1                                 |
+| Advisory                                                                                            | Status                                                                                                   |
+| --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4), deepmerge                 | Gone: deepmerge is no longer installed                                                                   |
+| [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5), zod below 4.6.6           | Open, high. Through `@expo/cli` and development-only `expo-mcp`. Fixed in zod 4.6.6                      |
+| [GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4), glob 9.0.0 to 14.0.1      | Open, moderate. Through `@expo/cli` and `@expo/fingerprint`, which require glob 13. Fixed in glob 14.0.2 |
+| [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249), minimatch 7.0.0 to 11.0.0 | Open, moderate. Through `@expo/fingerprint`, which requires minimatch 10. Fixed in minimatch 11.0.1      |
 
-`npm audit` reports 17 findings (14 moderate, 3 high), or 10 with `--omit=dev` (7 moderate, 3 high). Every fix crosses a major version the Expo and Sentry packages don't accept, so they wait for upstream. `npm audit fix --force` would downgrade to Expo 52; don't run it.
+`npm audit` reports 15 findings (12 moderate, 3 high), or 8 with `--omit=dev` (5 moderate, 3 high). Every fix crosses a major version the Expo packages don't accept, so they wait for upstream. `npm audit fix --force` would downgrade to Expo 52; don't run it.
 
 ## Dependency audit (2026-10-28)
 

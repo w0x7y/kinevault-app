@@ -46,13 +46,9 @@ async function expectPolicy(page) {
   await heading(page, "Apple Health and Health Connect");
   await heading(page, "Export and deletion");
   // The operator's details stay visible placeholders until they're filled in.
-  for (const placeholder of [
-    "[Operator name]",
-    "[Contact email]",
-    "[Effective date]",
-    "[Retention period]",
-  ])
+  for (const placeholder of ["[Contact email]", "[Effective date]"])
     assert.ok((await page.getByText(placeholder, { exact: false }).count()) > 0, placeholder);
+  assert.equal(await page.getByText("Crash reports", { exact: true }).count(), 0);
   assert.equal(new URL(page.url()).pathname, "/privacy");
 }
 
