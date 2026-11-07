@@ -84,6 +84,7 @@
       "expo-sharing",
       "./plugins/with-local-notifications-only.cjs",
       "./plugins/with-gradle-memory.cjs",
+      "./plugins/with-android-version-code.cjs",
       [
         "expo-notifications",
         {
@@ -98,6 +99,7 @@
         }
       ],
       "react-native-health-connect",
+      "./plugins/with-health-connect-privacy-link.cjs",
       ["expo-build-properties", { "android": { "minSdkVersion": 26 } }],
       "expo-web-browser",
       [
