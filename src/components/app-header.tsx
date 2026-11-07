@@ -18,7 +18,7 @@ import {
   type ViewStyle,
   type ViewInstance,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { addDays, calendarWeeks, parseDay } from "../calendar/dates";
 import { useSelectedDay } from "../calendar/provider";
 import { useTheme } from "../theme/provider";
@@ -235,6 +235,8 @@ function DayCalendar() {
   );
 }
 
+const barHeight = 60;
+
 export function AppHeader({ onHeightChange }: { onHeightChange: (height: number) => void }) {
   const { colors } = useTheme();
   const { selectedDay, today } = useSelectedDay();
@@ -255,7 +257,9 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
   const { height: windowHeight } = useWindowDimensions();
   const [popover, setPopover] = useState<HeaderPopover>(null);
   const expanded = popover === "calendar";
-  const [headerHeight, setHeaderHeight] = useState(0);
+  const insets = useSafeAreaInsets();
+  // Popovers open below the bar even before its first measurement, which a busy start delays.
+  const [headerHeight, setHeaderHeight] = useState(barHeight + insets.top);
   const [timerWidth, setTimerWidth] = useState(0);
   const closePopover = useCallback(() => setPopover(null), []);
   const calendarChip = useRef<ViewInstance>(null),
@@ -456,7 +460,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.layout,
   },
   bar: {
-    minHeight: 60,
+    minHeight: barHeight,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
