@@ -3,12 +3,13 @@ import { persistedSession, type OwnedSessionStorage } from "./owned-session-stor
 
 /** Server deletion already revoked sessions; clearing this device needs no HTTP logout. */
 export function createAccountAuthAdapter(
-  auth: Omit<AccountAuthPort, "clearDeletedSession">,
+  auth: Omit<AccountAuthPort, "clearDeletedSession" | "storedSession">,
   storage: OwnedSessionStorage,
   storageKey: string,
 ): AccountAuthPort {
   return {
     getSession: () => auth.getSession(),
+    storedSession: async () => persistedSession(await storage.getItem(storageKey)),
     onAuthStateChange(callback) {
       const stopStorage = storage.subscribeSession(storageKey, (raw) => {
         try {
