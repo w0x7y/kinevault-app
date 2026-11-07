@@ -40,9 +40,11 @@ function harness(
     data: { session: session as Session | null },
     error: null as { message: string; code?: string } | null,
   };
+  let stored: Session | null = null;
   let submitted = 0;
   const auth: AccountAuthPort = {
     getSession: () => initial,
+    storedSession: async () => stored,
     onAuthStateChange(listener) {
       callback = listener;
       subscriptionActive = true;
@@ -113,6 +115,9 @@ function harness(
     setInitial(value: typeof initial) {
       initial = value;
     },
+    setStored(value: Session | null) {
+      stored = value;
+    },
     setResult(value: typeof result) {
       result = value;
     },
@@ -132,6 +137,35 @@ test("account boot restores a session and stops its listener", async () => {
   assert.equal(h.controller.getSnapshot().loading, false);
   h.controller.stop();
   assert.equal(h.subscriptionActive, false);
+});
+
+test("account boot opens the saved session while an offline refresh retries", async () => {
+  const h = harness();
+  const refresh = deferred<{
+    data: { session: Session | null };
+    error: { message: string } | null;
+  }>();
+  h.setStored(session);
+  h.setInitial(refresh.promise);
+  await ready(h);
+  assert.equal(h.controller.getSnapshot().loading, false);
+  assert.equal(h.controller.getSnapshot().user?.id, "owner");
+  refresh.resolve({ data: { session: null }, error: { message: "Failed to fetch" } });
+  await ready(h);
+  assert.equal(h.controller.getSnapshot().user?.id, "owner");
+  assert.equal(h.controller.getSnapshot().error, null);
+  // A refused refresh removes the saved session, which signs out.
+  h.emit("SIGNED_OUT", null);
+  assert.equal(h.controller.getSnapshot().user, null);
+});
+
+test("account boot without a saved session still reports a failed restore", async () => {
+  const h = harness();
+  h.setInitial(Promise.resolve({ data: { session: null }, error: { message: "Failed to fetch" } }));
+  await ready(h);
+  assert.equal(h.controller.getSnapshot().loading, false);
+  assert.equal(h.controller.getSnapshot().user, null);
+  assert.match(h.controller.getSnapshot().error ?? "", /Couldn't restore your account session/);
 });
 
 test("delayed account deletion never signs out a replacement identity", async () => {

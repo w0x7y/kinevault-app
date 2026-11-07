@@ -67,6 +67,7 @@ async function setup(
   const result = async () => ({ data: { session: currentSession }, error: null });
   const auth: AccountAuthPort = {
     getSession: result,
+    storedSession: async () => currentSession,
     onAuthStateChange(callback) {
       authChanged = callback;
       return { data: { subscription: { unsubscribe: () => (authChanged = undefined) } } };

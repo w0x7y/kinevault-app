@@ -6,6 +6,8 @@ type Result = { error: AuthError | null };
 type SessionResult = Result & { data: { session: Session | null } };
 export type AccountAuthPort = {
   getSession: () => Promise<SessionResult>;
+  /** This device's saved session, read without the SDK's token refresh. */
+  storedSession: () => Promise<Session | null>;
   onAuthStateChange: (callback: (event: string, session: Session | null) => void) => {
     data: { subscription: { unsubscribe: () => void } };
   };
@@ -277,24 +279,31 @@ export function createAccountController(
         return;
       }
       unsubscribe = () => data.subscription.unsubscribe();
+      // getSession refreshes an expired token first, retrying for 30 seconds offline. Open the
+      // saved account now; a refresh the server refuses removes it, which signs out above.
+      void auth
+        .storedSession()
+        .then((session) => {
+          const current = running && id === generation && revision === authRevision;
+          if (session && current && snapshot.loading) publishSession(session);
+        })
+        .catch(() => {});
+      const failed = () => {
+        // Offline, the saved account stays open until the refresh can run.
+        if (running && id === generation && revision === authRevision && !snapshot.user)
+          publish({
+            loading: false,
+            error: "Couldn't restore your account session. Try logging in again.",
+          });
+      };
       void auth
         .getSession()
         .then((result) => {
-          if (!running || id !== generation || revision !== authRevision) return;
-          if (result.error)
-            publish({
-              loading: false,
-              error: "Couldn't restore your account session. Try logging in again.",
-            });
-          else publishSession(result.data.session);
+          if (result.error) failed();
+          else if (running && id === generation && revision === authRevision)
+            publishSession(result.data.session);
         })
-        .catch(() => {
-          if (running && id === generation && revision === authRevision)
-            publish({
-              loading: false,
-              error: "Couldn't restore your account session. Try logging in again.",
-            });
-        });
+        .catch(failed);
     },
     stop() {
       running = false;
