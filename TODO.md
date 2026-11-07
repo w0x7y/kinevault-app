@@ -82,13 +82,14 @@ Decisions:
 
 - [ ] Say who runs the shared Supabase project. If KineVault's owner isn't the Track publisher, the account data counts as shared, and `/privacy` has to name both.
 - [ ] iPad: test the layout or set `supportsTablet` to `false` before the first App Store submission. App Review runs on an iPad when it's `true`.
-- [ ] Pick Play's purpose for crash logs (Analytics or App functionality) and Apple's category for age and sex (Health or Other data).
+- [ ] Pick Apple's category for age and sex (Health or Other data).
 - [ ] Check whether Supabase's logs record IP addresses, which may count as approximate location.
 
 Both stores:
 
-- [ ] Fill `/privacy` and `/delete-account`: operator, contact email, effective date, and retention for accounts and Sentry. Add the Health Connect Limited Use statement to `/privacy`.
-- [ ] Keep `EXPO_PUBLIC_SENTRY_DSN` set in store builds, or answer crash data as "not collected".
+- [x] Name the operator (Idan Gilboa) and the account retention (until the account is deleted) on `/privacy` (2026-11-07).
+- [ ] Fill the contact email and effective date on `/privacy` and `/delete-account`. Add the Health Connect Limited Use statement to `/privacy`.
+- [x] Remove Sentry, so no build sends crash reports. Both stores' crash-data answers are "not collected" (2026-11-07).
 - [ ] Make a reviewer demo account with email and password. Google sign-in won't work for reviewers until the consent screen is published.
 - [ ] Don't claim deletion removes all data until the end-to-end `delete-account` check below passes.
 - [ ] When Plus billing ships, update the Data safety form, App Privacy labels and description: purchases, the subscription and the Plus features. The description lists Health saving, which moves to Plus.
@@ -179,7 +180,7 @@ Pro, later:
 - [ ] Enable Supabase leaked-password protection. It needs a Pro plan (the apply command returned HTTP 402), so it's a billing decision.
 - [x] Upgrade to Expo SDK 58 (2026-10-29): Expo 58.0.21, React Native 0.88.1, React 19.3.0 and Expo Router 58.0.28. The query-string patch and xcode uuid override are gone; the http-cache-semantics patch stays (patches/README.md). Web routes load eagerly (`asyncRoutes.web: false`) to match native load order, and release builds use R8. `npm run check`, Expo Doctor, all three exports, the browser suite and emulator debug and release builds pass. Checked on an iPhone and an Android phone (2026-11-04).
 - [x] Move to Expo 58.0.23 and the SDK's current patch versions, with `react-native-safe-area-context` 5.11.1 (2026-11-04), so Expo Doctor passes. `npm run check`, Expo Doctor, all three exports and the browser suite pass. Not yet tried in a native build on a phone.
-- [ ] The zod, glob and minimatch audit findings wait for Expo and Sentry releases that accept the fixed majors (docs/security-remediation.md).
+- [ ] The zod, glob and minimatch audit findings wait for Expo releases that accept the fixed majors (docs/security-remediation.md).
 - [x] Move to the React Native strict TypeScript API (2026-11-06): `tsconfig.json` drops the `react-native-legacy-deep-imports` condition, and refs use the instance types React Native exports (`ViewInstance`, `ScrollViewInstance`, `TextInputInstance`). `npm run check`, the web export and the browser suite pass. Not yet tried in a native build on a phone.
 - [x] Let Google-only accounts delete themselves: without a password, `delete-account` accepts a Google sign-in from the last 10 minutes, and Settings offers "Sign in with Google again" (docs/account-management.md).
 - [x] Apply migration `20261018120000_account_deletion_attempts.sql` and deploy `delete-account` (both 2026-10-18).

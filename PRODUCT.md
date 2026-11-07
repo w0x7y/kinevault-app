@@ -87,7 +87,7 @@ The app is for ages 18 and up. It uses English copy and Metric or Imperial units
 - Goals, exercises, saved workouts, workout logs, food and water logs and logged steps sync to private account storage through Supabase. Pending edits survive offline restarts, and conflicting edits ask which copy to keep.
 - Data already on the device is imported once. Each account has its own local cache.
 - Membership plans are set on the server, default to Free, and have no payments.
-- An offline banner shows when the app is offline, and reconnecting retries pending saves. A render crash offers Reload. Error reporting is optional ([resilience](docs/resilience.md)).
+- An offline banner shows when the app is offline, and reconnecting retries pending saves. A render crash offers Reload. The app sends no crash reports ([resilience](docs/resilience.md)).
 - Storage and sign-out behavior: [privacy](docs/privacy.md). Food search needs no credentials or hosted service.
 
 ## Brand commitments

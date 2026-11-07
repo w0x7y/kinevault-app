@@ -28,7 +28,6 @@ jobs:
       # the iOS unsigned build.
       EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
       EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
-      EXPO_PUBLIC_SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
       EXPO_PUBLIC_TRACK_PARTITIONS: ${{ vars.EXPO_PUBLIC_TRACK_PARTITIONS || 'false' }}
     # The signing secrets go only to the steps below that use them, never to
     # dependency install scripts or prebuild.

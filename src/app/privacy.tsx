@@ -37,7 +37,7 @@ const sections: PolicySection[] = [
     title: "Apple Health and Health Connect",
     body: [
       "Saving to Apple Health or Health Connect is off until you turn it on in Settings. Then the app saves your completed workouts, body-weight entries and daily water totals there. It asks for write access only and reads nothing back.",
-      "The setting and the list of records the app has saved stay on the device. They're never sent to your account or included in exports or crash reports.",
+      "The setting and the list of records the app has saved stay on the device. They're never sent to your account or included in exports.",
       "Turning saving off or deleting your account leaves the records already saved. You can remove them in the Health app or in Health Connect.",
     ],
   },
@@ -61,13 +61,6 @@ const sections: PolicySection[] = [
     ],
   },
   {
-    title: "Crash reports",
-    body: [
-      "If this version of the app has crash reporting turned on, an app error sends a report to Sentry. A report carries only the error type, a fixed message, where in the app's code it happened, the time, the platform and an event ID.",
-      "Reports never include your identity, your food, workout or health data, sign-in tokens, passwords or links. They use the address 0.0.0.0 in place of your IP address, so Sentry can't tell where you are. Sentry keeps reports for [Retention period].",
-    ],
-  },
-  {
     title: "Export and deletion",
     body: [
       "Settings → Data & account → Export account data saves your tracking, any changes that haven't synced and this device's photos as a JSON file.",
@@ -79,7 +72,7 @@ const sections: PolicySection[] = [
     title: "How long data is kept",
     body: [
       "Records on your device stay until you delete them, delete your account, clear the app's storage or uninstall the app.",
-      "Your account and synced tracking are kept [Retention period].",
+      "Your account and synced tracking are kept until you delete your account.",
     ],
   },
   {
@@ -112,9 +105,9 @@ export default function PrivacyPolicyScreen() {
             Effective [Effective date]
           </AppText>
           <AppText>
-            [Operator name] runs KineVault Track, a food, water, steps and workout log for iOS,
-            Android and the web. This policy explains what the app keeps on your device, what it
-            sends to your account and to other services, and how to export or delete your data.
+            Idan Gilboa runs KineVault Track, a food, water, steps and workout log for iOS, Android
+            and the web. This policy explains what the app keeps on your device, what it sends to
+            your account and to other services, and how to export or delete your data.
           </AppText>
         </>
       }

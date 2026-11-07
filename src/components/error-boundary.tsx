@@ -1,5 +1,5 @@
 import * as SplashScreen from "expo-splash-screen";
-import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from "react";
+import { Component, useEffect, useState, type ReactNode } from "react";
 import {
   Platform,
   Pressable,
@@ -10,7 +10,6 @@ import {
   useColorScheme,
 } from "react-native";
 import { cardShadow, darkColors, lightColors, radius, spacing } from "../theme/tokens";
-import { reportCrash } from "./crash-reporting";
 import {
   initialBoundaryState,
   errorMessageFor,
@@ -37,12 +36,11 @@ export class AppErrorBoundary extends Component<{ children: ReactNode }, Boundar
     return { failed: true, message: errorMessageFor(error) };
   }
 
-  componentDidCatch(error: unknown, info: ErrorInfo) {
+  componentDidCatch(error: unknown) {
     this.setState((previous) => ({
       crashes: previous.crashes + 1,
       message: nextBoundaryState(previous, { kind: "crash", error }).message,
     }));
-    reportCrash(error, info);
   }
 
   componentDidUpdate(_previousProps: { children: ReactNode }, previousState: BoundaryState) {

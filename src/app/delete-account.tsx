@@ -39,7 +39,6 @@ const sections: PolicySection[] = [
       [
         "Records and photos on your other devices. Remove them on each device, for example by clearing the app's storage or uninstalling it.",
         "Records already saved to Apple Health or Health Connect. Remove them in the Health app or in Health Connect.",
-        "Crash reports, if the app sent any. They carry nothing that identifies you, so they aren't linked to your account. Sentry keeps them for [Retention period].",
       ],
     ],
   },
