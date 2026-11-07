@@ -100,8 +100,12 @@ export default function TabLayout() {
                           }}
                         />
                       ))}
-                      {/* Router 58 redirects away from an `href: null` tab; draw no button instead. */}
-                      <Tabs.Screen name={journalTab.name} options={{ tabBarButton: () => null }} />
+                      {/* Router 58 redirects away from an `href: null` tab; draw no button instead,
+                      and hide its item so the four tabs stay centered. */}
+                      <Tabs.Screen
+                        name={journalTab.name}
+                        options={{ tabBarButton: () => null, tabBarItemStyle: { display: "none" } }}
+                      />
                     </Tabs>
                   </View>
                   <AppHeader onHeightChange={setHeaderHeight} />

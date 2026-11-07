@@ -229,6 +229,14 @@ async function bottomTabGeometry(page) {
     tabs.map((tab) => tab.name),
     ["Home", "Food", "Exercise", "Settings"],
   );
+  const [first, last, bar] = await Promise.all([
+    page.getByRole("tab").first().boundingBox(),
+    page.getByRole("tab").last().boundingBox(),
+    page.getByRole("tablist").boundingBox(),
+  ]);
+  const before = first.x - bar.x,
+    after = bar.x + bar.width - (last.x + last.width);
+  assert.ok(Math.abs(before - after) <= 1, `tabs are centered (${before} before, ${after} after)`);
   for (const tab of tabs) {
     assert.ok(tab.icons.length > 0, `${tab.name} has measured icon glyphs`);
     assert.ok(tab.labels.length > 0, `${tab.name} has a measured text label`);
