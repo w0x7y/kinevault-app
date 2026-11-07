@@ -10,10 +10,19 @@ const button = (page, name) => page.getByRole("button", { name, exact: true });
 const trigger = (page) => button(page, "Profile menu");
 const menu = (page) => page.getByRole("menu", { name: "Profile menu", exact: true });
 
-async function open(t, viewport = { width: 390, height: 844 }) {
+async function open(t, viewport = { width: 390, height: 844 }, { layout = true } = {}) {
   const browser = await launchBrowser();
   t.after(() => browser.close());
   const context = await browser.newContext({ viewport });
+  // Without ResizeObserver, react-native-web never reports onLayout, like a start too busy to measure.
+  if (!layout)
+    await context.addInitScript(() => {
+      window.ResizeObserver = class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      };
+    });
   await context.addInitScript(() => {
     localStorage.setItem(
       "kinevault-track.profile.v1",
@@ -42,6 +51,18 @@ async function open(t, viewport = { width: 390, height: 844 }) {
   await trigger(page).waitFor();
   return page;
 }
+
+test("the calendar and profile menu open below the header before its first measurement", async (t) => {
+  const page = await open(t, undefined, { layout: false });
+  const chip = await button(page, "Expand calendar").boundingBox();
+  await button(page, "Expand calendar").click();
+  const previous = await button(page, "Select previous day").boundingBox();
+  assert.ok(previous.y >= chip.y + chip.height, `calendar top ${previous.y}`);
+  await trigger(page).click();
+  const opener = await trigger(page).boundingBox();
+  const list = await menu(page).boundingBox();
+  assert.ok(list.y >= opener.y + opener.height, `menu top ${list.y}`);
+});
 
 test("profile menu is accessible, exclusive with the calendar, disables upcoming entries and marks Profile current; Home and Settings show steps and formats", async (t) => {
   const page = await open(t);
