@@ -271,10 +271,11 @@ KineVault Plus is built but dormant: `plusGatesEnabled` in `src/plus/gate.ts` is
 | Screen                         | `ui.tsx`                           | A tab's scrolling page. Scrolls to the top on a tab switch, not when a page opens over it                   |
 | `pagedResults`, ResultPager    | `paging.ts`, `result-pager.tsx`    | Search results a page at a time                                                                             |
 | IconWell, ViewHeader           | `icon-well.tsx`, `view-header.tsx` | Leading icons in rows and cards; a sub-view's title block                                                   |
+| PolicyPage                     | `policy-page.tsx`                  | The public text pages, `/privacy` and `/delete-account`                                                     |
 | Motion                         | `motion.tsx`                       | `MotionProvider`, `useReducedMotion`, the shared curves and durations                                       |
 
 - Raw `Pressable` is allowed only for the error screen's Reload button, which renders outside the theme, and for tap areas that are deliberately not accessible: the header title area and popover backdrops.
-- A Tappable with `href` is a route link. Only the exercise set cell, the search boxes and the Profile name field draw their own inputs.
+- A Tappable or AppButton with `href` is a route link. Only the exercise set cell, the search boxes and the Profile name field draw their own inputs.
 - A ModalSheet caller only says whether it's open. Anything that runs after the sheet is gone, such as opening a picker, goes in `onClosed`.
 - `pagedResults` clamps the page, so a list that shrinks under its pager shows its last page. A screen resets the page by remounting on a new query. The ingredient search keeps its own compact pager.
 - Popovers: Escape returns focus to the trigger and Android Back closes. Light-dismiss popovers also close on an outside press or when focus leaves. The journal's choice lists close when their tab loses focus.

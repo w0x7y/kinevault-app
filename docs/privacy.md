@@ -4,6 +4,8 @@ Track keeps a local copy of each account's tracking so logging works offline.
 
 The public policy is the `/privacy` route ([`src/app/privacy.tsx`](../src/app/privacy.tsx)), built from this page. It renders signed out, before setup, and past storage or Profile errors, because `entryRoute` treats it like the email-link routes. Settings → Data & account and the sign-in screen link to it. The web export serves it at `/privacy`. Change the page and this file together.
 
+`/delete-account` ([`src/app/delete-account.tsx`](../src/app/delete-account.tsx)) explains account deletion for people without the app, as Google Play requires. It renders in the same states, and its button opens sign-in or, signed in, Settings. The policy's Export and deletion section links to it. Both pages use `PolicyPage`. [Web deploy](web-deploy.md) puts them online.
+
 | Data                                                                                                                                                          | On the device                                                 | Uploaded                                                    |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------- |
 | Tracking: profile, body measurements, goals, food, water, hand-logged steps (`kinevault-track.steps-log.v1`), workouts, imported workouts                     | AsyncStorage on native, browser storage on web. Not encrypted | When signed in, to the account's private Supabase documents |
@@ -75,13 +77,13 @@ Crash reports follow [the reporting setup](resilience.md). They carry no identit
 
 ## Before publishing
 
-Fill these placeholders on `/privacy`:
+Fill these placeholders on `/privacy` and `/delete-account`:
 
-| Placeholder          | Where                                                                                                             |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `[Operator name]`    | The opening paragraph: who runs Track                                                                             |
-| `[Effective date]`   | Under the title                                                                                                   |
-| `[Contact email]`    | Contact                                                                                                           |
-| `[Retention period]` | Twice: Crash reports (Sentry's retention setting) and How long data is kept (the account and its synced tracking) |
+| Placeholder          | Where                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `[Operator name]`    | The opening paragraph: who runs Track                                                                                     |
+| `[Effective date]`   | Under the title                                                                                                           |
+| `[Contact email]`    | Contact, and If you can't sign in on `/delete-account`                                                                    |
+| `[Retention period]` | Crash reports (Sentry's retention setting) on both pages, and How long data is kept (the account and its synced tracking) |
 
 Health Connect's privacy policy link opens `/privacy`. Its intents (`androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE` through Android 13, `android.intent.action.VIEW_PERMISSION_USAGE` from Android 14) reach `MainActivity` with no URL, and React Native passes Expo Router a URL only for `ACTION_VIEW` intents. `plugins/with-health-connect-privacy-link.cjs` turns both into an `ACTION_VIEW` intent for `kinevaulttrack://privacy`, in `MainActivity.onCreate` before `super.onCreate` for a cold start and in `onNewIntent` for a running app. It needs a new Android build. On an Android 15 emulator with a local release build, Health Connect's Read privacy policy link opened Privacy policy with the app closed and with it open (2026-11-06). It hasn't run on a phone yet. Check it on Android 13 and on Android 14 or newer, once with the app closed and once with it open: Health Connect → App permissions → KineVault Track → the privacy policy link should open Privacy policy. Release work is in [TODO.md](../TODO.md).

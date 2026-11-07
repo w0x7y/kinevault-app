@@ -1,3 +1,4 @@
+import type { Href } from "expo-router";
 import { Children, type ReactNode, type Ref } from "react";
 import { View, type ViewProps, type ViewInstance } from "react-native";
 import { AppText } from "./ui";
@@ -19,13 +20,14 @@ type ButtonSize = "regular" | "compact" | "small";
  * Sizes: `regular` is a 50 pt action; `compact` is a 44 pt pill for an action inside a card row
  * or beside other content; `small` is a 32 pt pill in a 44 pt hit area for a card's quiet
  * secondary action. Pills and links hug their content unless `fill` stretches them, as in a
- * ButtonRow. Links have one size.
+ * ButtonRow. Links have one size. With `href` instead of `onPress`, any tone is a route link.
  */
 export function AppButton({
   label,
   accessibilityLabel = label,
   accessibilityHint,
   onPress,
+  href,
   onBlur,
   tone = "secondary",
   size = "regular",
@@ -43,7 +45,6 @@ export function AppButton({
   label: string;
   accessibilityLabel?: string;
   accessibilityHint?: string;
-  onPress: () => void;
   onBlur?: () => void;
   tone?: ButtonTone;
   size?: ButtonSize;
@@ -60,7 +61,7 @@ export function AppButton({
   fill?: boolean;
   testID?: string;
   ref?: Ref<ViewInstance>;
-}) {
+} & ({ onPress: () => void; href?: undefined } | { href: Href; onPress?: undefined })) {
   const { colors } = useTheme();
   const link = tone === "link";
   const pill = !link && size !== "regular";
@@ -130,6 +131,8 @@ export function AppButton({
       busy={busy}
       selected={selected}
       expanded={expanded}
+      role={href === undefined ? "button" : "link"}
+      href={href}
       onPress={onPress}
       onBlur={onBlur}
       feedback={link ? "fill" : "scale"}
