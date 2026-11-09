@@ -6,6 +6,7 @@ import { AppText } from "../components/ui";
 import { Icon, type IconName } from "../components/icon";
 import { useTheme } from "../theme/provider";
 import { cardShadow, fonts, radius, spacing } from "../theme/tokens";
+import { TourTarget } from "../tour/targets";
 
 type SearchActionsProps = {
   inputRef?: Ref<TextInputInstance>;
@@ -162,9 +163,9 @@ export function SearchActions(props: SearchActionsProps) {
   );
   return (
     <View testID={`${kind}-search-actions`} style={{ gap: spacing.md }}>
-      {searchBox}
+      <TourTarget id={`${kind}.search`}>{searchBox}</TourTarget>
       {/* Three equal quiet tiles, 8px apart: icon above a short label that may wrap to two lines. */}
-      <View style={{ flexDirection: "row", gap: spacing.sm }}>
+      <TourTarget id={`${kind}.actions`} style={{ flexDirection: "row", gap: spacing.sm }}>
         {actions.map((action) => (
           <Tappable
             key={action.label}
@@ -206,7 +207,7 @@ export function SearchActions(props: SearchActionsProps) {
             </AppText>
           </Tappable>
         ))}
-      </View>
+      </TourTarget>
     </View>
   );
 }

@@ -48,10 +48,11 @@ export function sessionFor({ providers = ["email"], amr } = {}) {
   };
 }
 
-/** Test-only HTTP fixtures. The real SDK still restores and creates sessions. */
+/** Test-only HTTP fixtures. The real SDK still restores and creates sessions. The App tour
+ * counts as seen unless `appTour` is set, so it doesn't cover the tabs other tests use. */
 export async function installAccountFixture(
   context,
-  { signedIn = true, signupConfirmation = false, session = sessionFor() } = {},
+  { signedIn = true, signupConfirmation = false, session = sessionFor(), appTour = false } = {},
 ) {
   await context.addInitScript(await browserHistoryCodec());
   const state = {
@@ -271,10 +272,11 @@ export async function installAccountFixture(
     return json(route, { message: `Unexpected fixture request: ${url.pathname}` }, 404);
   });
   await context.addInitScript(
-    ({ authKey, signedIn, session, userId }) => {
+    ({ authKey, signedIn, session, userId, appTour }) => {
       const firstLoad = !sessionStorage.getItem("account-fixture-seeded");
       if (firstLoad) {
         if (signedIn) localStorage.setItem(authKey, JSON.stringify(session));
+        if (!appTour) localStorage.setItem("kinevault-track.app-tour", "seen");
         sessionStorage.setItem("account-fixture-seeded", "1");
       }
       const keys = new Set([
@@ -439,7 +441,7 @@ export async function installAccountFixture(
         },
       };
     },
-    { authKey: fixtureAuthKey, signedIn, session, userId: fixtureUserId },
+    { authKey: fixtureAuthKey, signedIn, session, userId: fixtureUserId, appTour },
   );
   return state;
 }

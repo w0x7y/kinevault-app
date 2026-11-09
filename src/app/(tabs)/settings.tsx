@@ -11,7 +11,13 @@ import { HealthSettings } from "../../health/settings";
 import { AccountSettings } from "../../account/settings-panel";
 import { AppButton } from "../../components/button";
 import { InlineMessage } from "../../components/inline-message";
-import { RowContent, SettingsGroup, SettingsLinkRow } from "../../account/settings-list";
+import {
+  RowContent,
+  SettingsButtonRow,
+  SettingsGroup,
+  SettingsLinkRow,
+} from "../../account/settings-list";
+import { useStartTour } from "../../tour/app-tour";
 import { useUnits } from "../../units/provider";
 import type { UnitSystem } from "../../units/units";
 
@@ -29,6 +35,7 @@ const unitSummary = { metric: "Metric (kg, cm, km, ml)", imperial: "Imperial (lb
 export default function SettingsScreen() {
   const { state } = useProfile();
   const { units } = useUnits();
+  const startTour = useStartTour();
   return (
     <Screen title="Settings" adjustKeyboardInsets>
       <AccountSettings
@@ -59,6 +66,14 @@ export default function SettingsScreen() {
         </SettingsGroup>
         <SettingsGroup title="Units">
           <UnitsControl />
+        </SettingsGroup>
+        <SettingsGroup title="Help">
+          <SettingsButtonRow
+            icon="compass"
+            title="Take the tour"
+            description="A quick look at each screen"
+            onPress={startTour}
+          />
         </SettingsGroup>
       </AccountSettings>
       <AppText variant="caption" muted style={{ textAlign: "center", paddingTop: spacing.sm }}>

@@ -26,6 +26,7 @@ import { CatalogDraftPage } from "../../food/catalog-draft-page";
 import { ResumeDraft } from "../../food/resume-draft";
 import { FoodCopy } from "../../food/copy-food";
 import { useUnits } from "../../units/provider";
+import { TourTarget } from "../../tour/targets";
 
 export default function FoodScreen() {
   const activity = useDayActivity();
@@ -190,23 +191,27 @@ function FoodDay({
           onNavigate={scrollToResults}
         />
       ) : food.kind === "ready" ? (
-        <MealsWidget
-          // A new day starts its own list, so its cards appear in place rather than gliding.
-          key={date}
-          day={food.day}
-          fresh={view.fresh}
-          saving={view.busy}
-          error={view.logError}
+        <TourTarget
+          id="food.meals"
           onLayout={(event) => {
             resultsTop.current = event.nativeEvent.layout.y;
           }}
-          removal={view.removal}
-          onEdit={tab.editEntry}
-          onArm={tab.armRemoval}
-          onCancel={tab.cancelRemoval}
-          onConfirm={(leave) => void tab.confirmRemoval(leave)}
-          onCopy={tab.copyFood}
-        />
+        >
+          <MealsWidget
+            // A new day starts its own list, so its cards appear in place rather than gliding.
+            key={date}
+            day={food.day}
+            fresh={view.fresh}
+            saving={view.busy}
+            error={view.logError}
+            removal={view.removal}
+            onEdit={tab.editEntry}
+            onArm={tab.armRemoval}
+            onCancel={tab.cancelRemoval}
+            onConfirm={(leave) => void tab.confirmRemoval(leave)}
+            onCopy={tab.copyFood}
+          />
+        </TourTarget>
       ) : null}
       {/* Every flow opens on one page over the log. Its steps (create, then the saved item)
           replace each other on that page; leaving a draft keeps it to resume. The page steps
