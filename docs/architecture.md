@@ -11,6 +11,7 @@ Which module owns each behavior, and the rule to keep when you change it. Terms 
 | `src/account/management-attempts.ts` | Export and account deletion in Settings. See [account management](account-management.md)                                                           |
 | `src/navigation/track-tabs.ts`       | The tabs, the hidden Personal journal tab, Back, the Selected day and calendar, and the route requests                                             |
 | `src/onboarding/flow.ts`             | The Onboarding flow: validation, staged answers, navigation and save order                                                                         |
+| `src/tour/app-tour.tsx`              | The App tour: when it opens, the spotlight and bubble, switching screens and the Settings replay. Steps are in `src/tour/steps.ts`                 |
 
 Sign-in:
 
@@ -274,7 +275,8 @@ KineVault Plus is built but dormant: `plusGatesEnabled` in `src/plus/gate.ts` is
 | PolicyPage                     | `policy-page.tsx`                  | The public text pages, `/privacy` and `/delete-account`                                                     |
 | Motion                         | `motion.tsx`                       | `MotionProvider`, `useReducedMotion`, the shared curves and durations                                       |
 
-- Raw `Pressable` is allowed only for the error screen's Reload button, which renders outside the theme, and for tap areas that are deliberately not accessible: the header title area and popover backdrops.
+- Raw `Pressable` is allowed only for the error screen's Reload button, which renders outside the theme, and for tap areas that are deliberately not accessible: the header title area, popover backdrops and the App tour's highlight.
+- The App tour highlights views tagged with `TourTarget` or `useTourTarget` (`src/tour/targets.tsx`), one per step in `src/tour/steps.ts`. A step whose view is missing or scrolled away shows its bubble without a highlight, so moving or removing a tagged view needs its step checked.
 - A Tappable or AppButton with `href` is a route link. Only the exercise set cell, the search boxes and the Profile name field draw their own inputs.
 - A ModalSheet caller only says whether it's open. Anything that runs after the sheet is gone, such as opening a picker, goes in `onClosed`.
 - `pagedResults` clamps the page, so a list that shrinks under its pager shows its last page. A screen resets the page by remounting on a new query. The ingredient search keeps its own compact pager.

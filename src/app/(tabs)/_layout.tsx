@@ -1,5 +1,6 @@
 import { Tabs } from "expo-router";
 import { BottomTabBar, type BottomTabBarProps } from "expo-router/js-tabs";
+import { PlatformPressable } from "expo-router/react-navigation";
 import { createContext, useContext, useEffect, useRef, useState, type RefObject } from "react";
 import { View, type ViewInstance } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,6 +22,8 @@ import { PlusProvider } from "../../plus/provider";
 import { routeDecision } from "../../account/entry-policy";
 import { EntryGate } from "../../account/entry-gate";
 import { journalTab, tabAnchor, tabNavigator, trackTabs } from "../../navigation/track-tabs";
+import { AppTourProvider } from "../../tour/app-tour";
+import { TourTarget } from "../../tour/targets";
 
 // Expo Router 58 ignores a navigator's `initialRouteName` prop and reads the anchor here.
 export const unstable_settings = { anchor: tabAnchor };
@@ -53,63 +56,74 @@ export default function TabLayout() {
           <DemoCatalogProvider>
             <DayProvider>
               <FloatingTabBarInset value={tabBarHeight}>
-                <View style={{ flex: 1, backgroundColor: colors.background }}>
-                  <View style={{ flex: 1, paddingTop: headerHeight }}>
-                    <TrackingRefreshNotices />
-                    <Tabs
-                      {...tabNavigator}
-                      tabBar={(props) => (
-                        <FloatingTabBar {...props} onHeightChange={setTabBarHeight} />
-                      )}
-                      screenOptions={{
-                        // Tabs are peers used dozens of times a day; switching is instant.
-                        animation: "none",
-                        headerShown: false,
-                        tabBarActiveTintColor: colors.primary,
-                        tabBarInactiveTintColor: colors.mutedForeground,
-                        tabBarStyle: {
-                          backgroundColor: "transparent",
-                          borderTopWidth: 0,
-                          elevation: 0,
-                          boxShadow: "none",
-                          height: 72,
-                          paddingTop: 8,
-                          paddingBottom: 8,
-                        },
-                        tabBarItemStyle: { minHeight: 48 },
-                        tabBarLabelStyle: {
-                          fontFamily: fonts.bold,
-                          fontSize: 11,
-                          lineHeight: 15,
-                          letterSpacing: 0.2,
-                          marginTop: 2,
-                          flexShrink: 0,
-                        },
-                        sceneStyle: { backgroundColor: colors.background },
-                      }}
-                    >
-                      {trackTabs.map(({ name, title, icon }) => (
+                <AppTourProvider insets={{ top: headerHeight, bottom: tabBarHeight }}>
+                  <View style={{ flex: 1, backgroundColor: colors.background }}>
+                    <View style={{ flex: 1, paddingTop: headerHeight }}>
+                      <TrackingRefreshNotices />
+                      <Tabs
+                        {...tabNavigator}
+                        tabBar={(props) => (
+                          <FloatingTabBar {...props} onHeightChange={setTabBarHeight} />
+                        )}
+                        screenOptions={{
+                          // Tabs are peers used dozens of times a day; switching is instant.
+                          animation: "none",
+                          headerShown: false,
+                          tabBarActiveTintColor: colors.primary,
+                          tabBarInactiveTintColor: colors.mutedForeground,
+                          tabBarStyle: {
+                            backgroundColor: "transparent",
+                            borderTopWidth: 0,
+                            elevation: 0,
+                            boxShadow: "none",
+                            height: 72,
+                            paddingTop: 8,
+                            paddingBottom: 8,
+                          },
+                          tabBarItemStyle: { minHeight: 48 },
+                          tabBarLabelStyle: {
+                            fontFamily: fonts.bold,
+                            fontSize: 11,
+                            lineHeight: 15,
+                            letterSpacing: 0.2,
+                            marginTop: 2,
+                            flexShrink: 0,
+                          },
+                          sceneStyle: { backgroundColor: colors.background },
+                        }}
+                      >
+                        {trackTabs.map(({ name, title, icon }) => (
+                          <Tabs.Screen
+                            key={name}
+                            name={name}
+                            options={{
+                              title,
+                              tabBarIcon: ({ focused }) => (
+                                <TabIcon route={name} name={icon} focused={focused} />
+                              ),
+                              // The stock button, wrapped so the App tour can highlight the whole tab.
+                              tabBarButton: (props) => (
+                                <TourTarget id={`tab.${name}`} style={{ flex: 1 }}>
+                                  <PlatformPressable {...props} />
+                                </TourTarget>
+                              ),
+                            }}
+                          />
+                        ))}
+                        {/* Router 58 redirects away from an `href: null` tab; draw no button instead,
+                      and hide its item so the four tabs stay centered. */}
                         <Tabs.Screen
-                          key={name}
-                          name={name}
+                          name={journalTab.name}
                           options={{
-                            title,
-                            tabBarIcon: ({ focused }) => (
-                              <TabIcon route={name} name={icon} focused={focused} />
-                            ),
+                            tabBarButton: () => null,
+                            tabBarItemStyle: { display: "none" },
                           }}
                         />
-                      ))}
-                      {/* Router 58 redirects away from an `href: null` tab; draw no button instead,
-                      and hide its item so the four tabs stay centered. */}
-                      <Tabs.Screen
-                        name={journalTab.name}
-                        options={{ tabBarButton: () => null, tabBarItemStyle: { display: "none" } }}
-                      />
-                    </Tabs>
+                      </Tabs>
+                    </View>
+                    <AppHeader onHeightChange={setHeaderHeight} />
                   </View>
-                  <AppHeader onHeightChange={setHeaderHeight} />
-                </View>
+                </AppTourProvider>
               </FloatingTabBarInset>
             </DayProvider>
           </DemoCatalogProvider>

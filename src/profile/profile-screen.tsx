@@ -15,6 +15,7 @@ import { useUnits } from "../units/provider";
 import { ProfileGoals, TodayNutrition, type ProfileEditorInstance } from "./profile-goals";
 import { ProgressPhotos } from "./progress-photos";
 import type { ProfileEditSection } from "./section-editing";
+import { TourTarget } from "../tour/targets";
 
 export function ProfileScreen() {
   const { today } = useSelectedDay();
@@ -46,7 +47,9 @@ export function ProfileScreen() {
   return (
     <Screen title="Profile" adjustKeyboardInsets contentContainerStyle={{ gap: 0 }}>
       <ProfileIdentity />
-      <ProfileControls section={section} select={select} />
+      <TourTarget id="profile.sections">
+        <ProfileControls section={section} select={select} />
+      </TourTarget>
       <Animated.View
         key={section}
         testID="profile-section"

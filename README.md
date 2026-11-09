@@ -10,13 +10,13 @@ The companion app to [KineVault](https://github.com/arielhagay10-ui/KineVault). 
 
 ## What's in it
 
-| Tab      | What it does                                                                       |
-| -------- | ---------------------------------------------------------------------------------- |
-| Home     | Calories left, macros, water, steps and the day's workout                          |
-| Food     | 5,431 offline USDA foods, barcode scanning, custom foods and meals                 |
-| Exercise | Saved workouts, a live workout with a rest timer, personal records and demo videos |
-| Profile  | Weight history, body measurements, progress photos and streaks                     |
-| Settings | Reminders, health saving, light and dark mode, export and delete your account      |
+| Tab      | What it does                                                                                |
+| -------- | ------------------------------------------------------------------------------------------- |
+| Home     | Calories left, macros, water, steps and the day's workout                                   |
+| Food     | 5,431 offline USDA foods, barcode scanning, custom foods and meals                          |
+| Exercise | Saved workouts, a live workout with a rest timer, personal records and demo videos          |
+| Profile  | Weight history, body measurements, progress photos and streaks                              |
+| Settings | Reminders, health saving, light and dark mode, the app tour, export and delete your account |
 
 ## Install
 

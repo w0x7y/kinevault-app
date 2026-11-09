@@ -18,6 +18,7 @@ import { useSelectedDay } from "../../calendar/provider";
 import { parseDay } from "../../calendar/dates";
 import { spacing } from "../../theme/tokens";
 import { useLayoutMotion } from "../../components/motion";
+import { TourTarget } from "../../tour/targets";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -57,19 +58,24 @@ export default function HomeScreen() {
       </Animated.View>
       {nutrition ? (
         <Animated.View key="calories" entering={arrived.current ? motion.fade : enter(1)}>
-          <CalorieWidget calories={nutrition.calories}>
-            <View
-              testID="home-nutrition-row"
-              style={{ flexDirection: "row", alignItems: "center", gap: spacing.card }}
-            >
-              <CalorieRing
-                testID="home-calorie-hero"
-                calories={nutrition.calories}
-                size={ringSize}
-              />
-              <NutritionWidget width={cardInner - ringSize - spacing.card} nutrition={nutrition} />
-            </View>
-          </CalorieWidget>
+          <TourTarget id="home.calories">
+            <CalorieWidget calories={nutrition.calories}>
+              <View
+                testID="home-nutrition-row"
+                style={{ flexDirection: "row", alignItems: "center", gap: spacing.card }}
+              >
+                <CalorieRing
+                  testID="home-calorie-hero"
+                  calories={nutrition.calories}
+                  size={ringSize}
+                />
+                <NutritionWidget
+                  width={cardInner - ringSize - spacing.card}
+                  nutrition={nutrition}
+                />
+              </View>
+            </CalorieWidget>
+          </TourTarget>
         </Animated.View>
       ) : (
         <Animated.View key="food-status" entering={enter(1)}>
@@ -77,12 +83,14 @@ export default function HomeScreen() {
         </Animated.View>
       )}
       <Animated.View entering={enter(2)}>
-        <ActivityWidgets
-          steps={activity.steps.tile}
-          water={activity.water}
-          onLogSteps={() => setEntry({ kind: "steps", date: activity.date })}
-          onAddWater={() => setEntry({ kind: "water", date: activity.date })}
-        />
+        <TourTarget id="home.activity">
+          <ActivityWidgets
+            steps={activity.steps.tile}
+            water={activity.water}
+            onLogSteps={() => setEntry({ kind: "steps", date: activity.date })}
+            onAddWater={() => setEntry({ kind: "water", date: activity.date })}
+          />
+        </TourTarget>
       </Animated.View>
       <Animated.View entering={enter(3)}>
         <WorkoutWidget

@@ -33,6 +33,7 @@ import { TimerPillContent, timerPill, useElapsedTime, useLiveTone } from "../exe
 import { ProfileMenu } from "./profile-menu";
 import { PopoverSurface, usePopover } from "./popover";
 import { Tappable, type TappableState } from "./tappable";
+import { useTourTarget } from "../tour/targets";
 import {
   headerPage,
   isJournal,
@@ -266,6 +267,8 @@ export function AppHeader({ onHeightChange }: { onHeightChange: (height: number)
     calendarCard = useRef<ViewInstance>(null),
     profileButton = useRef<ViewInstance>(null),
     profileMenu = useRef<ViewInstance>(null);
+  useTourTarget("header.day", calendarChip);
+  useTourTarget("header.avatar", profileButton);
   // The calendar stays open while the day below it is used; the menu closes on any outside press.
   usePopover({
     open: expanded,

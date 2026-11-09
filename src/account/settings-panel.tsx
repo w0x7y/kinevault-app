@@ -27,6 +27,7 @@ import { useConnectivity } from "../connectivity/provider";
 import { useAccountManagementAttempts } from "./use-management-attempts";
 import { accountTrackingDocument } from "./tracking-documents";
 import { recentGoogleSignIn } from "./management";
+import { TourTarget } from "../tour/targets";
 
 /** Routine settings render between the account summary and the account's data, sign-out and
  * deletion actions, which sit last and apart. `importRow` joins the data group's rows. */
@@ -77,133 +78,135 @@ export function AccountSettings({
 
   return (
     <>
-      <SettingsGroup title="Your account" fullDividers>
-        <RowContent style={{ flexDirection: "row", alignItems: "center", gap: spacing.layout }}>
-          <ProfileAvatar size={56} />
-          <View style={{ flex: 1, minWidth: 0, gap: spacing.xs + 2 }}>
-            <AppText
-              variant="label"
-              numberOfLines={2}
-              style={{ fontSize: 16, lineHeight: 22, fontFamily: fonts.bold }}
-            >
-              {account.user?.email}
-            </AppText>
-            {membership ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-                <View
-                  style={{
-                    paddingHorizontal: spacing.sm + 2,
-                    paddingVertical: 3,
-                    borderRadius: radius.pill,
-                    backgroundColor: colors.brandSoft,
-                  }}
-                >
-                  <AppText
-                    variant="caption"
-                    style={{
-                      color: colors.brand,
-                      fontFamily: fonts.bold,
-                      fontSize: 12,
-                      lineHeight: 16,
-                    }}
-                  >
-                    {membership.plan[0].toUpperCase() + membership.plan.slice(1)}
-                  </AppText>
-                </View>
-                {membership.status !== "active" && (
-                  <AppText variant="caption" muted>
-                    {membership.status.replaceAll("_", " ")}
-                  </AppText>
-                )}
-              </View>
-            ) : (
-              !membershipError && (
-                <AppText variant="caption" muted>
-                  Loading membership…
-                </AppText>
-              )
-            )}
-          </View>
-        </RowContent>
-        {membershipError && (
-          <RowContent>
-            <LoadFailure
-              message="Couldn't load membership."
-              retryLabel="Retry membership"
-              onRetry={retryMembership}
-            />
-          </RowContent>
-        )}
-        <RowContent>
-          <View style={{ gap: spacing.xs }}>
-            <View style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.sm }}>
-              <View
-                style={{
-                  width: 8,
-                  height: 8,
-                  marginTop: 6,
-                  borderRadius: 4,
-                  backgroundColor: syncDot,
-                }}
-              />
+      <TourTarget id="settings.account">
+        <SettingsGroup title="Your account" fullDividers>
+          <RowContent style={{ flexDirection: "row", alignItems: "center", gap: spacing.layout }}>
+            <ProfileAvatar size={56} />
+            <View style={{ flex: 1, minWidth: 0, gap: spacing.xs + 2 }}>
               <AppText
                 variant="label"
-                accessibilityLiveRegion="polite"
-                style={{ flex: 1, fontFamily: fonts.semibold }}
+                numberOfLines={2}
+                style={{ fontSize: 16, lineHeight: 22, fontFamily: fonts.bold }}
               >
-                {syncText}
+                {account.user?.email}
+              </AppText>
+              {membership ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+                  <View
+                    style={{
+                      paddingHorizontal: spacing.sm + 2,
+                      paddingVertical: 3,
+                      borderRadius: radius.pill,
+                      backgroundColor: colors.brandSoft,
+                    }}
+                  >
+                    <AppText
+                      variant="caption"
+                      style={{
+                        color: colors.brand,
+                        fontFamily: fonts.bold,
+                        fontSize: 12,
+                        lineHeight: 16,
+                      }}
+                    >
+                      {membership.plan[0].toUpperCase() + membership.plan.slice(1)}
+                    </AppText>
+                  </View>
+                  {membership.status !== "active" && (
+                    <AppText variant="caption" muted>
+                      {membership.status.replaceAll("_", " ")}
+                    </AppText>
+                  )}
+                </View>
+              ) : (
+                !membershipError && (
+                  <AppText variant="caption" muted>
+                    Loading membership…
+                  </AppText>
+                )
+              )}
+            </View>
+          </RowContent>
+          {membershipError && (
+            <RowContent>
+              <LoadFailure
+                message="Couldn't load membership."
+                retryLabel="Retry membership"
+                onRetry={retryMembership}
+              />
+            </RowContent>
+          )}
+          <RowContent>
+            <View style={{ gap: spacing.xs }}>
+              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.sm }}>
+                <View
+                  style={{
+                    width: 8,
+                    height: 8,
+                    marginTop: 6,
+                    borderRadius: 4,
+                    backgroundColor: syncDot,
+                  }}
+                />
+                <AppText
+                  variant="label"
+                  accessibilityLiveRegion="polite"
+                  style={{ flex: 1, fontFamily: fonts.semibold }}
+                >
+                  {syncText}
+                </AppText>
+              </View>
+              <AppText variant="caption" muted style={{ paddingLeft: 16 }}>
+                Goals and logs sync across devices. Photos stay on this device.
               </AppText>
             </View>
-            <AppText variant="caption" muted style={{ paddingLeft: 16 }}>
-              Goals and logs sync across devices. Photos stay on this device.
-            </AppText>
-          </View>
-          <View style={{ flexDirection: "row", paddingLeft: 16 - 2 }}>
-            <AppButton
-              size="compact"
-              label={working ? "Please wait…" : "Sync now"}
-              icon="rotate"
-              disabled={offline || working || sync.state === "syncing"}
-              onPress={() => void attempts.retrySync()}
-            />
-          </View>
-          {sync.conflicts.map((key) => (
-            <View
-              key={key}
-              style={{
-                gap: spacing.sm,
-                padding: spacing.md + 2,
-                borderRadius: radius.control,
-                backgroundColor: colors.muted,
-              }}
-            >
-              <AppText variant="label">
-                {accountTrackingDocument(key)?.name ?? "Tracking data"}
-              </AppText>
-              <AppText variant="caption" muted>
-                Keeping this device replaces the cloud copy for this category. Keeping cloud
-                replaces this device's copy.
-              </AppText>
-              <ButtonRow>
-                <AppButton
-                  label="Keep this device"
-                  fill
-                  disabled={working}
-                  onPress={() => void attempts.resolveConflict(key, "local")}
-                />
-                <AppButton
-                  label="Keep cloud copy"
-                  fill
-                  disabled={working}
-                  onPress={() => void attempts.resolveConflict(key, "cloud")}
-                />
-              </ButtonRow>
+            <View style={{ flexDirection: "row", paddingLeft: 16 - 2 }}>
+              <AppButton
+                size="compact"
+                label={working ? "Please wait…" : "Sync now"}
+                icon="rotate"
+                disabled={offline || working || sync.state === "syncing"}
+                onPress={() => void attempts.retrySync()}
+              />
             </View>
-          ))}
-          <InlineMessage>{actionError}</InlineMessage>
-          <InlineMessage>{account.error}</InlineMessage>
-        </RowContent>
-      </SettingsGroup>
+            {sync.conflicts.map((key) => (
+              <View
+                key={key}
+                style={{
+                  gap: spacing.sm,
+                  padding: spacing.md + 2,
+                  borderRadius: radius.control,
+                  backgroundColor: colors.muted,
+                }}
+              >
+                <AppText variant="label">
+                  {accountTrackingDocument(key)?.name ?? "Tracking data"}
+                </AppText>
+                <AppText variant="caption" muted>
+                  Keeping this device replaces the cloud copy for this category. Keeping cloud
+                  replaces this device's copy.
+                </AppText>
+                <ButtonRow>
+                  <AppButton
+                    label="Keep this device"
+                    fill
+                    disabled={working}
+                    onPress={() => void attempts.resolveConflict(key, "local")}
+                  />
+                  <AppButton
+                    label="Keep cloud copy"
+                    fill
+                    disabled={working}
+                    onPress={() => void attempts.resolveConflict(key, "cloud")}
+                  />
+                </ButtonRow>
+              </View>
+            ))}
+            <InlineMessage>{actionError}</InlineMessage>
+            <InlineMessage>{account.error}</InlineMessage>
+          </RowContent>
+        </SettingsGroup>
+      </TourTarget>
       <MembershipSettings />
       {children}
       <SettingsGroup

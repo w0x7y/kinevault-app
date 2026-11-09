@@ -22,6 +22,8 @@ KineVault Track is the food and exercise tracking companion to the separate Kine
 
 **Onboarding flow**: The setup questions and review, including editing an answer and resuming unfinished setup.
 
+**App tour**: A walk through Home, Food, Exercise, the Personal journal and Settings that opens the first time the tabs open on a device. It dims the app around one feature at a time and explains it in a bubble; tapping the highlight moves on. Finishing or skipping it sets a device flag that never syncs. Settings replays it from Help.
+
 **Profile**: The user's name, age, body details, activity, weight goal, and calorie and macro choices. Age is a whole number from 18 to 100; a Profile without a valid age reopens setup at the age question.
 
 **Profile edit**: Changes to a completed Profile that apply on Save, which merges only the edited section. A failed save keeps the fields, and Cancel keeps the saved Profile.
