@@ -54,8 +54,5 @@ dist-native/
 # Supabase CLI version and connection cache
 /supabase/.temp/
 
-# graft's local graph cache — regenerable, not committed (run `graft build`).
-/graft/
-
 # Marketing ads and their source (kept local only)
 /marketing/

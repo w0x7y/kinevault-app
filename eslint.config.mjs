@@ -10,7 +10,6 @@ export default defineConfig([
       "dist-native/**",
       ".expo/**",
       ".local-artifacts/**",
-      "graft/**",
       "marketing/**",
       "expo-env.d.ts",
     ],
